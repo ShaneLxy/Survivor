@@ -1,0 +1,370 @@
+/* CSS 动画 */
+
+/* 战斗动画 */
+@keyframes attackRight {
+    0% { transform: translateX(0); }
+    30% { transform: translateX(30px); }
+    60% { transform: translateX(-10px); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes attackLeft {
+    0% { transform: translateX(0); }
+    30% { transform: translateX(-30px); }
+    60% { transform: translateX(10px); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes damageShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); filter: brightness(2); }
+    50% { transform: translateX(10px); filter: brightness(1.5); }
+    75% { transform: translateX(-10px); filter: brightness(1); }
+}
+
+@keyframes hpDecrease {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); background: #ff4444; }
+    100% { transform: scale(1); }
+}
+
+@keyframes unitDie {
+    0% { transform: scale(1) rotate(0deg); opacity: 1; }
+    50% { transform: scale(0.8) rotate(10deg); opacity: 0.6; }
+    100% { transform: scale(0) rotate(20deg); opacity: 0; }
+}
+
+@keyframes victoryEffect {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 抽卡动画 */
+@keyframes gachaFlip {
+    0% { transform: rotateY(0deg); }
+    50% { transform: rotateY(90deg); }
+    100% { transform: rotateY(0deg); }
+}
+
+@keyframes gachaGlow {
+    0%, 100% { box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+    50% { box-shadow: 0 0 30px rgba(255, 255, 255, 0.8); }
+}
+
+@keyframes rarityGlow {
+    0%, 100% { filter: drop-shadow(0 0 2px currentColor); }
+    50% { filter: drop-shadow(0 0 8px currentColor); }
+}
+
+/* UI动画 */
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes zoomIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes zoomOut {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+    to {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+/* 应用动画类 */
+.attack-right {
+    animation: attackRight 0.3s ease;
+}
+
+.attack-left {
+    animation: attackLeft 0.3s ease;
+}
+
+.damage-shake {
+    animation: damageShake 0.5s ease;
+}
+
+.hp-decrease {
+    animation: hpDecrease 0.3s ease;
+}
+
+.unit-die {
+    animation: unitDie 0.5s ease forwards;
+}
+
+.victory-effect {
+    animation: victoryEffect 0.5s ease;
+}
+
+.gacha-flip {
+    animation: gachaFlip 0.6s ease;
+}
+
+.gacha-glow {
+    animation: gachaGlow 2s ease infinite;
+}
+
+.rarity-glow {
+    animation: rarityGlow 2s ease infinite;
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.3s ease;
+}
+
+.slide-in-right {
+    animation: slideInRight 0.3s ease;
+}
+
+.slide-in-up {
+    animation: slideInUp 0.3s ease;
+}
+
+.slide-in-down {
+    animation: slideInDown 0.3s ease;
+}
+
+.zoom-in {
+    animation: zoomIn 0.3s ease;
+}
+
+.zoom-out {
+    animation: zoomOut 0.3s ease;
+}
+
+.pulse {
+    animation: pulse 2s ease infinite;
+}
+
+.bounce {
+    animation: bounce 1s ease infinite;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+.float {
+    animation: float 3s ease infinite;
+}
+
+/* 战斗相关样式增强 */
+.battle-unit {
+    transition: all 0.3s ease;
+}
+
+.battle-unit[data-alive="false"] {
+    animation: unitDie 0.5s ease forwards;
+    pointer-events: none;
+}
+
+.battle-hp-fill {
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.battle-hp-fill.critical {
+    background: #ff4444 !important;
+}
+
+.battle-hp-fill.low {
+    background: #ffaa00 !important;
+}
+
+.battle-hp-fill.medium {
+    background: #ffcc00 !important;
+}
+
+.battle-hp-fill.high {
+    background: #44ff44 !important;
+}
+
+/* 抽卡卡片增强 */
+.gacha-result-card {
+    transition: all 0.3s ease;
+}
+
+.gacha-result-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.gacha-result-card.legendary {
+    animation: gachaGlow 2s ease infinite;
+}
+
+.gacha-result-card.epic {
+    animation: rarityGlow 2s ease infinite;
+}
+
+/* 选中状态增强 */
+.selected {
+    box-shadow: 0 0 15px currentColor !important;
+    transform: scale(1.02);
+}
+
+/* 按钮增强 */
+.btn:active {
+    transform: scale(0.95);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 卡片增强 */
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Toast动画增强 */
+.toast {
+    transition: all 0.3s ease;
+}
+
+.toast.fade-out {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+/* Modal动画增强 */
+.modal-content {
+    transition: all 0.3s ease;
+}
+
+.modal-content.closing {
+    opacity: 0;
+    transform: scale(0.9);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
+}
+
+/* 加载动画 */
+@keyframes loading {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #3a3a3a;
+    border-top: 4px solid #4a90a4;
+    border-radius: 50%;
+    animation: loading 1s linear infinite;
+}

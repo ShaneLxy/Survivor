@@ -1,0 +1,229 @@
+/* 全局通用样式 */
+#app {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* 顶部状态栏 - 5vh */
+.top-bar {
+    height: 5vh;
+    background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%);
+    border-bottom: 2px solid #3a3a3a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 10;
+}
+
+/* 上半屏主展示区 - 55vh */
+.main-display {
+    height: 55vh;
+    background: linear-gradient(180deg, #1f1f1f 0%, #181818 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 下半屏资源道具区 - 35vh */
+.item-section {
+    height: 35vh;
+    background: linear-gradient(180deg, #181818 0%, #151515 100%);
+    border-top: 2px solid #3a3a3a;
+    border-bottom: 2px solid #3a3a3a;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+.item-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 8px;
+    overflow: hidden;
+}
+
+.pagination {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+/* 底部Tab导航 - 5vh */
+.tab-bar {
+    height: 5vh;
+    background: linear-gradient(0deg, #2a2a2a 0%, #1f1f1f 100%);
+    border-top: 2px solid #3a3a3a;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 10;
+}
+
+/* 全局弹窗容器 */
+#modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+#modal-container > * {
+    pointer-events: auto;
+}
+
+/* 全局Toast容器 */
+#toast-container {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 通用卡片样式 */
+.card {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
+    border-radius: 8px;
+    border: 1px solid #3a3a3a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* 通用按钮样式 */
+.btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #4a90a4 0%, #2a5a6e 100%);
+    color: #ffffff;
+    border: 1px solid #5aa0b4;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5aa0b4 0%, #3a7a8e 100%);
+    transform: translateY(-2px);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+    color: #e0e0e0;
+    border: 1px solid #4a4a4a;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #4a4a4a 0%, #3a3a3a 100%);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #a44a4a 0%, #6e2a2a 100%);
+    color: #ffffff;
+    border: 1px solid #b45a5a;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #b45a5a 0%, #7e3a3a 100%);
+}
+
+/* 文本样式 */
+.text-gold {
+    color: #ffd700;
+}
+
+.text-silver {
+    color: #c0c0c0;
+}
+
+.text-diamond {
+    color: #60a5fa;
+}
+
+.text-rare {
+    color: #a335ee;
+}
+
+.text-epic {
+    color: #ff8000;
+}
+
+.text-legendary {
+    color: #ffcc00;
+}
+
+.text-green {
+    color: #4ade80;
+}
+
+.text-red {
+    color: #f87171;
+}
+
+.text-blue {
+    color: #60a5fa;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+.slide-up {
+    animation: slideUp 0.3s ease;
+}
+
+.shake {
+    animation: shake 0.3s ease;
+}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>末日生存 - Survivor</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/views.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部状态栏 -->
+        <div id="top-bar" class="top-bar"></div>
+
+        <!-- 上半屏主展示区 -->
+        <div id="main-display" class="main-display"></div>
+
+        <!-- 下半屏资源道具区 -->
+        <div id="item-section" class="item-section">
+            <div id="item-grid" class="item-grid"></div>
+            <div id="pagination" class="pagination"></div>
+        </div>
+
+        <!-- 底部Tab导航 -->
+        <div id="tab-bar" class="tab-bar"></div>
+    </div>
+
+    <!-- 全局弹窗容器 -->
+    <div id="modal-container"></div>
+
+    <!-- 全局Toast容器 -->
+    <div id="toast-container"></div>
+
+    <!-- 核心脚本 -->
+    <script src="js/core/EventManager.js"></script>
+    <script src="js/core/SaveManager.js"></script>
+    <script src="js/core/AudioManager.js"></script>
+    <script src="js/core/Utils.js"></script>
+
+    <!-- 配置文件 -->
+    <script src="js/config/GameConfig.js"></script>
+    <script src="js/config/HeroConfig.js"></script>
+    <script src="js/config/DungeonConfig.js"></script>
+    <script src="js/config/BuildingConfig.js"></script>
+    <script src="js/config/ItemConfig.js"></script>
+    <script src="js/config/GachaConfig.js"></script>
+    <script src="js/config/ShopConfig.js"></script>
+
+    <!-- 数据模型 -->
+    <script src="js/models/BattleUnit.js"></script>
+    <script src="js/models/Hero.js"></script>
+    <script src="js/models/Building.js"></script>
+    <script src="js/models/Item.js"></script>
+    <script src="js/models/Dungeon.js"></script>
+
+    <!-- 管理器 -->
+    <script src="js/managers/HeroManager.js"></script>
+    <script src="js/managers/ShelterManager.js"></script>
+    <script src="js/managers/DungeonManager.js"></script>
+    <script src="js/managers/BattleManager.js"></script>
+    <script src="js/managers/ItemManager.js"></script>
+    <script src="js/managers/GachaManager.js"></script>
+    <script src="js/managers/CheckinManager.js"></script>
+
+    <!-- UI组件 -->
+    <script src="js/ui/components/Button.js"></script>
+    <script src="js/ui/components/Modal.js"></script>
+    <script src="js/ui/components/Toast.js"></script>
+    <script src="js/ui/components/ProgressBar.js"></script>
+    <script src="js/ui/components/ItemCard.js"></script>
+    <script src="js/ui/components/HeroCard.js"></script>
+    <script src="js/ui/components/Pagination.js"></script>
+    <script src="js/ui/components/FloatingMenu.js"></script>
+
+    <!-- UI视图 -->
+    <script src="js/ui/views/TopBar.js"></script>
+    <script src="js/ui/views/TabBar.js"></script>
+    <script src="js/ui/views/ItemGrid.js"></script>
+    <script src="js/ui/views/ShelterView.js"></script>
+    <script src="js/ui/views/HeroView.js"></script>
+    <script src="js/ui/views/DungeonView.js"></script>
+    <script src="js/ui/views/BattleView.js"></script>
+    <script src="js/ui/views/GachaView.js"></script>
+    <script src="js/ui/views/BackpackView.js"></script>
+    <script src="js/ui/views/ShopView.js"></script>
+    <script src="js/ui/views/CheckinView.js"></script>
+
+    <!-- 主入口 -->
+    <script src="js/main.js"></script>
+</body>
+</html>

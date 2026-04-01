@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Test</title>
+</head>
+<body>
+    <h1>简单测试</h1>
+    <div id="output"></div>
+
+    <script>
+    const output = document.getElementById('output');
+
+    function testSyntax(code) {
+        try {
+            new Function(code);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    const testFiles = [
+        'js/config/GameConfig.js',
+        'js/config/HeroConfig.js',
+        'js/core/EventManager.js',
+        'js/core/Utils.js',
+        'js/main.js'
+    ];
+
+    testFiles.forEach(file => {
+        fetch(file)
+            .then(r => r.text())
+            .then(code => {
+                const valid = testSyntax(code);
+                output.innerHTML += `<div>${file}: ${valid ? '✅' : '❌'}</div>`;
+            })
+            .catch(e => {
+                output.innerHTML += `<div>${file}: ❌ ${e.message}</div>`;
+            });
+    });
+    </script>
+</body>
+</html>

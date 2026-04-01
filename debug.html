@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Test</title>
+</head>
+<body>
+    <h1>Debug Test</h1>
+    <div id="log"></div>
+    <script>
+        function log(msg) {
+            document.getElementById('log').innerHTML += '<p>' + msg + '</p>';
+            console.log(msg);
+        }
+        
+        log('Starting...');
+        
+        // Step 1: Load core
+        log('Loading core scripts...');
+    </script>
+    <script src="js/core/EventManager.js"></script>
+    <script>
+        log('EventManager loaded: ' + typeof eventManager);
+    </script>
+    <script src="js/core/SaveManager.js"></script>
+    <script>
+        log('SaveManager loaded: ' + typeof saveManager);
+    </script>
+    <script src="js/core/AudioManager.js"></script>
+    <script>
+        log('AudioManager loaded: ' + typeof audioManager);
+    </script>
+    <script src="js/core/Utils.js"></script>
+    <script>
+        log('Utils loaded: ' + typeof Utils);
+    </script>
+    <script src="js/config/GameConfig.js"></script>
+    <script>
+        log('GameConfig loaded: ' + typeof GameConfig);
+    </script>
+    <script src="js/config/HeroConfig.js"></script>
+    <script>
+        log('HeroConfig loaded: ' + typeof HeroConfig);
+    </script>
+    <script src="js/config/DungeonConfig.js"></script>
+    <script>
+        log('DungeonConfig loaded: ' + typeof DungeonConfig);
+    </script>
+    <script src="js/config/BuildingConfig.js"></script>
+    <script>
+        log('BuildingConfig loaded: ' + typeof BuildingConfig);
+        log('BuildingConfig.buildings: ' + (BuildingConfig.buildings ? BuildingConfig.buildings.length : 'undefined'));
+    </script>
+    <script src="js/config/ItemConfig.js"></script>
+    <script>
+        log('ItemConfig loaded: ' + typeof ItemConfig);
+    </script>
+    <script src="js/config/GachaConfig.js"></script>
+    <script>
+        log('GachaConfig loaded: ' + typeof GachaConfig);
+    </script>
+    <script src="js/models/BattleUnit.js"></script>
+    <script>
+        log('BattleUnit loaded: ' + typeof BattleUnit);
+    </script>
+    <script src="js/models/Hero.js"></script>
+    <script>
+        log('Hero loaded: ' + typeof Hero);
+    </script>
+    <script src="js/models/Building.js"></script>
+    <script>
+        log('Building loaded: ' + typeof Building);
+    </script>
+    <script src="js/models/Item.js"></script>
+    <script>
+        log('Item loaded: ' + typeof Item);
+    </script>
+    <script src="js/models/Dungeon.js"></script>
+    <script>
+        log('Dungeon loaded: ' + typeof Dungeon);
+    </script>
+    <script src="js/managers/HeroManager.js"></script>
+    <script>
+        log('HeroManager loaded: ' + typeof heroManager);
+    </script>
+    <script src="js/managers/ShelterManager.js"></script>
+    <script>
+        log('ShelterManager loaded: ' + typeof shelterManager);
+        log('shelterManager.buildings: ' + (shelterManager.buildings ? shelterManager.buildings.length : 'undefined'));
+    </script>
+    <script src="js/managers/DungeonManager.js"></script>
+    <script>
+        log('DungeonManager loaded: ' + typeof dungeonManager);
+    </script>
+    <script src="js/managers/BattleManager.js"></script>
+    <script>
+        log('BattleManager loaded: ' + typeof battleManager);
+    </script>
+    <script src="js/managers/ItemManager.js"></script>
+    <script>
+        log('ItemManager loaded: ' + typeof itemManager);
+    </script>
+    <script src="js/managers/GachaManager.js"></script>
+    <script>
+        log('GachaManager loaded: ' + typeof gachaManager);
+    </script>
+    <script src="js/ui/components/Button.js"></script>
+    <script src="js/ui/components/Modal.js"></script>
+    <script src="js/ui/components/Toast.js"></script>
+    <script src="js/ui/components/ProgressBar.js"></script>
+    <script src="js/ui/components/ItemCard.js"></script>
+    <script src="js/ui/components/HeroCard.js"></script>
+    <script src="js/ui/components/Pagination.js"></script>
+    <script src="js/ui/views/TopBar.js"></script>
+    <script>
+        log('TopBar loaded: ' + typeof topBar);
+    </script>
+    <script src="js/ui/views/TabBar.js"></script>
+    <script>
+        log('TabBar loaded: ' + typeof tabBar);
+    </script>
+    <script src="js/ui/views/ItemGrid.js"></script>
+    <script>
+        log('ItemGrid loaded: ' + typeof itemGrid);
+    </script>
+    <script src="js/ui/views/ShelterView.js"></script>
+    <script>
+        log('ShelterView loaded: ' + typeof shelterView);
+    </script>
+    <script src="js/ui/views/HeroView.js"></script>
+    <script>
+        log('HeroView loaded: ' + typeof heroView);
+    </script>
+    <script src="js/ui/views/DungeonView.js"></script>
+    <script src="js/ui/views/BattleView.js"></script>
+    <script src="js/ui/views/GachaView.js"></script>
+    <script src="js/ui/views/BackpackView.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        log('main.js loaded: ' + typeof window.game);
+        if (window.game) {
+            log('Game initialized');
+        }
+    </script>
+</body>
+</html>

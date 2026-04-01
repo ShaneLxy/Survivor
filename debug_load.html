@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Load</title>
+</head>
+<body>
+    <h1>逐个加载JS文件</h1>
+    <div id="log" style="font-family: monospace;"></div>
+
+    <script>
+    const files = [
+        'js/core/EventManager.js',
+        'js/core/SaveManager.js',
+        'js/core/AudioManager.js',
+        'js/core/Utils.js',
+        'js/config/GameConfig.js',
+        'js/config/HeroConfig.js',
+        'js/config/DungeonConfig.js',
+        'js/config/BuildingConfig.js',
+        'js/config/ItemConfig.js',
+        'js/config/GachaConfig.js',
+        'js/models/BattleUnit.js',
+        'js/models/Hero.js',
+        'js/models/Building.js',
+        'js/models/Item.js',
+        'js/models/Dungeon.js',
+        'js/managers/HeroManager.js',
+        'js/managers/ShelterManager.js',
+        'js/managers/DungeonManager.js',
+        'js/managers/BattleManager.js',
+        'js/managers/ItemManager.js',
+        'js/managers/GachaManager.js',
+        'js/ui/components/Button.js',
+        'js/ui/components/Modal.js',
+        'js/ui/components/Toast.js',
+        'js/ui/components/ProgressBar.js',
+        'js/ui/components/ItemCard.js',
+        'js/ui/components/HeroCard.js',
+        'js/ui/components/Pagination.js',
+        'js/ui/views/TopBar.js',
+        'js/ui/views/TabBar.js',
+        'js/ui/views/ItemGrid.js',
+        'js/ui/views/ShelterView.js',
+        'js/ui/views/HeroView.js',
+        'js/ui/views/DungeonView.js',
+        'js/ui/views/BattleView.js',
+        'js/ui/views/GachaView.js',
+        'js/ui/views/BackpackView.js',
+        'js/main.js'
+    ];
+
+    const log = document.getElementById('log');
+
+    function loadNext(index) {
+        if (index >= files.length) {
+            log.innerHTML += '<div style="color:green; font-weight:bold;">✅ 所有文件加载完成!</div>';
+            return;
+        }
+
+        const file = files[index];
+        log.innerHTML += `<div style="color:blue;">正在加载: ${file}</div>`;
+
+        const script = document.createElement('script');
+        script.src = file;
+        script.onload = () => {
+            log.innerHTML += `<div style="color:green;">✅ ${file}</div>`;
+            setTimeout(() => loadNext(index + 1), 100);
+        };
+        script.onerror = (e) => {
+            log.innerHTML += `<div style="color:red; font-weight:bold;">❌ ${file}</div>`;
+            log.innerHTML += `<div style="color:red;">错误: ${e.message || '未知错误'}</div>`;
+            fetch(file)
+                .then(r => r.text())
+                .then(content => {
+                    const lines = content.split('\n');
+                    log.innerHTML += `<div style="color:#666;">文件总行数: ${lines.length}</div>`;
+                    log.innerHTML += `<div style="color:#666;">最后5行:</div>`;
+                    lines.slice(-5).forEach((line, i) => {
+                        log.innerHTML += `<div style="color:#666; font-family: monospace;">${lines.length - 5 + i + 1}: ${line}</div>`;
+                    });
+                });
+        };
+        document.body.appendChild(script);
+    }
+
+    loadNext(0);
+    </script>
+</body>
+</html>
