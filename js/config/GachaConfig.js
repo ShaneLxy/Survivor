@@ -1,39 +1,76 @@
 /**
- * 抽卡配置
+ * 招募/打造配置
  */
 const GachaConfig = {
-    // 抽卡池配置
     pools: {
         hero_pool: {
             id: 'hero_pool',
-            name: '英雄召唤',
-            description: '召唤随机英雄',
-            icon: '🎲',
+            type: 'hero',
+            name: '招募英雄',
+            description: '招募随机英雄加入队伍',
+            icon: '🦸',
             rates: {
-                legendary: 0.005, // 0.5%
-                epic: 0.04, // 4%
-                rare: 0.255, // 25.5%
-                common: 0.7 // 70%
+                legendary: 0.005,
+                epic: 0.04,
+                rare: 0.255,
+                common: 0.7
             },
             costs: {
-                gold: { single: 100, ten: 900 },
-                ticket: { single: 1, ten: 10 }
+                gold: { single: 100, ten: 900 }
             },
             guaranteed: {
-                type: 'epic', // 保底稀有度
-                count: 10 // 保底次数
+                type: 'epic',
+                count: 10
+            }
+        },
+        equipment_pool: {
+            id: 'equipment_pool',
+            type: 'equipment',
+            name: '打造装备',
+            description: '打造随机品质与词条的装备',
+            icon: '🛠️',
+            rates: {
+                legendary: 0.02,
+                epic: 0.12,
+                rare: 0.3,
+                common: 0.56
+            },
+            costs: {
+                gold: { single: 120, ten: 1080 }
+            },
+            guaranteed: {
+                type: 'rare',
+                count: 10
             }
         }
     },
 
-    // 根据稀有度随机选择英雄
+    getPoolConfig(poolId) {
+        return this.pools[poolId] || null;
+    },
+
+    getAllPools() {
+        return Object.values(this.pools);
+    },
+
+    randomRarity(rates) {
+        const random = Math.random();
+        let cumulative = 0;
+        for (const rarity of ['legendary', 'epic', 'rare', 'common']) {
+            cumulative += Number(rates?.[rarity]) || 0;
+            if (random < cumulative) {
+                return rarity;
+            }
+        }
+        return 'common';
+    },
+
     getRandomHero(rarity) {
         const heroes = HeroConfig.getHeroesByRarity(rarity);
         if (heroes.length === 0) {
-            // 如果没有指定稀有度的英雄,从低稀有度递归选择
             const rarityOrder = ['legendary', 'epic', 'rare', 'common'];
             const currentIndex = rarityOrder.indexOf(rarity);
-            if (currentIndex < rarityOrder.length - 1) {
+            if (currentIndex >= 0 && currentIndex < rarityOrder.length - 1) {
                 return this.getRandomHero(rarityOrder[currentIndex + 1]);
             }
             return null;
@@ -41,84 +78,17 @@ const GachaConfig = {
         return Utils.randomChoice(heroes);
     },
 
-    // 抽卡逻辑
-    pull(poolId, count = 1, useTicket = false) {
-        const pool = this.pools[poolId];
-        if (!pool) {
-            throw new Error('未知的抽卡池');
-        }
-
-        const results = [];
-        let guaranteedCount = 0;
-
-        for (let i = 0; i < count; i++) {
-            let rarity;
-            guaranteedCount++;
-
-            // 保底逻辑
-            if (guaranteedCount >= pool.guaranteed.count) {
-                rarity = pool.guaranteed.type;
-                guaranteedCount = 0;
-            } else {
-                // 随机稀有度
-                rarity = this.randomRarity(pool.rates);
-            }
-
-            const hero = this.getRandomHero(rarity);
-            if (hero) {
-                results.push({
-                    type: 'hero',
-                    data: hero,
-                    rarity: rarity
-                });
-            }
-        }
-
-        return results;
-    },
-
-    // 随机稀有度
-    randomRarity(rates) {
-        const random = Math.random();
-        let cumulative = 0;
-
-        // 从高稀有度开始判断
-        const rarityOrder = ['legendary', 'epic', 'rare', 'common'];
-        for (const rarity of rarityOrder) {
-            cumulative += rates[rarity];
-            if (random < cumulative) {
-                return rarity;
-            }
-        }
-
-        return 'common';
-    },
-
-    // 获取抽卡池配置
-    getPoolConfig(poolId) {
-        return this.pools[poolId];
-    },
-
-    // 获取所有抽卡池
-    getAllPools() {
-        return Object.values(this.pools);
-    },
-
-    // 计算抽卡费用
-    calculateCost(poolId, count, useTicket = false) {
+    calculateCost(poolId, count) {
         const pool = this.getPoolConfig(poolId);
-        if (!pool) return null;
-
-        const costType = useTicket ? 'ticket' : 'gold';
-        const costs = pool.costs[costType];
-
-        if (count === 10) {
-            return costs.ten;
-        } else {
-            return costs.single * count;
+        if (!pool) {
+            return null;
         }
+        const key = count === 10 ? 'ten' : 'single';
+        return {
+            type: 'gold',
+            amount: pool.costs.gold[key] || 0
+        };
     }
 };
 
-// 暴露到全局
 window.GachaConfig = GachaConfig;

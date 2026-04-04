@@ -9,6 +9,7 @@ const DungeonConfig = {
             icon: '🏭',
             level: 1,
             energyCost: 5,
+            sceneId: 'standard_9x9',
             enemies: [
                 { id: 'enemy_zombie', count: 1 },
                 { id: 'enemy_rat', count: 2 }
@@ -21,7 +22,7 @@ const DungeonConfig = {
                     { id: 'stone', chance: 0.2 }
                 ]
             },
-            description: '一处被废弃的工厂,里面游荡着丧尸和老鼠'
+            description: '一处被废弃的工厂，里面游荡着丧尸和老鼠。'
         },
         {
             id: 'dungeon_002',
@@ -29,6 +30,7 @@ const DungeonConfig = {
             icon: '🌲',
             level: 3,
             energyCost: 8,
+            sceneId: 'standard_9x9',
             enemies: [
                 { id: 'enemy_wolf', count: 2 },
                 { id: 'enemy_bear', count: 1 }
@@ -41,7 +43,7 @@ const DungeonConfig = {
                     { id: 'meat', chance: 0.3 }
                 ]
             },
-            description: '阴森的森林深处,藏着危险的野兽'
+            description: '阴森的森林深处，藏着危险的野兽。'
         },
         {
             id: 'dungeon_003',
@@ -49,6 +51,7 @@ const DungeonConfig = {
             icon: '⚰️',
             level: 5,
             energyCost: 10,
+            sceneId: 'standard_9x9',
             enemies: [
                 { id: 'enemy_skeleton', count: 2 },
                 { id: 'enemy_ghost', count: 1 }
@@ -61,7 +64,7 @@ const DungeonConfig = {
                     { id: 'gold_ore', chance: 0.1 }
                 ]
             },
-            description: '古老的地下墓穴,骷髅和亡灵在此徘徊'
+            description: '古老的地下墓穴，骷髅和亡灵在此徘徊。'
         },
         {
             id: 'dungeon_004',
@@ -69,6 +72,7 @@ const DungeonConfig = {
             icon: '🏥',
             level: 8,
             energyCost: 12,
+            sceneId: 'standard_9x9',
             enemies: [
                 { id: 'enemy_zombie_nurse', count: 2 },
                 { id: 'enemy_mutant', count: 1 }
@@ -81,88 +85,98 @@ const DungeonConfig = {
                     { id: 'medicine', chance: 0.2 }
                 ]
             },
-            description: '被病毒感染的医院,变异生物在此繁殖'
+            description: '被病毒感染的医院，变异生物在此繁殖。'
         }
     ],
 
-    // 敌人配置
     enemies: {
         enemy_zombie: {
             name: '丧尸',
             icon: '🧟',
-            baseStats: { hp: 50, attack: 10, defense: 5, speed: 8 }
+            rank: 'normal',
+            baseStats: { hp: 50, attack: 10, defense: 5, speed: 8, crit: 3, antiCrit: 0, defensePen: 0, accuracy: 0, dodge: 0, attackRange: 1, moveRange: 2 }
         },
         enemy_rat: {
             name: '老鼠',
             icon: '🐀',
-            baseStats: { hp: 20, attack: 5, defense: 2, speed: 15 }
+            rank: 'normal',
+            baseStats: { hp: 20, attack: 5, defense: 2, speed: 15, crit: 5, antiCrit: 0, defensePen: 0, accuracy: 4, dodge: 6, attackRange: 1, moveRange: 3 }
         },
         enemy_wolf: {
             name: '狼',
             icon: '🐺',
-            baseStats: { hp: 60, attack: 15, defense: 5, speed: 20 }
+            rank: 'normal',
+            baseStats: { hp: 60, attack: 15, defense: 5, speed: 20, crit: 6, antiCrit: 2, defensePen: 2, accuracy: 4, dodge: 4, attackRange: 1, moveRange: 3 }
         },
         enemy_bear: {
             name: '熊',
             icon: '🐻',
-            baseStats: { hp: 150, attack: 25, defense: 15, speed: 10 }
+            rank: 'elite',
+            baseStats: { hp: 150, attack: 25, defense: 15, speed: 10, crit: 8, antiCrit: 5, defensePen: 4, accuracy: 2, dodge: 1, attackRange: 1, moveRange: 2 }
         },
         enemy_skeleton: {
             name: '骷髅',
             icon: '💀',
-            baseStats: { hp: 70, attack: 18, defense: 8, speed: 12 }
+            rank: 'normal',
+            baseStats: { hp: 70, attack: 18, defense: 8, speed: 12, crit: 4, antiCrit: 2, defensePen: 1, accuracy: 3, dodge: 2, attackRange: 1, moveRange: 2 }
         },
         enemy_ghost: {
             name: '幽灵',
             icon: '👻',
-            baseStats: { hp: 80, attack: 22, defense: 3, speed: 18 }
+            rank: 'elite',
+            baseStats: { hp: 80, attack: 22, defense: 3, speed: 18, crit: 8, antiCrit: 3, defensePen: 5, accuracy: 6, dodge: 8, attackRange: 2, moveRange: 3 }
         },
         enemy_zombie_nurse: {
             name: '丧尸护士',
             icon: '🧟‍♀️',
-            baseStats: { hp: 90, attack: 20, defense: 6, speed: 10 }
+            rank: 'normal',
+            baseStats: { hp: 90, attack: 20, defense: 6, speed: 10, crit: 4, antiCrit: 2, defensePen: 0, accuracy: 3, dodge: 0, attackRange: 1, moveRange: 2 }
         },
         enemy_mutant: {
             name: '变异体',
             icon: '👾',
-            baseStats: { hp: 200, attack: 35, defense: 12, speed: 8 }
+            rank: 'boss',
+            baseStats: { hp: 200, attack: 35, defense: 12, speed: 8, crit: 10, antiCrit: 6, defensePen: 8, accuracy: 6, dodge: 2, attackRange: 2, moveRange: 2 }
         }
     },
 
-    // 获取地牢配置
     getDungeonConfig(id) {
-        return this.dungeons.find(dungeon => dungeon.id === id);
+        return this.dungeons.find(dungeon => dungeon.id === id) || null;
     },
 
-    // 根据等级获取可进入的地牢
     getDungeonsByLevel(playerLevel) {
         return this.dungeons.filter(dungeon => dungeon.level <= playerLevel);
     },
 
-    // 获取所有地牢
     getAllDungeons() {
-        return this.dungeons;
+        return [...this.dungeons];
     },
 
-    // 获取敌人配置
     getEnemyConfig(id) {
-        return this.enemies[id];
+        return this.enemies[id] || null;
     },
 
-    // 计算敌人属性
     calculateEnemyStats(enemyId, playerLevel) {
         const enemyConfig = this.getEnemyConfig(enemyId);
-        const base = enemyConfig.baseStats;
-        const levelMultiplier = 0.8 + (playerLevel / 10);
-
+        const base = enemyConfig?.baseStats;
+        if (!base) {
+            return null;
+        }
+        const levelMultiplier = 0.8 + playerLevel / 10;
         return {
             hp: Math.floor(base.hp * levelMultiplier),
             attack: Math.floor(base.attack * levelMultiplier),
             defense: Math.floor(base.defense * levelMultiplier),
-            speed: Math.floor(base.speed * levelMultiplier)
+            speed: Math.floor(base.speed * levelMultiplier),
+            crit: base.crit,
+            antiCrit: base.antiCrit,
+            defensePen: base.defensePen,
+            accuracy: base.accuracy,
+            dodge: base.dodge,
+            attackRange: base.attackRange,
+            moveRange: base.moveRange
         };
     }
 };
 
-// 暴露到全局
 window.DungeonConfig = DungeonConfig;

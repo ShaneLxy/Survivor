@@ -288,6 +288,8 @@
 .selected {
     box-shadow: 0 0 15px currentColor !important;
     transform: scale(1.02);
+    position: relative;
+    z-index: 1;
 }
 
 /* 按钮增强 */

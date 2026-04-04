@@ -120,61 +120,112 @@ const ShopConfig = {
     },
 
     /**
+     * 获取碎片商品对应的稀有度
+     * @param {string} giveItem - 奖励物品ID
+     * @returns {string|null}
+     */
+    getFragmentRarity(giveItem) {
+        const fragmentRarityMap = {
+            random_fragment: 'random',
+            rare_fragment: 'rare',
+            epic_fragment: 'epic'
+        };
+        return fragmentRarityMap[giveItem] || null;
+    },
+
+    /**
      * 获取随机碎片对应的英雄
      * @param {string} rarity - 稀有度 random/rare/epic
      * @returns {Object|null}
      */
     getRandomHeroByRarity(rarity) {
-        const allHeroConfigs = HeroConfig.getAllHeroConfigs();
-        let filtered = [];
+        try {
+            const allHeroConfigs = HeroConfig.getAllHeroes();
+            if (!allHeroConfigs || allHeroConfigs.length === 0) {
+                console.error('[ShopConfig] No hero configs found');
+                return null;
+            }
 
-        if (rarity === 'random') {
-            filtered = allHeroConfigs;
-        } else if (rarity === 'rare') {
-            filtered = allHeroConfigs.filter(h => h.rarity === 'rare');
-        } else if (rarity === 'epic') {
-            filtered = allHeroConfigs.filter(h => h.rarity === 'epic');
+            let filtered = [];
+
+            if (rarity === 'random') {
+                filtered = allHeroConfigs;
+            } else if (rarity === 'rare') {
+                filtered = allHeroConfigs.filter(h => h.rarity === 'rare');
+            } else if (rarity === 'epic') {
+                filtered = allHeroConfigs.filter(h => h.rarity === 'epic');
+            } else if (rarity === 'legendary') {
+                filtered = allHeroConfigs.filter(h => h.rarity === 'legendary');
+            }
+
+            if (filtered.length === 0) {
+                filtered = allHeroConfigs;
+            }
+
+            return filtered[Math.floor(Math.random() * filtered.length)] || null;
+        } catch (error) {
+            console.error('[ShopConfig] getRandomHeroByRarity error:', error);
+            return null;
+        }
+    },
+
+    /**
+     * 结算随机碎片奖励（每个碎片独立随机）
+     * @param {Object} shopItem - 商品配置
+     * @param {number} quantity - 购买数量
+     * @returns {Array|null}
+     */
+    resolveFragmentRewards(shopItem, quantity = 1) {
+        const fragmentRarity = this.getFragmentRarity(shopItem?.giveItem);
+        if (!fragmentRarity) {
+            return null;
         }
 
-        if (filtered.length === 0) {
-            filtered = allHeroConfigs;
+        const totalFragments = Math.max(1, Number(shopItem?.giveCount) || 1) * Math.max(1, Number(quantity) || 1);
+        const rewardMap = new Map();
+
+        for (let i = 0; i < totalFragments; i++) {
+            const heroConfig = this.getRandomHeroByRarity(fragmentRarity);
+            if (!heroConfig) {
+                console.error('[ShopConfig] Failed to resolve fragment hero:', shopItem?.giveItem);
+                return null;
+            }
+
+            const currentReward = rewardMap.get(heroConfig.id) || {
+                heroId: heroConfig.id,
+                heroName: heroConfig.name,
+                heroIcon: heroConfig.icon,
+                count: 0
+            };
+            currentReward.count++;
+            rewardMap.set(heroConfig.id, currentReward);
         }
 
-        return filtered[Math.floor(Math.random() * filtered.length)];
+        return Array.from(rewardMap.values()).sort((a, b) => {
+            if (b.count !== a.count) {
+                return b.count - a.count;
+            }
+            return a.heroName.localeCompare(b.heroName, 'zh-CN');
+        });
     },
 
     /**
      * 解析giveItem获取实际物品
      * @param {Object} shopItem - 商品配置
-     * @returns {Object}
+     * @returns {Object|null}
      */
     resolveGiveItem(shopItem) {
         const item = { ...shopItem };
+        const fragmentRarity = this.getFragmentRarity(item.giveItem);
 
-        if (item.giveItem === 'random_fragment') {
-            const heroConfig = this.getRandomHeroByRarity('random');
-            item.actualItemId = heroConfig.id;
-            item.actualItemName = `${heroConfig.name}碎片`;
-            item.actualItemIcon = heroConfig.icon;
-        } else if (item.giveItem === 'rare_fragment') {
-            const heroConfig = this.getRandomHeroByRarity('rare');
-            item.actualItemId = heroConfig.id;
-            item.actualItemName = `${heroConfig.name}碎片`;
-            item.actualItemIcon = heroConfig.icon;
-        } else if (item.giveItem === 'epic_fragment') {
-            const heroConfig = this.getRandomHeroByRarity('epic');
-            item.actualItemId = heroConfig.id;
-            item.actualItemName = `${heroConfig.name}碎片`;
-            item.actualItemIcon = heroConfig.icon;
-        } else {
-            // 资源或消耗品
-            item.actualItemId = item.giveItem;
-            item.actualItemName = item.name;
-            item.actualItemIcon = item.icon;
-        }
-
+        item.actualItemId = fragmentRarity ? null : item.giveItem;
+        item.actualItemName = item.name;
+        item.actualItemIcon = item.icon;
+        item.fragmentRarity = fragmentRarity;
         return item;
     }
+
+
 };
 
 // 暴露到全局

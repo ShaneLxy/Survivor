@@ -66,7 +66,7 @@ class ShopView {
                 <div class="shop-col-price">💰${item.price}</div>
                 <div class="shop-col-limit">${remaining}/${item.maxBuy}</div>
                 <div class="shop-col-action">
-                    <button class="btn btn-sm ${canBuy ? 'btn-primary' : 'btn-secondary'}" 
+                    <button class="btn btn-small ${canBuy ? 'btn-primary' : 'btn-secondary'}" 
                             onclick="window.game.ui.shopView.showBuyConfirm('${item.id}')"
                             ${!canBuy ? 'disabled' : ''}>
                         购买
@@ -93,13 +93,14 @@ class ShopView {
             return;
         }
 
-        // 解析实际物品
         const resolvedItem = ShopConfig.resolveGiveItem(item);
+        if (!resolvedItem) {
+            Toast.error('商品数据异常，请稍后重试');
+            return;
+        }
 
-        // 判断是否需要输入数量
         const needInput = remaining > 1;
-
-        let content = `
+        const content = `
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:15px;">${resolvedItem.actualItemIcon}</div>
                 <p>购买: ${resolvedItem.actualItemName}</p>
@@ -124,18 +125,20 @@ class ShopView {
                 {
                     text: '确认购买',
                     className: 'btn-primary',
-                    onClick: () => {
+                    onClick: async () => {
                         let quantity = 1;
                         if (needInput) {
                             const input = document.getElementById('buy-quantity');
-                            quantity = parseInt(input.value) || 1;
+                            quantity = parseInt(input.value, 10) || 1;
                             if (quantity < 1 || quantity > remaining) {
                                 Toast.error('购买数量无效');
                                 return;
                             }
                         }
-                        this.buyItem(item, quantity, resolvedItem);
-                        modal.close();
+                        const success = await this.buyItem(item, quantity);
+                        if (success) {
+                            modal.close();
+                        }
                     }
                 },
                 {
@@ -152,40 +155,74 @@ class ShopView {
      * 购买商品
      * @param {Object} item - 商品配置
      * @param {number} quantity - 购买数量
-     * @param {Object} resolvedItem - 解析后的物品
      */
-    buyItem(item, quantity, resolvedItem) {
-        const totalPrice = item.price * quantity;
+    async buyItem(item, quantity) {
+        try {
+            const resolvedItem = ShopConfig.resolveGiveItem(item);
+            if (!resolvedItem) {
+                Toast.error('商品数据异常，请稍后重试');
+                return false;
+            }
 
-        // 检查金币是否足够
-        if (shelterManager.getResource('gold') < totalPrice) {
-            Toast.error('金币不足');
-            return;
+            const remaining = item.maxBuy - (this.purchasedCounts[item.id] || 0);
+            if (quantity < 1 || quantity > remaining) {
+                Toast.error('购买数量无效');
+                return false;
+            }
+
+            const totalPrice = item.price * quantity;
+            if (shelterManager.getResource('gold') < totalPrice) {
+                Toast.error('金币不足');
+                return false;
+            }
+
+            let rewardEntries = [];
+            let fragmentRewards = null;
+            if (item.type === 'fragment') {
+                fragmentRewards = ShopConfig.resolveFragmentRewards(item, quantity);
+                if (!fragmentRewards || fragmentRewards.length === 0) {
+                    Toast.error('商品数据异常，请稍后重试');
+                    return false;
+                }
+            }
+
+            if (!shelterManager.consumeResource('gold', totalPrice)) {
+                Toast.error('金币不足');
+                return false;
+            }
+
+            this.purchasedCounts[item.id] = (this.purchasedCounts[item.id] || 0) + quantity;
+
+            if (item.type === 'fragment') {
+                fragmentRewards.forEach(reward => {
+                    heroManager.addFragments(reward.heroId, reward.count);
+                    rewardEntries.push(RewardModal.createFragmentReward(reward.heroId, reward.count));
+                });
+            } else if (item.type === 'resource') {
+                const totalCount = quantity * (resolvedItem.giveCount || 1);
+                shelterManager.addResource(item.giveItem, totalCount);
+                rewardEntries.push(RewardModal.createResourceReward(item.giveItem, totalCount));
+            } else if (item.type === 'consumable') {
+                const totalCount = quantity * (resolvedItem.giveCount || 1);
+                itemManager.addItem(item.giveItem, totalCount);
+                rewardEntries.push(RewardModal.createItemReward(item.giveItem, totalCount));
+            } else {
+                Toast.error('未知商品类型');
+                return false;
+            }
+
+            this.renderShopList();
+            await RewardModal.show({
+                title: '购买成功',
+                rewards: rewardEntries,
+                summaryText: `已消耗 ${totalPrice} 金币`
+            });
+            return true;
+        } catch (error) {
+            console.error('购买商品出错:', error);
+            Toast.error('购买失败，请重试');
+            return false;
         }
-
-        // 消耗金币
-        shelterManager.consumeResource('gold', totalPrice);
-
-        // 增加已购买数量
-        this.purchasedCounts[item.id] = (this.purchasedCounts[item.id] || 0) + quantity;
-
-        // 发放物品
-        if (item.type === 'fragment') {
-            // 碎片直接加到英雄管理器
-            heroManager.addFragments(resolvedItem.actualItemId, quantity * resolvedItem.giveCount);
-            Toast.success(`获得 ${quantity}x${resolvedItem.actualItemName}!`);
-        } else if (item.type === 'resource') {
-            // 资源
-            shelterManager.addResource(item.giveItem, quantity * resolvedItem.giveCount);
-            Toast.success(`获得 ${quantity}x${item.name}!`);
-        } else if (item.type === 'consumable') {
-            // 消耗品
-            itemManager.addItem(item.giveItem, quantity * resolvedItem.giveCount);
-            Toast.success(`获得 ${quantity}x${item.name}!`);
-        }
-
-        // 刷新列表
-        this.renderShopList();
     }
 
     refresh() {

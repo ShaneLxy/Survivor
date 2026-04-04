@@ -59,8 +59,12 @@ class Item {
                 if (target && typeof target.heal === 'function') {
                     const healed = target.heal(this.effect.value);
                     result.message = `恢复了${healed}点生命值`;
+                } else {
+                    result.success = false;
+                    result.message = '该道具需要在战斗中选择目标后使用';
                 }
                 break;
+
             case 'energy':
                 // 体力恢复逻辑由外部处理
                 result.effect = { type: 'energy', value: this.effect.value };

@@ -23,13 +23,13 @@ class ItemCard {
         const item = this.config.item;
         if (!item) {
             const empty = document.createElement('div');
-            empty.className = 'item-card disabled';
-            empty.innerHTML = '<div class="item-icon">📦</div><div class="item-name">空</div>';
+            empty.className = 'item-card item-card-empty';
+            empty.setAttribute('aria-hidden', 'true');
             return empty;
         }
 
         const card = document.createElement('div');
-        card.className = 'item-card';
+        card.className = 'item-card card';
         if (this.config.disabled) {
             card.classList.add('disabled');
         }

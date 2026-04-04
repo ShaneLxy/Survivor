@@ -31,20 +31,19 @@ class DungeonView {
         const list = this.element.querySelector('#dungeon-list');
         const playerLevel = window.game.player.level;
         const dungeons = dungeonManager.getDungeonsByLevel(playerLevel);
+        list.innerHTML = '';
         if (dungeons.length === 0) {
             list.innerHTML = '<div style="text-align:center;color:#a0a0a0;">暂无可用副本</div>';
             return;
         }
-        dungeons.forEach(dungeon => {
-            const card = this.createDungeonCard(dungeon);
-            list.appendChild(card);
-        });
+        dungeons.forEach(dungeon => list.appendChild(this.createDungeonCard(dungeon)));
     }
 
     createDungeonCard(dungeon) {
         const info = dungeon.getInfo();
         const completed = dungeonManager.isCompleted(dungeon.id);
         const stars = dungeonManager.getStars(dungeon.id);
+        const canSweep = dungeonManager.canSweep(dungeon.id);
         const card = document.createElement('div');
         card.className = 'dungeon-item card';
         card.innerHTML = `
@@ -55,41 +54,83 @@ class DungeonView {
                 <div class="dungeon-reward">敌人数量: ${info.enemyCount}</div>
                 <div style="color:#ffd700;">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
             </div>
-            <button class="btn btn-primary" onclick="window.game.ui.dungeonView.enterDungeon('${dungeon.id}')">进入</button>
+            <div class="dungeon-card-actions">
+                <button class="btn btn-primary" onclick="window.game.ui.dungeonView.enterDungeon('${dungeon.id}')">战斗</button>
+                <button class="btn ${canSweep ? 'btn-success' : 'btn-secondary'}" ${canSweep ? '' : 'disabled'} onclick="window.game.ui.dungeonView.sweepDungeon('${dungeon.id}')">扫荡</button>
+            </div>
+
         `;
         return card;
     }
 
-    enterDungeon(dungeonId) {
-        const dungeon = dungeonManager.getDungeon(dungeonId);
-        const playerLevel = window.game.player.level;
-        const playerEnergy = window.game.player.energy;
-        if (!dungeon) {
-            Toast.error('地牢不存在');
-            return;
-        }
-        if (!dungeon.canEnter(playerLevel)) {
-            Toast.error(`需要等级 ${dungeon.level}`);
-            return;
-        }
-        if (playerEnergy < dungeon.energyCost) {
+    consumeEnergyForDungeon(dungeon) {
+        if (window.game.player.energy < dungeon.energyCost) {
             Toast.error(`体力不足,需要 ${dungeon.energyCost}`);
-            return;
+            return false;
         }
         window.game.player.energy -= dungeon.energyCost;
         eventManager.emit('playerUpdate', {
             energy: window.game.player.energy,
             maxEnergy: window.game.player.maxEnergy
         });
-        eventManager.emit('enterBattle', { dungeonId });
+        return true;
+    }
+
+    enterDungeon(dungeonId) {
+        const dungeon = dungeonManager.getDungeon(dungeonId);
+        if (!dungeon) {
+            Toast.error('地牢不存在');
+            return;
+        }
+        if (!dungeon.canEnter(window.game.player.level)) {
+            Toast.error(`需要等级 ${dungeon.level}`);
+            return;
+        }
+        if (heroManager.getTeam().length === 0) {
+            Toast.error('请先配置参战英雄');
+            return;
+        }
+        if (!this.consumeEnergyForDungeon(dungeon)) {
+            return;
+        }
+        window.game.save();
+        eventManager.emit('enterBattle', { dungeonId, sceneId: dungeon.sceneId });
+    }
+
+    async sweepDungeon(dungeonId) {
+        const dungeon = dungeonManager.getDungeon(dungeonId);
+        if (!dungeon) {
+            Toast.error('地牢不存在');
+            return;
+        }
+        if (!dungeonManager.canSweep(dungeonId)) {
+            Toast.info('首次通关后才能扫荡');
+            return;
+        }
+        const teamIds = heroManager.getTeamIds();
+        if (teamIds.length === 0) {
+            Toast.error('请先配置参战英雄');
+            return;
+        }
+        if (!this.consumeEnergyForDungeon(dungeon)) {
+            return;
+        }
+
+        const rewardResult = window.game.grantDungeonVictoryRewards(dungeon, teamIds);
+        await RewardModal.show({
+            title: '扫荡完成',
+            rewards: rewardResult.rewardEntries,
+            summaryText: '无需进入战斗场景，已直接结算本次副本奖励'
+        });
+        this.refresh();
     }
 
     refresh() {
-        if (this.visible) this.render();
+        if (this.visible) {
+            this.render();
+        }
     }
 }
 
 const dungeonView = new DungeonView();
-
-// 暴露到全局
 window.dungeonView = dungeonView;

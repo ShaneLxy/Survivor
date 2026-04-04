@@ -1,5 +1,5 @@
 /**
- * 抽卡场景视图
+ * 招募场景视图
  */
 class GachaView {
     constructor() {
@@ -18,86 +18,75 @@ class GachaView {
     }
 
     render() {
-        const pool = gachaManager.getPoolConfig();
-        const singleCost = gachaManager.calculateCost(1);
-        const tenCost = gachaManager.calculateCost(10);
+        const heroSingleCost = gachaManager.calculateCost('hero_pool', 1);
+        const heroTenCost = gachaManager.calculateCost('hero_pool', 10);
+        const equipSingleCost = gachaManager.calculateCost('equipment_pool', 1);
+        const equipTenCost = gachaManager.calculateCost('equipment_pool', 10);
+
         this.element.innerHTML = `
-            <div class="gacha-view">
-                <h2 class="gacha-title">英雄召唤</h2>
-                <div class="gacha-buttons">
-                    <button class="btn btn-primary btn-large" onclick="window.game.ui.gachaView.pull(1)">
-                        <span>召唤 x1</span>
-                        <span style="margin-left:10px;font-size:14px;">💰${singleCost.amount}</span>
-                    </button>
-                    <button class="btn btn-primary btn-large" onclick="window.game.ui.gachaView.pull(10)">
-                        <span>召唤 x10</span>
-                        <span style="margin-left:10px;font-size:14px;">💰${tenCost.amount}</span>
-                    </button>
+            <div class="gacha-view recruit-view">
+                <h2 class="gacha-title">招募中心</h2>
+                <div class="recruit-split-layout">
+                    <div class="recruit-panel card">
+                        <div class="recruit-panel-icon">🦸</div>
+                        <div class="recruit-panel-title">招募英雄</div>
+                        <div class="recruit-panel-desc">随机获得一名英雄，重复英雄会自动转化为碎片。</div>
+                        <div class="recruit-panel-actions">
+                            <button class="btn btn-primary btn-large" onclick="window.game.ui.gachaView.executePool('hero_pool', 1)">招募1次 · 💰${heroSingleCost.amount}</button>
+                            <button class="btn btn-primary btn-large" onclick="window.game.ui.gachaView.executePool('hero_pool', 10)">招募10次 · 💰${heroTenCost.amount}</button>
+                        </div>
+                    </div>
+                    <div class="recruit-panel card">
+                        <div class="recruit-panel-icon">🛠️</div>
+                        <div class="recruit-panel-title">打造装备</div>
+                        <div class="recruit-panel-desc">随机打造不同品质的装备</div>
+
+                        <div class="recruit-panel-actions">
+                            <button class="btn btn-secondary btn-large" onclick="window.game.ui.gachaView.executePool('equipment_pool', 1)">打造1次 · 💰${equipSingleCost.amount}</button>
+                            <button class="btn btn-secondary btn-large" onclick="window.game.ui.gachaView.executePool('equipment_pool', 10)">打造10次 · 💰${equipTenCost.amount}</button>
+                        </div>
+                    </div>
                 </div>
-                <div id="gacha-results" class="gacha-results"></div>
             </div>
         `;
     }
 
-    async pull(count) {
-        const cost = gachaManager.calculateCost(count);
+    async executePool(poolId, count) {
+        const pool = gachaManager.getPoolConfig(poolId);
+        const cost = gachaManager.calculateCost(poolId, count);
+        if (!pool || !cost) {
+            Toast.error('招募配置异常');
+            return;
+        }
+
         if (shelterManager.getResource('gold') < cost.amount) {
             Toast.error(`金币不足,需要 ${cost.amount}`);
             return;
         }
-        // 不在这里扣费，让 gachaManager.pull() 统一处理
-        const result = gachaManager.pull(count);
-        if (result.success) {
-            Toast.success(`消耗${cost.amount}金币`);
-            await this.showResults(result.results, count);
-            const addedHeroes = gachaManager.addResultsToHeroes(result.results);
-            if (addedHeroes.length > 0) {
-                Toast.success(`获得${addedHeroes.length}个新英雄!`);
-            }
-        } else {
+
+        const result = gachaManager.pull(poolId, count);
+        if (!result.success) {
             Toast.error(result.message);
+            return;
         }
-    }
 
-    async showResults(results, count) {
-        const resultsElement = this.element.querySelector('#gacha-results');
-        resultsElement.innerHTML = '';
-        for (let i = 0; i < results.length; i++) {
-            const result = results[i];
-            const card = this.createResultCard(result);
-            resultsElement.appendChild(card);
-            await Utils.delay(GameConfig.ui.animations.gachaDelay);
-        }
-    }
+        const rewardResult = gachaManager.addResults(result.results);
+        await RewardModal.show({
+            title: `${pool.name}${count > 1 ? ` x${count}` : ''}`,
+            rewards: rewardResult.rewards,
+            summaryText: `已消耗 ${cost.amount} 金币`
+        });
 
-    createResultCard(result) {
-        const card = document.createElement('div');
-        card.className = 'gacha-result-card card';
-        card.style.borderColor = this.getRarityColor(result.rarity);
-        card.innerHTML = `
-            <div class="gacha-result-icon" style="color:${this.getRarityColor(result.rarity)}">${result.icon}</div>
-            <div class="gacha-result-name" style="color:${this.getRarityColor(result.rarity)}">${result.name}</div>
-            <div style="color:${this.getRarityColor(result.rarity)}">${this.getRarityName(result.rarity)}</div>
-        `;
-        return card;
-    }
-
-    getRarityColor(rarity) {
-        const colors = { common: '#a0a0a0', rare: '#a335ee', epic: '#ff8000', legendary: '#ffcc00' };
-        return colors[rarity] || colors.common;
-    }
-
-    getRarityName(rarity) {
-        const names = { common: '普通', rare: '稀有', epic: '史诗', legendary: '传说' };
-        return names[rarity] || '普通';
+        window.game.save();
+        this.refresh();
     }
 
     refresh() {
-        if (this.visible) this.render();
+        if (this.visible) {
+            this.render();
+        }
     }
 }
 
 const gachaView = new GachaView();
-
-// 暴露到全局
 window.gachaView = gachaView;

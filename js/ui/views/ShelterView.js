@@ -66,11 +66,12 @@ class ShelterView {
         if (!effect) return '';
         switch (effect.type) {
             case 'energyBonus': return `体力+${effect.value}`;
-            case 'production': return `产出${effect.resourceType} ${effect.value}/小时`;
+            case 'production': return `产出${shelterManager.getResourceDisplayName(effect.resourceType)} ${effect.value}/小时`;
             case 'statBonus': return `属性加成${(effect.value * 100).toFixed(0)}%`;
             default: return '';
         }
     }
+
 
     getUpgradeButton(info) {
         if (!info.canUpgrade) {
@@ -79,8 +80,11 @@ class ShelterView {
         if (!info.upgradeCost) {
             return '<button class="btn btn-small btn-secondary" disabled>暂无升级数据</button>';
         }
-        const costText = Object.entries(info.upgradeCost).map(([type, amount]) => `${type}:${amount}`).join(' ');
+        const costText = Object.entries(info.upgradeCost)
+            .map(([type, amount]) => `${shelterManager.getResourceDisplayName(type)}:${amount}`)
+            .join(' ');
         return `<button class="btn btn-small btn-primary" onclick="window.game.ui.shelterView.upgradeBuilding('${info.id}')">升级 (${costText})</button>`;
+
     }
 
     upgradeBuilding(buildingId) {

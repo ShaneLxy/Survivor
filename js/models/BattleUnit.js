@@ -6,98 +6,153 @@ class BattleUnit {
         this.id = config.id || Utils.generateId();
         this.name = config.name || '未知单位';
         this.icon = config.icon || '❓';
-        this.type = config.type || 'enemy'; // 'hero' or 'enemy'
-
-        // 属性 (使用 _ 前缀避免和方法名冲突)
-        const baseStats = config.baseStats || {};
-        this.maxHp = baseStats.hp || 100;
-        this.hp = this.maxHp;
-        this._attack = baseStats.attack || 10;  // 改为 _attack
-        this.defense = baseStats.defense || 0;
-        this.speed = baseStats.speed || 10;
-
-        // 技能
+        this.type = config.type || 'enemy';
+        this.camp = config.camp || (this.type === 'hero' ? 'hero' : 'enemy');
+        this.rank = config.rank || 'normal';
         this.skill = config.skill || null;
+        this.position = { x: 0, y: 0 };
+        this.progress = 0;
+        this.defendBonus = 0;
+
+        const baseStats = {
+            hp: 100,
+            attack: 10,
+            defense: 0,
+            speed: 10,
+            crit: 5,
+            antiCrit: 0,
+            defensePen: 0,
+            accuracy: 0,
+            dodge: 0,
+            attackRange: 1,
+            moveRange: 2,
+            ...(config.baseStats || {})
+        };
+
+        this.maxHp = Math.max(1, Number(baseStats.hp) || 100);
+        this.hp = this.maxHp;
+        this._attack = Math.max(1, Number(baseStats.attack) || 10);
+        this.defense = Math.max(0, Number(baseStats.defense) || 0);
+        this.speed = Math.max(1, Number(baseStats.speed) || 10);
+        this.crit = Math.max(0, Number(baseStats.crit) || 0);
+        this.antiCrit = Math.max(0, Number(baseStats.antiCrit) || 0);
+        this.defensePen = Math.max(0, Number(baseStats.defensePen) || 0);
+        this.accuracy = Math.max(0, Number(baseStats.accuracy) || 0);
+        this.dodge = Math.max(0, Number(baseStats.dodge) || 0);
+        this.attackRange = Math.max(1, Number(baseStats.attackRange) || 1);
+        this.moveRange = Math.max(1, Number(baseStats.moveRange) || 1);
     }
 
-    /**
-     * 受到伤害
-     * @param {number} damage - 伤害值
-     * @returns {number} 实际伤害
-     */
-    takeDamage(damage) {
-        const actualDamage = Math.max(1, damage - Math.floor(this.defense * 0.5));
+    setPosition(position) {
+        this.position = { x: position.x, y: position.y };
+    }
+
+    resetTurnState() {
+        this.defendBonus = 0;
+    }
+
+    defend() {
+        this.defendBonus = 0.1;
+    }
+
+    distanceTo(target) {
+        if (!target?.position) {
+            return Infinity;
+        }
+        return Math.abs(this.position.x - target.position.x) + Math.abs(this.position.y - target.position.y);
+    }
+
+    calculateHitChance(target) {
+        return Utils.clamp(0.9 + (this.accuracy - target.dodge) / 100, 0.35, 1);
+    }
+
+    calculateCritChance(target) {
+        return Utils.clamp(0.05 + (this.crit - target.antiCrit) / 100, 0.05, 0.85);
+    }
+
+    calculateCritMultiplier(target) {
+        return 1.5 + Math.max(0, this.crit - target.antiCrit) / 100;
+    }
+
+    takeDamage(rawDamage, attacker = null) {
+        const penRatio = Utils.clamp((Number(attacker?.defensePen) || 0) / 100, 0, 0.9);
+        const effectiveDefense = Math.floor(this.defense * (1 + this.defendBonus) * (1 - penRatio));
+        const actualDamage = Math.max(1, Math.floor(rawDamage - effectiveDefense * 0.45));
         this.hp = Math.max(0, this.hp - actualDamage);
         return actualDamage;
     }
 
-    /**
-     * 治疗
-     * @param {number} healAmount - 治疗量
-     * @returns {number} 实际治疗量
-     */
     heal(healAmount) {
-        const actualHeal = Math.min(healAmount, this.maxHp - this.hp);
+        const actualHeal = Math.min(Math.max(0, Number(healAmount) || 0), this.maxHp - this.hp);
         this.hp += actualHeal;
         return actualHeal;
     }
 
-    /**
-     * 攻击目标
-     * @param {BattleUnit} target - 目标
-     * @param {boolean} useSkill - 是否使用技能
-     * @returns {Object} 攻击结果
-     */
-    attack(target, useSkill = false) {
-        let damage = this._attack;  // 使用 _attack 而不是 attack
-
-        if (useSkill && this.skill) {
-            const multiplier = this.skill.multiplier || 1.0;
-            damage = Math.floor(damage * multiplier);
+    attackTarget(target, useSkill = false) {
+        const hitChance = this.calculateHitChance(target);
+        const hit = Math.random() <= hitChance;
+        if (!hit) {
+            return {
+                attacker: this.name,
+                target: target.name,
+                damage: 0,
+                hit: false,
+                useSkill,
+                isCritical: false,
+                skillName: useSkill ? this.skill?.name : null
+            };
         }
 
-        // 随机浮动
-        damage = Math.floor(damage * Utils.randomFloat(0.9, 1.1));
+        let damage = this._attack;
+        if (useSkill && this.skill) {
+            damage = Math.floor(damage * (this.skill.multiplier || 1));
+        }
+        damage = Math.floor(damage * Utils.randomFloat(0.92, 1.08));
 
-        const actualDamage = target.takeDamage(damage);
+        const isCritical = Math.random() <= this.calculateCritChance(target);
+        if (isCritical) {
+            damage = Math.floor(damage * this.calculateCritMultiplier(target));
+        }
 
+        const actualDamage = target.takeDamage(damage, this);
         return {
             attacker: this.name,
             target: target.name,
             damage: actualDamage,
-            useSkill: useSkill,
-            isCritical: Math.random() < 0.1, // 10%暴击
+            hit: true,
+            useSkill,
+            isCritical,
             skillName: useSkill ? this.skill?.name : null
         };
     }
 
-    /**
-     * 是否存活
-     * @returns {boolean}
-     */
     isAlive() {
         return this.hp > 0;
     }
 
-    /**
-     * 重置状态
-     */
     reset() {
         this.hp = this.maxHp;
+        this.progress = 0;
+        this.defendBonus = 0;
     }
 
-    /**
-     * 获取属性信息
-     * @returns {Object}
-     */
     getStats() {
         return {
             hp: this.hp,
             maxHp: this.maxHp,
-            attack: this.attack,
+            attack: this._attack,
             defense: this.defense,
             speed: this.speed,
+            crit: this.crit,
+            antiCrit: this.antiCrit,
+            defensePen: this.defensePen,
+            accuracy: this.accuracy,
+            dodge: this.dodge,
+            attackRange: this.attackRange,
+            moveRange: this.moveRange,
             hpPercent: (this.hp / this.maxHp * 100).toFixed(1)
         };
     }
 }
+
+window.BattleUnit = BattleUnit;

@@ -1,6 +1,5 @@
 /**
  * 存档管理器 - 单例模式
- * 负责游戏数据的保存和加载
  */
 class SaveManager {
     constructor() {
@@ -8,31 +7,20 @@ class SaveManager {
             return SaveManager.instance;
         }
         this.saveKey = 'survivor_game_save';
-        this.autoSaveInterval = 30000; // 30秒自动保存
+        this.autoSaveInterval = 30000;
         this.autoSaveTimer = null;
         SaveManager.instance = this;
     }
 
-    /**
-     * 初始化
-     */
     init() {
         this.startAutoSave();
     }
 
-    /**
-     * 开始自动保存
-     */
     startAutoSave() {
         this.stopAutoSave();
-        this.autoSaveTimer = setInterval(() => {
-            this.autoSave();
-        }, this.autoSaveInterval);
+        this.autoSaveTimer = setInterval(() => this.autoSave(), this.autoSaveInterval);
     }
 
-    /**
-     * 停止自动保存
-     */
     stopAutoSave() {
         if (this.autoSaveTimer) {
             clearInterval(this.autoSaveTimer);
@@ -40,25 +28,18 @@ class SaveManager {
         }
     }
 
-    /**
-     * 自动保存
-     */
     autoSave() {
         this.save();
         eventManager.emit('autoSave', { timestamp: Date.now() });
     }
 
-    /**
-     * 保存游戏数据
-     * @param {Object} gameData - 游戏数据
-     */
     save(gameData = null) {
         try {
             const data = gameData || this.collectGameData();
             const saveData = {
-                version: '1.0.0',
+                version: '2.0.0',
                 timestamp: Date.now(),
-                data: data
+                data
             };
             localStorage.setItem(this.saveKey, JSON.stringify(saveData));
             eventManager.emit('save', saveData);
@@ -70,15 +51,10 @@ class SaveManager {
         }
     }
 
-    /**
-     * 加载游戏数据
-     * @returns {Object|null} 游戏数据
-     */
     load() {
         try {
             const saveString = localStorage.getItem(this.saveKey);
             if (!saveString) return null;
-
             const saveData = JSON.parse(saveString);
             eventManager.emit('load', saveData);
             return saveData;
@@ -89,9 +65,6 @@ class SaveManager {
         }
     }
 
-    /**
-     * 删除存档
-     */
     delete() {
         try {
             localStorage.removeItem(this.saveKey);
@@ -103,23 +76,14 @@ class SaveManager {
         }
     }
 
-    /**
-     * 检查是否存在存档
-     * @returns {boolean}
-     */
     hasSave() {
         return localStorage.getItem(this.saveKey) !== null;
     }
 
-    /**
-     * 获取存档信息
-     * @returns {Object|null}
-     */
     getSaveInfo() {
         try {
             const saveString = localStorage.getItem(this.saveKey);
             if (!saveString) return null;
-
             const saveData = JSON.parse(saveString);
             return {
                 version: saveData.version,
@@ -131,43 +95,41 @@ class SaveManager {
         }
     }
 
-    /**
-     * 收集游戏数据
-     * @returns {Object}
-     */
     collectGameData() {
-        // 由游戏主逻辑调用,收集所有需要保存的数据
+        if (window.game && typeof window.game.getSaveData === 'function') {
+            return window.game.getSaveData();
+        }
         return {
             player: {
                 level: window.game?.player?.level || 1,
                 exp: window.game?.player?.exp || 0,
                 energy: window.game?.player?.energy || 100,
                 maxEnergy: window.game?.player?.maxEnergy || 100,
-                gold: window.game?.player?.gold || 0
+                gold: window.game?.player?.gold || 0,
+                nickname: window.game?.player?.nickname || '幸存者'
             },
             settings: {
-                skipBattle: window.game?.settings?.skipBattle || false
+                autoBattle: window.game?.settings?.autoBattle || false,
+                muted: window.game?.settings?.muted || false
             },
-            // 离线时间记录
+            heroData: window.heroManager?.getSaveData?.() || null,
+            shelterData: window.shelterManager?.getSaveData?.() || null,
+            dungeonData: window.dungeonManager?.getSaveData?.() || null,
+            itemData: window.itemManager?.getSaveData?.() || null,
+            gachaData: window.gachaManager?.getSaveData?.() || null,
+            checkinData: window.checkinManager?.getSaveData?.() || null,
             lastSaveTime: Date.now()
         };
     }
 
-    /**
-     * 计算离线时间
-     * @returns {number} 离线秒数
-     */
     calculateOfflineTime() {
         const saveData = this.load();
-        if (!saveData || !saveData.data.lastSaveTime) {
+        if (!saveData || !saveData.data?.lastSaveTime) {
             return 0;
         }
         return Math.floor((Date.now() - saveData.data.lastSaveTime) / 1000);
     }
 }
 
-// 导出单例
 const saveManager = new SaveManager();
-
-// 暴露到全局
 window.saveManager = saveManager;

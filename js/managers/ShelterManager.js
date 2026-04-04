@@ -16,11 +16,30 @@ class ShelterManager {
      * 初始化
      */
     init(saveData) {
-        // 强制创建初始建筑（忽略旧存档）
+        if (saveData?.buildings?.length) {
+            this.buildings = saveData.buildings.map(buildingData => {
+                const config = BuildingConfig.getBuildingConfig(buildingData.id);
+                return config ? new Building(config, buildingData.level || 1) : null;
+            }).filter(Boolean);
+            this.resources = {
+                gold: 1000,
+                wood: 50,
+                stone: 30,
+                meat: 80,
+                water: 60,
+                diamond: 0,
+                ...(saveData.resources || {})
+            };
+            this.offlineTime = saveData.offlineTime || Date.now();
+            return;
+        }
+
         this.createInitialBuildings();
         this.createInitialResources();
+        this.offlineTime = Date.now();
         console.log('[ShelterManager] Created', this.buildings.length, 'buildings');
     }
+
 
     /**
      * 创建初始建筑
@@ -46,7 +65,7 @@ class ShelterManager {
      */
     createInitialResources() {
         this.resources = {
-            gold: 100,
+            gold: 1000,
             wood: 50,
             stone: 30,
             meat: 80,
@@ -56,7 +75,41 @@ class ShelterManager {
     }
 
     /**
+     * 获取资源展示信息
+     * 说明：避难所、奖励弹窗、资源提示等场景统一使用这里的中文与图标定义，避免各处重复硬编码。
+     * @param {string} type - 资源类型
+     * @returns {{name:string, icon:string, rarity:string, description:string}}
+     */
+    getResourceInfo(type) {
+        const resourceMap = {
+            gold: { name: '金币', icon: '💰', rarity: 'common', description: '通用货币，可用于抽卡、商城购买和建筑发展' },
+            wood: { name: '木材', icon: '🪵', rarity: 'common', description: '避难所建设常用的基础木料' },
+            stone: { name: '石材', icon: '🪨', rarity: 'common', description: '避难所建设常用的坚固石料' },
+            meat: { name: '肉类', icon: '🍖', rarity: 'common', description: '重要食物资源，可维持生存' },
+            water: { name: '水源', icon: '💧', rarity: 'common', description: '重要生存资源，不可或缺' },
+            diamond: { name: '钻石', icon: '💎', rarity: 'epic', description: '高价值稀有货币' }
+        };
+
+        return resourceMap[type] || {
+            name: type,
+            icon: '📦',
+            rarity: 'common',
+            description: '基础资源'
+        };
+    }
+
+    /**
+     * 获取资源中文名
+     * @param {string} type - 资源类型
+     * @returns {string}
+     */
+    getResourceDisplayName(type) {
+        return this.getResourceInfo(type).name;
+    }
+
+    /**
      * 获取建筑
+
      * @param {string} buildingId - 建筑ID
      * @returns {Building|null}
      */
@@ -91,9 +144,10 @@ class ShelterManager {
         const cost = building.getUpgradeCost();
         for (const [resource, amount] of Object.entries(cost)) {
             if (this.getResource(resource) < amount) {
-                return { success: false, message: `资源不足: ${resource}` };
+                return { success: false, message: `资源不足: ${this.getResourceDisplayName(resource)}` };
             }
         }
+
 
         // 消耗资源
         for (const [resource, amount] of Object.entries(cost)) {

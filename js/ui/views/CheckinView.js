@@ -24,9 +24,10 @@ class CheckinView {
         let itemsHtml = '';
         rewards.forEach((reward, index) => {
             const day = index + 1;
-            const isChecked = day < status.currentDay || (status.isTodayCheckedIn && day === status.currentDay);
-            const isToday = !status.isTodayCheckedIn && day === status.currentDay;
-            const isFuture = day > status.currentDay;
+            const isChecked = day <= status.claimedDay;
+            const isToday = status.canCheckin && day === status.nextDay;
+            const isFuture = day > status.claimedDay && day !== status.nextDay;
+
             
             // 样式
             let dayClass = 'checkin-day';
@@ -87,17 +88,20 @@ class CheckinView {
     /**
      * 执行签到
      */
-    doCheckin() {
+    async doCheckin() {
         const result = checkinManager.checkin();
         if (result.success) {
-            // 显示奖励
-            let rewardText = result.rewards.map(r => `${r.name}x${r.count}`).join(', ');
-            Toast.success(`签到成功！获得: ${rewardText}`);
             this.render();
+            await RewardModal.show({
+                title: `签到成功 - 第${result.claimedDay}天`,
+                rewards: result.rewards,
+                summaryText: '本次签到奖励已入账'
+            });
         } else {
             Toast.error(result.message);
         }
     }
+
 
     refresh() {
         if (this.visible) this.render();

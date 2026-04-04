@@ -7,6 +7,7 @@ class BackpackView {
         this.visible = false;
         this.currentPage = 1;
         this.pageSize = 16;
+        this.category = 'item';
     }
 
     show() {
@@ -23,6 +24,10 @@ class BackpackView {
         this.element.innerHTML = `
             <div class="backpack-view">
                 <h2 class="backpack-title">背包</h2>
+                <div class="item-grid-toolbar" style="margin-bottom:12px;">
+                    <button class="item-grid-tab ${this.category === 'item' ? 'active' : ''}" onclick="window.game.ui.backpackView.setCategory('item')">普通物品</button>
+                    <button class="item-grid-tab ${this.category === 'equipment' ? 'active' : ''}" onclick="window.game.ui.backpackView.setCategory('equipment')">装备</button>
+                </div>
                 <div id="backpack-grid" class="backpack-grid"></div>
                 <div id="backpack-pagination" style="display:flex;justify-content:center;align-items:center;gap:15px;margin-top:20px;"></div>
             </div>
@@ -31,31 +36,35 @@ class BackpackView {
         this.renderPagination();
     }
 
+    setCategory(category) {
+        this.category = category;
+        this.currentPage = 1;
+        this.render();
+    }
+
+    getSourceItems() {
+        return this.category === 'equipment' ? itemManager.getAllEquipment() : itemManager.getAllItems();
+    }
+
     renderItems() {
         const grid = this.element.querySelector('#backpack-grid');
-        const items = itemManager.getAllItems();
+        const items = this.getSourceItems();
         const start = (this.currentPage - 1) * this.pageSize;
         const end = start + this.pageSize;
         const pageItems = items.slice(start, end);
         grid.innerHTML = '';
         if (pageItems.length === 0) {
-            grid.innerHTML = '<div style="text-align:center;color:#a0a0a0;">背包为空</div>';
+            grid.innerHTML = '<div style="text-align:center;color:#a0a0a0;grid-column:1 / -1;">背包为空</div>';
             return;
         }
         pageItems.forEach(item => {
-            const card = new ItemCard({
-                item: item,
-                onClick: () => this.onItemClick(item),
-                onLongPress: (item) => this.onItemLongPress(item)
-            });
-            card.render(grid);
+            new ItemCard({ item, onClick: () => this.onItemClick(item), onLongPress: current => this.onItemClick(current) }).render(grid);
         });
     }
 
     renderPagination() {
         const container = this.element.querySelector('#backpack-pagination');
-        const items = itemManager.getAllItems();
-        const totalPages = Math.max(1, Math.ceil(items.length / this.pageSize));
+        const totalPages = Math.max(1, Math.ceil(this.getSourceItems().length / this.pageSize));
         container.innerHTML = `
             <button class="pagination-btn" ${this.currentPage <= 1 ? 'disabled' : ''} onclick="window.game.ui.backpackView.prevPage()">◀</button>
             <span class="pagination-info">${this.currentPage}/${totalPages}</span>
@@ -71,8 +80,7 @@ class BackpackView {
     }
 
     nextPage() {
-        const items = itemManager.getAllItems();
-        const totalPages = Math.ceil(items.length / this.pageSize);
+        const totalPages = Math.max(1, Math.ceil(this.getSourceItems().length / this.pageSize));
         if (this.currentPage < totalPages) {
             this.currentPage++;
             this.render();
@@ -80,89 +88,11 @@ class BackpackView {
     }
 
     onItemClick(item) {
-        const modal = new Modal({
-            title: item.name,
-            content: `
-                <div style="text-align:center;">
-                    <div style="font-size:48px;margin-bottom:15px;">${item.icon}</div>
-                    <p style="margin-bottom:10px;">${item.description}</p>
-                    <p style="color:${this.getRarityColor(item.rarity)}">${this.getRarityName(item.rarity)}</p>
-                    <p>数量: ${item.count}</p>
-                    ${item.stats ? `<p>属性: ${this.formatStats(item.stats)}</p>` : ''}
-                </div>
-            `,
-            buttons: [
-                {
-                    text: '使用',
-                    className: 'btn-primary',
-                    onClick: () => {
-                        const result = itemManager.useItem(item.id);
-                        if (result.success) {
-                            Toast.success(result.message);
-                            this.render();
-                            modal.close();
-                        } else {
-                            Toast.error(result.message);
-                        }
-                    }
-                },
-                {
-                    text: '出售',
-                    className: 'btn-secondary',
-                    onClick: () => {
-                        const result = itemManager.sellItem(item.id, 1);
-                        if (result.success) {
-                            Toast.success(result.message);
-                            this.render();
-                            modal.close();
-                        } else {
-                            Toast.error(result.message);
-                        }
-                    }
-                },
-                {
-                    text: '全部出售',
-                    className: 'btn-danger',
-                    onClick: () => {
-                        const result = itemManager.sellItem(item.id, item.count);
-                        if (result.success) {
-                            Toast.success(result.message);
-                            this.render();
-                            modal.close();
-                        } else {
-                            Toast.error(result.message);
-                        }
-                    }
-                },
-                {
-                    text: '关闭',
-                    className: 'btn-secondary',
-                    onClick: () => modal.close()
-                }
-            ]
-        });
-        modal.show();
-    }
-
-    onItemLongPress(item) {
-        this.onItemClick(item);
-    }
-
-    getRarityColor(rarity) {
-        const colors = { common: '#a0a0a0', rare: '#a335ee', epic: '#ff8000', legendary: '#ffcc00' };
-        return colors[rarity] || colors.common;
-    }
-
-    getRarityName(rarity) {
-        const names = { common: '普通', rare: '稀有', epic: '史诗', legendary: '传说' };
-        return names[rarity] || '普通';
-    }
-
-    formatStats(stats) {
-        const parts = [];
-        if (stats.attack) parts.push(`攻击+${stats.attack}`);
-        if (stats.defense) parts.push(`防御+${stats.defense}`);
-        return parts.join(', ');
+        if (item.type === 'equipment') {
+            window.game.ui.itemGrid.showEquipmentDetail(item);
+            return;
+        }
+        window.game.ui.itemGrid.showItemDetail(item);
     }
 
     refresh() {
@@ -171,6 +101,4 @@ class BackpackView {
 }
 
 const backpackView = new BackpackView();
-
-// 暴露到全局
 window.backpackView = backpackView;

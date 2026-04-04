@@ -29,40 +29,50 @@ class HeroCard {
 
         const card = document.createElement('div');
         card.className = 'hero-card card';
-        if (this.config.selected) {
+
+        const isInTeam = typeof heroManager !== 'undefined'
+            && heroManager
+            && typeof heroManager.isHeroInTeam === 'function'
+            && heroManager.isHeroInTeam(hero.id);
+
+        if (this.config.selected || isInTeam) {
             card.classList.add('selected');
         }
 
         const rarityColor = this.getRarityColor(hero.rarity);
+        const starInfo = HeroConfig.getStarDisplayInfo(hero.stars);
         card.style.borderColor = rarityColor;
 
-        // 头像
+        if (isInTeam) {
+            const badge = document.createElement('div');
+            badge.className = 'hero-team-badge';
+            badge.textContent = '已参战';
+            card.appendChild(badge);
+        }
+
         const avatar = document.createElement('div');
         avatar.className = 'hero-avatar';
         avatar.textContent = hero.icon;
         avatar.style.color = rarityColor;
         card.appendChild(avatar);
 
-        // 名称
         const name = document.createElement('div');
         name.className = 'hero-name';
         name.textContent = hero.name;
         name.style.color = rarityColor;
         card.appendChild(name);
 
-        // 等级
         const level = document.createElement('div');
         level.className = 'hero-level';
         level.textContent = `Lv.${hero.level}`;
         card.appendChild(level);
 
-        // 星级
         const stars = document.createElement('div');
-        stars.className = 'hero-stars';
-        stars.textContent = '★'.repeat(hero.stars);
+        stars.className = `hero-stars ${starInfo.className}`;
+        stars.textContent = starInfo.text;
+        stars.title = starInfo.label;
         card.appendChild(stars);
 
-        // 战力
         const power = document.createElement('div');
         power.className = 'hero-power';
         power.textContent = `战力:${hero.getPower()}`;

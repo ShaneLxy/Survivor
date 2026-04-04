@@ -5,6 +5,15 @@ class BattleView {
     constructor() {
         this.element = document.getElementById('main-display');
         this.visible = false;
+        this.battleSessionId = 0;
+        this.unsubscribeState = null;
+        this.pendingAction = null;
+        this.selectionMode = null;
+        this.currentDungeon = null;
+        this.itemSelectModal = null;
+        this.pauseModal = null;
+        this.isPaused = false;
+        this.skipBattleRequested = false;
     }
 
     show() {
@@ -17,256 +26,488 @@ class BattleView {
         this.element.innerHTML = '';
     }
 
-    async startBattle(dungeonId) {
-        // 调试日志
-        window._battleDebug = { startTime: Date.now() };
-        
+    async startBattle(dungeonId, sceneId = 'standard_9x9') {
         const dungeon = dungeonManager.getDungeon(dungeonId);
-        const playerLevel = window.game.player.level;
-        
-        // 检查是否有英雄
+        if (!dungeon) {
+            Toast.error('副本不存在');
+            eventManager.emit('viewChange', { view: 'dungeon' });
+            return;
+        }
+
         const heroes = heroManager.createBattleUnits();
-        console.log('[BattleView] heroes count:', heroes.length);
-        
-        // 检查敌人
-        const enemies = dungeon.createEnemies(playerLevel);
-        console.log('[BattleView] enemies count:', enemies.length);
-        
+        const enemies = dungeon.createEnemies(window.game.player.level);
         if (heroes.length === 0) {
-            alert('没有可战斗的英雄！');
+            Toast.error('没有可战斗的英雄');
             eventManager.emit('viewChange', { view: 'dungeon' });
             return;
         }
-        
         if (enemies.length === 0) {
-            alert('没有敌人！');
+            Toast.error('没有敌人');
             eventManager.emit('viewChange', { view: 'dungeon' });
             return;
         }
-        
-        battleManager.initBattle(heroes, enemies, window.game.settings.skipBattle ? 'skip' : 'normal');
-        this.render(heroes, enemies);
-        
-        // 添加超时保护
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('战斗超时')), 30000);
-        });
-        
-        try {
-            const result = await Promise.race([
-                battleManager.executeBattle(),
-                timeoutPromise
-            ]);
-            console.log('[BattleView] got result:', result, 'time:', Date.now() - window._battleDebug.startTime);
-            this.onBattleEnd(result, dungeon);
-        } catch (e) {
-            console.error('[BattleView] battle error:', e);
-            alert('战斗出错: ' + e.message);
-            eventManager.emit('viewChange', { view: 'dungeon' });
+
+        this.currentDungeon = dungeon;
+        this.isPaused = false;
+        this.skipBattleRequested = false;
+        this.closePauseModal();
+        this.battleSessionId++;
+        battleManager.initBattle({ heroes, enemies, sceneId: dungeon.sceneId || sceneId });
+        battleManager.setDecisionProvider(context => this.requestPlayerAction(context));
+        this.renderShell();
+        this.subscribeBattleEvents();
+        this.renderBattleState();
+
+        const result = await battleManager.executeBattle();
+        if (!this.visible || !result) {
+            return;
         }
+        await this.onBattleEnd(result, dungeon);
     }
 
-    render(heroes, enemies) {
+    subscribeBattleEvents() {
+        if (this.unsubscribeState) {
+            this.unsubscribeState();
+        }
+        this.unsubscribeState = eventManager.on('battleStateChange', () => {
+            if (this.visible) {
+                this.renderBattleState();
+            }
+        });
+    }
+
+    renderShell() {
         this.element.innerHTML = `
-            <div class="battle-view">
-                <h2 class="battle-title">战斗进行中</h2>
-                <div class="battle-field">
-                    <div id="battle-heroes" class="battle-side"></div>
-                    <div style="font-size:32px;">⚔️</div>
-                    <div id="battle-enemies" class="battle-side"></div>
+            <div class="battle-view battle-grid-view">
+                <div class="battle-top-panel">
+                    <div class="battle-top-row">
+                        <button class="btn btn-secondary battle-pause-btn" onclick="window.game.ui.battleView.pauseBattle()">⏸</button>
+                        <div id="battle-turn-meta" class="battle-turn-meta"></div>
+                    </div>
+                    <div id="battle-progress-track" class="battle-progress-track"></div>
                 </div>
-                <div class="battle-actions">
-                    <button class="btn btn-secondary" onclick="window.game.ui.battleView.toggleBattleSpeed()">
-                        ${window.game.settings.skipBattle ? '跳过' : '正常'}速度
-                    </button>
-                    <button class="btn btn-danger" onclick="window.game.ui.battleView.fleeBattle()">逃跑</button>
+                <div class="battle-main-panel">
+                    <div id="battle-board" class="battle-board"></div>
+                    <div id="battle-action-panel" class="battle-action-panel"></div>
                 </div>
-                <div id="battle-log" class="battle-log"></div>
             </div>
         `;
-        this.renderUnits(heroes, 'battle-heroes');
-        this.renderUnits(enemies, 'battle-enemies');
-        eventManager.on('battleUnitAction', (data) => this.onBattleAction(data));
-        eventManager.on('battleUnitDie', (data) => this.onUnitDie(data));
     }
 
-    renderUnits(units, containerId) {
-        const container = this.element.querySelector(`#${containerId}`);
-        if (!container) {
-            console.error('[BattleView] container not found:', containerId);
+    renderBattleState() {
+        if (!this.visible) {
             return;
         }
-        container.innerHTML = '';
+        const snapshot = battleManager.getSnapshot();
+        this.renderTurnMeta(snapshot);
+        this.renderProgress(snapshot);
+        this.renderBoard(snapshot);
+        this.renderActionPanel();
+    }
+
+    renderTurnMeta(snapshot) {
+        const meta = this.element.querySelector('#battle-turn-meta');
+        if (!meta) {
+            return;
+        }
+        const actor = battleManager.currentActor;
+        const countdownText = this.pendingAction ? ` · 剩余 ${this.pendingAction.remainingTime}s` : '';
+        meta.textContent = actor
+            ? `第 ${snapshot.currentRound} 回合 · 当前行动：“${actor.name}”${countdownText}`
+            : `第 ${snapshot.currentRound} 回合`;
+    }
+
+    updateTurnMetaOnly() {
+        if (!this.visible) {
+            return;
+        }
+        this.renderTurnMeta(battleManager.getSnapshot());
+    }
+
+
+    renderProgress(snapshot) {
+        const track = this.element.querySelector('#battle-progress-track');
+        if (!track) {
+            return;
+        }
+        const units = [...snapshot.heroes, ...snapshot.enemies].filter(unit => unit.isAlive());
+        track.innerHTML = '<div class="battle-progress-scale"><span>0</span><span>100</span></div><div class="battle-progress-line"></div>';
         units.forEach(unit => {
-            const unitElement = document.createElement('div');
-            unitElement.className = 'battle-unit';
-            unitElement.id = `unit-${unit.id}`;
-            unitElement.dataset.alive = 'true';
-            unitElement.innerHTML = `
-                <div class="battle-avatar">${unit.icon}</div>
-                <div class="battle-name">${unit.name}</div>
-                <div class="battle-hp-bar">
-                    <div class="battle-hp-fill" style="width:100%;"></div>
-                </div>
-                <div class="battle-hp-text">${unit.hp}/${unit.maxHp}</div>
-            `;
-            container.appendChild(unitElement);
+            const token = document.createElement('div');
+            token.className = `battle-progress-token ${unit.camp} ${battleManager.currentActor?.id === unit.id ? 'active' : ''}`;
+            token.style.left = `calc(${Math.min(100, Math.max(0, unit.progress))}% - 13px)`;
+            token.innerHTML = `<span>${unit.icon}</span>`;
+            track.appendChild(token);
         });
     }
 
-    onBattleAction(data) {
-        if (!data || !data.target) {
-            console.error('[BattleView] onBattleAction: invalid data', data);
+    renderBoard(snapshot) {
+        const board = this.element.querySelector('#battle-board');
+        if (!board) {
             return;
         }
-        this.updateUnitHP(data.target.id, data.target.hp, data.target.maxHp);
-        const attackerName = data.attacker?.name || '未知';
-        const targetName = data.target?.name || '未知';
-        this.addBattleLog(`${attackerName} 对 ${targetName} 造成 ${data.damage} 点伤害`);
-    }
+        const { width, height } = snapshot.scene;
+        board.style.gridTemplateColumns = `repeat(${width}, minmax(0, 1fr))`;
+        board.style.gridTemplateRows = `repeat(${height}, minmax(0, 1fr))`;
+        board.innerHTML = '';
 
-    onUnitDie(data) {
-        const unitElement = this.element.querySelector(`#unit-${data.unit.id}`);
-        if (unitElement) {
-            unitElement.dataset.alive = 'false';
-            unitElement.style.opacity = '0.3';
-        }
-    }
+        const actor = this.pendingAction?.context?.actor || null;
+        const isMoveMode = this.selectionMode === 'move';
+        const isTargetMode = this.selectionMode === 'attack' || this.selectionMode === 'skill';
+        const boardClickable = Boolean(actor && this.selectionMode && !this.isPaused && !battleManager.isAutoBattleEnabled());
+        const moveTargetSet = isMoveMode && actor
+            ? new Set(battleManager.getReachableCells(actor).map(position => `${position.x},${position.y}`))
+            : new Set();
+        const attackTargetIds = isTargetMode && actor
+            ? new Set(battleManager.getAttackableTargets(actor).map(target => target.id))
+            : new Set();
 
-    updateUnitHP(unitId, hp, maxHp) {
-        const unitElement = this.element.querySelector(`#unit-${unitId}`);
-        if (!unitElement) return;
-        const hpFill = unitElement.querySelector('.battle-hp-fill');
-        const hpText = unitElement.querySelector('.battle-hp-text');
-        const percent = (hp / maxHp * 100).toFixed(1);
-        hpFill.style.width = `${percent}%`;
-        hpText.textContent = `${hp}/${maxHp}`;
-    }
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const cell = document.createElement('button');
+                cell.type = 'button';
+                cell.className = 'battle-cell';
+                cell.dataset.x = String(x);
+                cell.dataset.y = String(y);
+                cell.addEventListener('click', () => this.handleBoardCellClick(x, y));
 
-    addBattleLog(message) {
-        const logElement = this.element.querySelector('#battle-log');
-        if (!logElement) {
-            console.error('[BattleView] battle-log element not found');
-            return;
-        }
-        const entry = document.createElement('div');
-        entry.className = 'battle-log-entry';
-        entry.textContent = String(message);
-        logElement.appendChild(entry);
-        logElement.scrollTop = logElement.scrollHeight;
-    }
+                const unit = battleManager.getUnitAt({ x, y });
+                const cellKey = `${x},${y}`;
+                let isInteractiveCell = false;
 
-    onBattleEnd(result, dungeon) {
-        console.log('[BattleView] onBattleEnd called, result:', result);
-        
-        try {
-            this.stopBattle();
-            
-            setTimeout(() => {
-                try {
-                    console.log('[BattleView] Processing result, victory:', result ? result.victory : 'no result');
-                    
-                    // 安全检查 result
-                    if (!result) {
-                        console.error('[BattleView] result is null/undefined!');
-                        this.showBattleResult(false, null);
-                        return;
+                if (unit) {
+                    cell.classList.add('occupied', unit.camp);
+                    if (battleManager.currentActor?.id === unit.id) {
+                        cell.classList.add('active');
                     }
-                    
-                    if (result.victory) {
-                        console.log('[BattleView] Victory, calculating rewards...');
-                        const rewards = dungeon.calculateRewards(window.game.player.level);
-                        console.log('[BattleView] rewards:', JSON.stringify(rewards));
-                        
-                        if (rewards && rewards.gold) {
-                            const goldAmount = Number(rewards.gold) || 0;
-                            shelterManager.addResource('gold', goldAmount);
-                            console.log('[BattleView] Added gold:', goldAmount);
-                        }
-                        if (rewards && rewards.exp) {
-                            window.game.player.exp += Number(rewards.exp) || 0;
-                        }
-                        
-                        if (rewards && rewards.items && rewards.items.length > 0) {
-                            rewards.items.forEach(item => {
-                                if (item && item.id) {
-                                    itemManager.addItem(item.id, item.count || 1);
-                                }
-                            });
-                        }
-                        
-                        dungeonManager.completeDungeon(dungeon.id, 3);
-                        this.showBattleResult(true, rewards);
+                    cell.innerHTML = `
+                        <div class="battle-unit-token ${unit.camp}">
+                            <div class="battle-unit-icon">${unit.icon}</div>
+                            <div class="battle-unit-mini-hp"><div style="width:${Math.max(0, unit.hp / unit.maxHp * 100)}%"></div></div>
+                            <div class="battle-unit-mini-text">${unit.hp}/${unit.maxHp}</div>
+                        </div>
+                    `;
+                }
+
+                if (boardClickable && isMoveMode && moveTargetSet.has(cellKey)) {
+                    cell.classList.add('move-target');
+                    isInteractiveCell = true;
+                }
+
+                if (isTargetMode && unit) {
+                    if (attackTargetIds.has(unit.id)) {
+                        cell.classList.add('attack-target');
+                        isInteractiveCell = true;
                     } else {
-                        console.log('[BattleView] Defeat');
-                        this.showBattleResult(false, null);
+                        cell.classList.add('attack-disabled');
                     }
-                } catch (innerError) {
-                    console.error('[BattleView] Inner error:', innerError);
-                    console.error('[BattleView] Stack:', innerError.stack);
-                    alert('结算出错: ' + innerError.message);
                 }
-            }, 500);
-        } catch (e) {
-            console.error('[BattleView] onBattleEnd error:', e);
-            alert('战斗结束出错: ' + e.message);
-        }
-    }
 
-    showBattleResult(victory, rewards) {
-        console.log('[BattleView] showBattleResult called, victory:', victory, 'rewards:', rewards);
-        
-        try {
-            // 准备道具显示 - 使用安全的字符串拼接
-            let itemsHtml = '';
-            if (victory && rewards && rewards.items && rewards.items.length > 0) {
-                const items = [];
-                for (let i = 0; i < rewards.items.length; i++) {
-                    const item = rewards.items[i];
-                    const icon = (item && item.icon) ? String(item.icon) : '📦';
-                    const name = (item && item.name) ? String(item.name) : '未知';
-                    const count = (item && item.count) ? String(item.count) : '1';
-                    items.push('<span style="margin:5px;">' + icon + name + 'x' + count + '</span>');
-                }
-                itemsHtml = items.join('');
+                cell.disabled = !(boardClickable && isInteractiveCell);
+                board.appendChild(cell);
             }
-            
-            const exp = (rewards && rewards.exp) ? String(rewards.exp) : '0';
-            const gold = (rewards && rewards.gold) ? String(rewards.gold) : '0';
-            
-            const modal = new Modal({
-                title: victory ? '战斗胜利' : '战斗失败',
-                content: `
-                    <div style="text-align:center;">
-                        <div style="font-size:64px;margin-bottom:15px;">${victory ? '🎉' : '💀'}</div>
-                        ${victory ? `
-                            <p>获得经验: ${exp}</p>
-                            <p>获得金币: ${gold}</p>
-                            ${itemsHtml ? '<p>获得道具:</p>' + itemsHtml : ''}
-                        ` : '<p>再接再厉!</p>'}
-                    </div>
-                `,
-                buttons: [{
-                    text: '确定',
-                    className: 'btn-primary',
-                    onClick: () => {
-                        modal.close();
-                        eventManager.emit('viewChange', { view: 'dungeon' });
-                    }
-                }]
-            });
-            modal.show();
-            console.log('[BattleView] Modal shown successfully');
-        } catch (e) {
-            console.error('[BattleView] showBattleResult error:', e);
-            alert('显示结果出错: ' + e.message);
         }
     }
 
-    toggleBattleSpeed() {
-        window.game.settings.skipBattle = !window.game.settings.skipBattle;
-        battleManager.setBattleSpeed(window.game.settings.skipBattle ? 'skip' : 'normal');
-        Toast.info(window.game.settings.skipBattle ? '已开启跳过战斗' : '已恢复正常速度');
+
+    renderActionPanel() {
+        const panel = this.element.querySelector('#battle-action-panel');
+        if (!panel) {
+            return;
+        }
+
+        if (this.isPaused) {
+            panel.innerHTML = '<div class="battle-action-status">战斗已暂停</div>';
+            return;
+        }
+
+        if (battleManager.isAutoBattleEnabled()) {
+            panel.innerHTML = '<div class="battle-action-status">自动战斗中，系统将自动处理本场战斗。</div>';
+            return;
+        }
+
+        if (!this.pendingAction) {
+            panel.innerHTML = '<div class="battle-action-status">等待回合推进中...</div>';
+            return;
+        }
+
+        const actor = this.pendingAction.context.actor;
+        panel.innerHTML = `
+            <div class="battle-action-buttons">
+                <button class="btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')">攻击</button>
+                <button class="btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')">移动</button>
+                <button class="btn btn-secondary" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })">防御</button>
+                <button class="btn btn-secondary" onclick="window.game.ui.battleView.chooseBattleItem()">使用道具</button>
+                <button class="btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('skill')" ${actor.skill ? '' : 'disabled'}>使用技能</button>
+            </div>
+            <div class="battle-action-tip">${this.getSelectionTip()}</div>
+        `;
+    }
+
+    getSelectionTip() {
+        switch (this.selectionMode) {
+            case 'move':
+                return '点击左侧高亮格子移动。';
+            case 'attack':
+                return '点击左侧高亮敌人攻击。';
+            case 'skill':
+                return '点击左侧高亮敌人释放技能。';
+            default:
+                return '请选择本回合行动。';
+        }
+    }
+
+    startPendingActionTimer() {
+        if (!this.pendingAction || this.isPaused || battleManager.isAutoBattleEnabled()) {
+            return;
+        }
+        if (this.pendingAction.timerId) {
+            clearInterval(this.pendingAction.timerId);
+        }
+        this.pendingAction.timerId = setInterval(() => {
+            if (!this.pendingAction || this.isPaused) {
+                return;
+            }
+            this.pendingAction.remainingTime -= 1;
+            if (this.pendingAction.remainingTime <= 0) {
+                this.resolvePendingAction({ type: 'defend', reason: 'timeout' });
+                return;
+            }
+            this.updateTurnMetaOnly();
+        }, 1000);
+    }
+
+
+    requestPlayerAction(context) {
+        return new Promise(resolve => {
+            this.clearPendingAction();
+            this.pendingAction = {
+                context,
+                resolve,
+                remainingTime: context.timeout || 10,
+                timerId: null
+            };
+            this.selectionMode = null;
+            this.startPendingActionTimer();
+            this.renderBattleState();
+        });
+    }
+
+    closeItemSelectModal() {
+        if (this.itemSelectModal) {
+            this.itemSelectModal.close();
+            this.itemSelectModal = null;
+        }
+    }
+
+    clearPendingAction(resolveWith = null) {
+        if (this.pendingAction?.timerId) {
+            clearInterval(this.pendingAction.timerId);
+        }
+        this.closeItemSelectModal();
+        if (resolveWith && this.pendingAction?.resolve) {
+            this.pendingAction.resolve(resolveWith);
+        }
+        this.pendingAction = null;
+        this.selectionMode = null;
+    }
+
+    resolvePendingAction(action) {
+        if (!this.pendingAction || this.isPaused) {
+            return;
+        }
+        const resolver = this.pendingAction.resolve;
+        this.clearPendingAction();
+        this.renderBattleState();
+        resolver(action || { type: 'defend' });
+    }
+
+    selectActionMode(mode) {
+        if (!this.pendingAction || this.isPaused) {
+            return;
+        }
+        this.selectionMode = this.selectionMode === mode ? null : mode;
+        this.renderBattleState();
+    }
+
+    handleBoardCellClick(x, y) {
+        if (!this.pendingAction || this.isPaused || battleManager.isAutoBattleEnabled()) {
+            return;
+        }
+        const actor = this.pendingAction.context.actor;
+        if (this.selectionMode === 'move') {
+            const canMove = battleManager.getReachableCells(actor).some(position => position.x === x && position.y === y);
+            if (canMove) {
+                this.resolvePendingAction({ type: 'move', position: { x, y } });
+            }
+            return;
+        }
+        if (this.selectionMode === 'attack' || this.selectionMode === 'skill') {
+            const target = battleManager.getUnitAt({ x, y });
+            if (target && target.camp !== actor.camp && actor.distanceTo(target) <= actor.attackRange) {
+                this.resolvePendingAction({ type: this.selectionMode, targetId: target.id });
+            }
+        }
+    }
+
+    chooseBattleItem() {
+        if (!this.pendingAction || this.isPaused) {
+            return;
+        }
+        const actor = this.pendingAction.context.actor;
+        const items = itemManager.getAllItems().filter(item => item.effect?.type === 'heal');
+        if (items.length === 0) {
+            Toast.info('当前没有可在战斗中使用的恢复道具');
+            return;
+        }
+
+        let content = '<div style="display:flex;flex-direction:column;gap:10px;">';
+        items.forEach(item => {
+            content += `
+                <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                    <div>
+                        <div style="font-weight:bold;">${item.icon} ${item.name} x${item.count}</div>
+                        <div style="font-size:12px;color:#a0a0a0;">${item.description}</div>
+                    </div>
+                    <button class="btn btn-primary btn-small" onclick="window.game.ui.battleView.useBattleItem('${item.id}', '${actor.id}')">使用</button>
+                </div>
+            `;
+        });
+        content += '</div>';
+
+        const modal = new Modal({
+            title: '选择道具',
+            content,
+            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }]
+        });
+        this.itemSelectModal = modal;
+        modal.show();
+    }
+
+    useBattleItem(itemId, actorId) {
+        if (this.isPaused) {
+            return;
+        }
+        this.closeItemSelectModal();
+        this.resolvePendingAction({ type: 'item', itemId, targetId: actorId });
+    }
+
+    pauseBattle() {
+        if (!this.visible || !battleManager.isBattling || this.isPaused) {
+            return;
+        }
+        this.isPaused = true;
+        this.selectionMode = null;
+        if (this.pendingAction?.timerId) {
+            clearInterval(this.pendingAction.timerId);
+            this.pendingAction.timerId = null;
+        }
+        this.closeItemSelectModal();
+        this.showPauseModal();
+        this.renderBattleState();
+    }
+
+    showPauseModal() {
+        if (this.pauseModal?.isShown()) {
+            return;
+        }
+        this.pauseModal = new Modal({
+            title: '游戏暂停',
+            content: '',
+            showClose: false,
+            buttons: [
+                { text: '跳过战斗', className: 'btn-danger', onClick: () => this.skipBattle() },
+                { text: '返回战斗', className: 'btn-primary', onClick: () => this.resumeBattle() }
+            ]
+        });
+        this.pauseModal.show();
+    }
+
+    closePauseModal() {
+        if (!this.pauseModal) {
+            return;
+        }
+        const modal = this.pauseModal;
+        this.pauseModal = null;
+        modal.close();
+    }
+
+    resumeBattle() {
+        if (!this.isPaused) {
+            return;
+        }
+        this.isPaused = false;
+        this.closePauseModal();
+        if (this.pendingAction) {
+            this.startPendingActionTimer();
+        }
+        this.renderBattleState();
+    }
+
+    skipBattle() {
+        if (!battleManager.isBattling) {
+            return;
+        }
+        this.skipBattleRequested = true;
+        this.isPaused = false;
+        this.closePauseModal();
+        battleManager.setAutoBattleOverride(true);
+        if (this.pendingAction) {
+            const autoAction = battleManager.chooseAutoAction(this.pendingAction.context.actor);
+            this.resolvePendingAction(autoAction);
+            return;
+        }
+        this.renderBattleState();
+    }
+
+    applyAutoBattleSettingChange() {
+        if (this.isPaused) {
+            this.renderBattleState();
+            return;
+        }
+        if (battleManager.isAutoBattleEnabled() && this.pendingAction) {
+            const autoAction = battleManager.chooseAutoAction(this.pendingAction.context.actor);
+            this.resolvePendingAction(autoAction);
+            return;
+        }
+        this.renderBattleState();
+    }
+
+    toggleAutoBattle() {
+        window.game.settings.autoBattle = !window.game.settings.autoBattle;
+        window.game.save();
+        Toast.info(window.game.settings.autoBattle ? '已开启自动战斗' : '已关闭自动战斗');
+        this.applyAutoBattleSettingChange();
+    }
+
+    async onBattleEnd(result, dungeon) {
+        this.isPaused = false;
+        this.skipBattleRequested = false;
+        this.closePauseModal();
+        battleManager.setAutoBattleOverride();
+        this.clearPendingAction();
+        if (result.victory) {
+            const rewardResult = window.game.grantDungeonVictoryRewards(dungeon, result.participants || heroManager.getTeamIds());
+            await RewardModal.show({
+                title: '战斗胜利',
+                rewards: rewardResult.rewardEntries,
+                summaryText: '本次副本奖励已全部结算'
+            });
+            eventManager.emit('viewChange', { view: 'dungeon' });
+            return;
+        }
+
+        const modal = new Modal({
+            title: '战斗失败',
+            content: `
+                <div style="text-align:center;">
+                    <div style="font-size:64px;margin-bottom:15px;">💀</div>
+                    <p>再接再厉！</p>
+                </div>
+            `,
+            buttons: [{ text: '确定', className: 'btn-primary', onClick: () => { modal.close(); eventManager.emit('viewChange', { view: 'dungeon' }); } }]
+        });
+        modal.show();
     }
 
     fleeBattle() {
@@ -277,13 +518,19 @@ class BattleView {
     }
 
     stopBattle() {
-        eventManager.off('battleUnitAction');
-        eventManager.off('battleUnitDie');
+        this.isPaused = false;
+        this.skipBattleRequested = false;
+        this.closePauseModal();
+        battleManager.setAutoBattleOverride();
+        this.clearPendingAction({ type: 'defend', reason: 'cancelled' });
+        if (this.unsubscribeState) {
+            this.unsubscribeState();
+            this.unsubscribeState = null;
+        }
         battleManager.reset();
+        this.currentDungeon = null;
     }
 }
 
 const battleView = new BattleView();
-
-// 暴露到全局
 window.battleView = battleView;

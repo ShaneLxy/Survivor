@@ -8,43 +8,34 @@ class Dungeon {
         this.icon = config.icon;
         this.level = config.level;
         this.energyCost = config.energyCost;
+        this.sceneId = config.sceneId || 'standard_9x9';
         this.enemies = config.enemies || [];
         this.rewards = config.rewards || {};
         this.description = config.description;
     }
 
-    /**
-     * 创建敌人战斗单位
-     * @param {number} playerLevel - 玩家等级
-     * @returns {Array<BattleUnit>}
-     */
     createEnemies(playerLevel) {
         const enemyUnits = [];
-
         for (const enemyConfig of this.enemies) {
             const config = DungeonConfig.getEnemyConfig(enemyConfig.id);
             if (!config) continue;
-
-            for (let i = 0; i < enemyConfig.count; i++) {
+            for (let index = 0; index < enemyConfig.count; index++) {
                 const stats = DungeonConfig.calculateEnemyStats(enemyConfig.id, playerLevel);
-                const enemyConfigWithStats = {
-                    ...config,
+                const enemy = new BattleUnit({
+                    id: Utils.generateId(),
+                    name: config.name,
+                    icon: config.icon,
+                    type: 'enemy',
+                    camp: 'enemy',
+                    rank: config.rank || 'normal',
                     baseStats: stats
-                };
-
-                const enemy = new BattleUnit(enemyConfigWithStats);
+                });
                 enemyUnits.push(enemy);
             }
         }
-
         return enemyUnits;
     }
 
-    /**
-     * 计算奖励
-     * @param {number} playerLevel - 玩家等级
-     * @returns {Object}
-     */
     calculateRewards(playerLevel) {
         const rewards = {
             gold: Utils.randomInt(this.rewards.gold.min, this.rewards.gold.max),
@@ -52,34 +43,21 @@ class Dungeon {
             items: []
         };
 
-        // 随机获得道具
-        if (this.rewards.items) {
-            for (const itemConfig of this.rewards.items) {
-                if (Math.random() < itemConfig.chance) {
-                    const itemDef = ItemConfig.getItemConfig(itemConfig.id);
-                    if (itemDef) {
-                        rewards.items.push(new Item(itemDef));
-                    }
+        if (Array.isArray(this.rewards.items)) {
+            this.rewards.items.forEach(itemConfig => {
+                if (Math.random() < itemConfig.chance && ItemConfig.getItemConfig(itemConfig.id)) {
+                    rewards.items.push({ id: itemConfig.id, count: 1 });
                 }
-            }
+            });
         }
 
         return rewards;
     }
 
-    /**
-     * 是否可进入
-     * @param {number} playerLevel - 玩家等级
-     * @returns {boolean}
-     */
     canEnter(playerLevel) {
         return playerLevel >= this.level;
     }
 
-    /**
-     * 获取信息
-     * @returns {Object}
-     */
     getInfo() {
         return {
             id: this.id,
@@ -88,8 +66,11 @@ class Dungeon {
             level: this.level,
             energyCost: this.energyCost,
             description: this.description,
-            enemyCount: this.enemies.reduce((sum, e) => sum + e.count, 0),
+            sceneId: this.sceneId,
+            enemyCount: this.enemies.reduce((sum, enemy) => sum + enemy.count, 0),
             rewards: this.rewards
         };
     }
 }
+
+window.Dungeon = Dungeon;

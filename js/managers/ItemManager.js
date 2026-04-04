@@ -6,59 +6,91 @@ class ItemManager {
         if (ItemManager.instance) {
             return ItemManager.instance;
         }
-        this.items = []; // 道具列表
-        this.maxSlots = 100; // 背包格子上限
+        this.items = [];
+        this.equipmentItems = [];
+        this.maxSlots = 120;
         ItemManager.instance = this;
     }
 
-    /**
-     * 初始化
-     */
     init(saveData) {
-        if (saveData && saveData.items) {
-            this.items = saveData.items.map(itemData => {
+        this.items = [];
+        this.equipmentItems = [];
+
+        const normalized = this.normalizeSaveData(saveData);
+        if (normalized.items.length > 0 || normalized.equipment.length > 0) {
+            normalized.items.forEach(itemData => {
                 const config = ItemConfig.getItemConfig(itemData.id);
-                if (config) {
-                    const item = new Item(config, itemData.count);
-                    return item;
+                if (!config) {
+                    return;
                 }
-                return null;
-            }).filter(i => i);
+                this.items.push(new Item(config, itemData.count));
+            });
+
+            normalized.equipment.forEach(equipmentData => {
+                const equipment = Equipment.fromSaveData(equipmentData);
+                if (equipment) {
+                    this.equipmentItems.push(equipment);
+                }
+            });
         } else {
-            // 初始道具
             this.addInitialItems();
         }
     }
 
-    /**
-     * 添加初始道具
-     */
+    normalizeSaveData(saveData) {
+        if (!saveData) {
+            return { items: [], equipment: [] };
+        }
+
+        if (Array.isArray(saveData)) {
+            const items = [];
+            const equipment = [];
+            saveData.forEach(entry => {
+                const config = ItemConfig.getItemConfig(entry.id);
+                if (!config) {
+                    return;
+                }
+                if (this.isLegacyEquipmentConfig(config)) {
+                    const count = Math.max(1, Number(entry.count) || 1);
+                    for (let index = 0; index < count; index++) {
+                        const legacyEquipment = EquipmentConfig.createLegacyEquipment(config);
+                        if (legacyEquipment) {
+                            equipment.push(legacyEquipment.getSaveData());
+                        }
+                    }
+                    return;
+                }
+                items.push({ id: entry.id, count: Number(entry.count) || 0 });
+            });
+            return { items, equipment };
+        }
+
+        return {
+            items: Array.isArray(saveData.items) ? saveData.items : [],
+            equipment: Array.isArray(saveData.equipment) ? saveData.equipment : []
+        };
+    }
+
+    isLegacyEquipmentConfig(config) {
+        return config && ['weapon', 'armor'].includes(config.type);
+    }
+
     addInitialItems() {
-        const initialItems = [
+        [
             { id: 'meat', count: 10 },
             { id: 'water', count: 10 },
             { id: 'medicine', count: 3 }
-        ];
-
-        initialItems.forEach(item => {
-            this.addItem(item.id, item.count);
-        });
+        ].forEach(item => this.addItem(item.id, item.count));
     }
 
-    /**
-     * 添加道具
-     * @param {string} itemId - 道具ID
-     * @param {number} count - 数量
-     * @returns {boolean}
-     */
     addItem(itemId, count = 1) {
         const config = ItemConfig.getItemConfig(itemId);
-        if (!config) return false;
+        if (!config || this.isLegacyEquipmentConfig(config)) {
+            return false;
+        }
 
-        // 检查是否可堆叠
         if (config.stackLimit > 1) {
-            // 尝试堆叠到已有道具
-            const existingItem = this.items.find(i => i.id === itemId);
+            const existingItem = this.items.find(item => item.id === itemId);
             if (existingItem) {
                 const added = existingItem.addCount(count);
                 eventManager.emit('itemAdd', { item: existingItem, count: added });
@@ -66,9 +98,8 @@ class ItemManager {
             }
         }
 
-        // 创建新道具
-        if (this.items.length >= this.maxSlots) {
-            return false; // 背包已满
+        if (this.getUsedSlots() >= this.maxSlots) {
+            return false;
         }
 
         const item = new Item(config, count);
@@ -77,167 +108,168 @@ class ItemManager {
         return true;
     }
 
-    /**
-     * 移除道具
-     * @param {string} itemId - 道具ID
-     * @param {number} count - 数量
-     * @returns {boolean}
-     */
+    addEquipment(equipment) {
+        if (!(equipment instanceof Equipment)) {
+            equipment = Equipment.fromSaveData(equipment);
+        }
+        if (!equipment || this.getUsedSlots() >= this.maxSlots) {
+            return false;
+        }
+        this.equipmentItems.push(equipment);
+        eventManager.emit('equipmentAdd', { equipment });
+        eventManager.emit('itemAdd', { item: equipment, count: 1 });
+        return true;
+    }
+
+    getUsedSlots() {
+        return this.items.length + this.equipmentItems.length;
+    }
+
     removeItem(itemId, count = 1) {
         const item = this.getItem(itemId);
-        if (!item) return false;
-
-        if (item.removeCount(count)) {
-            if (item.isEmpty()) {
-                const index = this.items.indexOf(item);
-                this.items.splice(index, 1);
-            }
-            eventManager.emit('itemRemove', { itemId, count });
-            return true;
+        if (!item) {
+            return false;
         }
 
-        return false;
+        if (!item.removeCount(count)) {
+            return false;
+        }
+
+        if (item.isEmpty()) {
+            this.items = this.items.filter(entry => entry !== item);
+        }
+        eventManager.emit('itemRemove', { itemId, count });
+        return true;
     }
 
-    /**
-     * 获取道具
-     * @param {string} itemId - 道具ID
-     * @returns {Item|null}
-     */
+    removeEquipment(instanceId) {
+        const index = this.equipmentItems.findIndex(item => item.instanceId === instanceId);
+        if (index === -1) {
+            return null;
+        }
+        const [equipment] = this.equipmentItems.splice(index, 1);
+        eventManager.emit('equipmentRemove', { equipment });
+        eventManager.emit('itemRemove', { itemId: instanceId, count: 1 });
+        return equipment;
+    }
+
     getItem(itemId) {
-        return this.items.find(i => i.id === itemId);
+        return this.items.find(item => item.id === itemId) || null;
     }
 
-    /**
-     * 获取所有道具
-     * @returns {Array<Item>}
-     */
+    getEquipment(instanceId) {
+        return this.equipmentItems.find(item => item.instanceId === instanceId) || null;
+    }
+
     getAllItems() {
-        return this.items;
+        return [...this.items];
     }
 
-    /**
-     * 根据类型获取道具
-     * @param {string} type - 类型
-     * @returns {Array<Item>}
-     */
+    getAllEquipment() {
+        return [...this.equipmentItems];
+    }
+
     getItemsByType(type) {
-        return this.items.filter(i => i.type === type);
+        return this.items.filter(item => item.type === type);
     }
 
-    /**
-     * 使用道具
-     * @param {string} itemId - 道具ID
-     * @param {Object} target - 目标
-     * @returns {Object}
-     */
+    getEquipmentBySlot(slot) {
+        return this.equipmentItems.filter(item => item.slot === slot);
+    }
+
+    getDisplayInventory(category = 'item') {
+        if (category === 'equipment') {
+            return this.getAllEquipment();
+        }
+        return this.getAllItems();
+    }
+
     useItem(itemId, target) {
         const item = this.getItem(itemId);
         if (!item) {
             return { success: false, message: '道具不存在' };
         }
-
         if (item.count <= 0) {
             return { success: false, message: '道具数量不足' };
         }
 
         const result = item.use(target);
-
         if (result.success) {
+            if (result.effect?.type === 'energy') {
+                window.game.player.energy = Math.min(window.game.player.maxEnergy, window.game.player.energy + result.effect.value);
+                eventManager.emit('playerUpdate', {
+                    energy: window.game.player.energy,
+                    maxEnergy: window.game.player.maxEnergy
+                });
+            }
             if (item.isEmpty()) {
-                const index = this.items.indexOf(item);
-                this.items.splice(index, 1);
+                this.items = this.items.filter(entry => entry !== item);
             }
             eventManager.emit('itemUse', { item, target, result });
         }
-
         return result;
     }
 
-    /**
-     * 出售道具
-     * @param {string} itemId - 道具ID
-     * @param {number} count - 数量
-     * @returns {Object}
-     */
     sellItem(itemId, count = 1) {
         const item = this.getItem(itemId);
         if (!item) {
             return { success: false, message: '道具不存在' };
         }
-
         if (item.count < count) {
             return { success: false, message: '道具数量不足' };
         }
 
-        // 计算售价
-        const sellPrice = this.calculateSellPrice(itemId, count);
-
+        const sellPrice = this.calculateSellPrice(itemId, count, item.rarity);
         if (!this.removeItem(itemId, count)) {
             return { success: false, message: '出售失败' };
         }
 
         shelterManager.addResource('gold', sellPrice);
         eventManager.emit('itemSell', { itemId, count, gold: sellPrice });
-
         return { success: true, message: `出售成功,获得${sellPrice}金币`, gold: sellPrice };
     }
 
-    /**
-     * 计算售价
-     * @param {string} itemId - 道具ID
-     * @param {number} count - 数量
-     * @returns {number}
-     */
-    calculateSellPrice(itemId, count) {
-        const config = ItemConfig.getItemConfig(itemId);
-        if (!config) return 0;
-
-        const rarityMultiplier = {
-            common: 1,
-            rare: 3,
-            epic: 10,
-            legendary: 30
-        };
-
-        const price = 10 * (rarityMultiplier[config.rarity] || 1);
-        return price * count;
+    sellEquipment(instanceId) {
+        const equipment = this.getEquipment(instanceId);
+        if (!equipment) {
+            return { success: false, message: '装备不存在' };
+        }
+        const sellPrice = this.calculateSellPrice(equipment.templateId, 1, equipment.rarity, true);
+        this.removeEquipment(instanceId);
+        shelterManager.addResource('gold', sellPrice);
+        eventManager.emit('equipmentSell', { instanceId, gold: sellPrice });
+        return { success: true, message: `出售成功,获得${sellPrice}金币`, gold: sellPrice };
     }
 
-    /**
-     * 分页获取道具
-     * @param {number} page - 页码
-     * @param {number} pageSize - 每页数量
-     * @returns {Object}
-     */
-    getItemsByPage(page, pageSize) {
+    calculateSellPrice(itemId, count = 1, rarity = null, isEquipment = false) {
+        const rarityMap = { common: 1, rare: 3, epic: 10, legendary: 30 };
+        const itemConfig = ItemConfig.getItemConfig(itemId);
+        const finalRarity = rarity || itemConfig?.rarity || 'common';
+        const basePrice = isEquipment ? 30 : 10;
+        return basePrice * (rarityMap[finalRarity] || 1) * Math.max(1, Number(count) || 1);
+    }
+
+    getItemsByPage(page, pageSize, category = 'item') {
+        const source = category === 'equipment' ? this.equipmentItems : this.items;
         const start = (page - 1) * pageSize;
         const end = start + pageSize;
-        const items = this.items.slice(start, end);
-
+        const items = source.slice(start, end);
         return {
             items,
             page,
             pageSize,
-            total: this.items.length,
-            totalPages: Math.ceil(this.items.length / pageSize)
+            total: source.length,
+            totalPages: Math.max(1, Math.ceil(source.length / pageSize))
         };
     }
 
-    /**
-     * 获取保存数据
-     * @returns {Array}
-     */
     getSaveData() {
-        return this.items.map(item => ({
-            id: item.id,
-            count: item.count
-        }));
+        return {
+            items: this.items.map(item => ({ id: item.id, count: item.count })),
+            equipment: this.equipmentItems.map(equipment => equipment.getSaveData())
+        };
     }
 }
 
-// 导出单例
 const itemManager = new ItemManager();
-
-// 暴露到全局
 window.itemManager = itemManager;
