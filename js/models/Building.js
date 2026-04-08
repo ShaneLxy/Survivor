@@ -21,7 +21,6 @@ class Building {
     }
 
     updateLevelEffect() {
-        const config = BuildingConfig.getBuildingConfig(this.id);
         const levelConfig = BuildingConfig.getBuildingLevelConfig(this.id, this.level);
 
         if (!levelConfig) {
@@ -31,49 +30,66 @@ class Building {
             return;
         }
 
-        // 获取下一级的升级费用（如果可以升级）
         if (this.level < this.maxLevel) {
             const nextLevelConfig = BuildingConfig.getBuildingLevelConfig(this.id, this.level + 1);
             this.upgradeCost = nextLevelConfig ? nextLevelConfig.upgradeCost : null;
         } else {
-            this.upgradeCost = null; // 已满级
+            this.upgradeCost = null;
         }
 
         if (this.id === 'building_shelter') {
             this.effect = { type: 'energyBonus', value: levelConfig.energyBonus };
-        } else if (['building_farm', 'building_mine', 'building_well'].includes(this.id)) {
-            this.effect = { type: 'production', value: levelConfig.production, resourceType: this.getResourceType(this.id) };
-        } else if (this.id === 'building_training_ground') {
-            this.effect = { type: 'statBonus', value: levelConfig.statBonus };
+            return;
         }
-    }
-
-    getResourceType(buildingId) {
-        const mapping = { 'building_farm': 'meat', 'building_mine': 'stone', 'building_well': 'water' };
-        return mapping[buildingId];
+        if (['building_farm', 'building_mine', 'building_well'].includes(this.id)) {
+            const outputs = Array.isArray(levelConfig.outputs)
+                ? levelConfig.outputs.map(output => ({
+                    type: output.type || 'resource',
+                    id: output.id,
+                    amountPerHour: Number(output.amountPerHour) || 0
+                }))
+                : [];
+            this.effect = { type: 'production', outputs };
+            return;
+        }
+        if (this.id === 'building_training_ground') {
+            this.effect = { type: 'statBonus', value: levelConfig.statBonus };
+            return;
+        }
+        this.effect = null;
     }
 
     calculateProduction(hours) {
-        if (!this.effect || this.effect.type !== 'production') return null;
-        return { resourceType: this.effect.resourceType, amount: Math.floor(this.effect.value * hours) };
+        if (!this.effect || this.effect.type !== 'production') return [];
+        return (this.effect.outputs || []).map(output => ({
+            type: output.type || 'resource',
+            id: output.id,
+            amount: Math.floor((Number(output.amountPerHour) || 0) * hours)
+        })).filter(entry => entry.amount > 0);
     }
 
     canUpgrade() { return this.level < this.maxLevel; }
-    
+
     upgrade() {
         if (this.level >= this.maxLevel) return false;
         this.level++;
         this.updateLevelEffect();
         return true;
     }
-    
+
     getUpgradeCost() { return this.upgradeCost; }
 
     getInfo() {
         return {
-            id: this.id, name: this.name, icon: this.icon, description: this.description,
-            level: this.level, maxLevel: this.maxLevel, canUpgrade: this.canUpgrade(),
-            upgradeCost: this.upgradeCost, effect: this.effect
+            id: this.id,
+            name: this.name,
+            icon: this.icon,
+            description: this.description,
+            level: this.level,
+            maxLevel: this.maxLevel,
+            canUpgrade: this.canUpgrade(),
+            upgradeCost: this.upgradeCost,
+            effect: this.effect
         };
     }
 }

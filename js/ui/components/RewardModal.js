@@ -667,7 +667,8 @@ class RewardModal {
             wood: { name: '木材', icon: '🪵', rarity: 'common', description: '避难所建设的基础材料之一' },
             stone: { name: '石材', icon: '🪨', rarity: 'common', description: '避难所建设的基础材料之一' },
             meat: { name: '肉类', icon: '🍖', rarity: 'common', description: '重要食物资源，可维持生存' },
-            water: { name: '水源', icon: '💧', rarity: 'common', description: '重要生存资源，不可或缺' },
+            iron_ore: { name: '铁矿石', icon: '⛓️', rarity: 'rare', description: '装备强化的重要材料' },
+            water: { name: '水源', icon: '💧', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' },
             diamond: { name: '钻石', icon: '💎', rarity: 'epic', description: '高价值稀有货币' }
         };
 

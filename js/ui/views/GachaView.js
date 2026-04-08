@@ -17,6 +17,20 @@ class GachaView {
         this.element.innerHTML = '';
     }
 
+    renderPoolRates(poolId) {
+        const entries = GachaConfig.getPoolDisplayEntries(poolId);
+        return `
+            <div class="recruit-rate-list">
+                ${entries.map(entry => `
+                    <div class="recruit-rate-row">
+                        <span class="recruit-rate-label">${entry.label}</span>
+                        <strong class="recruit-rate-value">${entry.rateText}</strong>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
     render() {
         const heroSingleCost = gachaManager.calculateCost('hero_pool', 1);
         const heroTenCost = gachaManager.calculateCost('hero_pool', 10);
@@ -29,8 +43,9 @@ class GachaView {
                 <div class="recruit-split-layout">
                     <div class="recruit-panel card">
                         <div class="recruit-panel-icon">🦸</div>
-                        <div class="recruit-panel-title">招募英雄</div>
-                        <div class="recruit-panel-desc">随机获得一名英雄，重复英雄会自动转化为碎片。</div>
+                        <div class="recruit-panel-title">英雄招募</div>
+                        <div class="recruit-panel-desc">奖励将从招募池中随机抽取，重复英雄仍会自动转化为碎片。</div>
+                        ${this.renderPoolRates('hero_pool')}
                         <div class="recruit-panel-actions">
                             <button class="btn btn-primary btn-large" onclick="window.game.ui.gachaView.executePool('hero_pool', 1)">招募1次 · 💰${heroSingleCost.amount}</button>
                             <button class="btn btn-primary btn-large" onclick="window.game.ui.gachaView.executePool('hero_pool', 10)">招募10次 · 💰${heroTenCost.amount}</button>
@@ -38,9 +53,9 @@ class GachaView {
                     </div>
                     <div class="recruit-panel card">
                         <div class="recruit-panel-icon">🛠️</div>
-                        <div class="recruit-panel-title">打造装备</div>
-                        <div class="recruit-panel-desc">随机打造不同品质的装备</div>
-
+                        <div class="recruit-panel-title">装备打造</div>
+                        <div class="recruit-panel-desc">打造可能获得装备，也可能拿到金币、木材或铁矿石。</div>
+                        ${this.renderPoolRates('equipment_pool')}
                         <div class="recruit-panel-actions">
                             <button class="btn btn-secondary btn-large" onclick="window.game.ui.gachaView.executePool('equipment_pool', 1)">打造1次 · 💰${equipSingleCost.amount}</button>
                             <button class="btn btn-secondary btn-large" onclick="window.game.ui.gachaView.executePool('equipment_pool', 10)">打造10次 · 💰${equipTenCost.amount}</button>

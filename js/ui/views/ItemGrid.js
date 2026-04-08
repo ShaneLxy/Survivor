@@ -41,7 +41,7 @@ class ItemGrid {
     }
 
     setupEvents() {
-        ['itemAdd', 'itemRemove', 'equipmentAdd', 'equipmentRemove', 'resourceUpdate', 'fragmentAdd', 'fragmentRemove', 'heroEquipmentChange'].forEach(eventName => {
+        ['itemAdd', 'itemRemove', 'equipmentAdd', 'equipmentRemove', 'resourceUpdate', 'fragmentAdd', 'fragmentRemove', 'heroEquipmentChange', 'equipmentUpdate'].forEach(eventName => {
             eventManager.on(eventName, () => this.refresh());
         });
         eventManager.on('viewChange', data => this.onViewChange(data));
@@ -115,18 +115,10 @@ class ItemGrid {
             return itemManager.getAllEquipment();
         }
 
-        const resources = [
-            { id: 'gold', name: '金币', icon: '💰', count: shelterManager.getResource('gold'), type: 'resource', rarity: 'common' },
-            { id: 'wood', name: '木材', icon: '🪵', count: shelterManager.getResource('wood'), type: 'resource', rarity: 'common' },
-            { id: 'stone', name: '石材', icon: '🪨', count: shelterManager.getResource('stone'), type: 'resource', rarity: 'common' },
-            { id: 'meat', name: '肉类', icon: '🍖', count: shelterManager.getResource('meat'), type: 'resource', rarity: 'common' },
-            { id: 'water', name: '水源', icon: '💧', count: shelterManager.getResource('water'), type: 'resource', rarity: 'common' }
-        ];
-
-        resources.forEach(resource => {
+        shelterManager.getDisplayResourceEntries().forEach(resource => {
             const groups = this.splitIntoGroups(resource.count, 9999);
             groups.forEach((count, index) => {
-                displayItems.push({ ...resource, count, stackLimit: 9999, groupIndex: index, totalCount: resource.count });
+                displayItems.push({ ...resource, type: 'resource', count, stackLimit: 9999, groupIndex: index, totalCount: resource.count });
             });
         });
 
@@ -220,7 +212,64 @@ class ItemGrid {
         this.onItemClick(item);
     }
 
+    showHeroExpUseModal(itemId) {
+        const item = itemManager.getItem(itemId);
+        if (!item) {
+            Toast.error('经验药水不存在');
+            return;
+        }
+        const heroes = heroManager.getAllHeroes();
+        if (heroes.length === 0) {
+            Toast.error('当前没有可培养的英雄');
+            return;
+        }
+
+        const content = `
+            <div class="hero-exp-use-panel">
+                <div class="hero-exp-use-tip">经验药水可批量使用，每瓶提供 1 点英雄经验。</div>
+                <label class="hero-exp-use-field">
+                    <span>选择英雄</span>
+                    <select id="exp-potion-hero-select" class="hero-exp-use-select">
+                        ${heroes.map(hero => `<option value="${hero.id}">${hero.name} · Lv.${hero.level}</option>`).join('')}
+                    </select>
+                </label>
+                <label class="hero-exp-use-field">
+                    <span>使用数量（当前 ${item.count}）</span>
+                    <input id="exp-potion-count-input" class="hero-exp-use-input" type="number" min="1" max="${item.count}" value="1">
+                </label>
+            </div>
+        `;
+
+        const modal = new Modal({
+            title: '使用经验药水',
+            content,
+            buttons: [
+                {
+                    text: '确认使用',
+                    className: 'btn-primary',
+                    onClick: () => {
+                        const heroId = document.getElementById('exp-potion-hero-select')?.value;
+                        const quantity = Number(document.getElementById('exp-potion-count-input')?.value) || 1;
+                        const result = itemManager.useItem(itemId, heroId, { quantity });
+                        if (result.success) {
+                            Toast.success(result.message);
+                            this.refresh();
+                            window.game.ui.heroView.refresh();
+                            window.game.save();
+                            modal.close();
+                        } else {
+                            Toast.error(result.message);
+                        }
+                    }
+                },
+                { text: '取消', className: 'btn-secondary', onClick: () => modal.close() }
+            ]
+        });
+        modal.show();
+    }
+
     showItemDetail(item) {
+        const isHeroExpPotion = item.effect?.type === 'hero_exp';
         const modal = new Modal({
             title: item.name,
             content: `
@@ -237,6 +286,11 @@ class ItemGrid {
                     text: '使用',
                     className: 'btn-primary',
                     onClick: () => {
+                        if (isHeroExpPotion) {
+                            modal.close();
+                            this.showHeroExpUseModal(item.id);
+                            return;
+                        }
                         const result = itemManager.useItem(item.id);
                         if (result.success) {
                             Toast.success(result.message);
@@ -283,6 +337,7 @@ class ItemGrid {
                 </div>
             `,
             buttons: [
+                { text: '强化', className: 'btn-primary', onClick: () => { modal.close(); equipmentEnhanceModal.show(equipment.instanceId); } },
                 { text: '前往英雄页', className: 'btn-primary', onClick: () => { modal.close(); eventManager.emit('viewChange', { view: 'hero' }); } },
                 {
                     text: '出售',

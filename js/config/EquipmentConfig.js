@@ -17,6 +17,26 @@ const EquipmentConfig = {
         legendary: '传说'
     },
 
+    enhanceableStats: ['attack', 'defense', 'hp', 'crit', 'antiCrit'],
+    enhanceRates: {
+        common: { attack: 0.02, defense: 0.018, hp: 0.012, crit: 0.01, antiCrit: 0.01 },
+        rare: { attack: 0.026, defense: 0.023, hp: 0.016, crit: 0.013, antiCrit: 0.013 },
+        epic: { attack: 0.032, defense: 0.028, hp: 0.02, crit: 0.016, antiCrit: 0.016 },
+        legendary: { attack: 0.04, defense: 0.034, hp: 0.024, crit: 0.02, antiCrit: 0.02 }
+    },
+    enhanceCostBase: {
+        common: { gold: 120, iron_ore: 2 },
+        rare: { gold: 180, iron_ore: 3 },
+        epic: { gold: 280, iron_ore: 5 },
+        legendary: { gold: 420, iron_ore: 8 }
+    },
+    enhanceSuccessConfig: {
+        common: { start: 0.95, step: 0.025, min: 0.35 },
+        rare: { start: 0.92, step: 0.028, min: 0.3 },
+        epic: { start: 0.88, step: 0.031, min: 0.24 },
+        legendary: { start: 0.84, step: 0.034, min: 0.18 }
+    },
+
     templates: [
         {
             id: 'weapon_dagger',
@@ -168,6 +188,54 @@ const EquipmentConfig = {
         return this.rarityNames[rarity] || '普通';
     },
 
+    getEnhanceRates(rarity) {
+        return this.enhanceRates[rarity] || this.enhanceRates.common;
+    },
+
+    getEnhanceableStats() {
+        return [...this.enhanceableStats];
+    },
+
+    calculateEnhanceBonus(baseStats = {}, rarity = 'common', level = 0) {
+        const enhanceLevel = Math.max(0, Number(level) || 0);
+        if (enhanceLevel <= 0) {
+            return {};
+        }
+
+        const rates = this.getEnhanceRates(rarity);
+        const bonus = {};
+        this.getEnhanceableStats().forEach(statKey => {
+            const baseValue = Number(baseStats?.[statKey]) || 0;
+            if (baseValue <= 0) {
+                return;
+            }
+            const totalBonus = Math.floor(baseValue * (Number(rates[statKey]) || 0) * enhanceLevel);
+            if (totalBonus > 0) {
+                bonus[statKey] = totalBonus;
+            }
+        });
+        return bonus;
+    },
+
+    getEnhanceCost(rarity = 'common', targetLevel = 1) {
+        const level = Math.max(1, Number(targetLevel) || 1);
+        const base = this.enhanceCostBase[rarity] || this.enhanceCostBase.common;
+        return {
+            gold: Math.max(1, Math.ceil(base.gold * Math.pow(level, 1.18))),
+            iron_ore: Math.max(1, Math.ceil(base.iron_ore * Math.pow(level, 1.12)))
+        };
+    },
+
+    getEnhanceSuccessRate(rarity = 'common', currentLevel = 0) {
+        const config = this.enhanceSuccessConfig[rarity] || this.enhanceSuccessConfig.common;
+        const level = Math.max(0, Number(currentLevel) || 0);
+        return Math.max(config.min, config.start - config.step * level);
+    },
+
+    formatSuccessRate(rate = 0) {
+        return `${(Math.max(0, Math.min(1, Number(rate) || 0)) * 100).toFixed(1)}%`;
+    },
+
     getRandomRarity(rates) {
         const random = Math.random();
         let cumulative = 0;
@@ -204,7 +272,7 @@ const EquipmentConfig = {
 
         return new Equipment(template, {
             rarity,
-            stats: mainStats
+            baseStats: mainStats
         });
     },
 
@@ -248,7 +316,7 @@ const EquipmentConfig = {
 
         return new Equipment(fakeTemplate, {
             rarity: itemConfig.rarity || 'common',
-            stats: { ...(itemConfig.stats || {}) },
+            baseStats: { ...(itemConfig.stats || {}) },
             legacy: true
         });
     }

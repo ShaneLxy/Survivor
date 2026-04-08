@@ -6,10 +6,19 @@ class SaveManager {
         if (SaveManager.instance) {
             return SaveManager.instance;
         }
-        this.saveKey = 'survivor_game_save';
+        this.baseSaveKey = 'survivor_game_save';
         this.autoSaveInterval = 30000;
         this.autoSaveTimer = null;
         SaveManager.instance = this;
+    }
+
+    /**
+     * 获取当前用户的存档 key（账号隔离）
+     */
+    getSaveKey() {
+        const user = authService?.getCurrentUser?.();
+        const userId = user?.id || user?.account || 'guest';
+        return `${this.baseSaveKey}_${userId}`;
     }
 
     init() {
@@ -41,7 +50,7 @@ class SaveManager {
                 timestamp: Date.now(),
                 data
             };
-            localStorage.setItem(this.saveKey, JSON.stringify(saveData));
+            localStorage.setItem(this.getSaveKey(), JSON.stringify(saveData));
             eventManager.emit('save', saveData);
             return true;
         } catch (error) {
@@ -53,7 +62,7 @@ class SaveManager {
 
     load() {
         try {
-            const saveString = localStorage.getItem(this.saveKey);
+            const saveString = localStorage.getItem(this.getSaveKey());
             if (!saveString) return null;
             const saveData = JSON.parse(saveString);
             eventManager.emit('load', saveData);
@@ -67,7 +76,7 @@ class SaveManager {
 
     delete() {
         try {
-            localStorage.removeItem(this.saveKey);
+            localStorage.removeItem(this.getSaveKey());
             eventManager.emit('deleteSave');
             return true;
         } catch (error) {
@@ -77,12 +86,12 @@ class SaveManager {
     }
 
     hasSave() {
-        return localStorage.getItem(this.saveKey) !== null;
+        return localStorage.getItem(this.getSaveKey()) !== null;
     }
 
     getSaveInfo() {
         try {
-            const saveString = localStorage.getItem(this.saveKey);
+            const saveString = localStorage.getItem(this.getSaveKey());
             if (!saveString) return null;
             const saveData = JSON.parse(saveString);
             return {

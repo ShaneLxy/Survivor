@@ -28,17 +28,11 @@ class CheckinView {
             const isToday = status.canCheckin && day === status.nextDay;
             const isFuture = day > status.claimedDay && day !== status.nextDay;
 
-            
-            // 样式
             let dayClass = 'checkin-day';
             if (isChecked) dayClass += ' checked';
             if (isToday) dayClass += ' today';
             if (isFuture) dayClass += ' future';
-            
-            // 第7天特别大
             const daySize = day === 7 ? 'large' : '';
-
-            // 奖励文本
             const rewardText = this.getRewardText(reward);
 
             itemsHtml += `
@@ -66,18 +60,14 @@ class CheckinView {
         `;
     }
 
-    /**
-     * 获取奖励文本
-     */
     getRewardText(reward) {
         const texts = [];
         reward.rewards.forEach(r => {
             if (r.type === 'resource') {
-                const names = { gold: '金币', wood: '木材', stone: '石材', meat: '肉类', water: '水源' };
-                texts.push(`${names[r.id] || r.id}x${r.count}`);
+                texts.push(`${shelterManager.getResourceDisplayName(r.id)}x${r.count}`);
             } else if (r.type === 'item') {
-                const names = { energy_potion: '体力药水', hero_summon: '召唤券' };
-                texts.push(`${names[r.id] || r.id}x${r.count}`);
+                const itemName = ItemConfig.getItemConfig(r.id)?.name || r.id;
+                texts.push(`${itemName}x${r.count}`);
             } else if (r.type === 'random_fragments') {
                 texts.push(`随机碎片x${r.total}`);
             }
@@ -85,9 +75,6 @@ class CheckinView {
         return texts.join(' ');
     }
 
-    /**
-     * 执行签到
-     */
     async doCheckin() {
         const result = checkinManager.checkin();
         if (result.success) {
@@ -97,11 +84,11 @@ class CheckinView {
                 rewards: result.rewards,
                 summaryText: '本次签到奖励已入账'
             });
+            window.game.save();
         } else {
             Toast.error(result.message);
         }
     }
-
 
     refresh() {
         if (this.visible) this.render();
@@ -109,5 +96,4 @@ class CheckinView {
 }
 
 const checkinView = new CheckinView();
-
 window.checkinView = checkinView;

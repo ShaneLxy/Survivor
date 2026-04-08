@@ -472,7 +472,7 @@
 
 .hero-detail-header {
     display: grid;
-    grid-template-columns: 108px minmax(0, 1fr) 108px;
+    grid-template-columns: 90px minmax(0, 1fr) 90px;
     gap: 16px;
     align-items: start;
 }
@@ -586,8 +586,7 @@
 
 .hero-equipment-button {
     width: 100%;
-    min-height: 84px;
-    padding: 10px 8px;
+    padding: 4px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
@@ -596,7 +595,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 4px;
     transition: all 0.2s ease;
 }
 
@@ -660,10 +659,10 @@
 }
 
 .hero-trait-panel {
-    width: min(640px, 80vw);
+    width: min(360px, 92vw);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .hero-trait-intro {
@@ -683,10 +682,10 @@
 
 .hero-trait-row {
     display: grid;
-    grid-template-columns: 120px 1fr;
-    gap: 12px;
+    grid-template-columns: 110px 1fr;
+    gap: 8px;
     align-items: center;
-    padding: 10px 12px;
+    padding: 6px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -699,9 +698,9 @@
 
 .hero-trait-stage {
     text-align: center;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: bold;
-    padding: 10px 8px;
+    padding: 6px 8px;
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.03);
 }
@@ -715,7 +714,9 @@
 .hero-trait-desc {
     font-size: 12px;
     color: #d6d6d6;
-    line-height: 1.7;
+    line-height: 1.6;
+    word-break: break-all;
+    max-width: 18ch;
 }
 
 
@@ -755,11 +756,13 @@
     flex: 1;
     min-width: 0;
     color: #ffd700;
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.5;
 }
 
 .battle-progress-track {
+    --battle-progress-padding: 18px;
+    --battle-progress-token-size: 26px;
     position: relative;
     height: 42px;
     border-radius: 12px;
@@ -771,8 +774,8 @@
 .battle-progress-scale {
     position: absolute;
     top: 4px;
-    left: 10px;
-    right: 10px;
+    left: var(--battle-progress-padding);
+    right: var(--battle-progress-padding);
     display: flex;
     justify-content: space-between;
     color: #a0a0a0;
@@ -781,8 +784,8 @@
 
 .battle-progress-line {
     position: absolute;
-    left: 10px;
-    right: 10px;
+    left: var(--battle-progress-padding);
+    right: var(--battle-progress-padding);
     top: 24px;
     height: 4px;
     border-radius: 999px;
@@ -792,17 +795,18 @@
 .battle-progress-token {
     position: absolute;
     top: 12px;
-    width: 26px;
-    height: 26px;
+    width: var(--battle-progress-token-size);
+    height: var(--battle-progress-token-size);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #1f1f1f;
     border: 2px solid rgba(255, 255, 255, 0.2);
-    transition: left 0.25s ease;
+    transition: left 1s ease;
     font-size: 13px;
 }
+
 
 .battle-progress-token.hero {
     border-color: rgba(74, 222, 128, 0.6);
@@ -865,19 +869,35 @@
     background: rgba(74, 222, 128, 0.24);
 }
 
+.battle-cell.attack-range {
+    background: rgba(251, 146, 60, 0.14);
+    border-color: rgba(251, 146, 60, 0.34);
+}
+
+.battle-cell.attack-range:not(:disabled):hover {
+    background: rgba(251, 146, 60, 0.2);
+}
+
 .battle-cell.attack-target {
-    background: rgba(248, 113, 113, 0.16);
-    border-color: rgba(248, 113, 113, 0.4);
+    background: rgba(248, 113, 113, 0.18);
+    border-color: rgba(248, 113, 113, 0.46);
 }
 
 .battle-cell.attack-target:not(:disabled):hover {
-    background: rgba(248, 113, 113, 0.24);
+    background: rgba(248, 113, 113, 0.26);
 }
+
 
 .battle-cell.attack-disabled {
     background: rgba(0, 0, 0, 0.24);
     border-color: rgba(255, 255, 255, 0.04);
 }
+
+.battle-cell.attack-range.attack-disabled {
+    background: rgba(251, 146, 60, 0.12);
+    border-color: rgba(251, 146, 60, 0.28);
+}
+
 
 .battle-cell.attack-disabled .battle-unit-token {
     filter: grayscale(1) brightness(0.38);
@@ -955,6 +975,101 @@
 }
 
 
+/* ===== 战斗动画系统 ===== */
+
+/* 动画层 - 覆盖在棋盘上方 */
+.battle-animation-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+    overflow: visible;
+}
+
+/* 浮动单位（移动动画用） */
+.battle-unit-floating {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    z-index: 100;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: left, top;
+}
+
+.battle-unit-floating .float-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.battle-unit-floating .float-hp {
+    width: 80%;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.battle-unit-floating .float-hp > div {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+}
+
+.battle-unit-floating .float-text {
+    font-size: 9px;
+    color: #d8d8d8;
+}
+
+/* 攻击冲撞动画 */
+@keyframes battle-attack-lunge {
+    0% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(var(--lunge-x), var(--lunge-y)) scale(1.25); }
+    50% { transform: translate(var(--lunge-x), var(--lunge-y)) scale(1.25); }
+    75% { transform: translate(calc(var(--lunge-x) * 0.3), calc(var(--lunge-y) * 0.3)) scale(1.08); }
+    100% { transform: translate(0, 0) scale(1); }
+}
+
+.battle-unit-attacking {
+    animation: battle-attack-lunge 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    z-index: 110 !important;
+}
+
+/* 受击抖动+闪红效果 */
+@keyframes battle-hit-effect {
+    0% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+    10% { transform: translate(-5px, 0) scale(1.05); filter: brightness(1.8) saturate(0) hue-rotate(-20deg); }
+    20% { transform: translate(5px, 0) scale(1.05); filter: brightness(1.8) saturate(0) hue-rotate(-20deg); }
+    30% { transform: translate(-4px, 0) scale(1.03); filter: brightness(1.4); }
+    40% { transform: translate(4px, 0) scale(1.03); filter: brightness(1.4); }
+    50% { transform: translate(-2px, 0); filter: brightness(1.1); }
+    60% { transform: translate(2px, 0); }
+    70% { transform: translate(-1px, 0); }
+    80% { transform: translate(1px, 0); }
+    90% { transform: translate(-0.5px, 0); }
+    100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+}
+
+.battle-unit-hit {
+    animation: battle-hit-effect 0.45s ease-out forwards;
+    z-index: 105 !important;
+}
+
+/* 死亡消失动画 */
+@keyframes battle-death-fade {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1) rotate(5deg); }
+    100% { opacity: 0; transform: scale(0.3) rotate(-15deg); }
+}
+
+.battle-unit-dying {
+    animation: battle-death-fade 0.5s ease-in forwards;
+    pointer-events: none;
+}
 
 /* 商城视图 */
 .shop-view {
@@ -1153,3 +1268,1030 @@
     font-size: 16px;
     margin-top: 20px;
 }
+
+/* 场景动态背景 */
+.scene-view {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.scene-view-backdrop,
+.scene-view-overlay,
+.scene-view-content {
+    position: absolute;
+    inset: 0;
+}
+
+.scene-view-backdrop {
+    overflow: hidden;
+    background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 34%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(10, 14, 24, 0.98) 100%);
+}
+
+.scene-loop-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.36;
+}
+
+.scene-backdrop-glow {
+    position: absolute;
+    width: 48vmax;
+    height: 48vmax;
+    border-radius: 50%;
+    filter: blur(24px);
+    opacity: 0.2;
+    animation: sceneGlowFloat 8s ease-in-out infinite alternate;
+}
+
+.scene-backdrop-glow-a {
+    top: -20%;
+    left: -10%;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(56, 189, 248, 0) 68%);
+}
+
+.scene-backdrop-glow-b {
+    right: -12%;
+    bottom: -24%;
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.44) 0%, rgba(236, 72, 153, 0) 68%);
+    animation-duration: 10s;
+}
+
+.scene-backdrop-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+    opacity: 0.18;
+    animation: sceneGridMove 10s linear infinite;
+}
+
+.scene-view-overlay {
+    background: linear-gradient(180deg, rgba(5, 8, 15, 0.28) 0%, rgba(5, 8, 15, 0.58) 100%);
+    backdrop-filter: blur(1px);
+}
+
+.scene-view-content {
+    z-index: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.dungeon-view,
+.shelter-view {
+    padding: 0;
+}
+
+.dungeon-title,
+.shelter-title {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffd700;
+    margin: 0 0 20px;
+    padding: 4px 0 14px;
+    background: linear-gradient(180deg, rgba(10, 12, 18, 0.86) 0%, rgba(10, 12, 18, 0.18) 100%);
+    backdrop-filter: blur(4px);
+}
+
+.shelter-scene-backdrop {
+    background:
+        radial-gradient(circle at top, rgba(74, 222, 128, 0.18) 0%, transparent 36%),
+        linear-gradient(180deg, #10221a 0%, #0a1410 100%);
+}
+
+.dungeon-scene-backdrop {
+    background:
+        radial-gradient(circle at top, rgba(96, 165, 250, 0.18) 0%, transparent 36%),
+        linear-gradient(180deg, #141f34 0%, #090f1c 100%);
+}
+
+@keyframes sceneGlowFloat {
+    from {
+        transform: translate3d(-12px, -8px, 0) scale(0.96);
+    }
+    to {
+        transform: translate3d(16px, 12px, 0) scale(1.06);
+    }
+}
+
+@keyframes sceneGridMove {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(28px);
+    }
+}
+
+/* 避难所 */
+.building-grid {
+    position: relative;
+    z-index: 1;
+}
+
+.building-card {
+    background: linear-gradient(180deg, rgba(42, 42, 42, 0.86), rgba(18, 18, 18, 0.86));
+    border-color: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(4px);
+}
+
+/* 副本与图鉴 */
+.dungeon-list {
+    margin-bottom: 18px;
+}
+
+.dungeon-item {
+    background: linear-gradient(180deg, rgba(35, 45, 68, 0.84), rgba(16, 21, 33, 0.88));
+    border-color: rgba(148, 163, 184, 0.18);
+    backdrop-filter: blur(4px);
+}
+
+.monster-codex {
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(24, 28, 42, 0.9), rgba(12, 16, 26, 0.92));
+    border-color: rgba(96, 165, 250, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.monster-codex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.monster-codex-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #f8fafc;
+}
+
+.monster-codex-subtitle,
+.monster-codex-note {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+
+.monster-codex-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.monster-codex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    gap: 12px;
+}
+
+.monster-codex-card {
+    min-height: 128px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.22));
+    color: #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 10px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.monster-codex-card.is-unlocked:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 215, 0, 0.35);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.monster-codex-card.is-locked {
+    opacity: 0.7;
+    filter: grayscale(1);
+    cursor: default;
+}
+
+.monster-codex-card-icon {
+    font-size: 34px;
+    line-height: 1;
+}
+
+.monster-codex-card-name {
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.monster-codex-card-meta {
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+}
+
+.monster-codex-card.elite.is-unlocked {
+    border-color: rgba(168, 85, 247, 0.45);
+}
+
+.monster-codex-card.boss.is-unlocked {
+    border-color: rgba(248, 113, 113, 0.5);
+}
+
+.monster-codex-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #94a3b8;
+    padding: 20px 0;
+}
+
+.monster-detail-panel {
+    width: min(720px, 82vw);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.monster-detail-header {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.monster-detail-icon {
+    width: 92px;
+    height: 92px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    flex-shrink: 0;
+}
+
+.monster-detail-icon.elite {
+    border-color: rgba(168, 85, 247, 0.75);
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.2);
+}
+
+.monster-detail-icon.boss {
+    border-color: rgba(239, 68, 68, 0.88);
+    box-shadow: 0 0 22px rgba(239, 68, 68, 0.22);
+}
+
+.monster-detail-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.monster-detail-name {
+    font-size: 20px;
+    font-weight: bold;
+    color: #f8fafc;
+}
+
+.monster-detail-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.monster-rank-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.monster-rank-badge.normal {
+    color: #cbd5e1;
+}
+
+.monster-rank-badge.elite {
+    color: #c084fc;
+}
+
+.monster-rank-badge.boss {
+    color: #f87171;
+}
+
+.monster-rank-badge.neutral {
+    color: #60a5fa;
+}
+
+.monster-detail-desc,
+.monster-detail-dungeon,
+.monster-detail-skill-desc {
+    color: #cbd5e1;
+    line-height: 1.7;
+    font-size: 13px;
+}
+
+.monster-detail-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.monster-detail-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e1;
+    font-size: 13px;
+}
+
+.monster-detail-skill {
+    padding: 14px;
+    background: linear-gradient(180deg, rgba(44, 49, 69, 0.8), rgba(18, 22, 33, 0.88));
+}
+
+.monster-detail-skill-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #fcd34d;
+    margin-bottom: 8px;
+}
+
+/* 战斗领主演出与品质边框 */
+.battle-view {
+    position: relative;
+}
+
+.battle-boss-alert {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 140;
+}
+
+.battle-boss-alert.active {
+    opacity: 1;
+}
+
+.battle-boss-alert::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 110px;
+    background: linear-gradient(90deg, rgba(127, 29, 29, 0), rgba(127, 29, 29, 0.78), rgba(127, 29, 29, 0));
+    border-top: 1px solid rgba(248, 113, 113, 0.62);
+    border-bottom: 1px solid rgba(248, 113, 113, 0.62);
+}
+
+.battle-boss-alert-banner {
+    position: relative;
+    z-index: 1;
+    padding: 12px 28px;
+    border-radius: 999px;
+    background: rgba(17, 17, 17, 0.6);
+    border: 2px solid rgba(248, 113, 113, 0.82);
+    color: #fee2e2;
+    font-size: 28px;
+    font-weight: bold;
+    letter-spacing: 8px;
+    text-shadow: 0 0 14px rgba(248, 113, 113, 0.8);
+}
+
+.battle-boss-alert.active .battle-boss-alert-banner {
+    animation: battleBossAlertFlash 0.55s ease-in-out 2;
+}
+
+@keyframes battleBossAlertFlash {
+    0%, 100% {
+        opacity: 0.2;
+        transform: scale(0.96);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+.battle-progress-token.elite {
+    border-color: rgba(168, 85, 247, 0.92);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.26);
+}
+
+.battle-progress-token.boss {
+    border-color: rgba(239, 68, 68, 0.96);
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+}
+
+.battle-unit-token,
+.battle-unit-floating {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.battle-unit-token.elite,
+.battle-unit-floating.elite {
+    border-color: rgba(168, 85, 247, 0.92);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.22);
+}
+
+.battle-unit-token.boss,
+.battle-unit-floating.boss {
+    border-color: rgba(239, 68, 68, 0.98);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+}
+
+.dungeon-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.monster-codex-modal-layout {
+    width: min(900px, 88vw);
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 16px;
+}
+
+.monster-codex-modal-left,
+.monster-codex-modal-right {
+    min-width: 0;
+}
+
+.monster-codex-entry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.monster-codex-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(16, 20, 31, 0.78);
+    color: #e5e7eb;
+    padding: 12px;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.monster-codex-list-item.is-unlocked:hover,
+.monster-codex-list-item.is-active {
+    border-color: rgba(96, 165, 250, 0.45);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+    transform: translateY(-2px);
+}
+
+.monster-codex-list-item.is-locked {
+    opacity: 0.6;
+    filter: grayscale(1);
+    cursor: default;
+}
+
+.monster-codex-list-item.elite.is-unlocked,
+.monster-codex-list-item.elite.is-active {
+    border-color: rgba(168, 85, 247, 0.45);
+}
+
+.monster-codex-list-item.boss.is-unlocked,
+.monster-codex-list-item.boss.is-active {
+    border-color: rgba(248, 113, 113, 0.5);
+}
+
+.monster-codex-list-icon {
+    font-size: 32px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.monster-codex-list-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.monster-codex-list-name {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.monster-codex-list-meta {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.monster-detail-panel-inline {
+    width: auto;
+    min-height: 100%;
+}
+
+.recruit-rate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.recruit-rate-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: #d5d5d5;
+}
+
+.recruit-rate-value {
+    color: #fcd34d;
+}
+
+.hero-exp-use-panel,
+.equipment-enhance-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.hero-exp-use-tip,
+.equipment-enhance-tip {
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.7;
+}
+
+.hero-exp-use-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #e5e7eb;
+}
+
+.hero-exp-use-select,
+.hero-exp-use-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(17, 24, 39, 0.8);
+    color: #f8fafc;
+}
+
+.equipment-enhance-header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+}
+
+.equipment-enhance-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.equipment-enhance-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.equipment-enhance-name {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.equipment-enhance-meta {
+    font-size: 12px;
+    color: #cbd5e1;
+}
+
+.equipment-enhance-cost-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #f8fafc;
+}
+
+.equipment-enhance-costs,
+.equipment-enhance-preview {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.equipment-enhance-cost-row,
+.equipment-enhance-stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: #e5e7eb;
+    font-size: 13px;
+}
+
+.equipment-enhance-cost-row strong.ok {
+    color: #4ade80;
+}
+
+.equipment-enhance-cost-row strong.warn,
+.warn-text {
+    color: #fca5a5;
+}
+
+.equipment-enhance-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 16px 0;
+}
+
+@media (max-width: 960px) {
+    .monster-codex-modal-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .monster-detail-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* ===== 登录页 - 全屏启动画面风格 ===== */
+
+#login-page {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 背景层 */
+.login-backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at top, rgba(255, 215, 0, 0.06), transparent 50%),
+        linear-gradient(180deg, #0c1018 0%, #141a24 40%, #0a0f16 100%);
+    overflow: hidden;
+}
+
+.login-particles::before,
+.login-particles::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    animation: loginParticleFloat 12s ease-in-out infinite alternate;
+}
+
+.login-particles::before {
+    top: -5%;
+    left: -8%;
+    background: rgba(255, 215, 0, 0.6);
+}
+
+.login-particles::after {
+    bottom: -10%;
+    right: -5%;
+    background: rgba(74, 222, 128, 0.4);
+    animation-delay: -6s;
+}
+
+.login-grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, transparent 70%);
+}
+
+@keyframes loginParticleFloat {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(30px, 20px) scale(1.15); }
+}
+
+/* 居中容器 */
+.login-container {
+    position: relative;
+    z-index: 1;
+    width: min(380px, 88vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 20px;
+}
+
+/* Logo 区域 */
+.login-logo {
+    text-align: center;
+    user-select: none;
+}
+
+.login-logo-icon {
+    font-size: 56px;
+    line-height: 1;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.35));
+    animation: logoPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.25)); }
+    50%      { transform: scale(1.06); filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.45)); }
+}
+
+.login-title {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ffd700;
+    letter-spacing: 6px;
+    margin: 0;
+    text-shadow: 0 2px 12px rgba(255, 215, 0, 0.3);
+}
+
+.login-subtitle {
+    font-size: 13px;
+    color: #7a8599;
+    letter-spacing: 14px;
+    margin: 4px 0 0;
+}
+
+/* 表单面板 */
+.login-form-panel {
+    width: 100%;
+    background: linear-gradient(160deg, rgba(30, 38, 52, 0.92), rgba(18, 22, 32, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    backdrop-filter: blur(16px);
+    padding: 30px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* 错误提示 */
+.login-error-tip {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    font-size: 13px;
+    text-align: center;
+    animation: errorShakeIn 0.3s ease;
+}
+
+@keyframes errorShakeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 表单字段 */
+.login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.login-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #a8b2c1;
+    font-weight: 500;
+}
+
+.field-icon {
+    font-size: 14px;
+}
+
+.login-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.3);
+    color: #e8eaed;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.25s ease;
+    box-sizing: border-box;
+}
+
+.login-input::placeholder {
+    color: #5a6270;
+}
+
+.login-input:focus {
+    border-color: rgba(255, 215, 0, 0.5);
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.08);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* 记住密码选项 */
+.login-options {
+    display: flex;
+    align-items: center;
+}
+
+.login-remember {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #8a919e;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.login-remember:hover {
+    color: #b0b8c8;
+}
+
+.login-remember input[type="checkbox"] {
+    appearance: none;
+    width: 17px;
+    height: 17px;
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.login-remember input[type="checkbox"]:checked {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: rgba(255, 215, 0, 0.6);
+}
+
+.login-remember input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* 按钮 */
+.login-btn {
+    width: 100%;
+    height: 46px;
+    border-radius: 11px;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 6px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.login-btn-primary {
+    background: linear-gradient(135deg, #c9a227 0%, #ffd700 50%, #c9a227 100%);
+    background-size: 200% 100%;
+    color: #1a1400;
+    box-shadow: 0 4px 16px rgba(255, 215, 0, 0.25);
+}
+
+.login-btn-primary:hover:not(:disabled) {
+    background-position: 100% 0;
+    box-shadow: 0 6px 22px rgba(255, 215, 0, 0.38);
+    transform: translateY(-1px);
+}
+
+.login-btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
+}
+
+.login-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-loading {
+    letter-spacing: 2px;
+}
+
+/* 切换链接 */
+.login-switch {
+    text-align: center;
+    font-size: 13px;
+    color: #7a8599;
+}
+
+.login-switch a {
+    color: #ffd700;
+    text-decoration: none;
+    font-weight: 500;
+    margin-left: 4px;
+    transition: color 0.2s;
+}
+
+.login-switch a:hover {
+    color: #ffe44d;
+    text-decoration: underline;
+}
+
+/* 抖动动画（表单验证失败） */
+@keyframes loginShake {
+    0%, 100% { transform: translateX(0); }
+    15%      { transform: translateX(-8px); }
+    30%      { transform: translateX(8px); }
+    45%      { transform: translateX(-6px); }
+    60%      { transform: translateX(6px); }
+    75%      { transform: translateX(-3px); }
+    90%      { transform: translateX(3px); }
+}
+
+.login-shake {
+    animation: loginShake 0.5s ease;
+}
+
+/* 淡入/淡出动画 */
+#login-page.login-fade-in {
+    animation: loginFadeIn 0.5s ease forwards;
+}
+
+@keyframes loginFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+#login-page.login-fade-out {
+    animation: loginFadeOut 0.4s ease forwards;
+    pointer-events: none;
+}
+
+@keyframes loginFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+

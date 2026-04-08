@@ -30,6 +30,68 @@ class DungeonManager {
         return this.dungeons.filter(dungeon => dungeon.canEnter(playerLevel));
     }
 
+    getMonsterCompendium(playerLevel) {
+        const grouped = {
+            normal: [],
+            elite: [],
+            boss: []
+        };
+        const entryMap = new Map();
+
+        this.dungeons.forEach((dungeon) => {
+            const dungeonUnlocked = dungeon.canEnter(playerLevel);
+            dungeon.getAllEnemyEntries().forEach((enemyEntry) => {
+                const enemyConfig = DungeonConfig.getEnemyConfig(enemyEntry.id);
+                if (!enemyConfig) {
+                    return;
+                }
+                const existing = entryMap.get(enemyEntry.id) || {
+                    id: enemyEntry.id,
+                    name: enemyConfig.name,
+                    icon: enemyConfig.icon,
+                    rank: enemyConfig.rank || 'normal',
+                    description: enemyConfig.description || '',
+                    skill: enemyConfig.skill ? { ...enemyConfig.skill } : null,
+                    unlockLevel: dungeon.level,
+                    dungeons: []
+                };
+                existing.unlockLevel = Math.min(existing.unlockLevel, dungeon.level);
+                existing.dungeons.push({
+                    id: dungeon.id,
+                    name: dungeon.name,
+                    level: dungeon.level,
+                    unlocked: dungeonUnlocked,
+                    count: Number(enemyEntry.count) || 0,
+                    sourceType: enemyEntry.sourceType || 'initial'
+                });
+                entryMap.set(enemyEntry.id, existing);
+            });
+        });
+
+        [...entryMap.values()]
+            .sort((a, b) => a.unlockLevel - b.unlockLevel || a.name.localeCompare(b.name, 'zh-Hans-CN'))
+            .forEach((entry) => {
+                const unlocked = playerLevel >= entry.unlockLevel;
+                const availableDungeons = unlocked
+                    ? entry.dungeons.filter(item => item.unlocked)
+                    : entry.dungeons;
+                const previewLevel = availableDungeons.reduce((minLevel, item) => Math.min(minLevel, item.level), Infinity);
+                const normalizedPreviewLevel = Number.isFinite(previewLevel) ? previewLevel : entry.unlockLevel;
+                const fullEntry = {
+                    ...entry,
+                    unlocked,
+                    previewLevel: normalizedPreviewLevel,
+                    stats: DungeonConfig.calculateEnemyStats(entry.id, normalizedPreviewLevel),
+                    rankLabel: DungeonConfig.getEnemyRankLabel(entry.rank),
+                    dungeons: availableDungeons.sort((a, b) => a.level - b.level)
+                };
+                const bucket = grouped[fullEntry.rank] || grouped.normal;
+                bucket.push(fullEntry);
+            });
+
+        return grouped;
+    }
+
     isCompleted(dungeonId) {
         return !!this.completedDungeons[dungeonId];
     }

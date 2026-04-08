@@ -7,10 +7,11 @@ const BattleSceneConfig = {
             id: 'standard_9x9',
             name: '常规战场',
             width: 7,
-            height: 5,
-            actionTimeout: 10,
+            height: 10,
+            actionTimeout: 15,
+
             heroSpawn: {
-                startRow: 4,
+                startRow: 9,
                 direction: -1
             },
             enemySpawn: {

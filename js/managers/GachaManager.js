@@ -7,30 +7,11 @@ class GachaManager {
             return GachaManager.instance;
         }
         this.currentPool = 'hero_pool';
-        this.guaranteedCounters = {
-            hero_pool: 0,
-            equipment_pool: 0
-        };
         GachaManager.instance = this;
     }
 
-    init(saveData) {
-        const defaultCounters = { hero_pool: 0, equipment_pool: 0 };
-        if (saveData?.guaranteedCounters) {
-            this.guaranteedCounters = {
-                ...defaultCounters,
-                ...saveData.guaranteedCounters
-            };
-            return;
-        }
-        if (typeof saveData?.guaranteedCounter === 'number') {
-            this.guaranteedCounters = {
-                ...defaultCounters,
-                hero_pool: saveData.guaranteedCounter
-            };
-            return;
-        }
-        this.guaranteedCounters = defaultCounters;
+    init() {
+        this.currentPool = 'hero_pool';
     }
 
     setPool(poolId) {
@@ -64,31 +45,10 @@ class GachaManager {
 
         shelterManager.consumeResource('gold', cost.amount);
         const results = [];
-
         for (let index = 0; index < count; index++) {
-            const currentCounter = Number(this.guaranteedCounters[poolId]) || 0;
-            let rarity;
-            if (currentCounter + 1 >= pool.guaranteed.count) {
-                rarity = pool.guaranteed.type;
-                this.guaranteedCounters[poolId] = 0;
-            } else {
-                rarity = GachaConfig.randomRarity(pool.rates);
-                this.guaranteedCounters[poolId] = currentCounter + 1;
-            }
-
-            if (pool.type === 'hero') {
-                const heroConfig = GachaConfig.getRandomHero(rarity);
-                if (heroConfig) {
-                    results.push({ type: 'hero', poolId, rarity, configId: heroConfig.id, name: heroConfig.name, icon: heroConfig.icon });
-                }
-                continue;
-            }
-
-            if (pool.type === 'equipment') {
-                const equipment = EquipmentConfig.createRandomEquipment(rarity);
-                if (equipment) {
-                    results.push({ type: 'equipment', poolId, rarity, equipment });
-                }
+            const reward = GachaConfig.createPullResult(poolId);
+            if (reward) {
+                results.push(reward);
             }
         }
 
@@ -102,6 +62,24 @@ class GachaManager {
         const addedEquipment = [];
 
         (results || []).forEach(result => {
+            if (result.type === 'resource') {
+                shelterManager.addResource(result.resourceId, result.count);
+                rewards.push(RewardModal.createResourceReward(result.resourceId, result.count));
+                return;
+            }
+
+            if (result.type === 'item') {
+                itemManager.addItem(result.itemId, result.count);
+                rewards.push(RewardModal.createItemReward(result.itemId, result.count));
+                return;
+            }
+
+            if (result.type === 'fragment') {
+                heroManager.addFragments(result.configId, result.count);
+                rewards.push(RewardModal.createFragmentReward(result.configId, result.count));
+                return;
+            }
+
             if (result.type === 'hero') {
                 const config = HeroConfig.getHeroConfig(result.configId);
                 const hasHero = heroManager.getAllHeroes().some(hero => hero.configId === result.configId);
@@ -142,7 +120,7 @@ class GachaManager {
 
     getSaveData() {
         return {
-            guaranteedCounters: { ...this.guaranteedCounters }
+            currentPool: this.currentPool
         };
     }
 }

@@ -4,12 +4,15 @@
 class BattleUnit {
     constructor(config, level = 1) {
         this.id = config.id || Utils.generateId();
+        this.configId = config.configId || null;
         this.name = config.name || '未知单位';
         this.icon = config.icon || '❓';
         this.type = config.type || 'enemy';
         this.camp = config.camp || (this.type === 'hero' ? 'hero' : 'enemy');
         this.rank = config.rank || 'normal';
+        this.description = config.description || '';
         this.skill = config.skill || null;
+
         this.position = { x: 0, y: 0 };
         this.progress = 0;
         this.defendBonus = 0;
@@ -126,9 +129,24 @@ class BattleUnit {
         };
     }
 
+    getPower() {
+        return Math.floor(
+            this._attack * 2 +
+            this.defense * 1.5 +
+            this.maxHp * 0.5 +
+            this.speed * 1.2 +
+            this.crit +
+            this.antiCrit +
+            this.defensePen +
+            this.attackRange * 8 +
+            this.moveRange * 6
+        );
+    }
+
     isAlive() {
         return this.hp > 0;
     }
+
 
     reset() {
         this.hp = this.maxHp;

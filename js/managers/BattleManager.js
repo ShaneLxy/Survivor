@@ -8,6 +8,7 @@ class BattleManager {
         }
         this.heroes = [];
         this.enemies = [];
+        this.pendingBossWaves = [];
         this.scene = BattleSceneConfig.getScene('standard_9x9');
         this.battleLog = [];
         this.currentRound = 0;
@@ -17,12 +18,20 @@ class BattleManager {
         this.decisionProvider = null;
         this.autoBattleOverride = null;
         this.maxRounds = 200;
+        this.isBossEntrancePlaying = false;
         BattleManager.instance = this;
     }
 
-    initBattle({ heroes, enemies, sceneId = 'standard_9x9' }) {
+    initBattle({ heroes, enemies, bossWaves = [], sceneId = 'standard_9x9' }) {
         this.heroes = heroes || [];
         this.enemies = enemies || [];
+        this.pendingBossWaves = (bossWaves || []).map((wave, index) => ({
+            id: wave.id || `boss_wave_${index + 1}`,
+            spawnRound: Number(wave.spawnRound) || DungeonConfig.defaultBossSpawnRound,
+            spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound !== false,
+            bosses: [...(wave.bosses || [])],
+            isSpawned: false
+        }));
         this.scene = BattleSceneConfig.getScene(sceneId);
         this.battleLog = [];
         this.currentRound = 0;
@@ -30,6 +39,7 @@ class BattleManager {
         this.result = null;
         this.currentActor = null;
         this.autoBattleOverride = null;
+        this.isBossEntrancePlaying = false;
         this.placeUnits();
         this.initializeProgress();
         this.addLog('battle', '战斗开始！');
@@ -45,28 +55,149 @@ class BattleManager {
         return [...this.heroes, ...this.enemies];
     }
 
+    placeSide(units, spawnConfig) {
+        let x = 0;
+        let y = spawnConfig.startRow;
+        units.forEach(unit => {
+            unit.setPosition({ x, y });
+            x += 1;
+            if (x >= this.scene.width) {
+                x = 0;
+                y += spawnConfig.direction;
+            }
+        });
+    }
+
     placeUnits() {
-        const placeSide = (units, spawnConfig) => {
-            let x = 0;
-            let y = spawnConfig.startRow;
-            units.forEach(unit => {
-                unit.setPosition({ x, y });
-                x += 1;
-                if (x >= this.scene.width) {
-                    x = 0;
-                    y += spawnConfig.direction;
-                }
-            });
-        };
-        placeSide(this.enemies, this.scene.enemySpawn);
-        placeSide(this.heroes, this.scene.heroSpawn);
+        this.placeSide(this.enemies, this.scene.enemySpawn);
+        this.placeSide(this.heroes, this.scene.heroSpawn);
+    }
+
+    setInitialProgress(unit) {
+        const shouldUseSpeedStart = unit.camp === 'hero' || ['elite', 'boss', 'player'].includes(unit.rank);
+        unit.progress = shouldUseSpeedStart ? Math.min(100, unit.speed) : 0;
     }
 
     initializeProgress() {
-        this.getAllUnits().forEach(unit => {
-            const shouldUseSpeedStart = unit.camp === 'hero' || ['elite', 'boss', 'player'].includes(unit.rank);
-            unit.progress = shouldUseSpeedStart ? Math.min(100, unit.speed) : 0;
+        this.getAllUnits().forEach(unit => this.setInitialProgress(unit));
+    }
+
+    findSpawnPosition(spawnConfig) {
+        for (let rowOffset = 0; rowOffset < this.scene.height; rowOffset++) {
+            const y = spawnConfig.startRow + rowOffset * spawnConfig.direction;
+            if (y < 0 || y >= this.scene.height) {
+                continue;
+            }
+            for (let x = 0; x < this.scene.width; x++) {
+                const position = { x, y };
+                if (!this.getUnitAt(position)) {
+                    return position;
+                }
+            }
+        }
+
+        for (let y = 0; y < this.scene.height; y++) {
+            for (let x = 0; x < this.scene.width; x++) {
+                const position = { x, y };
+                if (!this.getUnitAt(position)) {
+                    return position;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    placeSpawnedUnits(units, spawnConfig = this.scene.enemySpawn, appendToEnemies = false) {
+        units.forEach((unit) => {
+            const position = this.findSpawnPosition(spawnConfig);
+            if (position) {
+                unit.setPosition(position);
+            }
+            this.setInitialProgress(unit);
+            if (appendToEnemies && !this.enemies.includes(unit)) {
+                this.enemies.push(unit);
+            }
         });
+    }
+
+
+    hasPendingBossWaves() {
+        return this.pendingBossWaves.some(wave => !wave.isSpawned);
+    }
+
+    getAliveNonBossEnemies() {
+        return this.enemies.filter(unit => unit.isAlive() && unit.rank !== 'boss');
+    }
+
+    getRoundTriggeredBossWaves() {
+        return this.pendingBossWaves.filter(wave => !wave.isSpawned && this.currentRound >= wave.spawnRound);
+    }
+
+    getClearTriggeredBossWaves() {
+        if (this.getAliveNonBossEnemies().length > 0) {
+            return [];
+        }
+        return this.pendingBossWaves.filter(wave => !wave.isSpawned && wave.spawnOnClearBeforeRound && this.currentRound < wave.spawnRound);
+    }
+
+    async playBossEntranceEffect(payload) {
+        this.isBossEntrancePlaying = true;
+        this.emitStateChange();
+        if (window.battleView && typeof window.battleView.playBossEntrance === 'function') {
+            await window.battleView.playBossEntrance(payload);
+        } else {
+            await new Promise(resolve => setTimeout(resolve, payload?.duration || 2000));
+        }
+        this.isBossEntrancePlaying = false;
+        this.emitStateChange();
+    }
+
+    async spawnBossWaves(waves, reason) {
+        const normalizedWaves = (waves || []).filter(wave => wave && !wave.isSpawned);
+        if (normalizedWaves.length === 0) {
+            return false;
+        }
+
+        const bosses = [];
+        normalizedWaves.forEach((wave) => {
+            wave.isSpawned = true;
+            bosses.push(...(wave.bosses || []));
+        });
+
+        if (bosses.length === 0) {
+            return false;
+        }
+
+        const bossNames = bosses.map(unit => unit.name).join('、');
+        this.addLog('boss', `${bossNames} 即将登场！`);
+        await this.playBossEntranceEffect({
+            duration: 2000,
+            message: '领主登场!',
+            reason,
+            waveIds: normalizedWaves.map(wave => wave.id),
+            bosses
+        });
+        this.placeSpawnedUnits(bosses, this.scene.enemySpawn, true);
+
+        this.addLog('boss', `${bossNames} 登场了！`);
+        this.emitStateChange();
+        return true;
+    }
+
+    async checkAndSpawnBossWaves(trigger = 'actionEnd') {
+        if (!this.isBattling || !this.hasPendingBossWaves()) {
+            return false;
+        }
+        const roundWaves = this.getRoundTriggeredBossWaves();
+        if (roundWaves.length > 0) {
+            return this.spawnBossWaves(roundWaves, trigger === 'roundStart' ? 'round' : trigger);
+        }
+        const clearWaves = this.getClearTriggeredBossWaves();
+        if (clearWaves.length > 0) {
+            return this.spawnBossWaves(clearWaves, 'clear');
+        }
+        return false;
     }
 
     addLog(type, message) {
@@ -82,6 +213,8 @@ class BattleManager {
             scene: this.scene,
             currentRound: this.currentRound,
             isBattling: this.isBattling,
+            isBossEntrancePlaying: this.isBossEntrancePlaying,
+            pendingBossWaveCount: this.pendingBossWaves.filter(wave => !wave.isSpawned).length,
             currentActorId: this.currentActor?.id || null,
             heroes: this.heroes,
             enemies: this.enemies,
@@ -131,6 +264,20 @@ class BattleManager {
 
     getAttackableTargets(actor) {
         return this.getOpponents(actor).filter(target => actor.distanceTo(target) <= actor.attackRange);
+    }
+
+    getAttackRangeCells(actor) {
+        const cells = [];
+        for (let x = 0; x < this.scene.width; x++) {
+            for (let y = 0; y < this.scene.height; y++) {
+                const position = { x, y };
+                const distance = this.distanceBetween(actor.position, position);
+                if (distance > 0 && distance <= actor.attackRange) {
+                    cells.push(position);
+                }
+            }
+        }
+        return cells;
     }
 
     chooseBestMove(actor) {
@@ -197,6 +344,12 @@ class BattleManager {
         this.autoBattleOverride = typeof enabled === 'boolean' ? enabled : null;
     }
 
+    async waitForActionPresentation() {
+        if (window.battleView && typeof window.battleView.waitForActionQueueIdle === 'function') {
+            await window.battleView.waitForActionQueueIdle();
+        }
+    }
+
     async resolveActionForActor(actor) {
         if (actor.camp === 'hero' && !this.isAutoBattleEnabled() && typeof this.decisionProvider === 'function') {
             const action = await this.decisionProvider({
@@ -204,13 +357,13 @@ class BattleManager {
                 attackTargets: this.getAttackableTargets(actor),
                 moveCells: this.getReachableCells(actor),
                 usableItems: this.getUsableBattleItems(actor),
-                timeout: this.scene.actionTimeout || 10
+                timeout: this.scene.actionTimeout || 15
             });
+
             return action || { type: 'defend' };
         }
         return this.chooseAutoAction(actor);
     }
-
 
     findUnitById(unitId) {
         return this.getAllUnits().find(unit => unit.id === unitId) || null;
@@ -227,9 +380,15 @@ class BattleManager {
             if (!reachable) {
                 return this.executeAction(actor, { type: 'defend' });
             }
+            const fromPosition = { x: actor.position.x, y: actor.position.y };
             actor.setPosition(finalAction.position);
             this.addLog('move', `${actor.name} 移动到了 (${finalAction.position.x + 1}, ${finalAction.position.y + 1})`);
-            eventManager.emit('battleUnitMove', { unit: actor, position: finalAction.position });
+            eventManager.emit('battleUnitMove', {
+                unit: actor,
+                fromPosition,
+                position: finalAction.position,
+                toPosition: finalAction.position
+            });
             this.emitStateChange();
             return;
         }
@@ -273,6 +432,36 @@ class BattleManager {
         this.emitStateChange();
     }
 
+    getCampPriority(unit) {
+        return unit.camp === 'hero' ? 0 : 1;
+    }
+
+    sortReadyUnits(units) {
+        const randomTieBreakers = new Map();
+        units.forEach(unit => {
+            randomTieBreakers.set(unit.id, Math.random());
+        });
+
+        return [...units].sort((a, b) => {
+            const speedDiff = b.speed - a.speed;
+            if (speedDiff !== 0) {
+                return speedDiff;
+            }
+
+            const powerDiff = b.getPower() - a.getPower();
+            if (powerDiff !== 0) {
+                return powerDiff;
+            }
+
+            const campDiff = this.getCampPriority(a) - this.getCampPriority(b);
+            if (campDiff !== 0) {
+                return campDiff;
+            }
+
+            return randomTieBreakers.get(b.id) - randomTieBreakers.get(a.id);
+        });
+    }
+
     advanceProgress() {
         const aliveUnits = this.getAllUnits().filter(unit => unit.isAlive());
         if (aliveUnits.length === 0) {
@@ -291,18 +480,15 @@ class BattleManager {
         aliveUnits.forEach(unit => {
             unit.progress = Math.min(100, unit.progress + unit.speed * minTime);
         });
-        this.emitStateChange();
 
-        return aliveUnits
-            .filter(unit => unit.progress >= 100)
-            .sort((a, b) => b.speed - a.speed || (a.camp === 'hero' ? -1 : 1));
+        return this.sortReadyUnits(aliveUnits.filter(unit => unit.progress >= 100));
     }
 
     checkBattleEnd() {
         const heroesAlive = this.heroes.some(unit => unit.isAlive());
         const enemiesAlive = this.enemies.some(unit => unit.isAlive());
 
-        if (!enemiesAlive) {
+        if (!enemiesAlive && !this.hasPendingBossWaves()) {
             this.result = {
                 victory: true,
                 participants: this.heroes.map(unit => unit.id),
@@ -331,6 +517,11 @@ class BattleManager {
 
     async executeBattle() {
         this.isBattling = true;
+        await this.checkAndSpawnBossWaves('battleStart');
+        if (this.checkBattleEnd()) {
+            return this.result;
+        }
+
         while (this.isBattling && this.currentRound < this.maxRounds) {
             const queue = this.advanceProgress();
             if (queue.length === 0) {
@@ -338,6 +529,12 @@ class BattleManager {
             }
             this.currentRound++;
             this.addLog('round', `第 ${this.currentRound} 回合`);
+            this.emitStateChange();
+            await this.checkAndSpawnBossWaves('roundStart');
+            if (this.checkBattleEnd()) {
+                return this.result;
+            }
+
             for (const actor of queue) {
                 if (!this.isBattling || !actor.isAlive()) {
                     continue;
@@ -350,9 +547,11 @@ class BattleManager {
                     break;
                 }
                 await this.executeAction(actor, action);
+                await this.waitForActionPresentation();
                 actor.progress = 0;
                 this.currentActor = null;
                 this.emitStateChange();
+                await this.checkAndSpawnBossWaves('actionEnd');
                 if (this.checkBattleEnd()) {
                     return this.result;
                 }
@@ -376,6 +575,7 @@ class BattleManager {
     reset() {
         this.heroes = [];
         this.enemies = [];
+        this.pendingBossWaves = [];
         this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = false;
@@ -383,6 +583,7 @@ class BattleManager {
         this.currentActor = null;
         this.decisionProvider = null;
         this.autoBattleOverride = null;
+        this.isBossEntrancePlaying = false;
         this.emitStateChange();
     }
 }

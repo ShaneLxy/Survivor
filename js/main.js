@@ -9,6 +9,7 @@ class Game {
             energy: 100,
             maxEnergy: 100,
             gold: 1000,
+            diamond: 0,
             nickname: '幸存者'
         };
 
@@ -28,16 +29,39 @@ class Game {
             gachaView,
             backpackView,
             shopView,
-            checkinView
+            checkinView,
+            loginView
         };
         this.currentView = 'shelter';
+        this.gameReady = false; // 游戏是否已完成初始化
     }
 
     async init() {
         audioManager.init();
-        const saveData = saveManager.load();
-        if (saveData?.data) {
-            this.loadFromSave(saveData);
+
+        // 强制每次打开都重新登录：清除本地登录态
+        authService.logout();
+
+        // 初始化 HttpClient（设置 API 基地址等）
+        await authService.init();
+
+        // 始终显示登录页，不自动跳过
+        loginView.show();
+
+        // 监听登录成功事件
+        eventManager.on('loginSuccess', () => this.onLoginSuccess());
+    }
+
+    /**
+     * 登录成功后的回调：加载存档并渲染游戏界面
+     */
+    async onLoginSuccess() {
+        if (this.gameReady) return; // 防止重复初始化
+
+        const localSave = saveManager.load();
+        const resolvedSave = await saveSyncService.resolveInitialSave(localSave);
+        if (resolvedSave?.data) {
+            this.loadFromSave(resolvedSave);
         } else {
             this.initNewGame();
         }
@@ -47,6 +71,18 @@ class Game {
         this.initUI();
         saveManager.init();
         this.bindEvents();
+        eventManager.emit('authChange', { loggedIn: authService.isLoggedIn(), user: authService.getCurrentUser() });
+
+        this.gameReady = true;
+    }
+
+    applyLegacyMigrations() {
+        const legacyWater = shelterManager.consumeLegacyWaterMigration();
+        if (legacyWater > 0) {
+            itemManager.addItem('exp_potion', legacyWater);
+        }
+        this.player.gold = shelterManager.getResource('gold');
+        this.player.diamond = shelterManager.getResource('diamond');
     }
 
     loadFromSave(saveData) {
@@ -68,7 +104,7 @@ class Game {
         itemManager.init(data.itemData);
         gachaManager.init(data.gachaData);
         checkinManager.init(data.checkinData);
-        this.player.gold = shelterManager.getResource('gold');
+        this.applyLegacyMigrations();
     }
 
     initNewGame() {
@@ -78,6 +114,7 @@ class Game {
             energy: GameConfig.player.initialEnergy,
             maxEnergy: GameConfig.player.maxEnergy,
             gold: GameConfig.player.initialGold,
+            diamond: 0,
             nickname: '幸存者'
         };
         this.settings = { autoBattle: false, muted: false };
@@ -88,7 +125,7 @@ class Game {
         itemManager.init(null);
         gachaManager.init(null);
         checkinManager.init(null);
-        this.player.gold = shelterManager.getResource('gold');
+        this.applyLegacyMigrations();
     }
 
     async collectOfflineRewards() {
@@ -99,17 +136,23 @@ class Game {
 
         const production = shelterManager.calculateOfflineProduction(offlineSeconds);
         const rewardEntries = [];
-        if (production && Object.keys(production).length > 0) {
-            for (const [type, amount] of Object.entries(production)) {
-                if (amount > 0) {
-                    shelterManager.addResource(type, amount);
-                    rewardEntries.push(RewardModal.createResourceReward(type, amount));
-                }
+
+        Object.entries(production?.resources || {}).forEach(([type, amount]) => {
+            if (amount > 0) {
+                shelterManager.addResource(type, amount);
+                rewardEntries.push(RewardModal.createResourceReward(type, amount));
             }
-        }
+        });
+        Object.entries(production?.items || {}).forEach(([itemId, amount]) => {
+            if (amount > 0) {
+                itemManager.addItem(itemId, amount);
+                rewardEntries.push(RewardModal.createItemReward(itemId, amount));
+            }
+        });
 
         if (rewardEntries.length > 0) {
             this.player.gold = shelterManager.getResource('gold');
+            this.player.diamond = shelterManager.getResource('diamond');
             await RewardModal.show({
                 title: '离线收益',
                 rewards: rewardEntries,
@@ -120,8 +163,27 @@ class Game {
 
     initUI() {
         this.ui.topBar.updateAll(this.player);
+
+        // 显示底部导航栏（可能被 handleLogout 隐藏了）
+        if (this.ui?.tabBar?.element) {
+            this.ui.tabBar.element.style.display = 'flex';
+        }
+
         this.switchView('shelter');
         this.ui.itemGrid.refresh();
+    }
+
+    refreshRuntimeUI() {
+        this.player.gold = shelterManager.getResource('gold');
+        this.player.diamond = shelterManager.getResource('diamond');
+        this.ui.topBar.updateAll(this.player);
+        this.ui.itemGrid.refresh();
+        this.ui.shelterView.refresh();
+        this.ui.heroView.refresh();
+        this.ui.dungeonView.refresh();
+        this.ui.gachaView.refresh();
+        this.ui.shopView.refresh();
+        this.ui.checkinView.refresh();
     }
 
     bindEvents() {
@@ -143,12 +205,21 @@ class Game {
             if (data.type === 'gold') {
                 this.player.gold = shelterManager.getResource('gold');
             }
+            if (data.type === 'diamond') {
+                this.player.diamond = shelterManager.getResource('diamond');
+            }
         });
         eventManager.on('dungeonComplete', () => {
             this.ui.dungeonView.refresh();
         });
         eventManager.on('autoSave', data => {
             console.log('自动保存完成', new Date(data.timestamp).toLocaleString());
+        });
+        eventManager.on('save', saveWrapper => {
+            saveSyncService.queueSync(saveWrapper);
+        });
+        eventManager.on('authChange', () => {
+            this.ui.topBar.refreshAccountStatus?.();
         });
     }
 
@@ -173,7 +244,6 @@ class Game {
             this.ui.tabBar.setDisabled(isBattleMode);
         }
     }
-
 
     hideCurrentView() {
         switch (this.currentView) {
@@ -289,7 +359,11 @@ class Game {
             }));
         }
         (rewards?.items || []).forEach(item => {
-            rewardEntries.push(RewardModal.createItemReward(item.id, item.count || 1));
+            if (shelterManager.isResourceType(item.id)) {
+                rewardEntries.push(RewardModal.createResourceReward(item.id, item.count || 1));
+            } else {
+                rewardEntries.push(RewardModal.createItemReward(item.id, item.count || 1));
+            }
         });
         return rewardEntries;
     }
@@ -309,14 +383,18 @@ class Game {
         const heroExpSummary = heroManager.distributeBattleExp(participantHeroIds, heroExpReward, this.player.level);
 
         (rewards?.items || []).forEach(item => {
-            if (item?.id) {
+            if (!item?.id) {
+                return;
+            }
+            if (shelterManager.isResourceType(item.id)) {
+                shelterManager.addResource(item.id, item.count || 1);
+            } else {
                 itemManager.addItem(item.id, item.count || 1);
             }
         });
 
         dungeonManager.completeDungeon(dungeon.id, 3);
-        this.ui.topBar.updateAll(this.player);
-        this.ui.itemGrid.refresh();
+        this.refreshRuntimeUI();
         this.save();
 
         return {
@@ -344,11 +422,32 @@ class Game {
         return saveManager.save(this.getSaveData());
     }
 
-    deleteSave() {
-        if (confirm('确定要删除存档吗?此操作不可恢复!')) {
-            saveManager.delete();
-            location.reload();
+    /**
+     * 处理退出登录：重置游戏状态并跳转到登录页
+     */
+    handleLogout() {
+        this.gameReady = false;
+        this.hideCurrentView();
+        if (this.ui?.tabBar?.element) {
+            this.ui.tabBar.element.style.display = 'none';
         }
+        loginView.show();
+        Toast.success('已退出登录');
+    }
+
+    async deleteSave() {
+        if (!confirm('确定要删除存档吗?此操作不可恢复!')) {
+            return;
+        }
+        saveManager.delete();
+        if (authService.isLoggedIn()) {
+            try {
+                await SaveApi.deleteSave();
+            } catch (error) {
+                console.warn('[Game] delete remote save failed:', error);
+            }
+        }
+        location.reload();
     }
 }
 

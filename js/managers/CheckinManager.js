@@ -6,15 +6,12 @@ class CheckinManager {
         if (CheckinManager.instance) {
             return CheckinManager.instance;
         }
-        this.checkinDay = 1; // 当前签到天数 1-7
-        this.lastCheckinDate = null; // 上次签到日期
-        this.totalCheckins = 0; // 累计签到次数
+        this.checkinDay = 1;
+        this.lastCheckinDate = null;
+        this.totalCheckins = 0;
         CheckinManager.instance = this;
     }
 
-    /**
-     * 签到配置
-     */
     static REWARDS = [
         { day: 1, rewards: [{ type: 'resource', id: 'gold', count: 100 }] },
         { day: 2, rewards: [{ type: 'resource', id: 'wood', count: 50 }] },
@@ -25,9 +22,6 @@ class CheckinManager {
         { day: 7, rewards: [{ type: 'random_fragments', total: 50 }] }
     ];
 
-    /**
-     * 初始化
-     */
     init(saveData) {
         if (saveData) {
             this.checkinDay = saveData.checkinDay || 1;
@@ -40,56 +34,35 @@ class CheckinManager {
         }
     }
 
-    /**
-     * 获取今天是否已签到
-     */
     isCheckedInToday() {
         if (!this.lastCheckinDate) return false;
-        
         const today = new Date().toDateString();
         return this.lastCheckinDate === today;
     }
 
-    /**
-     * 执行签到
-     */
     checkin() {
         if (this.isCheckedInToday()) {
             return { success: false, message: '今日已签到' };
         }
 
-        // checkinDay 内部始终表示“下一次要签到的天数”。
-        // 因此本次真正领取的是 claimedDay，UI 也应该显示 claimedDay，而不是直接把 nextDay 当作已签到天数。
         const claimedDay = this.checkinDay;
-
-        // 获取当前天数的奖励
         const rewardConfig = CheckinManager.REWARDS[claimedDay - 1];
         if (!rewardConfig) {
             return { success: false, message: '签到配置错误' };
         }
 
-        // 发放奖励
         const rewards = this.grantRewards(rewardConfig);
-
-        // 更新签到数据
         this.lastCheckinDate = new Date().toDateString();
         this.totalCheckins++;
-        
-        // 天数循环
         this.checkinDay++;
         if (this.checkinDay > 7) {
-            this.checkinDay = 1; // 循环回第一天
+            this.checkinDay = 1;
         }
 
         eventManager.emit('checkinComplete', { day: claimedDay, rewards, nextDay: this.checkinDay });
-
         return { success: true, message: '签到成功!', claimedDay, nextDay: this.checkinDay, rewards };
     }
 
-
-    /**
-     * 发放奖励
-     */
     grantRewards(rewardConfig) {
         const rewards = [];
 
@@ -101,7 +74,6 @@ class CheckinManager {
                 itemManager.addItem(reward.id, reward.count);
                 rewards.push(RewardModal.createItemReward(reward.id, reward.count));
             } else if (reward.type === 'random_fragments') {
-                // 50个碎片随机分成2-5份给不同英雄
                 const fragments = this.generateRandomFragments(reward.total);
                 fragments.forEach(f => {
                     heroManager.addFragments(f.configId, f.count);
@@ -113,32 +85,21 @@ class CheckinManager {
         return rewards;
     }
 
-
-    /**
-     * 生成随机碎片分配
-     * @param {number} total - 总碎片数
-     * @returns {Array}
-     */
     generateRandomFragments(total) {
-        // 随机分成2-5份
-        const numParts = Math.floor(Math.random() * 4) + 2; // 2-5
+        const numParts = Math.floor(Math.random() * 4) + 2;
         const parts = [];
-        
-        // 随机分配碎片
         let remaining = total;
         for (let i = 0; i < numParts - 1; i++) {
-            const maxPart = remaining - (numParts - i - 1); // 保证剩余的还能分
+            const maxPart = remaining - (numParts - i - 1);
             const part = Math.floor(Math.random() * (maxPart - 1)) + 1;
             parts.push(part);
             remaining -= part;
         }
-        parts.push(remaining); // 最后一份
+        parts.push(remaining);
 
-        // 随机选择英雄
         const allHeroConfigs = HeroConfig.getAllHeroes();
         const selectedHeroes = [];
         const shuffled = [...allHeroConfigs].sort(() => Math.random() - 0.5);
-        
         for (let i = 0; i < numParts; i++) {
             const hero = shuffled[i % shuffled.length];
             selectedHeroes.push({
@@ -147,29 +108,17 @@ class CheckinManager {
                 count: parts[i]
             });
         }
-
         return selectedHeroes;
     }
 
-    /**
-     * 获取资源名称
-     */
     getResourceName(id) {
-        const names = { gold: '金币', wood: '木材', stone: '石材', meat: '肉类', water: '水源' };
-        return names[id] || id;
+        return shelterManager.getResourceDisplayName(id);
     }
 
-    /**
-     * 获取物品名称
-     */
     getItemName(id) {
-        const names = { energy_potion: '体力药水', hero_summon: '英雄召唤券' };
-        return names[id] || id;
+        return ItemConfig.getItemConfig(id)?.name || id;
     }
 
-    /**
-     * 获取保存数据
-     */
     getSaveData() {
         return {
             checkinDay: this.checkinDay,
@@ -178,9 +127,6 @@ class CheckinManager {
         };
     }
 
-    /**
-     * 获取签到状态（用于UI显示）
-     */
     getCheckinStatus() {
         const today = new Date().toDateString();
         const isTodayCheckedIn = this.lastCheckinDate === today;
@@ -188,7 +134,6 @@ class CheckinManager {
         const claimedDay = isTodayCheckedIn
             ? (nextDay === 1 ? 7 : nextDay - 1)
             : Math.max(0, nextDay - 1);
-
 
         return {
             currentDay: nextDay,
@@ -199,11 +144,7 @@ class CheckinManager {
             rewards: CheckinManager.REWARDS
         };
     }
-
 }
 
-// 导出单例
 const checkinManager = new CheckinManager();
-
-// 暴露到全局
 window.checkinManager = checkinManager;

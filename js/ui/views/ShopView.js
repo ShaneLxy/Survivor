@@ -217,6 +217,7 @@ class ShopView {
                 rewards: rewardEntries,
                 summaryText: `已消耗 ${totalPrice} 金币`
             });
+            window.game.save();
             return true;
         } catch (error) {
             console.error('购买商品出错:', error);

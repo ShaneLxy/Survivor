@@ -3,53 +3,6 @@
  */
 const ItemConfig = {
     items: {
-        // 资源类
-        wood: {
-            id: 'wood',
-            name: '木材',
-            icon: '🪵',
-            type: 'resource',
-            rarity: 'common',
-            description: '建筑的基本材料',
-            stackLimit: 9999
-        },
-        stone: {
-            id: 'stone',
-            name: '石材',
-            icon: '🪨',
-            type: 'resource',
-            rarity: 'common',
-            description: '坚固的建筑材料',
-            stackLimit: 9999
-        },
-        meat: {
-            id: 'meat',
-            name: '肉类',
-            icon: '🍖',
-            type: 'resource',
-            rarity: 'common',
-            description: '可以食用的食物',
-            stackLimit: 9999
-        },
-        water: {
-            id: 'water',
-            name: '水源',
-            icon: '💧',
-            type: 'resource',
-            rarity: 'common',
-            description: '生存必需的水源',
-            stackLimit: 9999
-        },
-        gold_ore: {
-            id: 'gold_ore',
-            name: '金矿石',
-            icon: '🔶',
-            type: 'resource',
-            rarity: 'rare',
-            description: '珍贵的金矿石',
-            stackLimit: 9999
-        },
-        // 消耗品
         medicine: {
             id: 'medicine',
             name: '药物',
@@ -70,7 +23,16 @@ const ItemConfig = {
             effect: { type: 'energy', value: 20 },
             stackLimit: 99
         },
-        // 武器
+        exp_potion: {
+            id: 'exp_potion',
+            name: '经验药水',
+            icon: '📘',
+            type: 'consumable',
+            rarity: 'rare',
+            description: '可批量给英雄使用，每瓶提供1点英雄经验',
+            effect: { type: 'hero_exp', value: 1 },
+            stackLimit: 9999
+        },
         sword: {
             id: 'sword',
             name: '铁剑',
@@ -101,7 +63,6 @@ const ItemConfig = {
             stats: { attack: 60 },
             stackLimit: 1
         },
-        // 防具
         shield: {
             id: 'shield',
             name: '木盾',
@@ -122,7 +83,6 @@ const ItemConfig = {
             stats: { defense: 15 },
             stackLimit: 1
         },
-        // 抽卡道具
         hero_summon: {
             id: 'hero_summon',
             name: '英雄召唤券',
@@ -135,38 +95,31 @@ const ItemConfig = {
         }
     },
 
-    // 获取道具配置
     getItemConfig(id) {
         return this.items[id];
     },
 
-    // 获取所有道具
     getAllItems() {
         return Object.values(this.items);
     },
 
-    // 根据类型获取道具
     getItemsByType(type) {
         return this.getAllItems().filter(item => item.type === type);
     },
 
-    // 根据稀有度获取道具
     getItemsByRarity(rarity) {
         return this.getAllItems().filter(item => item.rarity === rarity);
     },
 
-    // 是否可堆叠
     isStackable(itemId) {
         const item = this.getItemConfig(itemId);
         return item && item.stackLimit > 1;
     },
 
-    // 获取堆叠上限
     getStackLimit(itemId) {
         const item = this.getItemConfig(itemId);
         return item ? item.stackLimit : 1;
     }
 };
 
-// 暴露到全局
 window.ItemConfig = ItemConfig;

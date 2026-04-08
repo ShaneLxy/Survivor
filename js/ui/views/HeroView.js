@@ -140,6 +140,7 @@ class HeroView {
                         <div class="hero-equipment-popover-stats">${statText}</div>
                         <div class="hero-equipment-popover-actions">
                             <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.showEquipSelection('${hero.id}', '${slot}')">更换</button>
+                            <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.enhanceHeroEquipment('${hero.id}', '${slot}')">强化</button>
                             <button class="btn btn-danger btn-small" onclick="window.game.ui.heroView.unequipHeroSlot('${hero.id}', '${slot}')">卸下</button>
                             <button class="btn btn-secondary btn-small" onclick="window.game.ui.heroView.closeEquipmentBubble('${hero.id}')">关闭</button>
                         </div>
@@ -287,6 +288,7 @@ class HeroView {
             Toast.success(`${hero.name}升级了！`);
             this.render();
             this.updateHeroDetailModal(hero);
+            window.game.save();
         } else {
             Toast.info('当前经验不足');
         }
@@ -381,6 +383,17 @@ class HeroView {
         }
     }
 
+    enhanceHeroEquipment(heroId, slot) {
+        const hero = heroManager.getHero(heroId);
+        const equipment = hero?.equipment?.[slot];
+        if (!equipment) {
+            Toast.info('该部位暂无装备');
+            return;
+        }
+        this.closeEquipmentBubble(heroId);
+        equipmentEnhanceModal.show(equipment.instanceId);
+    }
+
     showEquipSelection(heroId, slot) {
         const hero = heroManager.getHero(heroId);
         if (!hero) {
@@ -398,7 +411,10 @@ class HeroView {
                         <div style="font-weight:bold;color:${this.getRarityColor(currentEquipment.rarity)};">当前装备：${currentEquipment.icon} ${currentEquipment.name}</div>
                         <div style="font-size:12px;color:#a0a0a0;">${currentEquipment.getStatLines().join(' / ') || '无额外属性'}</div>
                     </div>
-                    <button class="btn btn-danger btn-small" onclick="window.game.ui.heroView.unequipHeroSlot('${heroId}', '${slot}')">卸下</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                        <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.enhanceHeroEquipment('${heroId}', '${slot}')">强化</button>
+                        <button class="btn btn-danger btn-small" onclick="window.game.ui.heroView.unequipHeroSlot('${heroId}', '${slot}')">卸下</button>
+                    </div>
                 </div>
             `;
         }

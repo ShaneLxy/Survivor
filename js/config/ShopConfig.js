@@ -2,10 +2,6 @@
  * 商城商品配置
  */
 const ShopConfig = {
-    /**
-     * 获取商品列表
-     * @returns {Array}
-     */
     getShopItems() {
         return [
             {
@@ -46,15 +42,15 @@ const ShopConfig = {
             },
             {
                 id: 'shop_004',
-                name: '水源',
-                icon: '💧',
-                type: 'resource',
-                rarity: 'common',
+                name: '经验药水x50',
+                icon: '📘',
+                type: 'consumable',
+                rarity: 'rare',
                 price: 70,
                 currency: 'gold',
                 maxBuy: 10,
-                giveItem: 'water',
-                giveCount: 1
+                giveItem: 'exp_potion',
+                giveCount: 50
             },
             {
                 id: 'shop_005',
@@ -115,15 +111,22 @@ const ShopConfig = {
                 maxBuy: 3,
                 giveItem: 'epic_fragment',
                 giveCount: 10
+            },
+            {
+                id: 'shop_010',
+                name: '铁矿石x5',
+                icon: '⛓️',
+                type: 'resource',
+                rarity: 'rare',
+                price: 120,
+                currency: 'gold',
+                maxBuy: 8,
+                giveItem: 'iron_ore',
+                giveCount: 5
             }
         ];
     },
 
-    /**
-     * 获取碎片商品对应的稀有度
-     * @param {string} giveItem - 奖励物品ID
-     * @returns {string|null}
-     */
     getFragmentRarity(giveItem) {
         const fragmentRarityMap = {
             random_fragment: 'random',
@@ -133,11 +136,6 @@ const ShopConfig = {
         return fragmentRarityMap[giveItem] || null;
     },
 
-    /**
-     * 获取随机碎片对应的英雄
-     * @param {string} rarity - 稀有度 random/rare/epic
-     * @returns {Object|null}
-     */
     getRandomHeroByRarity(rarity) {
         try {
             const allHeroConfigs = HeroConfig.getAllHeroes();
@@ -147,7 +145,6 @@ const ShopConfig = {
             }
 
             let filtered = [];
-
             if (rarity === 'random') {
                 filtered = allHeroConfigs;
             } else if (rarity === 'rare') {
@@ -169,12 +166,6 @@ const ShopConfig = {
         }
     },
 
-    /**
-     * 结算随机碎片奖励（每个碎片独立随机）
-     * @param {Object} shopItem - 商品配置
-     * @param {number} quantity - 购买数量
-     * @returns {Array|null}
-     */
     resolveFragmentRewards(shopItem, quantity = 1) {
         const fragmentRarity = this.getFragmentRarity(shopItem?.giveItem);
         if (!fragmentRarity) {
@@ -209,24 +200,15 @@ const ShopConfig = {
         });
     },
 
-    /**
-     * 解析giveItem获取实际物品
-     * @param {Object} shopItem - 商品配置
-     * @returns {Object|null}
-     */
     resolveGiveItem(shopItem) {
         const item = { ...shopItem };
         const fragmentRarity = this.getFragmentRarity(item.giveItem);
-
         item.actualItemId = fragmentRarity ? null : item.giveItem;
         item.actualItemName = item.name;
         item.actualItemIcon = item.icon;
         item.fragmentRarity = fragmentRarity;
         return item;
     }
-
-
 };
 
-// 暴露到全局
 window.ShopConfig = ShopConfig;
