@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 英雄卡片组件
  */
 class HeroCard {
@@ -14,10 +14,6 @@ class HeroCard {
         this.setupEvents();
     }
 
-    /**
-     * 创建英雄卡片
-     * @returns {HTMLElement}
-     */
     create() {
         const hero = this.config.hero;
         if (!hero) {
@@ -50,10 +46,23 @@ class HeroCard {
             card.appendChild(badge);
         }
 
+        const professionIcon = hero.professionIcon || HeroConfig.getProfessionIconPath?.(hero.profession);
+        if (professionIcon) {
+            const professionBadge = document.createElement('div');
+            professionBadge.className = 'hero-profession-badge';
+            professionBadge.title = HeroConfig.getProfessionName(hero.profession);
+            professionBadge.innerHTML = `<img class="hero-profession-badge-image" src="${professionIcon}" alt="${HeroConfig.getProfessionName(hero.profession)}">`;
+            card.appendChild(professionBadge);
+        }
+
         const avatar = document.createElement('div');
-        avatar.className = 'hero-avatar';
-        avatar.textContent = hero.icon;
-        avatar.style.color = rarityColor;
+        avatar.className = `hero-avatar ${hero.portrait ? 'hero-avatar-portrait' : ''}`;
+        if (hero.portrait) {
+            avatar.innerHTML = `<img class="hero-avatar-image" src="${hero.portrait}" alt="${hero.name}">`;
+        } else {
+            avatar.textContent = hero.icon || '❓';
+            avatar.style.color = rarityColor;
+        }
         card.appendChild(avatar);
 
         const name = document.createElement('div');
@@ -75,17 +84,12 @@ class HeroCard {
 
         const power = document.createElement('div');
         power.className = 'hero-power';
-        power.textContent = `战力:${hero.getPower()}`;
+        power.textContent = `战力 ${hero.getPower()}`;
         card.appendChild(power);
 
         return card;
     }
 
-    /**
-     * 获取稀有度颜色
-     * @param {string} rarity - 稀有度
-     * @returns {string}
-     */
     getRarityColor(rarity) {
         const colors = {
             common: '#a0a0a0',
@@ -96,19 +100,12 @@ class HeroCard {
         return colors[rarity] || colors.common;
     }
 
-    /**
-     * 设置事件
-     */
     setupEvents() {
         if (this.config.onClick) {
             this.element.addEventListener('click', this.config.onClick);
         }
     }
 
-    /**
-     * 更新英雄
-     * @param {Hero} hero - 英雄对象
-     */
     updateHero(hero) {
         this.config.hero = hero;
 
@@ -121,10 +118,6 @@ class HeroCard {
         }
     }
 
-    /**
-     * 设置选中状态
-     * @param {boolean} selected - 是否选中
-     */
     setSelected(selected) {
         this.config.selected = selected;
         if (selected) {
@@ -134,10 +127,6 @@ class HeroCard {
         }
     }
 
-    /**
-     * 渲染到容器
-     * @param {HTMLElement} container - 容器
-     */
     render(container) {
         if (typeof container === 'string') {
             container = document.getElementById(container);
@@ -147,9 +136,6 @@ class HeroCard {
         }
     }
 
-    /**
-     * 销毁
-     */
     destroy() {
         if (this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);

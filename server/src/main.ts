@@ -3,6 +3,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
+process.on('uncaughtException', (error) => {
+  console.error('[process] uncaughtException:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandledRejection:', reason);
+});
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
   app.setGlobalPrefix('api');
@@ -14,9 +22,9 @@ async function bootstrap() {
     }),
   );
 
-  const port = Number(process.env.PORT || 3000);
-  await app.listen(port);
-  console.log(`Survivor server running at http://127.0.0.1:${port}/api`);
+  const port = Number(process.env.PORT || 9000);
+  await app.listen(port, '0.0.0.0');
+  console.log(`Survivor server running at http://0.0.0.0:${port}/api`);
 }
 
 bootstrap();

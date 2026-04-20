@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 资源道具网格
  */
 class ItemGrid {
@@ -98,6 +98,7 @@ class ItemGrid {
                         id: fragment.configId,
                         name: `${fragment.heroConfig.name}碎片`,
                         icon: fragment.heroConfig.icon,
+                        iconSrc: fragment.heroConfig.portrait || null,
                         count,
                         type: 'fragment',
                         rarity: fragment.heroConfig.rarity,
@@ -116,6 +117,19 @@ class ItemGrid {
         }
 
         shelterManager.getDisplayResourceEntries().forEach(resource => {
+            if ((resource.id === 'gold' || resource.id === 'diamond') && resource.count > 9999) {
+                displayItems.push({
+                    ...resource,
+                    type: 'resource',
+                    count: 9999,
+                    displayCount: '9999+',
+                    stackLimit: 9999,
+                    groupIndex: 0,
+                    totalCount: resource.count
+                });
+                return;
+            }
+
             const groups = this.splitIntoGroups(resource.count, 9999);
             groups.forEach((count, index) => {
                 displayItems.push({ ...resource, type: 'resource', count, stackLimit: 9999, groupIndex: index, totalCount: resource.count });
@@ -160,35 +174,9 @@ class ItemGrid {
             new ItemCard({ item: null }).render(this.element);
         }
     }
-
     onItemClick(item) {
         if (item.type === 'fragment') {
-            const cards = this.element.querySelectorAll('.item-card');
-            let targetCard = null;
-            cards.forEach(card => {
-                const countEl = card.querySelector('.item-count');
-                if (countEl && countEl.textContent == item.count) {
-                    targetCard = card;
-                }
-            });
-            window.floatingMenu.show(targetCard, [{
-                text: '合成英雄',
-                className: 'btn-primary btn-small',
-                onClick: () => {
-                    if (item.totalCount < 50) {
-                        Toast.error(`需要50个碎片，当前只有${item.totalCount}个`);
-                        return;
-                    }
-                    const result = heroManager.synthesizeHero(item.id);
-                    if (result) {
-                        Toast.success(`成功合成${item.name.replace('碎片', '')}！`);
-                        this.refresh();
-                        window.game.save();
-                    } else {
-                        Toast.error('已有该英雄，无法重复合成');
-                    }
-                }
-            }]);
+            this.showHeroFragmentDetail(item);
             return;
         }
 
@@ -212,9 +200,66 @@ class ItemGrid {
         this.onItemClick(item);
     }
 
+    showHeroFragmentDetail(item) {
+        const heroConfig = HeroConfig.getHeroConfig(item.id);
+        if (!heroConfig) {
+            Toast.error('英雄配置不存在');
+            return;
+        }
+
+        const totalCount = item.totalCount || item.count || 0;
+        const canSynthesize = totalCount >= 50;
+        const rarityName = this.getRarityName(heroConfig.rarity);
+        const rarityColor = this.getRarityColor(heroConfig.rarity);
+        const professionName = HeroConfig.getProfessionName(heroConfig.profession);
+        const portraitMarkup = heroConfig.portrait
+            ? `<div class="hero-fragment-detail-portrait">${window.game.ui.heroView.getProfessionBadgeMarkup(heroConfig)}${window.game.ui.heroView.getHeroAvatarMarkup(heroConfig)}</div>`
+            : `<div class="hero-fragment-detail-icon">${heroConfig.icon || '❓'}</div>`;
+
+        const modal = new Modal({
+            title: '英雄碎片',
+            content: `
+                <div class="hero-fragment-detail">
+                    ${portraitMarkup}
+                    <div class="hero-fragment-detail-name" style="color:${rarityColor};">${heroConfig.name}</div>
+                    <div class="hero-fragment-detail-meta">${professionName} · ${rarityName}</div>
+                    <div class="hero-fragment-detail-count">碎片数量：${totalCount}</div>
+                </div>
+            `,
+            buttons: [
+                { text: '关闭', className: 'btn-secondary', onClick: () => modal.close() },
+                {
+                    text: '立即合成',
+                    className: 'btn-primary',
+                    disabled: !canSynthesize,
+                    onClick: async () => {
+                        const result = heroManager.synthesizeHero(item.id);
+                        if (result) {
+                            modal.close();
+                            await RewardModal.show({
+                                title: '英雄合成成功',
+                                summaryText: `已成功合成 ${heroConfig.name}`,
+                                rewards: [RewardModal.createHeroReward(item.id)],
+                                confirmText: '确认'
+                            });
+                            Toast.success(`成功合成${heroConfig.name}`);
+                            this.refresh();
+                            window.game.ui.heroView.refresh();
+                            window.game.save();
+                        } else {
+                            Toast.error('碎片不足或英雄已拥有');
+                        }
+                    }
+                }
+            ]
+        });
+        modal.show();
+    }
+
     showHeroExpUseModal(itemId) {
         const item = itemManager.getItem(itemId);
-        if (!item) {
+        const totalCount = itemManager.getItemCount(itemId);
+        if (!item || totalCount <= 0) {
             Toast.error('经验药水不存在');
             return;
         }
@@ -234,8 +279,8 @@ class ItemGrid {
                     </select>
                 </label>
                 <label class="hero-exp-use-field">
-                    <span>使用数量（当前 ${item.count}）</span>
-                    <input id="exp-potion-count-input" class="hero-exp-use-input" type="number" min="1" max="${item.count}" value="1">
+                    <span>使用数量（当前 ${totalCount}）</span>
+                    <input id="exp-potion-count-input" class="hero-exp-use-input" type="number" min="1" max="${totalCount}" value="1">
                 </label>
             </div>
         `;
@@ -378,3 +423,5 @@ class ItemGrid {
 
 const itemGrid = new ItemGrid();
 window.itemGrid = itemGrid;
+
+

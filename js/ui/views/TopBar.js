@@ -1,6 +1,3 @@
-/**
- * 顶部状态栏
- */
 class TopBar {
     constructor() {
         this.element = document.getElementById('top-bar');
@@ -9,6 +6,9 @@ class TopBar {
         this.maxEnergy = 100;
         this.gold = 0;
         this.diamond = 0;
+        this.playerInfoModal = null;
+        this.avatarPickerModal = null;
+        this.pendingAvatarHeroConfigId = null;
         this.init();
     }
 
@@ -20,7 +20,9 @@ class TopBar {
     create() {
         this.element.innerHTML = `
             <div class="player-avatar" id="player-avatar" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
-                <span class="avatar-icon">👤</span>
+                <div class="topbar-player-avatar-image-shell">
+                    <div class="avatar-icon topbar-player-avatar-image"></div>
+                </div>
                 <span id="player-level" style="font-size:12px;color:#ffd700;font-weight:bold;">Lv.1</span>
             </div>
             <div class="status-item">
@@ -46,76 +48,293 @@ class TopBar {
         if (this.avatarElement) {
             this.avatarElement.addEventListener('click', () => this.showPlayerInfo());
         }
+        this.renderStatusResourceIcons();
         this.refreshAccountStatus();
     }
 
-    getAccountStatusMarkup() {
-        const user = authService.getCurrentUser();
+    renderStatusResourceIcons() {
+        if (!this.element) {
+            return;
+        }
+        const statusIcons = this.element.querySelectorAll('.status-icon');
+        const goldIcon = statusIcons[1];
+        if (goldIcon) {
+            goldIcon.classList.add('status-icon-resource');
+            goldIcon.innerHTML = ResourceVisualConfig.getIconMarkup('gold', 'resource-icon-image status-icon-image');
+        }
+    }
+
+    getPlayerInfoActionMarkup() {
         const isLoggedIn = authService.isLoggedIn();
-        const accountName = user?.nickname || user?.account || '未知账号';
-        const statusText = isLoggedIn ? `当前已登录：${accountName}` : '当前未登录';
+        if (!isLoggedIn) {
+            return `
+                <div class="player-info-action-group">
+                    <button class="btn btn-primary btn-small" onclick="window.game.ui.topBar.goToLogin()">前往登录</button>
+                </div>
+            `;
+        }
 
         return `
-            <div style="padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);display:flex;flex-direction:column;gap:10px;">
-                <div style="font-weight:bold;color:#f8fafc;">账号</div>
-                <div style="font-size:12px;color:#cbd5e1;line-height:1.7;">${statusText}</div>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-                    ${isLoggedIn
-                        ? `
-                            <button class="btn btn-primary btn-small" onclick="window.game.ui.topBar.uploadCloudSave()">上传云存档</button>
-                            <button class="btn btn-primary btn-small" onclick="window.game.ui.topBar.downloadCloudSave()">下载云存档</button>
-                            <button class="btn btn-danger btn-small" onclick="window.game.ui.topBar.logoutAccount()">退出登录</button>
-                        `
-                        : `
-                            <button class="btn btn-primary btn-small" onclick="window.game.ui.topBar.goToLogin()">前往登录</button>
-                        `}
+            <div class="player-info-action-group">
+                <button class="btn btn-primary btn-small" onclick="window.game.ui.topBar.uploadCloudSave()">上传云存档</button>
+                <button class="btn btn-primary btn-small" onclick="window.game.ui.topBar.downloadCloudSave()">下载云存档</button>
+                <button class="btn btn-danger btn-small" onclick="window.game.ui.topBar.logoutAccount()">退出登录</button>
+            </div>
+        `;
+    }
+
+    getPlayerInfoToolsMarkup() {
+        return `
+            <div class="player-info-tools card">
+                <div class="player-info-tools-body">
+                    <div class="player-info-cdkey-row">
+                        <input
+                            type="text"
+                            id="player-cdkey-input"
+                            class="player-info-input player-cdkey-input"
+                            placeholder="输入 CDKEY"
+                            autocomplete="off"
+                            spellcheck="false"
+                        >
+                        <button class="btn btn-primary btn-small player-cdkey-btn" onclick="window.game.ui.topBar.redeemCdkey()">兑换</button>
+                    </div>
+                    ${this.getPlayerInfoActionMarkup()}
                 </div>
             </div>
         `;
     }
 
+    getPlayerNameMarkup() {
+        return `
+            <div class="player-info-name-row">
+                <div class="player-info-name" id="player-info-name">${this.escapeHtml(window.game.player.nickname || '幸存者')}</div>
+                <button
+                    type="button"
+                    class="player-name-edit-btn"
+                    title="修改名称"
+                    onclick="window.game.ui.topBar.openNicknameEditor()"
+                >✎</button>
+            </div>
+        `;
+    }
+
+    getUnlockedAvatarHeroIds() {
+        return new Set(heroManager.getAllHeroes().map(hero => hero.configId));
+    }
+
+    getCurrentAvatarHeroConfigId() {
+        const unlockedHeroIds = this.getUnlockedAvatarHeroIds();
+        const selectedId = window.game?.player?.avatarHeroConfigId || null;
+        if (selectedId && unlockedHeroIds.has(selectedId)) {
+            return selectedId;
+        }
+        return heroManager.getAllHeroes()[0]?.configId || null;
+    }
+
+    getCurrentAvatarHeroConfig() {
+        const configId = this.getCurrentAvatarHeroConfigId();
+        return configId ? HeroConfig.getHeroConfig(configId) : null;
+    }
+
+    getAvatarMarkup(heroConfig, options = {}) {
+        const sizeClass = options.sizeClass || '';
+        const fallbackClass = options.fallbackClass || '';
+        if (heroConfig?.portrait) {
+            return `<div class="player-hero-avatar ${sizeClass}"><img class="player-hero-avatar-image" src="${heroConfig.portrait}" alt="${heroConfig.name || '玩家头像'}"></div>`;
+        }
+        return `<div class="player-hero-avatar player-hero-avatar-fallback ${sizeClass} ${fallbackClass}">${heroConfig?.icon || '👤'}</div>`;
+    }
+
+    updateTopBarAvatar() {
+        if (!this.avatarIconElement) {
+            return;
+        }
+        const heroConfig = this.getCurrentAvatarHeroConfig();
+        this.avatarIconElement.innerHTML = this.getAvatarMarkup(heroConfig, {
+            sizeClass: 'topbar-player-avatar-circle',
+            fallbackClass: 'topbar-player-avatar-fallback'
+        });
+    }
+
+    updatePlayerAvatarPreview() {
+        const preview = document.getElementById('player-avatar-preview');
+        if (!preview) {
+            return;
+        }
+        const configId = this.pendingAvatarHeroConfigId || this.getCurrentAvatarHeroConfigId();
+        preview.innerHTML = this.getAvatarMarkup(HeroConfig.getHeroConfig(configId), {
+            sizeClass: 'player-info-avatar-large'
+        });
+    }
+
+    openAvatarPicker() {
+        if (this.avatarPickerModal?.isShown()) {
+            return;
+        }
+
+        const unlockedHeroIds = this.getUnlockedAvatarHeroIds();
+        const selectedId = this.pendingAvatarHeroConfigId || this.getCurrentAvatarHeroConfigId();
+        const content = `
+            <div class="player-avatar-picker-grid">
+                ${HeroConfig.getAllHeroes().map(heroConfig => {
+                    const unlocked = unlockedHeroIds.has(heroConfig.id);
+                    const selected = unlocked && heroConfig.id === selectedId;
+                    return `
+                        <button
+                            type="button"
+                            class="player-avatar-option ${unlocked ? 'is-unlocked' : 'is-locked'} ${selected ? 'is-selected' : ''}"
+                            ${unlocked ? `onclick="window.game.ui.topBar.selectAvatarHero('${heroConfig.id}')"` : 'disabled'}
+                            title="${heroConfig.name}"
+                        >
+                            <div class="player-avatar-option-thumb">
+                                ${this.getAvatarMarkup(heroConfig, { sizeClass: 'player-avatar-option-image' })}
+                            </div>
+                            <div class="player-avatar-option-name">${heroConfig.name}</div>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        const modal = new Modal({
+            title: '选择头像',
+            className: 'player-avatar-picker-modal',
+            content,
+            buttons: [
+                { text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }
+            ],
+            onClose: () => {
+                this.avatarPickerModal = null;
+            }
+        });
+        this.avatarPickerModal = modal;
+        modal.show();
+    }
+
+    selectAvatarHero(configId) {
+        this.pendingAvatarHeroConfigId = configId;
+        this.updatePlayerAvatarPreview();
+        if (this.avatarPickerModal?.isShown()) {
+            this.avatarPickerModal.close();
+        }
+    }
+
     showPlayerInfo() {
+        this.pendingAvatarHeroConfigId = this.getCurrentAvatarHeroConfigId();
         const modal = new Modal({
             title: '玩家信息',
+            className: 'player-info-modal',
             content: `
-                <div style="text-align:center;padding:10px;display:flex;flex-direction:column;gap:12px;">
-                    <div style="font-size:64px;">${authService.isLoggedIn() ? '🧑‍🚀' : '👤'}</div>
-                    <div>
-                        <label style="display:block;margin-bottom:6px;">玩家昵称</label>
-                        <input type="text" id="player-nickname" value="${window.game.player.nickname || '幸存者'}"
-                               style="width:100%;padding:8px;border-radius:5px;border:1px solid #4a4a4a;background:#2a2a2a;color:#e0e0e0;text-align:center;">
+                <div class="player-info-panel">
+                    <div class="player-info-header">
+                        <div class="player-info-avatar-column">
+                            <div id="player-avatar-preview">${this.getAvatarMarkup(this.getCurrentAvatarHeroConfig(), { sizeClass: 'player-info-avatar-large' })}</div>
+                            ${this.getPlayerNameMarkup()}
+                        </div>
+                        <div class="player-info-meta">
+                            <div class="player-info-stats">
+                                <div class="player-info-stat-inline">玩家等级：<strong id="info-level">${window.game.player.level}</strong></div>
+                                <div class="player-info-stat-inline">玩家经验：<strong><span id="info-exp">${window.game.player.exp}</span>/<span id="info-exp-required">${GameConfig.getExpRequired(window.game.player.level)}</span></strong></div>
+                            </div>
+                            <button class="btn btn-secondary btn-small player-avatar-config-btn" onclick="window.game.ui.topBar.openAvatarPicker()">设置头像</button>
+                        </div>
                     </div>
-                    <label style="display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;">
-                        <input type="checkbox" id="auto-battle-setting" ${window.game.settings.autoBattle ? 'checked' : ''}>
-                        <span>自动战斗</span>
-                    </label>
-                    <label style="display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;">
-                        <input type="checkbox" id="mute-setting" ${window.game.settings.muted ? 'checked' : ''}>
-                        <span>关闭游戏声音</span>
-                    </label>
-                    <div style="padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;line-height:1.8;">
-                        <p style="margin:0;">玩家等级：<span id="info-level">${window.game.player.level}</span></p>
-                        <p style="margin:0;">玩家经验：<span id="info-exp">${window.game.player.exp}</span>/<span id="info-exp-required">${GameConfig.getExpRequired(window.game.player.level)}</span></p>
+                    <div class="player-info-toggle-row">
+                        <label class="player-info-toggle">
+                            <input type="checkbox" id="auto-battle-setting" ${window.game.settings.autoBattle ? 'checked' : ''}>
+                            <span>自动战斗</span>
+                        </label>
+                        <label class="player-info-toggle">
+                            <input type="checkbox" id="mute-setting" ${window.game.settings.muted ? 'checked' : ''}>
+                            <span>关闭游戏声音</span>
+                        </label>
                     </div>
-                    ${this.getAccountStatusMarkup()}
+                    ${this.getPlayerInfoToolsMarkup()}
                 </div>
             `,
             buttons: [
                 { text: '保存', className: 'btn-primary', onClick: () => this.savePlayerInfo(modal) },
+                { text: '取消', className: 'btn-secondary', onClick: () => modal.close() }
+            ],
+            onClose: () => {
+                this.playerInfoModal = null;
+                this.pendingAvatarHeroConfigId = null;
+                if (this.avatarPickerModal?.isShown()) {
+                    this.avatarPickerModal.close();
+                }
+            }
+        });
+        this.playerInfoModal = modal;
+        modal.show();
+    }
+
+    openNicknameEditor() {
+        const currentName = window.game.player.nickname || '幸存者';
+        const modal = new Modal({
+            title: '修改名称',
+            className: 'player-name-modal',
+            content: `
+                <div class="player-name-edit-panel">
+                    <input
+                        type="text"
+                        id="player-name-edit-input"
+                        class="player-info-input"
+                        maxlength="8"
+                        value="${this.escapeAttribute(currentName)}"
+                        placeholder="请输入玩家名称"
+                    >
+                </div>
+            `,
+            buttons: [
+                {
+                    text: '确认',
+                    className: 'btn-primary',
+                    onClick: () => {
+                        const input = document.getElementById('player-name-edit-input');
+                        const value = String(input?.value || '').trim();
+                        if (!value || value.length > 8) {
+                            Toast.info('玩家名称长度在1-8个字以内');
+                            return;
+                        }
+                        window.game.player.nickname = value;
+                        const nameElement = document.getElementById('player-info-name');
+                        if (nameElement) {
+                            nameElement.textContent = value;
+                        }
+                        window.game.save();
+                        this.refreshAccountStatus();
+                        modal.close();
+                        Toast.success('名称修改成功');
+                    }
+                },
                 { text: '取消', className: 'btn-secondary', onClick: () => modal.close() }
             ]
         });
         modal.show();
     }
 
+    escapeAttribute(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     savePlayerInfo(modal) {
-        const nicknameInput = document.getElementById('player-nickname');
         const autoBattleCheckbox = document.getElementById('auto-battle-setting');
         const muteCheckbox = document.getElementById('mute-setting');
 
-        if (nicknameInput) {
-            window.game.player.nickname = nicknameInput.value || '幸存者';
-        }
+        window.game.player.avatarHeroConfigId = this.pendingAvatarHeroConfigId || this.getCurrentAvatarHeroConfigId();
         if (autoBattleCheckbox) {
             window.game.settings.autoBattle = autoBattleCheckbox.checked;
         }
@@ -134,12 +353,56 @@ class TopBar {
         Toast.success('设置已保存');
     }
 
-    goToLogin() {
-        window.game.ui.loginView.show();
+    async redeemCdkey() {
+        if (!authService.isLoggedIn()) {
+            Toast.error('请先登录账号');
+            return;
+        }
+
+        const input = document.getElementById('player-cdkey-input');
+        const code = String(input?.value || '').trim().toUpperCase();
+        if (!code) {
+            Toast.info('请输入 CDKEY');
+            return;
+        }
+
+        try {
+            const result = await CdkeyApi.redeem(code);
+            if (!result?.success) {
+                Toast.info(result?.message || '兑换失败');
+                return;
+            }
+
+            mailManager.applyRewards(result.rewards);
+            window.game?.refreshRuntimeUI?.();
+            window.game?.save?.();
+            if (input) {
+                input.value = '';
+            }
+
+            const rewardEntries = (Array.isArray(result.rewards) ? result.rewards : []).map((entry) => {
+                if (entry.type === 'resource') {
+                    return RewardModal.createResourceReward(entry.id, entry.amount);
+                }
+                return RewardModal.createItemReward(entry.id, entry.amount);
+            }).filter(Boolean);
+
+            if (rewardEntries.length > 0) {
+                await RewardModal.show({
+                    title: '兑换成功',
+                    rewards: rewardEntries,
+                    summaryText: result?.cdkey?.title || result?.message || 'CDKEY 已兑换'
+                });
+            } else {
+                Toast.success(result?.message || '兑换成功');
+            }
+        } catch (error) {
+            Toast.error(error?.message || '兑换失败');
+        }
     }
 
-    showWechatReservedInfo() {
-        Toast.info('微信登录结构已预留，后续接入微信小游戏时可直接对接 code2Session');
+    goToLogin() {
+        window.game.ui.loginView.show();
     }
 
     async uploadCloudSave() {
@@ -183,12 +446,11 @@ class TopBar {
             if (data.energy !== undefined) this.updateEnergy(data.energy, data.maxEnergy);
         });
         eventManager.on('authChange', () => this.refreshAccountStatus());
+        eventManager.on('heroAdd', () => this.refreshAccountStatus());
     }
 
     refreshAccountStatus() {
-        if (this.avatarIconElement) {
-            this.avatarIconElement.textContent = authService.isLoggedIn() ? '🧑‍🚀' : '👤';
-        }
+        this.updateTopBarAvatar();
         if (this.avatarElement) {
             const user = authService.getCurrentUser();
             this.avatarElement.title = authService.isLoggedIn()

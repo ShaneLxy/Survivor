@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 背包详情场景视图
  */
 class BackpackView {

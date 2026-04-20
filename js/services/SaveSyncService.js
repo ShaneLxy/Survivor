@@ -4,15 +4,35 @@
 class SaveSyncService {
     constructor() {
         this.syncTimer = null;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.uploadCurrentSave();
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            this.uploadCurrentSave();
+        });
     }
 
     getSaveTimestamp(saveWrapper) {
         return Number(saveWrapper?.data?.lastSaveTime || saveWrapper?.timestamp || 0);
     }
 
+    getSaveSchemaVersion() {
+        return window.VersionManager?.saveSchemaVersion || '2.0.0';
+    }
+
+    serializeSaveData(saveWrapper) {
+        try {
+            return JSON.stringify(saveWrapper?.data || null);
+        } catch (error) {
+            return '';
+        }
+    }
+
     buildCurrentSaveWrapper() {
         return {
-            version: '2.0.0',
+            version: this.getSaveSchemaVersion(),
             timestamp: Date.now(),
             data: saveManager.collectGameData()
         };
@@ -35,7 +55,11 @@ class SaveSyncService {
             const localTimestamp = this.getSaveTimestamp(localSave);
             const remoteTimestamp = this.getSaveTimestamp(remoteSave);
             if (!localSave || remoteTimestamp > localTimestamp) {
-                localStorage.setItem(saveManager.saveKey, JSON.stringify(remoteSave));
+                localStorage.setItem(saveManager.getSaveKey(), JSON.stringify(remoteSave));
+                return remoteSave;
+            }
+            if (remoteTimestamp === localTimestamp && this.serializeSaveData(remoteSave) !== this.serializeSaveData(localSave)) {
+                localStorage.setItem(saveManager.getSaveKey(), JSON.stringify(remoteSave));
                 return remoteSave;
             }
             if (localTimestamp > remoteTimestamp) {
@@ -52,6 +76,8 @@ class SaveSyncService {
         if (!authService.isLoggedIn() || !saveWrapper) {
             return false;
         }
+        clearTimeout(this.syncTimer);
+        this.syncTimer = null;
         try {
             await SaveApi.save(saveWrapper);
             return true;
@@ -82,7 +108,7 @@ class SaveSyncService {
         if (!remoteSave?.data) {
             throw new Error('云端暂无存档');
         }
-        localStorage.setItem(saveManager.saveKey, JSON.stringify(remoteSave));
+        localStorage.setItem(saveManager.getSaveKey(), JSON.stringify(remoteSave));
         window.game.loadFromSave(remoteSave);
         window.game.refreshRuntimeUI();
         return remoteSave;

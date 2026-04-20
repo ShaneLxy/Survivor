@@ -1,0 +1,25 @@
+{
+  "appId": "com.survivor.game",
+  "appName": "末日生存",
+  "webDir": "mobile/web",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#0b1220",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 商城视图
  */
 class ShopView {
@@ -6,7 +6,7 @@ class ShopView {
         this.element = document.getElementById('main-display');
         this.visible = false;
         this.shopItems = [];
-        this.purchasedCounts = {}; // 已购买数量
+        this.purchasedCounts = {};
     }
 
     show() {
@@ -20,9 +20,6 @@ class ShopView {
         this.element.innerHTML = '';
     }
 
-    /**
-     * 重置购买次数（每次打开游戏重算）
-     */
     resetPurchaseCounts() {
         this.shopItems = ShopConfig.getShopItems();
         this.shopItems.forEach(item => {
@@ -51,6 +48,7 @@ class ShopView {
     renderShopList() {
         const listEl = this.element.querySelector('#shop-list');
         listEl.innerHTML = '';
+        const goldIconSrc = ResourceVisualConfig.get('gold')?.src || 'assets/icons/resource-gold.svg';
 
         this.shopItems.forEach(item => {
             const remaining = item.maxBuy - (this.purchasedCounts[item.id] || 0);
@@ -63,10 +61,10 @@ class ShopView {
                     <span class="shop-icon">${item.icon}</span>
                     <span class="shop-name">${item.name}</span>
                 </div>
-                <div class="shop-col-price">💰${item.price}</div>
+                <div class="shop-col-price"><img class="shop-price-icon" src="${goldIconSrc}" alt="金币">${item.price}</div>
                 <div class="shop-col-limit">${remaining}/${item.maxBuy}</div>
                 <div class="shop-col-action">
-                    <button class="btn btn-small ${canBuy ? 'btn-primary' : 'btn-secondary'}" 
+                    <button class="btn btn-small ${canBuy ? 'btn-primary' : 'btn-secondary'}"
                             onclick="window.game.ui.shopView.showBuyConfirm('${item.id}')"
                             ${!canBuy ? 'disabled' : ''}>
                         购买
@@ -77,10 +75,6 @@ class ShopView {
         });
     }
 
-    /**
-     * 显示购买确认弹窗
-     * @param {string} itemId - 商品ID
-     */
     showBuyConfirm(itemId) {
         const item = this.shopItems.find(i => i.id === itemId);
         if (!item) return;
@@ -103,15 +97,15 @@ class ShopView {
         const content = `
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:15px;">${resolvedItem.actualItemIcon}</div>
-                <p>购买: ${resolvedItem.actualItemName}</p>
-                <p>单价: 💰${item.price}</p>
-                <p>剩余可购: ${remaining}/${item.maxBuy}</p>
+                <p>购买：${resolvedItem.actualItemName}</p>
+                <p>单价：<img class="shop-price-icon shop-price-icon-inline" src="${ResourceVisualConfig.get('gold')?.src || 'assets/icons/resource-gold.svg'}" alt="金币">${item.price}</p>
+                <p>剩余可购：${remaining}/${item.maxBuy}</p>
                 ${needInput ? `
                     <div style="margin-top:15px;">
-                        <label>购买数量: </label>
-                        <input type="number" id="buy-quantity" 
-                               min="1" max="${remaining}" 
-                               value="1" 
+                        <label>购买数量：</label>
+                        <input type="number" id="buy-quantity"
+                               min="1" max="${remaining}"
+                               value="1"
                                style="width:60px;padding:5px;border-radius:5px;border:1px solid #4a4a4a;background:#2a2a2a;color:#e0e0e0;">
                     </div>
                 ` : ''}
@@ -120,7 +114,7 @@ class ShopView {
 
         const modal = new Modal({
             title: '确认购买',
-            content: content,
+            content,
             buttons: [
                 {
                     text: '确认购买',
@@ -151,11 +145,6 @@ class ShopView {
         modal.show();
     }
 
-    /**
-     * 购买商品
-     * @param {Object} item - 商品配置
-     * @param {number} quantity - 购买数量
-     */
     async buyItem(item, quantity) {
         try {
             const resolvedItem = ShopConfig.resolveGiveItem(item);
@@ -232,5 +221,4 @@ class ShopView {
 }
 
 const shopView = new ShopView();
-
 window.shopView = shopView;

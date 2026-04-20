@@ -9,6 +9,12 @@ class Dungeon {
         this.level = config.level;
         this.energyCost = config.energyCost;
         this.sceneId = config.sceneId || 'standard_9x9';
+        this.battlefield = config.battlefield ? {
+            ...config.battlefield,
+            obstacles: Array.isArray(config.battlefield.obstacles)
+                ? config.battlefield.obstacles.map(entry => Array.isArray(entry) ? [...entry] : { ...entry })
+                : []
+        } : null;
         this.initialEnemies = [...(config.initialEnemies || config.enemies || [])];
         this.bossWaves = (config.bossWaves || []).map((wave, index) => ({
             id: wave.id || `${config.id}_boss_wave_${index + 1}`,
@@ -39,6 +45,7 @@ class Dungeon {
                     camp: 'enemy',
                     rank: config.rank || 'normal',
                     description: config.description || '',
+                    skills: config.skills ? config.skills.map(skill => ({ ...skill })) : [],
                     skill: config.skill ? { ...config.skill } : null,
                     baseStats: enemyEntry.overrideStats ? { ...stats, ...enemyEntry.overrideStats } : stats
                 });
@@ -50,6 +57,14 @@ class Dungeon {
 
     createBattleSetup() {
         return {
+            battlefield: this.battlefield
+                ? {
+                    ...this.battlefield,
+                    obstacles: Array.isArray(this.battlefield.obstacles)
+                        ? this.battlefield.obstacles.map(entry => Array.isArray(entry) ? [...entry] : { ...entry })
+                        : []
+                }
+                : null,
             initialEnemies: this.createUnitsFromEntries(this.initialEnemies),
             bossWaves: this.bossWaves.map((wave) => ({
                 id: wave.id,
@@ -114,6 +129,7 @@ class Dungeon {
             energyCost: this.energyCost,
             description: this.description,
             sceneId: this.sceneId,
+            battlefield: this.battlefield ? { ...this.battlefield } : null,
             enemyCount: this.getEnemyCount(),
             rewards: this.rewards
         };

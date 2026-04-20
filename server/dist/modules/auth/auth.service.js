@@ -41,70 +41,120 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
-const typeorm_1 = require("@nestjs/typeorm");
 const bcrypt = __importStar(require("bcryptjs"));
-const typeorm_2 = require("typeorm");
-const user_account_entity_1 = require("../users/entities/user-account.entity");
+const cloudbase_service_1 = require("../../shared/cloudbase/cloudbase.service");
 let AuthService = class AuthService {
-    constructor(accountRepository, jwtService, configService) {
-        this.accountRepository = accountRepository;
+    constructor(cloudbaseService, jwtService, configService) {
+        this.cloudbaseService = cloudbaseService;
         this.jwtService = jwtService;
         this.configService = configService;
     }
     async register(dto) {
         const account = dto.account.trim();
-        const existing = await this.accountRepository.findOne({ where: { account } });
-        if (existing) {
-            throw new common_1.BadRequestException('该账号已存在');
+        console.log('[AuthService.register] start:', { account });
+        try {
+            const collection = this.cloudbaseService.userAccounts();
+            const existing = await this.cloudbaseService.findOne(collection, { account });
+            if (existing) {
+                throw new common_1.BadRequestException('Account already exists');
+            }
+            const now = this.cloudbaseService.nowIso();
+            const passwordHash = await bcrypt.hash(dto.password, 10);
+            const sessionVersion = 1;
+            const id = await this.cloudbaseService.insert(collection, {
+                account,
+                passwordHash,
+                nickname: dto.nickname?.trim() || account,
+                loginType: 'local',
+                sessionVersion,
+                wechatOpenId: null,
+                wechatUnionId: null,
+                lastLoginAt: now,
+                createdAt: now,
+                updatedAt: now,
+            });
+            const saved = await this.cloudbaseService.getById(collection, id);
+            console.log('[AuthService.register] success:', { account, id });
+            return this.buildAuthResponse(saved);
         }
-        const passwordHash = await bcrypt.hash(dto.password, 10);
-        const entity = this.accountRepository.create({
-            account,
-            passwordHash,
-            nickname: dto.nickname?.trim() || account,
-            loginType: 'local',
-            lastLoginAt: new Date(),
-        });
-        const saved = await this.accountRepository.save(entity);
-        return this.buildAuthResponse(saved);
+        catch (error) {
+            console.error('[AuthService.register] failed:', { account, error });
+            throw error;
+        }
     }
     async login(dto) {
         const account = dto.account.trim();
-        const entity = await this.accountRepository.findOne({ where: { account } });
-        if (!entity || !entity.passwordHash) {
-            throw new common_1.UnauthorizedException('账号或密码错误');
+        console.log('[AuthService.login] start:', { account });
+        try {
+            const collection = this.cloudbaseService.userAccounts();
+            const entity = (await this.cloudbaseService.findOne(collection, {
+                account,
+            }));
+            console.log('[AuthService.login] findOne result:', {
+                account,
+                found: Boolean(entity),
+                hasPasswordHash: Boolean(entity?.passwordHash),
+                id: entity?._id || null,
+            });
+            if (!entity || !entity.passwordHash) {
+                throw new common_1.UnauthorizedException('Invalid account or password');
+            }
+            const matched = await bcrypt.compare(dto.password, entity.passwordHash);
+            console.log('[AuthService.login] password compare:', { account, matched });
+            if (!matched) {
+                throw new common_1.UnauthorizedException('Invalid account or password');
+            }
+            const lastLoginAt = this.cloudbaseService.nowIso();
+            const sessionVersion = (Number(entity.sessionVersion) || 0) + 1;
+            await this.cloudbaseService.updateById(collection, entity._id, {
+                lastLoginAt,
+                sessionVersion,
+                updatedAt: lastLoginAt,
+            });
+            const saved = await this.cloudbaseService.getById(collection, entity._id);
+            console.log('[AuthService.login] success:', { account, id: entity._id });
+            return this.buildAuthResponse(saved);
         }
-        const matched = await bcrypt.compare(dto.password, entity.passwordHash);
-        if (!matched) {
-            throw new common_1.UnauthorizedException('账号或密码错误');
+        catch (error) {
+            console.error('[AuthService.login] failed:', { account, error });
+            throw error;
         }
-        entity.lastLoginAt = new Date();
-        const saved = await this.accountRepository.save(entity);
-        return this.buildAuthResponse(saved);
     }
-    async validateJwtUser(userId) {
+    async validateJwtUser(userId, sessionVersion) {
         if (!userId) {
             return null;
         }
-        return this.accountRepository.findOne({ where: { id: userId } });
+        const collection = this.cloudbaseService.userAccounts();
+        const entity = await this.cloudbaseService.getById(collection, userId);
+        if (!entity) {
+            return null;
+        }
+        const account = entity;
+        const currentSessionVersion = Number(account.sessionVersion) || 0;
+        if (Number.isFinite(Number(sessionVersion)) && Number(sessionVersion) !== currentSessionVersion) {
+            return null;
+        }
+        return this.serializeUser(account);
     }
     async getProfile(userId) {
-        const entity = await this.accountRepository.findOne({ where: { id: userId } });
+        const collection = this.cloudbaseService.userAccounts();
+        const entity = await this.cloudbaseService.getById(collection, userId);
         if (!entity) {
-            throw new common_1.NotFoundException('账号不存在');
+            throw new common_1.NotFoundException('Account not found');
         }
         return { user: this.serializeUser(entity) };
     }
     buildAuthResponse(account) {
-        const payload = { sub: account.id, loginType: account.loginType };
+        const payload = {
+            sub: account._id,
+            loginType: account.loginType,
+            sessionVersion: Number(account.sessionVersion) || 0,
+        };
         const accessToken = this.jwtService.sign(payload, {
             secret: this.configService.get('JWT_SECRET') || 'survivor_local_secret',
             expiresIn: this.configService.get('JWT_EXPIRES_IN') || '7d',
@@ -116,10 +166,11 @@ let AuthService = class AuthService {
     }
     serializeUser(account) {
         return {
-            id: account.id,
+            id: account._id,
             account: account.account,
             nickname: account.nickname,
             loginType: account.loginType,
+            sessionVersion: Number(account.sessionVersion) || 0,
             wechatBound: Boolean(account.wechatOpenId),
             createdAt: account.createdAt,
             updatedAt: account.updatedAt,
@@ -129,8 +180,7 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, typeorm_1.InjectRepository)(user_account_entity_1.UserAccount)),
-    __metadata("design:paramtypes", [typeorm_2.Repository,
+    __metadata("design:paramtypes", [cloudbase_service_1.CloudbaseService,
         jwt_1.JwtService,
         config_1.ConfigService])
 ], AuthService);

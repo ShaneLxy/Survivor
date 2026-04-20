@@ -1,69 +1,83 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
-import { UserAccount } from '../users/entities/user-account.entity';
+import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+import { UserAccountDocument } from '../../shared/cloudbase/cloudbase.types';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 export declare class AuthService {
-    private readonly accountRepository;
+    private readonly cloudbaseService;
     private readonly jwtService;
     private readonly configService;
-    constructor(accountRepository: Repository<UserAccount>, jwtService: JwtService, configService: ConfigService);
+    constructor(cloudbaseService: CloudbaseService, jwtService: JwtService, configService: ConfigService);
     register(dto: RegisterDto): Promise<{
         accessToken: string;
         user: {
-            id: number;
+            id: string;
             account: string;
             nickname: string;
             loginType: string;
+            sessionVersion: number;
             wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
+            createdAt: string;
+            updatedAt: string;
         };
     }>;
     login(dto: LoginDto): Promise<{
         accessToken: string;
         user: {
-            id: number;
+            id: string;
             account: string;
             nickname: string;
             loginType: string;
+            sessionVersion: number;
             wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
+            createdAt: string;
+            updatedAt: string;
         };
     }>;
-    validateJwtUser(userId: number): Promise<UserAccount>;
-    getProfile(userId: number): Promise<{
-        user: {
-            id: number;
-            account: string;
-            nickname: string;
-            loginType: string;
-            wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-        };
-    }>;
-    buildAuthResponse(account: UserAccount): {
-        accessToken: string;
-        user: {
-            id: number;
-            account: string;
-            nickname: string;
-            loginType: string;
-            wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-        };
-    };
-    serializeUser(account: UserAccount): {
-        id: number;
+    validateJwtUser(userId: string, sessionVersion?: number): Promise<{
+        id: string;
         account: string;
         nickname: string;
         loginType: string;
+        sessionVersion: number;
         wechatBound: boolean;
-        createdAt: Date;
-        updatedAt: Date;
+        createdAt: string;
+        updatedAt: string;
+    }>;
+    getProfile(userId: string): Promise<{
+        user: {
+            id: string;
+            account: string;
+            nickname: string;
+            loginType: string;
+            sessionVersion: number;
+            wechatBound: boolean;
+            createdAt: string;
+            updatedAt: string;
+        };
+    }>;
+    buildAuthResponse(account: UserAccountDocument): {
+        accessToken: string;
+        user: {
+            id: string;
+            account: string;
+            nickname: string;
+            loginType: string;
+            sessionVersion: number;
+            wechatBound: boolean;
+            createdAt: string;
+            updatedAt: string;
+        };
+    };
+    serializeUser(account: UserAccountDocument): {
+        id: string;
+        account: string;
+        nickname: string;
+        loginType: string;
+        sessionVersion: number;
+        wechatBound: boolean;
+        createdAt: string;
+        updatedAt: string;
     };
 }

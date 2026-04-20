@@ -40,25 +40,23 @@ class ItemCard {
         // 图标
         const icon = document.createElement('div');
         icon.className = 'item-icon';
-        icon.textContent = item.icon;
-        icon.style.color = rarityColor;
+        if (item.iconSrc) {
+            icon.innerHTML = `<img class="resource-icon-image item-icon-image" src="${item.iconSrc}" alt="${item.name}">`;
+        } else {
+            icon.textContent = item.icon;
+            icon.style.color = rarityColor;
+        }
         card.appendChild(icon);
 
         // 数量
         if (item.count > 1 || item.stackLimit > 1) {
             const count = document.createElement('div');
             count.className = 'item-count';
-            count.textContent = item.count;
+            count.textContent = item.displayCount || item.count;
             card.appendChild(count);
         }
 
         // 名称
-        const name = document.createElement('div');
-        name.className = 'item-name';
-        name.textContent = item.name;
-        name.style.color = rarityColor;
-        card.appendChild(name);
-
         return card;
     }
 

@@ -1,0 +1,28 @@
+{
+  "name": "survivor-capacitor-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor wrapper for the Survivor web game",
+  "scripts": {
+    "release:version": "powershell -ExecutionPolicy Bypass -File scripts/bump-release-version.ps1",
+    "android:doctor": "powershell -ExecutionPolicy Bypass -File scripts/doctor-android.ps1",
+    "cap:prepare": "powershell -ExecutionPolicy Bypass -File scripts/prepare-capacitor-web.ps1",
+    "cap:copy": "npm run cap:prepare && npx cap copy",
+    "cap:sync": "npm run cap:prepare && npx cap sync android",
+    "cap:android-config": "powershell -ExecutionPolicy Bypass -File scripts/configure-capacitor-android.ps1",
+    "cap:open": "npx cap open android",
+    "android": "npm run cap:sync && npm run cap:android-config && npm run cap:open",
+    "android:build:debug": "npm run cap:sync && npm run cap:android-config && powershell -ExecutionPolicy Bypass -Command \"Set-Location android; .\\\\gradlew.bat assembleDebug\"",
+    "android:build:release": "npm run cap:sync && npm run cap:android-config && powershell -ExecutionPolicy Bypass -Command \"Set-Location android; .\\\\gradlew.bat bundleRelease\"",
+    "android:setup": "npm run cap:sync && npm run cap:android-config"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.7.8",
+    "@capacitor/app": "^5.0.8",
+    "@capacitor/core": "^5.7.8",
+    "@capacitor/status-bar": "^5.0.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^5.7.8"
+  }
+}

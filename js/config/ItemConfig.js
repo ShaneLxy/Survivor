@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 道具配置
  */
 const ItemConfig = {
@@ -26,20 +26,30 @@ const ItemConfig = {
         exp_potion: {
             id: 'exp_potion',
             name: '经验药水',
-            icon: '📘',
+            icon: '📌',
             type: 'consumable',
             rarity: 'rare',
             description: '可批量给英雄使用，每瓶提供1点英雄经验',
             effect: { type: 'hero_exp', value: 1 },
             stackLimit: 9999
         },
+        stimulant: {
+            id: 'stimulant',
+            name: '强心剂',
+            icon: '💉',
+            type: 'consumable',
+            rarity: 'epic',
+            description: '战斗中可复活一名已阵亡英雄，并恢复其30%生命',
+            effect: { type: 'revive', value: 0.3 },
+            stackLimit: 99
+        },
         sword: {
             id: 'sword',
             name: '铁剑',
-            icon: '⚔️',
+            icon: '🗡️',
             type: 'weapon',
             rarity: 'common',
-            description: '攻击力+10',
+            description: '攻击力 +10',
             stats: { attack: 10 },
             stackLimit: 1
         },
@@ -49,17 +59,17 @@ const ItemConfig = {
             icon: '🗡️',
             type: 'weapon',
             rarity: 'rare',
-            description: '攻击力+25',
+            description: '攻击力 +25',
             stats: { attack: 25 },
             stackLimit: 1
         },
         legendary_sword: {
             id: 'legendary_sword',
             name: '传说之剑',
-            icon: '⚔️',
+            icon: '🗡️',
             type: 'weapon',
             rarity: 'legendary',
-            description: '攻击力+60',
+            description: '攻击力 +60',
             stats: { attack: 60 },
             stackLimit: 1
         },
@@ -69,7 +79,7 @@ const ItemConfig = {
             icon: '🛡️',
             type: 'armor',
             rarity: 'common',
-            description: '防御力+5',
+            description: '防御力 +5',
             stats: { defense: 5 },
             stackLimit: 1
         },
@@ -79,17 +89,17 @@ const ItemConfig = {
             icon: '🛡️',
             type: 'armor',
             rarity: 'rare',
-            description: '防御力+15',
+            description: '防御力 +15',
             stats: { defense: 15 },
             stackLimit: 1
         },
         hero_summon: {
             id: 'hero_summon',
             name: '英雄召唤券',
-            icon: '🎫',
+            icon: '🎿',
             type: 'special',
             rarity: 'epic',
-            description: '使用可进行1次英雄抽卡',
+            description: '使用后可进行1次英雄招募',
             effect: { type: 'gacha', count: 1 },
             stackLimit: 99
         }

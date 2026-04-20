@@ -1,11 +1,9 @@
-import { UserAccount } from '../../users/entities/user-account.entity';
-export declare class PlayerSave {
-    id: number;
-    accountId: number;
-    account: UserAccount;
+export interface PlayerSave {
+    _id: string;
+    accountId: string;
     version: string;
     saveData: Record<string, any> | null;
     lastSaveTime: number;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt: string;
+    updatedAt: string;
 }

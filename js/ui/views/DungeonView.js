@@ -1,5 +1,5 @@
-/**
- * 地牢场景视图
+﻿/**
+ * 副本场景视图
  */
 class DungeonView {
     constructor() {
@@ -29,8 +29,24 @@ class DungeonView {
         if (mediaConfig.type === 'video') {
             const poster = mediaConfig.poster ? ` poster="${mediaConfig.poster}"` : '';
             const mimeType = mediaConfig.mimeType || 'video/mp4';
+            const mobileFallbackSrc = mediaConfig.mobileFallbackSrc
+                ? ` data-mobile-fallback-src="${mediaConfig.mobileFallbackSrc}"`
+                : '';
             return `
-                <video class="scene-loop-media" autoplay muted loop playsinline${poster}>
+                <video
+                    class="scene-loop-media"
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                    webkit-playsinline="true"
+                    x5-playsinline="true"
+                    x5-video-player-type="h5-page"
+                    x5-video-player-fullscreen="false"
+                    x-webkit-airplay="deny"
+                    disablepictureinpicture
+                    controlslist="nofullscreen nodownload noremoteplayback"
+                    preload="auto"${poster}${mobileFallbackSrc}>
                     <source src="${mediaConfig.src}" type="${mimeType}">
                 </video>
             `;
@@ -107,6 +123,7 @@ class DungeonView {
         }
 
         this.codexModal = new Modal({
+            className: 'monster-codex-modal-shell',
             title: '怪物图鉴',
             content: this.getMonsterCodexModalContent(),
             buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => this.codexModal?.close() }],
@@ -148,7 +165,7 @@ class DungeonView {
                     <div class="monster-codex-header">
                         <div>
                             <div class="monster-codex-title">怪物图鉴</div>
-                            <div class="monster-codex-subtitle">已开放副本中的怪物会显示真容，未开放内容以 ? 占位。</div>
+                            <div class="monster-codex-subtitle">已开放副本中的怪物会显示真实信息，未开放内容会以 ? 占位。</div>
                         </div>
                         <div class="monster-codex-note">属性按怪物所在副本强度计算</div>
                     </div>
@@ -270,7 +287,7 @@ class DungeonView {
 
     consumeEnergyForDungeon(dungeon) {
         if (window.game.player.energy < dungeon.energyCost) {
-            Toast.error(`体力不足,需要 ${dungeon.energyCost}`);
+            Toast.error(`体力不足，需要 ${dungeon.energyCost}`);
             return false;
         }
         window.game.player.energy -= dungeon.energyCost;
@@ -284,11 +301,14 @@ class DungeonView {
     enterDungeon(dungeonId) {
         const dungeon = dungeonManager.getDungeon(dungeonId);
         if (!dungeon) {
-            Toast.error('地牢不存在');
+            Toast.error('副本不存在');
             return;
         }
-        if (!dungeon.canEnter(window.game.player.level)) {
-            Toast.error(`需要等级 ${dungeon.level}`);
+        const accessibility = typeof this.getDungeonAccessibility === 'function'
+            ? this.getDungeonAccessibility(dungeonId)
+            : { accessible: true, message: '' };
+        if (!accessibility.accessible) {
+            Toast.error(accessibility.message || '当前副本尚未解锁');
             return;
         }
         if (heroManager.getTeam().length === 0) {
@@ -298,6 +318,9 @@ class DungeonView {
         if (!this.consumeEnergyForDungeon(dungeon)) {
             return;
         }
+        this.chapterStageModal = null;
+        this.codexModal = null;
+        Modal.closeAll();
         window.game.save();
         eventManager.emit('enterBattle', { dungeonId, sceneId: dungeon.sceneId });
     }
@@ -305,7 +328,14 @@ class DungeonView {
     async sweepDungeon(dungeonId) {
         const dungeon = dungeonManager.getDungeon(dungeonId);
         if (!dungeon) {
-            Toast.error('地牢不存在');
+            Toast.error('副本不存在');
+            return;
+        }
+        const accessibility = typeof this.getDungeonAccessibility === 'function'
+            ? this.getDungeonAccessibility(dungeonId)
+            : { accessible: true, message: '' };
+        if (!accessibility.accessible) {
+            Toast.error(accessibility.message || '当前副本尚未解锁');
             return;
         }
         if (!dungeonManager.canSweep(dungeonId)) {

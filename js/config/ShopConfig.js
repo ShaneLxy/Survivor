@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 商城商品配置
  */
 const ShopConfig = {
@@ -43,7 +43,7 @@ const ShopConfig = {
             {
                 id: 'shop_004',
                 name: '经验药水x50',
-                icon: '📘',
+                icon: '📌',
                 type: 'consumable',
                 rarity: 'rare',
                 price: 70,
@@ -115,7 +115,7 @@ const ShopConfig = {
             {
                 id: 'shop_010',
                 name: '铁矿石x5',
-                icon: '⛓️',
+                icon: '⛏️',
                 type: 'resource',
                 rarity: 'rare',
                 price: 120,
@@ -123,6 +123,18 @@ const ShopConfig = {
                 maxBuy: 8,
                 giveItem: 'iron_ore',
                 giveCount: 5
+            },
+            {
+                id: 'shop_011',
+                name: '强心剂',
+                icon: '💉',
+                type: 'consumable',
+                rarity: 'epic',
+                price: 500,
+                currency: 'gold',
+                maxBuy: 5,
+                giveItem: 'stimulant',
+                giveCount: 1
             }
         ];
     },

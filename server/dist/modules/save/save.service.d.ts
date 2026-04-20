@@ -1,11 +1,10 @@
-import { Repository } from 'typeorm';
-import { UserAccount } from '../users/entities/user-account.entity';
+import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+import { UserAccountDocument } from '../../shared/cloudbase/cloudbase.types';
 import { UpsertSaveDto } from './dto/upsert-save.dto';
-import { PlayerSave } from './entities/player-save.entity';
 export declare class SaveService {
-    private readonly saveRepository;
-    constructor(saveRepository: Repository<PlayerSave>);
-    getSaveByAccountId(accountId: number): Promise<{
+    private readonly cloudbaseService;
+    constructor(cloudbaseService: CloudbaseService);
+    getSaveByAccountId(accountId: string): Promise<{
         success: boolean;
         message: string;
         saveData: {
@@ -14,16 +13,18 @@ export declare class SaveService {
             data: Record<string, any>;
         };
     }>;
-    upsertSave(user: UserAccount, dto: UpsertSaveDto): Promise<{
+    upsertSave(user: {
+        id: string;
+    } | UserAccountDocument, dto: UpsertSaveDto): Promise<{
         success: boolean;
         message: string;
         saveData: {
-            version: string;
+            version: any;
             timestamp: number;
-            data: Record<string, any>;
+            data: any;
         };
     }>;
-    deleteSave(accountId: number): Promise<{
+    deleteSave(accountId: string): Promise<{
         success: boolean;
         message: string;
     }>;

@@ -7,37 +7,40 @@ export declare class AuthController {
     register(dto: RegisterDto): Promise<{
         accessToken: string;
         user: {
-            id: number;
+            id: string;
             account: string;
             nickname: string;
             loginType: string;
+            sessionVersion: number;
             wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
+            createdAt: string;
+            updatedAt: string;
         };
     }>;
     login(dto: LoginDto): Promise<{
         accessToken: string;
         user: {
-            id: number;
+            id: string;
             account: string;
             nickname: string;
             loginType: string;
+            sessionVersion: number;
             wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
+            createdAt: string;
+            updatedAt: string;
         };
     }>;
     wechatLogin(): void;
     me(req: any): Promise<{
         user: {
-            id: number;
+            id: string;
             account: string;
             nickname: string;
             loginType: string;
+            sessionVersion: number;
             wechatBound: boolean;
-            createdAt: Date;
-            updatedAt: Date;
+            createdAt: string;
+            updatedAt: string;
         };
     }>;
 }

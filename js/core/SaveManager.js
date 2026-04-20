@@ -30,6 +30,10 @@ class SaveManager {
         this.autoSaveTimer = setInterval(() => this.autoSave(), this.autoSaveInterval);
     }
 
+    getSaveSchemaVersion() {
+        return window.VersionManager?.saveSchemaVersion || '2.0.0';
+    }
+
     stopAutoSave() {
         if (this.autoSaveTimer) {
             clearInterval(this.autoSaveTimer);
@@ -46,7 +50,7 @@ class SaveManager {
         try {
             const data = gameData || this.collectGameData();
             const saveData = {
-                version: '2.0.0',
+                version: this.getSaveSchemaVersion(),
                 timestamp: Date.now(),
                 data
             };

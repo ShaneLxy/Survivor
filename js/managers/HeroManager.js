@@ -1,5 +1,5 @@
-/**
- * 英雄管理器 - 单例模式
+﻿/**
+ * 鑻遍泟绠＄悊鍣?- 鍗曚緥妯″紡
  */
 class HeroManager {
     constructor() {
@@ -26,13 +26,19 @@ class HeroManager {
         this.fragments = new Map();
         if (saveData && saveData.fragments) {
             Object.entries(saveData.fragments).forEach(([configId, count]) => {
-                this.fragments.set(configId, Number(count) || 0);
+                if (HeroConfig.getHeroConfig(configId)) {
+                    this.fragments.set(configId, Number(count) || 0);
+                }
             });
+        }
+
+        if (this.heroes.length === 0) {
+            this.createInitialHero();
         }
     }
 
     createInitialHero() {
-        const config = HeroConfig.getHeroConfig('hero_005');
+        const config = HeroConfig.getHeroConfig('hero_011');
         if (!config) {
             return;
         }
@@ -96,10 +102,13 @@ class HeroManager {
         const maxLevel = Number.isFinite(options.maxLevel) ? options.maxLevel : Infinity;
         const source = options.source || 'manual';
         if (source === 'battle' && !hero.canGainBattleExp(maxLevel)) {
-            return { success: false, reason: 'level_cap', hero };
+            return { success: false, reason: 'level_cap', hero, levelCap: hero.getLevelCap(maxLevel) };
         }
 
         const result = hero.addExp(exp, maxLevel);
+        if (result.gainedExp <= 0 && result.reachedCap) {
+            return { success: false, reason: 'level_cap', hero, ...result };
+        }
         if (result.leveledUp) {
             eventManager.emit('heroLevelUp', hero);
         }
@@ -149,15 +158,18 @@ class HeroManager {
     levelUpHero(heroId) {
         const hero = this.getHero(heroId);
         if (!hero) {
-            return false;
+            return { success: false, reason: 'missing_hero' };
+        }
+        if (hero.isAtLevelCap()) {
+            return { success: false, reason: 'star_level_cap', hero, levelCap: hero.getLevelCap() };
         }
         const leveledUp = hero.levelUpOnce();
         if (!leveledUp) {
-            return false;
+            return { success: false, reason: 'exp_insufficient', hero, levelCap: hero.getLevelCap() };
         }
         eventManager.emit('heroLevelUp', hero);
         eventManager.emit('heroUpdate', hero);
-        return true;
+        return { success: true, hero, levelCap: hero.getLevelCap() };
     }
 
     upgradeHeroStars(heroId) {
@@ -198,6 +210,13 @@ class HeroManager {
 
     getTeamIds() {
         return this.getTeam().map(hero => hero.id);
+    }
+
+    refreshAllHeroes() {
+        this.heroes.forEach(hero => {
+            hero.refreshStats(false);
+            eventManager.emit('heroUpdate', hero);
+        });
     }
 
     equipToHero(heroId, equipmentInstanceId) {
@@ -289,7 +308,7 @@ class HeroManager {
         if (currentFragments >= cost) {
             return { can: true, cost, isMax: false, currentFragments, message: '' };
         }
-        return { can: false, cost, isMax: false, currentFragments, message: `需要${cost}个碎片，当前只有${currentFragments}个` };
+        return { can: false, cost, isMax: false, currentFragments, message: `需要 ${cost} 个碎片，当前只有 ${currentFragments} 个` };
     }
 
     synthesizeHero(configId) {
@@ -317,9 +336,11 @@ class HeroManager {
             icon: hero.icon,
             type: 'hero',
             camp: 'hero',
+            profession: hero.profession,
             baseStats: {
                 hp: hero.maxHp,
                 attack: hero.attack,
+                attackCoefficient: hero.attackCoefficient,
                 defense: hero.defense,
                 speed: hero.speed,
                 crit: hero.crit,
@@ -330,8 +351,10 @@ class HeroManager {
                 attackRange: hero.attackRange,
                 moveRange: hero.moveRange
             },
+            skills: hero.skills,
             skill: hero.skill,
-            portrait: hero.icon,
+            portrait: hero.portrait,
+            professionIcon: hero.professionIcon,
             rank: 'player'
         }));
     }

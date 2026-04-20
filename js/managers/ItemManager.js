@@ -1,5 +1,5 @@
-/**
- * 道具管理器 - 单例模式
+﻿/**
+ * 閬撳叿绠＄悊鍣?- 鍗曚緥妯″紡
  */
 class ItemManager {
     constructor() {
@@ -100,7 +100,10 @@ class ItemManager {
                     }
                     return;
                 }
-                normalized.items.push({ id: entry.id, count: Number(entry.count) || 0 });
+                const stackLimit = Math.max(1, ItemConfig.getStackLimit(entry.id));
+                this.splitStackCounts(entry.count, stackLimit).forEach(stackCount => {
+                    normalized.items.push({ id: entry.id, count: stackCount });
+                });
             });
             return normalized;
         }
@@ -111,7 +114,10 @@ class ItemManager {
                 pushMigration(migration, entry.count);
                 return;
             }
-            normalized.items.push({ id: entry.id, count: Number(entry.count) || 0 });
+            const stackLimit = Math.max(1, ItemConfig.getStackLimit(entry.id));
+            this.splitStackCounts(entry.count, stackLimit).forEach(stackCount => {
+                normalized.items.push({ id: entry.id, count: stackCount });
+            });
         });
         normalized.equipment = Array.isArray(saveData.equipment) ? saveData.equipment : [];
         return normalized;
@@ -125,29 +131,72 @@ class ItemManager {
         [{ id: 'medicine', count: 3 }].forEach(item => this.addItem(item.id, item.count));
     }
 
+    splitStackCounts(totalCount, stackLimit) {
+        const remainingTotal = Math.max(0, Number(totalCount) || 0);
+        const limit = Math.max(1, Number(stackLimit) || 1);
+        if (remainingTotal <= 0) {
+            return [];
+        }
+
+        const groups = [];
+        let remaining = remainingTotal;
+        while (remaining > 0) {
+            const current = Math.min(limit, remaining);
+            groups.push(current);
+            remaining -= current;
+        }
+        return groups;
+    }
+
+    getItemsById(itemId) {
+        return this.items.filter(item => item.id === itemId);
+    }
+
+    getItemCount(itemId) {
+        return this.getItemsById(itemId).reduce((total, item) => total + (Number(item.count) || 0), 0);
+    }
+
     addItem(itemId, count = 1) {
         const config = ItemConfig.getItemConfig(itemId);
         if (!config || this.isLegacyEquipmentConfig(config)) {
             return false;
         }
 
-        if (config.stackLimit > 1) {
-            const existingItem = this.items.find(item => item.id === itemId);
-            if (existingItem) {
-                const added = existingItem.addCount(count);
-                eventManager.emit('itemAdd', { item: existingItem, count: added });
-                return added > 0;
-            }
-        }
-
-        if (this.getUsedSlots() >= this.maxSlots) {
+        let remaining = Math.max(0, Number(count) || 0);
+        if (remaining <= 0) {
             return false;
         }
 
-        const item = new Item(config, count);
-        this.items.push(item);
-        eventManager.emit('itemAdd', { item, count });
-        return true;
+        let addedTotal = 0;
+        if (config.stackLimit > 1) {
+            this.items
+                .filter(item => item.id === itemId && item.count < item.stackLimit)
+                .forEach(item => {
+                    if (remaining <= 0) {
+                        return;
+                    }
+                    const added = item.addCount(remaining);
+                    remaining -= added;
+                    addedTotal += added;
+                });
+        }
+
+        while (remaining > 0) {
+            if (this.getUsedSlots() >= this.maxSlots) {
+                break;
+            }
+            const stackCount = Math.min(config.stackLimit || 1, remaining);
+            const item = new Item(config, stackCount);
+            this.items.push(item);
+            remaining -= stackCount;
+            addedTotal += stackCount;
+        }
+
+        if (addedTotal > 0) {
+            eventManager.emit('itemAdd', { itemId, count: addedTotal });
+            return true;
+        }
+        return false;
     }
 
     addEquipment(equipment) {
@@ -168,17 +217,30 @@ class ItemManager {
     }
 
     removeItem(itemId, count = 1) {
-        const item = this.getItem(itemId);
-        if (!item) {
+        let remaining = Math.max(0, Number(count) || 0);
+        if (remaining <= 0) {
             return false;
         }
 
-        if (!item.removeCount(count)) {
+        if (this.getItemCount(itemId) < remaining) {
             return false;
         }
 
-        if (item.isEmpty()) {
-            this.items = this.items.filter(entry => entry !== item);
+        const targetStacks = [...this.getItemsById(itemId)].sort((a, b) => (Number(a.count) || 0) - (Number(b.count) || 0));
+        targetStacks.forEach(item => {
+            if (remaining <= 0) {
+                return;
+            }
+            const removable = Math.min(item.count, remaining);
+            item.removeCount(removable);
+            remaining -= removable;
+            if (item.isEmpty()) {
+                this.items = this.items.filter(entry => entry !== item);
+            }
+        });
+
+        if (remaining > 0) {
+            return false;
         }
         eventManager.emit('itemRemove', { itemId, count });
         return true;
@@ -237,7 +299,7 @@ class ItemManager {
     }
 
     getAllItems() {
-        return [...this.items];
+        return [...this.items].sort((left, right) => this.compareItems(left, right));
     }
 
     getAllEquipment() {
@@ -259,13 +321,58 @@ class ItemManager {
         return this.getAllItems();
     }
 
+    getItemRarityRank(rarity) {
+        const rarityOrder = {
+            legendary: 5,
+            epic: 4,
+            rare: 3,
+            uncommon: 2,
+            common: 1
+        };
+        return rarityOrder[String(rarity || '').toLowerCase()] || 0;
+    }
+
+    getItemTypeRank(type) {
+        const typeOrder = {
+            special: 6,
+            consumable: 5,
+            material: 4,
+            quest: 3,
+            fragment: 2,
+            misc: 1
+        };
+        return typeOrder[String(type || '').toLowerCase()] || 0;
+    }
+
+    compareItems(left, right) {
+        const rarityDiff = this.getItemRarityRank(right?.rarity) - this.getItemRarityRank(left?.rarity);
+        if (rarityDiff !== 0) {
+            return rarityDiff;
+        }
+
+        const countDiff = (Number(right?.count) || 0) - (Number(left?.count) || 0);
+        if (countDiff !== 0) {
+            return countDiff;
+        }
+
+        const typeDiff = this.getItemTypeRank(right?.type) - this.getItemTypeRank(left?.type);
+        if (typeDiff !== 0) {
+            return typeDiff;
+        }
+
+        const nameCompare = String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
+        if (nameCompare !== 0) {
+            return nameCompare;
+        }
+
+        return String(left?.id || '').localeCompare(String(right?.id || ''), 'en');
+    }
+
     useItem(itemId, target, options = {}) {
         const item = this.getItem(itemId);
-        if (!item) {
+        const totalCount = this.getItemCount(itemId);
+        if (!item || totalCount <= 0) {
             return { success: false, message: '道具不存在' };
-        }
-        if (item.count <= 0) {
-            return { success: false, message: '道具数量不足' };
         }
 
         if (item.effect?.type === 'hero_exp') {
@@ -274,7 +381,7 @@ class ItemManager {
                 return { success: false, message: '请选择要使用经验药水的英雄' };
             }
             const requestedCount = Math.max(1, Number(options.quantity) || 1);
-            const actualCount = Math.min(requestedCount, item.count);
+            const actualCount = Math.min(requestedCount, totalCount);
             if (actualCount <= 0) {
                 return { success: false, message: '经验药水数量不足' };
             }
@@ -282,12 +389,9 @@ class ItemManager {
             const totalExp = actualCount * expValue;
             const expResult = heroManager.addHeroExp(hero.id, totalExp, { maxLevel: window.game.player.level, source: 'manual_item' });
             if (!expResult.success) {
-                return { success: false, message: '英雄无法获得经验' };
+                return { success: false, message: expResult.reason === 'level_cap' ? '等级已达到当前星级上限！' : '英雄无法获得经验' };
             }
-            item.removeCount(actualCount);
-            if (item.isEmpty()) {
-                this.items = this.items.filter(entry => entry !== item);
-            }
+            this.removeItem(itemId, actualCount);
             eventManager.emit('itemUse', { item, target: hero, result: expResult, quantity: actualCount });
             return {
                 success: true,
@@ -405,10 +509,11 @@ class ItemManager {
 
     sellItem(itemId, count = 1) {
         const item = this.getItem(itemId);
+        const totalCount = this.getItemCount(itemId);
         if (!item) {
             return { success: false, message: '道具不存在' };
         }
-        if (item.count < count) {
+        if (totalCount < count) {
             return { success: false, message: '道具数量不足' };
         }
 
@@ -419,7 +524,7 @@ class ItemManager {
 
         shelterManager.addResource('gold', sellPrice);
         eventManager.emit('itemSell', { itemId, count, gold: sellPrice });
-        return { success: true, message: `出售成功,获得${sellPrice}金币`, gold: sellPrice };
+        return { success: true, message: `出售成功，获得 ${sellPrice} 金币`, gold: sellPrice };
     }
 
     sellEquipment(instanceId) {
@@ -431,7 +536,7 @@ class ItemManager {
         this.removeEquipment(instanceId);
         shelterManager.addResource('gold', sellPrice);
         eventManager.emit('equipmentSell', { instanceId, gold: sellPrice });
-        return { success: true, message: `出售成功,获得${sellPrice}金币`, gold: sellPrice };
+        return { success: true, message: `出售成功，获得 ${sellPrice} 金币`, gold: sellPrice };
     }
 
     calculateSellPrice(itemId, count = 1, rarity = null, isEquipment = false) {

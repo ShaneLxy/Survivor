@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 游戏主入口
  */
 class Game {
@@ -10,7 +10,8 @@ class Game {
             maxEnergy: 100,
             gold: 1000,
             diamond: 0,
-            nickname: '幸存者'
+            nickname: '幸存者',
+            avatarHeroConfigId: null
         };
 
         this.settings = {
@@ -32,20 +33,28 @@ class Game {
             checkinView,
             loginView
         };
-        this.currentView = 'shelter';
-        this.gameReady = false; // 游戏是否已完成初始化
+        this.currentView = null;
+        this.gameReady = false; // 游戏是否已经完成初始化
     }
 
     async init() {
-        audioManager.init();
+        // 初始化一开始就盖上登录页，避免先闪出游戏主界面
+        loginView.show();
+        window.VersionManager?.bootstrap?.();
+        await window.versionCheckService?.check?.();
+        loginView.render?.();
 
-        // 强制每次打开都重新登录：清除本地登录态
+        audioManager.init();
+        if (window.UnitCatalogLoader?.load) {
+            await window.UnitCatalogLoader.load();
+        }
+
+        // 强制每次打开都重新登录：清除本地登录状态
         authService.logout();
 
         // 初始化 HttpClient（设置 API 基地址等）
         await authService.init();
-
-        // 始终显示登录页，不自动跳过
+        // 始终显示登录页，不自动跳转
         loginView.show();
 
         // 监听登录成功事件
@@ -69,6 +78,9 @@ class Game {
         audioManager.setMuted(this.settings.muted);
         await this.collectOfflineRewards();
         this.initUI();
+        mailManager.init(null);
+        await mailManager.refresh({ silent: true });
+        mailManager.startAutoRefresh();
         saveManager.init();
         this.bindEvents();
         eventManager.emit('authChange', { loggedIn: authService.isLoggedIn(), user: authService.getCurrentUser() });
@@ -83,6 +95,25 @@ class Game {
         }
         this.player.gold = shelterManager.getResource('gold');
         this.player.diamond = shelterManager.getResource('diamond');
+    }
+
+    recalculatePlayerMaxEnergy(options = {}) {
+        const levelBonus = Math.max(0, (Number(this.player.level) || 1) - 1) * 10;
+        const shelterBonus = Math.max(0, Number(shelterManager.getShelterEnergyBonus?.() || 0));
+        const nextMaxEnergy = GameConfig.player.maxEnergy + levelBonus + shelterBonus;
+        this.player.maxEnergy = nextMaxEnergy;
+
+        if (options.fillToMax) {
+            this.player.energy = nextMaxEnergy;
+        } else {
+            this.player.energy = Math.min(Number(this.player.energy) || 0, nextMaxEnergy);
+        }
+
+        eventManager.emit('playerUpdate', {
+            level: this.player.level,
+            energy: this.player.energy,
+            maxEnergy: this.player.maxEnergy
+        });
     }
 
     loadFromSave(saveData) {
@@ -105,6 +136,7 @@ class Game {
         gachaManager.init(data.gachaData);
         checkinManager.init(data.checkinData);
         this.applyLegacyMigrations();
+        this.recalculatePlayerMaxEnergy();
     }
 
     initNewGame() {
@@ -115,7 +147,8 @@ class Game {
             maxEnergy: GameConfig.player.maxEnergy,
             gold: GameConfig.player.initialGold,
             diamond: 0,
-            nickname: '幸存者'
+            nickname: '幸存者',
+            avatarHeroConfigId: null
         };
         this.settings = { autoBattle: false, muted: false };
 
@@ -126,6 +159,7 @@ class Game {
         gachaManager.init(null);
         checkinManager.init(null);
         this.applyLegacyMigrations();
+        this.recalculatePlayerMaxEnergy({ fillToMax: true });
     }
 
     async collectOfflineRewards() {
@@ -164,9 +198,14 @@ class Game {
     initUI() {
         this.ui.topBar.updateAll(this.player);
 
-        // 显示底部导航栏（可能被 handleLogout 隐藏了）
+        // 显示底部导航栏（可能被 handleLogout 隐藏过）
         if (this.ui?.tabBar?.element) {
             this.ui.tabBar.element.style.display = 'flex';
+        }
+
+        if (this.ui?.itemGrid) {
+            this.ui.itemGrid.currentTab = 'shelter';
+            this.ui.itemGrid.inventoryCategory = 'item';
         }
 
         this.switchView('shelter');
@@ -194,7 +233,7 @@ class Game {
         });
         eventManager.on('heroAdd', () => this.ui.heroView.refresh());
         eventManager.on('heroLevelUp', hero => {
-            Toast.success(`${hero.name}升级到Lv.${hero.level}`);
+            Toast.success(`${hero.name}升级到 Lv.${hero.level}`);
             this.ui.heroView.refresh();
         });
         eventManager.on('buildingUpgrade', () => {
@@ -236,9 +275,21 @@ class Game {
 
     applyViewMode(viewId) {
         const appElement = document.getElementById('app');
+        const topBarElement = document.getElementById('top-bar');
+        const tabBarElement = document.getElementById('tab-bar');
+        const itemSectionElement = document.getElementById('item-section');
         const isBattleMode = viewId === 'battle';
         if (appElement) {
             appElement.classList.toggle('battle-mode', isBattleMode);
+        }
+        if (topBarElement) {
+            topBarElement.style.display = 'flex';
+        }
+        if (tabBarElement) {
+            tabBarElement.style.display = isBattleMode ? 'none' : 'flex';
+        }
+        if (itemSectionElement) {
+            itemSectionElement.style.display = isBattleMode ? 'none' : '';
         }
         if (this.ui?.tabBar?.setDisabled) {
             this.ui.tabBar.setDisabled(isBattleMode);
@@ -302,7 +353,7 @@ class Game {
                 break;
             default:
                 this.ui.shelterView.show();
-                this.currentView = 'shelter';
+                this.currentView = null;
         }
     }
 
@@ -312,12 +363,11 @@ class Game {
             const expRequired = GameConfig.getExpRequired(this.player.level);
             this.player.exp -= expRequired;
             this.player.level++;
-            this.player.maxEnergy += 10;
-            this.player.energy = this.player.maxEnergy;
-            Toast.success(`恭喜升级到Lv.${this.player.level}!`);
+            Toast.success(`恭喜升级到 Lv.${this.player.level}!`);
             leveled = true;
         }
         if (leveled) {
+            this.recalculatePlayerMaxEnergy({ fillToMax: true });
             this.ui.topBar.updateAll(this.player);
             eventManager.emit('playerUpdate', this.player);
         }
@@ -354,7 +404,7 @@ class Game {
                     `获得经验英雄：${heroExpSummary.awarded.length} 名`,
                     `每名英雄获得：${heroExpSummary.expPerHero}`,
                     `总计分配：${heroExpSummary.totalExp}`,
-                    ...(heroExpSummary.blocked.length > 0 ? [`未获得经验：${heroExpSummary.blocked.map(hero => hero.name).join('、')}（已达到玩家等级上限）`] : [])
+                    ...(heroExpSummary.blocked.length > 0 ? [`未获得经验：${heroExpSummary.blocked.map(hero => hero.name).join("、")}（已达到玩家等级上限）`] : [])
                 ]
             }));
         }
@@ -427,7 +477,14 @@ class Game {
      */
     handleLogout() {
         this.gameReady = false;
+        saveManager.stopAutoSave?.();
+        mailManager.stopAutoRefresh?.();
+        Modal.closeAll();
         this.hideCurrentView();
+        if (this.ui?.itemGrid) {
+            this.ui.itemGrid.currentTab = 'shelter';
+            this.ui.itemGrid.inventoryCategory = 'item';
+        }
         if (this.ui?.tabBar?.element) {
             this.ui.tabBar.element.style.display = 'none';
         }
@@ -435,8 +492,26 @@ class Game {
         Toast.success('已退出登录');
     }
 
+    handleSessionExpired(message = '账号已在别处登录，请重新登录') {
+        this.gameReady = false;
+        saveManager.stopAutoSave?.();
+        mailManager.stopAutoRefresh?.();
+        Modal.closeAll();
+        this.hideCurrentView();
+        if (this.ui?.itemGrid) {
+            this.ui.itemGrid.currentTab = 'shelter';
+            this.ui.itemGrid.inventoryCategory = 'item';
+            this.ui.itemGrid.refresh();
+        }
+        if (this.ui?.tabBar?.element) {
+            this.ui.tabBar.element.style.display = 'none';
+        }
+        loginView.show();
+        loginView.showSessionNotice?.(message);
+    }
+
     async deleteSave() {
-        if (!confirm('确定要删除存档吗?此操作不可恢复!')) {
+        if (!confirm('确定要删除存档吗？此操作不可恢复')) {
             return;
         }
         saveManager.delete();
@@ -460,3 +535,4 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('beforeunload', () => {
     window.game.save();
 });
+

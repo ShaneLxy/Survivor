@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 登录态服务
  */
 class AuthService {
@@ -7,6 +7,11 @@ class AuthService {
         this.userKey = 'survivor_auth_user';
         this.currentUser = null;
         this.token = null;
+        this.sessionExpiredHandled = false;
+
+        window.addEventListener('survivor:auth-expired', event => {
+            this.handleSessionExpired(event?.detail?.message);
+        });
     }
 
     async init() {
@@ -21,12 +26,14 @@ class AuthService {
         }
         httpClient.setToken(this.token);
         if (!this.token) {
+            this.sessionExpiredHandled = false;
             return null;
         }
         try {
             const response = await AuthApi.getProfile();
             this.currentUser = response?.user || this.currentUser;
             this.persistSession();
+            this.sessionExpiredHandled = false;
             eventManager.emit('authChange', { loggedIn: true, user: this.currentUser });
             return this.currentUser;
         } catch (error) {
@@ -48,6 +55,7 @@ class AuthService {
     setSession(data) {
         this.token = data?.accessToken || data?.token || null;
         this.currentUser = data?.user || null;
+        this.sessionExpiredHandled = false;
         this.persistSession();
         eventManager.emit('authChange', { loggedIn: Boolean(this.token), user: this.currentUser });
     }
@@ -59,6 +67,15 @@ class AuthService {
         localStorage.removeItem(this.tokenKey);
         localStorage.removeItem(this.userKey);
         eventManager.emit('authChange', { loggedIn: false, user: null });
+    }
+
+    handleSessionExpired(message = '账号已在别处登录，请重新登录') {
+        if (this.sessionExpiredHandled) {
+            return;
+        }
+        this.sessionExpiredHandled = true;
+        this.clearSession();
+        window.game?.handleSessionExpired?.(message);
     }
 
     async register({ account, password, nickname }) {
@@ -74,6 +91,7 @@ class AuthService {
     }
 
     logout() {
+        this.sessionExpiredHandled = false;
         this.clearSession();
     }
 

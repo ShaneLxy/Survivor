@@ -1,0 +1,1330 @@
+{
+  "professions": {
+    "defender": {
+      "id": "defender",
+      "name": "守备者",
+      "description": "突出高生命与高防御的前排职业，速度偏慢，擅长为队伍提供承伤与增益支援。",
+      "tags": [
+        "frontline",
+        "buff",
+        "durable"
+      ]
+    },
+    "psionic": {
+      "id": "psionic",
+      "name": "灵能者",
+      "description": "高速但偏脆的技巧型职业，擅长控制、辅助与战场节奏干扰。",
+      "tags": [
+        "control",
+        "buff",
+        "fast"
+      ]
+    },
+    "raider": {
+      "id": "raider",
+      "name": "破袭者",
+      "description": "高攻击与高暴击倾向的输出职业，负责快速突破与定点斩杀。",
+      "tags": [
+        "damage",
+        "burst",
+        "crit"
+      ]
+    }
+  },
+  "heroes": [
+    {
+      "id": "hero_007",
+      "name": "霜耳骇客-凛",
+      "icon": "🔮",
+      "portrait": "assets/media/heroes/Lynn.png",
+      "rarity": "epic",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 112,
+        "attack": 34,
+        "defense": 8,
+        "speed": 33,
+        "crit": 10,
+        "antiCrit": 5,
+        "defensePen": 4,
+        "accuracy": 12,
+        "dodge": 11,
+        "attackRange": 3,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "霜链入侵",
+        "description": "向两名敌人注入冻结脉冲，各造成125%攻击伤害，并打乱其下一轮行动节奏。",
+        "multiplier": 1.25,
+        "cooldownTurns": 3,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 2,
+        "hpCostPercent": 5,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "霜链入侵",
+          "description": "向两名敌人注入冻结脉冲，各造成125%攻击伤害，并打乱其下一轮行动节奏。",
+          "multiplier": 1.25,
+          "cooldownTurns": 3,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 5,
+          "effectType": "damage"
+        },
+        {
+          "name": "冰域撒网",
+          "description": "展开骇客冰域，对三名敌人造成110%攻击伤害，擅长压制成群目标。",
+          "multiplier": 1.1,
+          "cooldownTurns": 4,
+          "range": 3,
+          "targetType": "enemy",
+          "targetCount": 3,
+          "hpCostPercent": 8,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_008",
+      "name": "荒野白隼-柯尔特",
+      "icon": "🗡️",
+      "portrait": "assets/media/heroes/Colt.png",
+      "rarity": "epic",
+      "profession": "raider",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 126,
+        "attack": 43,
+        "defense": 10,
+        "speed": 28,
+        "crit": 14,
+        "antiCrit": 5,
+        "defensePen": 8,
+        "accuracy": 11,
+        "dodge": 7,
+        "attackRange": 3,
+        "moveRange": 3
+      },
+      "skill": {
+        "name": "白隼断空",
+        "description": "锁定远端目标打出高速贯穿射击，造成145%攻击伤害，适合点掉后排威胁。",
+        "multiplier": 1.45,
+        "cooldownTurns": 2,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 4,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "白隼断空",
+          "description": "锁定远端目标打出高速贯穿射击，造成145%攻击伤害，适合点掉后排威胁。",
+          "multiplier": 1.45,
+          "cooldownTurns": 2,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 4,
+          "effectType": "damage"
+        },
+        {
+          "name": "荒野双裁",
+          "description": "快速切换火力压制两名敌人，各造成118%攻击伤害，兼顾补刀与清侧翼。",
+          "multiplier": 1.18,
+          "cooldownTurns": 3,
+          "range": 3,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 6,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_009",
+      "name": "霜牙壁垒-哈维",
+      "icon": "🛡️",
+      "portrait": "assets/media/heroes/Heavy.png",
+      "rarity": "epic",
+      "profession": "defender",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 220,
+        "attack": 24,
+        "defense": 22,
+        "speed": 15,
+        "crit": 6,
+        "antiCrit": 10,
+        "defensePen": 2,
+        "accuracy": 6,
+        "dodge": 2,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skill": {
+        "name": "寒垒冲城",
+        "description": "以重盾顶撞面前目标，造成120%攻击伤害，并依靠厚重装甲稳住前线。",
+        "multiplier": 1.2,
+        "cooldownTurns": 2,
+        "range": 1,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 0,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "寒垒冲城",
+          "description": "以重盾顶撞面前目标，造成120%攻击伤害，并依靠厚重装甲稳住前线。",
+          "multiplier": 1.2,
+          "cooldownTurns": 2,
+          "range": 1,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 0,
+          "effectType": "damage"
+        },
+        {
+          "name": "壁垒震荡",
+          "description": "震开身前两名敌人，各造成108%攻击伤害，用于打断近身围攻。",
+          "multiplier": 1.08,
+          "cooldownTurns": 3,
+          "range": 1,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 4,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_010",
+      "name": "赤核浪客-夜刃",
+      "icon": "🗡️",
+      "portrait": "assets/media/heroes/Yajin.png",
+      "rarity": "epic",
+      "profession": "raider",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 118,
+        "attack": 46,
+        "defense": 9,
+        "speed": 31,
+        "crit": 15,
+        "antiCrit": 5,
+        "defensePen": 9,
+        "accuracy": 12,
+        "dodge": 8,
+        "attackRange": 1,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "赤核瞬狩",
+        "description": "以爆发推进贴近目标，造成155%攻击伤害，是夜刃最核心的收割手段。",
+        "multiplier": 1.55,
+        "cooldownTurns": 3,
+        "range": 2,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 8,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "赤核瞬狩",
+          "description": "以爆发推进贴近目标，造成155%攻击伤害，是夜刃最核心的收割手段。",
+          "multiplier": 1.55,
+          "cooldownTurns": 3,
+          "range": 2,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 8,
+          "effectType": "damage"
+        },
+        {
+          "name": "裂芯横斩",
+          "description": "顺势横切两名邻近敌人，各造成122%攻击伤害，适合突入后的补充清场。",
+          "multiplier": 1.22,
+          "cooldownTurns": 4,
+          "range": 2,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 10,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_011",
+      "name": "黑羽枪影-星弦",
+      "icon": "🗡️",
+      "portrait": "assets/media/heroes/Galaxy.png",
+      "rarity": "rare",
+      "profession": "raider",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 104,
+        "attack": 36,
+        "defense": 8,
+        "speed": 29,
+        "crit": 12,
+        "antiCrit": 4,
+        "defensePen": 6,
+        "accuracy": 10,
+        "dodge": 7,
+        "attackRange": 3,
+        "moveRange": 3
+      },
+      "skill": {
+        "name": "黑羽穿星",
+        "description": "瞄准单体弱点打出精准一击，造成125%攻击伤害，命中稳定且利于补刀。",
+        "multiplier": 1.25,
+        "cooldownTurns": 2,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 3,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "黑羽穿星",
+          "description": "瞄准单体弱点打出精准一击，造成125%攻击伤害，命中稳定且利于补刀。",
+          "multiplier": 1.25,
+          "cooldownTurns": 2,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 3,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_012",
+      "name": "灰影哨戒-格雷",
+      "icon": "🛡️",
+      "portrait": "assets/media/heroes/Gray.png",
+      "rarity": "rare",
+      "profession": "defender",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 188,
+        "attack": 23,
+        "defense": 19,
+        "speed": 17,
+        "crit": 6,
+        "antiCrit": 9,
+        "defensePen": 2,
+        "accuracy": 7,
+        "dodge": 3,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skill": {
+        "name": "灰垒回击",
+        "description": "举盾反打近身目标，造成118%攻击伤害，在承伤后尤为稳健。",
+        "multiplier": 1.18,
+        "cooldownTurns": 2,
+        "range": 1,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 0,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "灰垒回击",
+          "description": "举盾反打近身目标，造成118%攻击伤害，在承伤后尤为稳健。",
+          "multiplier": 1.18,
+          "cooldownTurns": 2,
+          "range": 1,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 0,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_013",
+      "name": "魔导智刃-艾莉丝",
+      "icon": "🔮",
+      "portrait": "assets/media/heroes/Elise.png",
+      "rarity": "epic",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 108,
+        "attack": 38,
+        "defense": 7,
+        "speed": 32,
+        "crit": 10,
+        "antiCrit": 5,
+        "defensePen": 4,
+        "accuracy": 11,
+        "dodge": 9,
+        "attackRange": 3,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "智刃解构",
+        "description": "以灵能刀阵拆解单体防线，造成138%攻击伤害，偏向中后排定点突破。",
+        "multiplier": 1.38,
+        "cooldownTurns": 3,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 5,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "智刃解构",
+          "description": "以灵能刀阵拆解单体防线，造成138%攻击伤害，偏向中后排定点突破。",
+          "multiplier": 1.38,
+          "cooldownTurns": 3,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 5,
+          "effectType": "damage"
+        },
+        {
+          "name": "矩阵切割",
+          "description": "展开切割矩阵覆盖三名敌人，各造成96%攻击伤害，用来削弱群体阵型。",
+          "multiplier": 0.96,
+          "cooldownTurns": 4,
+          "range": 3,
+          "targetType": "enemy",
+          "targetCount": 3,
+          "hpCostPercent": 7,
+          "effectType": "damage"
+        }
+      ]
+    },
+    {
+      "id": "hero_014",
+      "name": "破界脉冲-紫狐",
+      "icon": "🗡️",
+      "portrait": "assets/media/heroes/PurpleFox.png",
+      "rarity": "legendary",
+      "profession": "raider",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 132,
+        "attack": 52,
+        "defense": 10,
+        "speed": 34,
+        "crit": 18,
+        "antiCrit": 6,
+        "defensePen": 10,
+        "accuracy": 13,
+        "dodge": 10,
+        "attackRange": 2,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "裂界脉冲",
+        "description": "瞬切最远目标并轰出脉冲刃，对其造成180%攻击伤害；若目标生命低于50%，本次暴击率额外提高。",
+        "multiplier": 1.8,
+        "cooldownTurns": 4,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 9,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "裂界脉冲",
+          "description": "瞬切最远目标并轰出脉冲刃，对其造成180%攻击伤害；若目标生命低于50%，本次暴击率额外提高。",
+          "multiplier": 1.8,
+          "cooldownTurns": 4,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 9,
+          "effectType": "damage"
+        },
+        {
+          "name": "狐影连断",
+          "description": "以残像切开两名敌人，各造成132%攻击伤害；若击败目标，自身获得短暂闪避强化。",
+          "multiplier": 1.32,
+          "cooldownTurns": 3,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 6,
+          "effectType": "damage"
+        }
+      ],
+      "specialTraits": {
+        "name": "裂界脉冲",
+        "summary": "斩首型破袭特技，围绕残血追猎、瞬身压迫与破防终结展开。",
+        "stages": [
+          { "stage": 1, "title": "脉冲校准", "description": "对生命低于50%的目标造成伤害时，最终伤害提高6%。" },
+          { "stage": 2, "title": "狐步切入", "description": "本回合发生移动后发动的首次攻击，命中率额外提高8%。" },
+          { "stage": 3, "title": "裂隙追猎", "description": "单体技能命中后，若目标仍存活，自身速度提高6%，持续1回合。" },
+          { "stage": 4, "title": "残影回身", "description": "击败目标时，回复4%最大生命值，强化连续收割能力。" },
+          { "stage": 5, "title": "断界前奏", "description": "攻击周围没有同伴的孤立目标时，暴击率提高8%。" },
+          { "stage": 6, "title": "脉冲压强", "description": "所有单体技能伤害额外提高10%，更适合点杀后排核心。" },
+          { "stage": 7, "title": "穿防纤维", "description": "对守备型目标出手时，额外无视6%防御力。" },
+          { "stage": 8, "title": "瞬切蓄能", "description": "释放技能后，自身闪避率提高10%，持续1回合。" },
+          { "stage": 9, "title": "追命索敌", "description": "攻击最远目标时，最终伤害额外提高8%。" },
+          { "stage": 10, "title": "猎核锁定", "description": "对生命低于35%的目标发动攻击时，暴击伤害提高18%。" },
+          { "stage": 11, "title": "裂界回响", "description": "击败目标后，下一次攻击额外附带25%攻击力的追击伤害描述效果。" },
+          { "stage": 12, "title": "紫电穿心", "description": "单体技能命中时，额外提高10%破防，专门撕开高甲前排。" },
+          { "stage": 13, "title": "狐影夺势", "description": "连续2回合未受伤时，首个技能的最终伤害提高12%。" },
+          { "stage": 14, "title": "崩界高频", "description": "技能处于冷却期间，普通攻击伤害提高10%，避免输出断档。" },
+          { "stage": 15, "title": "终端狩猎", "description": "对精英与首领单位造成的最终伤害提高12%。" },
+          { "stage": 16, "title": "破界极脉", "description": "对生命低于50%的目标出手时，额外获得12%暴击率与20%暴击伤害。" }
+        ]
+      }
+    },
+    {
+      "id": "hero_015",
+      "name": "赤瞳双刃-星野",
+      "icon": "🔮",
+      "portrait": "assets/media/heroes/Hoshino.png",
+      "rarity": "epic",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 114,
+        "attack": 36,
+        "defense": 8,
+        "speed": 35,
+        "crit": 11,
+        "antiCrit": 5,
+        "defensePen": 4,
+        "accuracy": 13,
+        "dodge": 12,
+        "attackRange": 2,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "绯月双契",
+        "description": "向两名敌人投射双刃灵压，各造成142%攻击伤害，并强化自身下一击的命中与暴击节奏。",
+        "multiplier": 1.42,
+        "cooldownTurns": 3,
+        "range": 3,
+        "targetType": "enemy",
+        "targetCount": 2,
+        "hpCostPercent": 6,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "绯月双契",
+          "description": "向两名敌人投射双刃灵压，各造成142%攻击伤害，并强化自身下一击的命中与暴击节奏。",
+          "multiplier": 1.42,
+          "cooldownTurns": 3,
+          "range": 3,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 6,
+          "effectType": "damage"
+        },
+        {
+          "name": "赤瞳处决",
+          "description": "锁定近身目标发动迅猛处决，造成150%攻击伤害；若目标已带减益，伤害结算更凶狠。",
+          "multiplier": 1.5,
+          "cooldownTurns": 4,
+          "range": 2,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 8,
+          "effectType": "damage"
+        }
+      ],
+      "specialTraits": {
+        "name": "绯月双契",
+        "summary": "高速连携型灵能特技，强调双段压制、减益处决与精准收束。",
+        "stages": [
+          { "stage": 1, "title": "双刃共鸣", "description": "释放技能后的下一次攻击命中率提高6%。" },
+          { "stage": 2, "title": "红瞳测距", "description": "攻击距离为2格以内的目标时，暴击率提高6%。" },
+          { "stage": 3, "title": "月蚀刻印", "description": "技能命中的目标会被标记，下一次受到自身伤害时额外提高6%。" },
+          { "stage": 4, "title": "影返步法", "description": "释放技能后，闪避率提高8%，持续1回合。" },
+          { "stage": 5, "title": "双契升温", "description": "所有双目标技能的最终伤害提高8%。" },
+          { "stage": 6, "title": "绯月追刃", "description": "攻击已被标记的目标时，暴击伤害提高12%。" },
+          { "stage": 7, "title": "刀路拆解", "description": "对带有减益效果的敌人出手时，额外无视6%防御。" },
+          { "stage": 8, "title": "赤瞳锁喉", "description": "对生命低于40%的目标发动技能时，最终伤害提高10%。" },
+          { "stage": 9, "title": "幻身交错", "description": "每场战斗首次闪避成功后，自身速度提高10%，持续1回合。" },
+          { "stage": 10, "title": "双轮压迫", "description": "同时压制两名敌人时，第二个目标受到的伤害不再衰减。" },
+          { "stage": 11, "title": "月下肃清", "description": "击败目标后，额外获得8%行动进度，便于连段追击。" },
+          { "stage": 12, "title": "心像剪切", "description": "每场战斗首次释放技能时，冷却时间视作减少1回合。" },
+          { "stage": 13, "title": "绯契爆鸣", "description": "双目标技能额外提高10%命中率与10%暴击伤害。" },
+          { "stage": 14, "title": "赤月处刑", "description": "对生命低于50%的目标造成伤害时，暴击伤害提高16%。" },
+          { "stage": 15, "title": "双刃定界", "description": "造成暴击后，下一次攻击额外无视10%防御力。" },
+          { "stage": 16, "title": "绯月终决", "description": "对已标记或带减益的敌人发动技能时，最终伤害提高15%。" }
+        ]
+      }
+    },
+    {
+      "id": "hero_016",
+      "name": "玉铃雪姬-铃月",
+      "icon": "🗡️",
+      "portrait": "assets/media/heroes/LingYue.png",
+      "rarity": "epic",
+      "profession": "raider",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 120,
+        "attack": 44,
+        "defense": 9,
+        "speed": 30,
+        "crit": 15,
+        "antiCrit": 5,
+        "defensePen": 8,
+        "accuracy": 11,
+        "dodge": 8,
+        "attackRange": 2,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "铃雪追命",
+        "description": "抛出冰铃刃锁定两名敌人，各造成150%攻击伤害，并借势完成下一段切入。",
+        "multiplier": 1.5,
+        "cooldownTurns": 3,
+        "range": 3,
+        "targetType": "enemy",
+        "targetCount": 2,
+        "hpCostPercent": 7,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "铃雪追命",
+          "description": "抛出冰铃刃锁定两名敌人，各造成150%攻击伤害，并借势完成下一段切入。",
+          "multiplier": 1.5,
+          "cooldownTurns": 3,
+          "range": 3,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 7,
+          "effectType": "damage"
+        },
+        {
+          "name": "霜环散华",
+          "description": "以霜铃为圆心迸发散华，对三名敌人造成98%攻击伤害，并压低其追击节奏。",
+          "multiplier": 0.98,
+          "cooldownTurns": 4,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 3,
+          "hpCostPercent": 8,
+          "effectType": "damage"
+        }
+      ],
+      "specialTraits": {
+        "name": "铃雪追命",
+        "summary": "机动突入型破袭特技，依靠多目标先手、冰铃标记与连段收割展开。",
+        "stages": [
+          { "stage": 1, "title": "雪铃起手", "description": "双目标技能的最终伤害提高6%。" },
+          { "stage": 2, "title": "霜步轻身", "description": "战斗首回合，自身速度额外提高6%。" },
+          { "stage": 3, "title": "冰刃落点", "description": "对生命低于60%的目标出手时，命中率提高8%。" },
+          { "stage": 4, "title": "铃纹追迹", "description": "技能同时命中两名敌人后，闪避率提高6%，持续1回合。" },
+          { "stage": 5, "title": "雪夜猎线", "description": "攻击后排目标时，最终伤害提高8%。" },
+          { "stage": 6, "title": "零度切返", "description": "击败目标时，回复4%最大生命值。" },
+          { "stage": 7, "title": "铃环偏转", "description": "若上一回合未受伤，本回合暴击率提高6%。" },
+          { "stage": 8, "title": "追命同步", "description": "双目标技能额外提高10%暴击率。" },
+          { "stage": 9, "title": "雪幕藏锋", "description": "移动后发动的首次攻击，最终伤害提高10%。" },
+          { "stage": 10, "title": "寒光抽离", "description": "本场战斗已命中过两名不同敌人后，自身最终伤害提高8%。" },
+          { "stage": 11, "title": "冻铃破甲", "description": "技能命中时，额外无视8%防御力。" },
+          { "stage": 12, "title": "霜环再鸣", "description": "双目标技能对第二目标额外提高12%暴击伤害。" },
+          { "stage": 13, "title": "极地踏切", "description": "生命高于70%时，自身速度额外提高8%。" },
+          { "stage": 14, "title": "铃雪穿心", "description": "攻击当前生命值最低的敌人时，最终伤害提高10%。" },
+          { "stage": 15, "title": "白夜连斩", "description": "造成暴击或击败目标后，闪避率提高12%，持续1回合。" },
+          { "stage": 16, "title": "终雪追命", "description": "对生命低于50%的目标发动技能时，最终伤害提高15%。" }
+        ]
+      }
+    },
+    {
+      "id": "hero_017",
+      "name": "堕罪弥撒-薇拉",
+      "icon": "🔮",
+      "portrait": "assets/media/heroes/Vera.png",
+      "rarity": "epic",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 110,
+        "attack": 37,
+        "defense": 8,
+        "speed": 34,
+        "crit": 10,
+        "antiCrit": 6,
+        "defensePen": 4,
+        "accuracy": 12,
+        "dodge": 10,
+        "attackRange": 3,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "罪歌安魂",
+        "description": "吟唱禁忌弥撒，对单体造成140%攻击伤害，并扩大其后续承压风险。",
+        "multiplier": 1.4,
+        "cooldownTurns": 3,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 5,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "罪歌安魂",
+          "description": "吟唱禁忌弥撒，对单体造成140%攻击伤害，并扩大其后续承压风险。",
+          "multiplier": 1.4,
+          "cooldownTurns": 3,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 5,
+          "effectType": "damage"
+        },
+        {
+          "name": "堕罪合唱",
+          "description": "向两名敌人播撒罪印，各造成118%攻击伤害，让脆弱目标更难脱身。",
+          "multiplier": 1.18,
+          "cooldownTurns": 4,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 7,
+          "effectType": "damage"
+        }
+      ],
+      "specialTraits": {
+        "name": "罪歌安魂",
+        "summary": "压血咏唱型灵能特技，以罪印、脆弱扩散与低血斩杀为核心。",
+        "stages": [
+          { "stage": 1, "title": "弥撒低吟", "description": "释放技能时，命中率额外提高6%。" },
+          { "stage": 2, "title": "罪印播撒", "description": "每场战斗首次技能命中后，目标额外承受自身6%后续伤害。" },
+          { "stage": 3, "title": "安魂节拍", "description": "攻击已被减益影响的目标时，最终伤害提高6%。" },
+          { "stage": 4, "title": "逆祷屏息", "description": "释放技能后，自身抗暴率提高8%，持续1回合。" },
+          { "stage": 5, "title": "黑唱叠压", "description": "对生命低于60%的目标释放技能时，最终伤害提高8%。" },
+          { "stage": 6, "title": "悔罪回声", "description": "技能命中未击杀目标时，下一次普通攻击伤害提高10%。" },
+          { "stage": 7, "title": "圣像裂痕", "description": "对精英与首领单位出手时，额外无视6%防御。" },
+          { "stage": 8, "title": "禁词共鸣", "description": "双目标技能额外提高8%暴击率。" },
+          { "stage": 9, "title": "堕歌返灵", "description": "击败目标后，回复5%最大生命值，延长持续作战能力。" },
+          { "stage": 10, "title": "哀荣宣判", "description": "攻击已被罪印锁定的目标时，暴击伤害提高14%。" },
+          { "stage": 11, "title": "罪域扩音", "description": "每回合首次技能命中的敌人，额外承受6%来自自身的最终伤害。" },
+          { "stage": 12, "title": "沉钟止息", "description": "每场战斗首次释放技能时，冷却时间视作减少1回合。" },
+          { "stage": 13, "title": "异端加冕", "description": "若上一回合未受伤，本回合速度提高8%。" },
+          { "stage": 14, "title": "终祷裁决", "description": "对生命低于40%的目标造成的最终伤害提高12%。" },
+          { "stage": 15, "title": "血色唱针", "description": "技能额外提高10%命中率与10%暴击伤害。" },
+          { "stage": 16, "title": "弥撒终章", "description": "对已带减益或生命低于50%的目标发动技能时，最终伤害提高15%。" }
+        ]
+      }
+    },
+    {
+      "id": "hero_018",
+      "name": "猎罪惩者-金",
+      "icon": "🔮",
+      "portrait": "assets/media/heroes/King.png",
+      "rarity": "rare",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 96,
+        "attack": 31,
+        "defense": 7,
+        "speed": 30,
+        "crit": 9,
+        "antiCrit": 4,
+        "defensePen": 3,
+        "accuracy": 10,
+        "dodge": 8,
+        "attackRange": 3,
+        "moveRange": 4
+      },
+      "skill": {
+        "name": "裁决锁链",
+        "description": "抛出拘束锁链钉住单体，对其造成122%攻击伤害，并为下一轮追击修正命中。",
+        "multiplier": 1.22,
+        "cooldownTurns": 2,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 2,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "裁决锁链",
+          "description": "抛出拘束锁链钉住单体，对其造成122%攻击伤害，并为下一轮追击修正命中。",
+          "multiplier": 1.22,
+          "cooldownTurns": 2,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 2,
+          "effectType": "damage"
+        }
+      ],
+      "specialTraits": {
+        "name": "裁决锁链",
+        "summary": "稳定压制型灵能特技，偏向命中强化、定点缠斗与收尾补刀。",
+        "stages": [
+          { "stage": 1, "title": "链钩校准", "description": "每回合首次攻击的命中率提高6%。" },
+          { "stage": 2, "title": "追猎视线", "description": "攻击最远目标时，最终伤害提高6%。" },
+          { "stage": 3, "title": "刑讯步调", "description": "技能命中后，自身速度提高6%，持续1回合。" },
+          { "stage": 4, "title": "钢索牵制", "description": "被裁决锁链命中的目标，下回合闪避率视作降低6%。" },
+          { "stage": 5, "title": "裁决记号", "description": "攻击生命高于70%的目标时，暴击率提高6%。" },
+          { "stage": 6, "title": "锁链回扯", "description": "击败目标时，回复4%最大生命值。" },
+          { "stage": 7, "title": "判词修正", "description": "若上一回合攻击未暴击，本回合暴击率提高8%。" },
+          { "stage": 8, "title": "罪证瞄准", "description": "单体技能的最终伤害提高8%。" },
+          { "stage": 9, "title": "枷锁拖行", "description": "连续攻击同一目标时，第二次起最终伤害提高10%。" },
+          { "stage": 10, "title": "冷面执法", "description": "生命高于60%时，自身最终伤害提高6%。" },
+          { "stage": 11, "title": "追捕节奏", "description": "每场战斗首次击败目标后，额外获得6%行动进度。" },
+          { "stage": 12, "title": "锁链穿点", "description": "单体技能额外无视6%防御力。" },
+          { "stage": 13, "title": "裁决生效", "description": "对生命低于45%的目标造成伤害时，暴击伤害提高14%。" },
+          { "stage": 14, "title": "拘束补射", "description": "释放技能后的下一次普通攻击，最终伤害提高10%。" },
+          { "stage": 15, "title": "定案封喉", "description": "攻击带有减益效果的目标时，最终伤害提高10%。" },
+          { "stage": 16, "title": "终局裁链", "description": "锁定当前生命值最低的敌人时，额外提高15%最终伤害与10%命中率。" }
+        ]
+      }
+    },
+    {
+      "id": "hero_019",
+      "name": "赤链匠师-发条",
+      "icon": "🛡️",
+      "portrait": "assets/media/heroes/Clockwork.png",
+      "rarity": "rare",
+      "profession": "defender",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 198,
+        "attack": 22,
+        "defense": 20,
+        "speed": 16,
+        "crit": 6,
+        "antiCrit": 9,
+        "defensePen": 2,
+        "accuracy": 7,
+        "dodge": 3,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skill": {
+        "name": "铸墙回旋",
+        "description": "挥动工坊盾臂横扫两名敌人，各造成116%攻击伤害，并稳住己方前排阵线。",
+        "multiplier": 1.16,
+        "cooldownTurns": 2,
+        "range": 2,
+        "targetType": "enemy",
+        "targetCount": 2,
+        "hpCostPercent": 0,
+        "effectType": "damage"
+      },
+      "skills": [
+        {
+          "name": "铸墙回旋",
+          "description": "挥动工坊盾臂横扫两名敌人，各造成116%攻击伤害，并稳住己方前排阵线。",
+          "multiplier": 1.16,
+          "cooldownTurns": 2,
+          "range": 2,
+          "targetType": "enemy",
+          "targetCount": 2,
+          "hpCostPercent": 0,
+          "effectType": "damage"
+        },
+        {
+          "name": "过载壁锁",
+          "description": "开启重锁机构砸向单体，造成132%攻击伤害；生命充盈时，这一击会更加沉重。",
+          "multiplier": 1.32,
+          "cooldownTurns": 3,
+          "range": 2,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 4,
+          "effectType": "damage"
+        }
+      ],
+      "specialTraits": {
+        "name": "铸墙回旋",
+        "summary": "守备反制型特技，围绕前排稳固、群体牵制与生命阈值反打构建。",
+        "stages": [
+          { "stage": 1, "title": "钢梁支撑", "description": "生命高于70%时，防御力额外提高6%。" },
+          { "stage": 2, "title": "回旋护臂", "description": "双目标技能的最终伤害提高6%。" },
+          { "stage": 3, "title": "炉火稳压", "description": "每场战斗首次受到的伤害降低8%。" },
+          { "stage": 4, "title": "锁甲卡位", "description": "与自身相邻的敌人攻击时，命中率视作降低6%。" },
+          { "stage": 5, "title": "铸墙成型", "description": "生命高于60%时，自身最终伤害提高8%。" },
+          { "stage": 6, "title": "反冲齿轮", "description": "承受近战伤害后，下一次攻击伤害提高10%。" },
+          { "stage": 7, "title": "重锁加固", "description": "自身抗暴率提高10%，更难被爆发秒穿。" },
+          { "stage": 8, "title": "工坊壁阵", "description": "双目标技能命中后，额外获得1回合防御姿态描述效果。" },
+          { "stage": 9, "title": "过载阀门", "description": "生命低于50%时，技能最终伤害提高10%。" },
+          { "stage": 10, "title": "回火韧钢", "description": "回复生命后的下一回合，防御力额外提高8%。" },
+          { "stage": 11, "title": "榫卯封线", "description": "对破袭者目标出手时，额外无视6%防御力。" },
+          { "stage": 12, "title": "压铸震荡", "description": "双目标技能命中的敌人，行动节奏会被额外压慢。" },
+          { "stage": 13, "title": "锁芯稳固", "description": "首次击败目标或完成助攻时，回复6%最大生命值。" },
+          { "stage": 14, "title": "堡垒回转", "description": "连续2回合未被暴击时，下一次技能最终伤害提高10%。" },
+          { "stage": 15, "title": "工匠反击", "description": "生命高于80%时，首个技能额外提高10%暴击率。" },
+          { "stage": 16, "title": "机铸终壁", "description": "生命高于50%时，承受伤害进一步降低，同时技能最终伤害提高12%。" }
+        ]
+      }
+    }
+  ],
+  "enemies": {
+    "enemy_zombie": {
+      "name": "丧尸",
+      "icon": "🧟",
+      "rank": "normal",
+      "attackCoefficient": 1,
+      "description": "行动迟缓的感染者，擅长用数量压制闯入者。",
+      "skill": null,
+      "baseStats": {
+        "hp": 56,
+        "attack": 12,
+        "defense": 5,
+        "speed": 8,
+        "crit": 3,
+        "antiCrit": 0,
+        "defensePen": 0,
+        "accuracy": 1,
+        "dodge": 0,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": []
+    },
+    "enemy_rat": {
+      "name": "变异鼠",
+      "icon": "🐁",
+      "rank": "normal",
+      "attackCoefficient": 1,
+      "description": "速度极快的小型怪物，喜欢绕后袭扰。",
+      "skill": null,
+      "baseStats": {
+        "hp": 24,
+        "attack": 7,
+        "defense": 2,
+        "speed": 16,
+        "crit": 6,
+        "antiCrit": 0,
+        "defensePen": 0,
+        "accuracy": 4,
+        "dodge": 6,
+        "attackRange": 1,
+        "moveRange": 3
+      },
+      "skills": []
+    },
+    "enemy_factory_guard": {
+      "name": "重装看守",
+      "icon": "🦾",
+      "rank": "elite",
+      "attackCoefficient": 1,
+      "description": "被改造成战斗兵器的工厂看守，正面承伤能力很强。",
+      "skill": {
+        "name": "重锤粉碎",
+        "multiplier": 1.6,
+        "description": "蓄力重击前方目标，造成160%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 128,
+        "attack": 20,
+        "defense": 13,
+        "speed": 10,
+        "crit": 6,
+        "antiCrit": 4,
+        "defensePen": 3,
+        "accuracy": 2,
+        "dodge": 1,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "重锤粉碎",
+          "multiplier": 1.6,
+          "description": "蓄力重击前方目标，造成160%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_factory_overseer": {
+      "name": "工厂监工",
+      "icon": "🤖",
+      "rank": "boss",
+      "attackCoefficient": 1,
+      "description": "废弃工厂真正的支配者，会在杂兵倒下后亲自清场。",
+      "skill": {
+        "name": "过载轰击",
+        "multiplier": 2.05,
+        "description": "启动过载核心，对目标造成205%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 220,
+        "attack": 34,
+        "defense": 16,
+        "speed": 11,
+        "crit": 10,
+        "antiCrit": 6,
+        "defensePen": 6,
+        "accuracy": 5,
+        "dodge": 2,
+        "attackRange": 2,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "过载轰击",
+          "multiplier": 2.05,
+          "description": "启动过载核心，对目标造成205%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_wolf": {
+      "name": "狼",
+      "icon": "🐺",
+      "rank": "normal",
+      "attackCoefficient": 1,
+      "description": "敏捷的捕食者，善于快速逼近脆弱目标。",
+      "skill": null,
+      "baseStats": {
+        "hp": 64,
+        "attack": 16,
+        "defense": 5,
+        "speed": 20,
+        "crit": 6,
+        "antiCrit": 2,
+        "defensePen": 2,
+        "accuracy": 4,
+        "dodge": 4,
+        "attackRange": 1,
+        "moveRange": 3
+      },
+      "skills": []
+    },
+    "enemy_bear": {
+      "name": "狂暴巨熊",
+      "icon": "🐻",
+      "rank": "elite",
+      "attackCoefficient": 1,
+      "description": "凶悍的森林霸主，拍击能直接撕裂前排防线。",
+      "skill": {
+        "name": "裂地猛击",
+        "multiplier": 1.65,
+        "description": "挥动巨掌砸向目标，造成165%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 158,
+        "attack": 27,
+        "defense": 15,
+        "speed": 10,
+        "crit": 8,
+        "antiCrit": 5,
+        "defensePen": 4,
+        "accuracy": 2,
+        "dodge": 1,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "裂地猛击",
+          "multiplier": 1.65,
+          "description": "挥动巨掌砸向目标，造成165%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_forest_spider": {
+      "name": "毒纹巨蛛",
+      "icon": "🕷️",
+      "rank": "normal",
+      "attackCoefficient": 1,
+      "description": "从阴影中扑出的剧毒蜘蛛，命中与闪避都不低。",
+      "skill": null,
+      "baseStats": {
+        "hp": 52,
+        "attack": 14,
+        "defense": 4,
+        "speed": 17,
+        "crit": 5,
+        "antiCrit": 2,
+        "defensePen": 2,
+        "accuracy": 6,
+        "dodge": 5,
+        "attackRange": 1,
+        "moveRange": 3
+      },
+      "skills": []
+    },
+    "enemy_forest_alpha": {
+      "name": "森嚎狼王",
+      "icon": "🐺",
+      "rank": "boss",
+      "attackCoefficient": 1,
+      "description": "统御整片森林的狼王，会在猎场最混乱时现身。",
+      "skill": {
+        "name": "王者撕咬",
+        "multiplier": 2.1,
+        "description": "发起残暴扑杀，造成210%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 238,
+        "attack": 38,
+        "defense": 12,
+        "speed": 17,
+        "crit": 12,
+        "antiCrit": 6,
+        "defensePen": 7,
+        "accuracy": 7,
+        "dodge": 4,
+        "attackRange": 1,
+        "moveRange": 3
+      },
+      "skills": [
+        {
+          "name": "王者撕咬",
+          "multiplier": 2.1,
+          "description": "发起残暴扑杀，造成210%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_skeleton": {
+      "name": "骷髅兵",
+      "icon": "💀",
+      "rank": "normal",
+      "attackCoefficient": 1,
+      "description": "被死气驱动的残破骸骨，数量众多但并不坚固。",
+      "skill": null,
+      "baseStats": {
+        "hp": 74,
+        "attack": 18,
+        "defense": 8,
+        "speed": 12,
+        "crit": 4,
+        "antiCrit": 2,
+        "defensePen": 1,
+        "accuracy": 3,
+        "dodge": 2,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": []
+    },
+    "enemy_ghost": {
+      "name": "幽灵",
+      "icon": "👻",
+      "rank": "elite",
+      "attackCoefficient": 1,
+      "description": "游离于实体与虚无之间的亡灵，极难被准确命中。",
+      "skill": {
+        "name": "幽冥撕扯",
+        "multiplier": 1.7,
+        "description": "释放阴寒利爪，造成170%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 86,
+        "attack": 23,
+        "defense": 3,
+        "speed": 18,
+        "crit": 8,
+        "antiCrit": 3,
+        "defensePen": 5,
+        "accuracy": 6,
+        "dodge": 8,
+        "attackRange": 2,
+        "moveRange": 3
+      },
+      "skills": [
+        {
+          "name": "幽冥撕扯",
+          "multiplier": 1.7,
+          "description": "释放阴寒利爪，造成170%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_grave_keeper": {
+      "name": "守墓武士",
+      "icon": "⚔️",
+      "rank": "elite",
+      "attackCoefficient": 1,
+      "description": "常年守卫墓穴的亡者战士，能精准斩开护甲。",
+      "skill": {
+        "name": "墓卫斩",
+        "multiplier": 1.75,
+        "description": "以墓穴怨气附着武器，造成175%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 122,
+        "attack": 29,
+        "defense": 10,
+        "speed": 14,
+        "crit": 7,
+        "antiCrit": 4,
+        "defensePen": 7,
+        "accuracy": 5,
+        "dodge": 2,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "墓卫斩",
+          "multiplier": 1.75,
+          "description": "以墓穴怨气附着武器，造成175%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_crypt_lord": {
+      "name": "墓穴领主",
+      "icon": "🧛",
+      "rank": "boss",
+      "attackCoefficient": 1,
+      "description": "统御整片地下墓穴的领主，擅长以死亡之力压迫敌人。",
+      "skill": {
+        "name": "冥府宣告",
+        "multiplier": 2.2,
+        "description": "汇聚死气爆发一击，造成220%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 248,
+        "attack": 40,
+        "defense": 15,
+        "speed": 13,
+        "crit": 11,
+        "antiCrit": 7,
+        "defensePen": 8,
+        "accuracy": 7,
+        "dodge": 3,
+        "attackRange": 2,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "冥府宣告",
+          "multiplier": 2.2,
+          "description": "汇聚死气爆发一击，造成220%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_zombie_nurse": {
+      "name": "丧尸护士",
+      "icon": "🧟‍♀️",
+      "rank": "normal",
+      "attackCoefficient": 1,
+      "description": "医院内被感染的护理人员，攻击稳定且难以摆脱。",
+      "skill": null,
+      "baseStats": {
+        "hp": 96,
+        "attack": 21,
+        "defense": 6,
+        "speed": 10,
+        "crit": 4,
+        "antiCrit": 2,
+        "defensePen": 0,
+        "accuracy": 3,
+        "dodge": 0,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": []
+    },
+    "enemy_plague_brute": {
+      "name": "疫病屠夫",
+      "icon": "🔪",
+      "rank": "elite",
+      "attackCoefficient": 1,
+      "description": "身躯畸变的医院执行者，近身爆发极强。",
+      "skill": {
+        "name": "病灶切开",
+        "multiplier": 1.8,
+        "description": "挥动手术巨刀，造成180%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 168,
+        "attack": 30,
+        "defense": 12,
+        "speed": 11,
+        "crit": 8,
+        "antiCrit": 5,
+        "defensePen": 5,
+        "accuracy": 4,
+        "dodge": 1,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "病灶切开",
+          "multiplier": 1.8,
+          "description": "挥动手术巨刀，造成180%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_mutant": {
+      "name": "变异体",
+      "icon": "👾",
+      "rank": "boss",
+      "attackCoefficient": 1,
+      "description": "由病毒彻底扭曲的怪物，拥有极高的生命力与破坏力。",
+      "skill": {
+        "name": "畸变撕裂",
+        "multiplier": 2.18,
+        "description": "撕裂血肉的一击，造成218%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 280,
+        "attack": 42,
+        "defense": 14,
+        "speed": 9,
+        "crit": 10,
+        "antiCrit": 6,
+        "defensePen": 8,
+        "accuracy": 6,
+        "dodge": 2,
+        "attackRange": 2,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "畸变撕裂",
+          "multiplier": 2.18,
+          "description": "撕裂血肉的一击，造成218%攻击伤害。"
+        }
+      ]
+    },
+    "enemy_plague_doctor": {
+      "name": "疫病主宰",
+      "icon": "🩺",
+      "rank": "boss",
+      "attackCoefficient": 1,
+      "description": "医院深处的领主之一，会与变异体一同镇守禁区。",
+      "skill": {
+        "name": "绝症审判",
+        "multiplier": 2.12,
+        "description": "释放高浓度病原冲击，造成212%攻击伤害。"
+      },
+      "baseStats": {
+        "hp": 232,
+        "attack": 39,
+        "defense": 12,
+        "speed": 15,
+        "crit": 12,
+        "antiCrit": 7,
+        "defensePen": 7,
+        "accuracy": 8,
+        "dodge": 4,
+        "attackRange": 2,
+        "moveRange": 2
+      },
+      "skills": [
+        {
+          "name": "绝症审判",
+          "multiplier": 2.12,
+          "description": "释放高浓度病原冲击，造成212%攻击伤害。"
+        }
+      ]
+    }
+  }
+}

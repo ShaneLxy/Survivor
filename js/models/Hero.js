@@ -8,11 +8,15 @@ class Hero {
 
         this.name = config.name || '未知英雄';
         this.icon = config.icon || '🧙';
-        this.rarity = config.rarity || 'common';
+        this.portrait = config.portrait || null;
+        this.rarity = HeroConfig.normalizeRarity(config.rarity);
+        this.profession = config.profession || null;
+        this.professionIcon = config.professionIcon || HeroConfig.getProfessionIconPath?.(this.profession) || null;
         this.level = Math.max(1, Number(level) || 1);
         this.exp = 0;
         this.stars = HeroConfig.normalizeStarLevel(1);
-        this.skill = config.skill || null;
+        this.skills = HeroConfig.normalizeSkillCollection(config.skills, config.skill);
+        this.skill = this.skills[0] || null;
         this.equipment = {
             weapon: null,
             clothes: null,
@@ -49,8 +53,18 @@ class Hero {
         return GameConfig.getExpRequired(this.level);
     }
 
+    getLevelCap(maxLevel = Infinity) {
+        const starLevelCap = HeroConfig.getLevelCapByStars(this.stars);
+        const externalCap = Number.isFinite(maxLevel) ? Math.max(1, Number(maxLevel) || 1) : Infinity;
+        return Math.max(1, Math.min(starLevelCap, externalCap));
+    }
+
+    isAtLevelCap(maxLevel = Infinity) {
+        return this.level >= this.getLevelCap(maxLevel);
+    }
+
     canLevelUp(maxLevel = Infinity) {
-        return this.level < maxLevel && this.exp >= this.getExpRequired();
+        return !this.isAtLevelCap(maxLevel) && this.exp >= this.getExpRequired();
     }
 
     levelUpOnce(maxLevel = Infinity) {
@@ -65,22 +79,30 @@ class Hero {
     }
 
     addExp(exp, maxLevel = Infinity) {
-        const gainedExp = Math.max(0, Number(exp) || 0);
-        if (gainedExp <= 0) {
-            return { gainedExp: 0, leveledUp: false, reachedCap: this.level >= maxLevel };
+        const requestedExp = Math.max(0, Number(exp) || 0);
+        const levelCap = this.getLevelCap(maxLevel);
+        if (requestedExp <= 0) {
+            return { gainedExp: 0, leveledUp: false, reachedCap: this.isAtLevelCap(maxLevel), levelCap };
         }
 
-        this.exp += gainedExp;
+        const previousExp = this.exp;
+        this.exp = Math.min(this.getExpRequired(), this.exp + requestedExp);
+        const gainedExp = Math.max(0, this.exp - previousExp);
         let leveledUp = false;
         while (this.canLevelUp(maxLevel)) {
             this.levelUpOnce(maxLevel);
             leveledUp = true;
         }
 
+        if (this.isAtLevelCap(maxLevel)) {
+            this.exp = Math.min(this.exp, this.getExpRequired());
+        }
+
         return {
             gainedExp,
             leveledUp,
-            reachedCap: this.level >= maxLevel
+            reachedCap: this.isAtLevelCap(maxLevel),
+            levelCap
         };
     }
 
@@ -95,18 +117,21 @@ class Hero {
     getBaseStats() {
         const config = HeroConfig.getHeroConfig(this.configId);
         const stats = HeroConfig.calculateStats(config, this.level);
-        const starBonus = HeroConfig.getStarBonusMultiplier(this.stars);
+        const starBonus = HeroConfig.getStarBonusMultiplier(this.stars, config?.rarity || this.rarity);
+        const trainingBonus = Math.max(0, Number(window.shelterManager?.getTrainingGroundStatBonus?.() || 0));
+        const trainingMultiplier = 1 + trainingBonus;
 
         return {
-            hp: Math.floor(stats.hp * starBonus),
-            attack: Math.floor(stats.attack * starBonus),
-            defense: Math.floor(stats.defense * starBonus),
-            speed: Math.floor(stats.speed * starBonus),
-            crit: Math.floor(stats.crit * starBonus),
-            antiCrit: Math.floor(stats.antiCrit * starBonus),
-            defensePen: Math.floor(stats.defensePen * starBonus),
-            accuracy: Math.floor(stats.accuracy * starBonus),
-            dodge: Math.floor(stats.dodge * starBonus),
+            hp: Math.floor(stats.hp * starBonus * trainingMultiplier),
+            attack: Math.floor(stats.attack * starBonus * trainingMultiplier),
+            attackCoefficient: Math.max(0.05, Number(stats.attackCoefficient) || 1),
+            defense: Math.floor(stats.defense * starBonus * trainingMultiplier),
+            speed: Math.floor(stats.speed * starBonus * trainingMultiplier),
+            crit: Math.floor(stats.crit * starBonus * trainingMultiplier),
+            antiCrit: Math.floor(stats.antiCrit * starBonus * trainingMultiplier),
+            defensePen: Math.floor(stats.defensePen * starBonus * trainingMultiplier),
+            accuracy: Math.floor(stats.accuracy * starBonus * trainingMultiplier),
+            dodge: Math.floor(stats.dodge * starBonus * trainingMultiplier),
             attackRange: stats.attackRange,
             moveRange: stats.moveRange
         };
@@ -144,6 +169,7 @@ class Hero {
 
         this.maxHp = Math.max(1, baseStats.hp + equipmentStats.hp);
         this.attack = Math.max(1, baseStats.attack + equipmentStats.attack);
+        this.attackCoefficient = Math.max(0.05, Number(baseStats.attackCoefficient) || 1);
         this.defense = Math.max(0, baseStats.defense + equipmentStats.defense);
         this.speed = Math.max(1, baseStats.speed + equipmentStats.speed);
         this.crit = Math.max(0, baseStats.crit + equipmentStats.crit);
@@ -192,12 +218,12 @@ class Hero {
     }
 
     canGainBattleExp(playerLevel) {
-        return this.level < playerLevel;
+        return !this.isAtLevelCap(playerLevel);
     }
 
     getPower() {
         return Math.floor(
-            this.attack * 2 +
+            this.attack * this.attackCoefficient * 2 +
             this.defense * 1.5 +
             this.maxHp * 0.5 +
             this.speed * 1.2 +
@@ -228,7 +254,10 @@ class Hero {
             configId: this.configId,
             name: this.name,
             icon: this.icon,
+            portrait: this.portrait,
             rarity: this.rarity,
+            profession: this.profession,
+            professionIcon: this.professionIcon,
             level: this.level,
             stars: this.stars,
             starInfo: this.getStarDisplayInfo(),
@@ -240,6 +269,7 @@ class Hero {
                 ...stats
             },
             equipment: this.getEquipmentInfo(),
+            skills: this.skills.map(skill => ({ ...skill })),
             skill: this.skill
         };
     }

@@ -2,7 +2,7 @@
  * 地牢配置
  */
 const DungeonConfig = {
-    defaultBossSpawnRound: 6,
+    defaultBossSpawnRound: 12,
 
     rankLabels: {
         normal: '普通',
@@ -18,6 +18,11 @@ const DungeonConfig = {
             level: 1,
             energyCost: 5,
             sceneId: 'standard_9x9',
+            battlefield: {
+                cols: 7,
+                rows: 10,
+                obstacles: [[3, 3], [3, 5], [5, 4]]
+            },
             initialEnemies: [
                 { id: 'enemy_zombie', count: 2 },
                 { id: 'enemy_rat', count: 2 },
@@ -26,7 +31,7 @@ const DungeonConfig = {
             bossWaves: [
                 {
                     id: 'dungeon_001_boss_wave_1',
-                    spawnRound: 6,
+                    spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
                         { id: 'enemy_factory_overseer', count: 1 }
@@ -50,6 +55,11 @@ const DungeonConfig = {
             level: 3,
             energyCost: 8,
             sceneId: 'standard_9x9',
+            battlefield: {
+                cols: 8,
+                rows: 10,
+                obstacles: [[2, 4], [4, 2], [4, 7], [6, 5]]
+            },
             initialEnemies: [
                 { id: 'enemy_wolf', count: 2 },
                 { id: 'enemy_bear', count: 1 },
@@ -58,7 +68,7 @@ const DungeonConfig = {
             bossWaves: [
                 {
                     id: 'dungeon_002_boss_wave_1',
-                    spawnRound: 6,
+                    spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
                         { id: 'enemy_forest_alpha', count: 1 }
@@ -82,6 +92,11 @@ const DungeonConfig = {
             level: 5,
             energyCost: 10,
             sceneId: 'standard_9x9',
+            battlefield: {
+                cols: 7,
+                rows: 11,
+                obstacles: [[3, 2], [3, 6], [5, 4], [7, 3], [7, 5]]
+            },
             initialEnemies: [
                 { id: 'enemy_skeleton', count: 2 },
                 { id: 'enemy_ghost', count: 1 },
@@ -90,7 +105,7 @@ const DungeonConfig = {
             bossWaves: [
                 {
                     id: 'dungeon_003_boss_wave_1',
-                    spawnRound: 6,
+                    spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
                         { id: 'enemy_crypt_lord', count: 1 }
@@ -114,6 +129,11 @@ const DungeonConfig = {
             level: 8,
             energyCost: 12,
             sceneId: 'standard_9x9',
+            battlefield: {
+                cols: 8,
+                rows: 11,
+                obstacles: [[2, 3], [2, 6], [4, 4], [4, 5], [7, 2], [7, 7]]
+            },
             initialEnemies: [
                 { id: 'enemy_zombie_nurse', count: 2 },
                 { id: 'enemy_plague_brute', count: 1 }
@@ -121,7 +141,7 @@ const DungeonConfig = {
             bossWaves: [
                 {
                     id: 'dungeon_004_boss_wave_1',
-                    spawnRound: 6,
+                    spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
                         { id: 'enemy_mutant', count: 1 },
@@ -324,12 +344,42 @@ const DungeonConfig = {
         return [...this.dungeons];
     },
 
+    getUnitCatalog() {
+        return window.UnitCatalogLoader?.getData?.() || null;
+    },
+
+    getEnemyCatalog() {
+        const source = this.getUnitCatalog()?.enemies || this.enemies;
+        return Object.fromEntries(
+            Object.entries(source).map(([id, config]) => [id, this.normalizeEnemyConfig(config)])
+        );
+    },
+
+    normalizeSkillCollection(skills, skill = null) {
+        if (Array.isArray(skills) && skills.length > 0) {
+            return skills.filter(Boolean).map(item => ({ ...item }));
+        }
+        if (skill) {
+            return [{ ...skill }];
+        }
+        return [];
+    },
+
+    normalizeEnemyConfig(config = {}) {
+        const skills = this.normalizeSkillCollection(config.skills, config.skill);
+        return {
+            ...config,
+            skills,
+            skill: skills[0] || null
+        };
+    },
+
     getEnemyConfig(id) {
-        return this.enemies[id] || null;
+        return this.getEnemyCatalog()[id] || null;
     },
 
     getAllEnemyConfigs() {
-        return Object.entries(this.enemies).map(([id, config]) => ({ id, ...config }));
+        return Object.entries(this.getEnemyCatalog()).map(([id, config]) => ({ id, ...config }));
     },
 
     getEnemyRankLabel(rank) {
@@ -369,6 +419,7 @@ const DungeonConfig = {
         return {
             hp: Math.floor(base.hp * levelMultiplier),
             attack: Math.floor(base.attack * levelMultiplier),
+            attackCoefficient: Math.max(0.05, Number(base.attackCoefficient) || 1),
             defense: Math.floor(base.defense * levelMultiplier),
             speed: Math.max(1, Math.floor(base.speed * (0.97 + normalizedStageLevel * 0.035) * Math.max(0.9, Math.min(extraMultiplier, 1.4)))),
             crit: base.crit,

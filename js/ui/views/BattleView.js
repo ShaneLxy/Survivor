@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 战斗场景视图
  */
 class BattleView {
@@ -14,6 +14,8 @@ class BattleView {
         this.pauseModal = null;
         this.isPaused = false;
         this.skipBattleRequested = false;
+        this.selectedSkillIndex = null;
+        this.selectedBattleItemId = null;
         // 动画系统相关
         this.animationLayer = null;
         this.lastUnitPositions = new Map();
@@ -25,7 +27,7 @@ class BattleView {
         this.actionQueue = [];
         this.isProcessingAction = false;
         this.actionQueueWaiters = [];
-        // 进度条展示缓存：仅在单位行动结束后同步到UI
+        // 进度条显示缓存：仅在单位行动结束后同步到UI
         this.progressTokenMap = new Map();
         this.progressValueMap = new Map();
         this.displayProgressMap = new Map();
@@ -52,6 +54,7 @@ class BattleView {
 
         const heroes = heroManager.createBattleUnits();
         const battleSetup = dungeon.createBattleSetup();
+        const battlefield = battleSetup.battlefield || null;
         const enemies = battleSetup.initialEnemies || [];
         const bossWaves = battleSetup.bossWaves || [];
         const totalEnemyCount = enemies.length + bossWaves.reduce((sum, wave) => sum + (wave.bosses || []).length, 0);
@@ -77,8 +80,10 @@ class BattleView {
         this.progressTokenMap = new Map();
         this.progressValueMap = new Map();
         this.displayProgressMap = new Map();
+        this.selectedSkillIndex = null;
+        this.selectedBattleItemId = null;
         this.battleSessionId++;
-        battleManager.initBattle({ heroes, enemies, bossWaves, sceneId: dungeon.sceneId || sceneId });
+        battleManager.initBattle({ heroes, enemies, bossWaves, sceneId: dungeon.sceneId || sceneId, battlefield });
 
 
         battleManager.setDecisionProvider(context => this.requestPlayerAction(context));
@@ -145,14 +150,14 @@ class BattleView {
     renderShell() {
         this.element.innerHTML = `
             <div class="battle-view battle-grid-view">
-                <div id="battle-boss-alert" class="battle-boss-alert" aria-hidden="true">
+                <div id="battle-boss-alert" class="battle-boss-alert" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;">
                     <div class="battle-boss-alert-banner">领主登场!</div>
                 </div>
-                <div class="battle-top-panel">
-                    <div class="battle-top-row">
-                        <button class="btn btn-secondary battle-pause-btn" onclick="window.game.ui.battleView.pauseBattle()">⏸</button>
-                        <div id="battle-turn-meta" class="battle-turn-meta"></div>
-                    </div>
+                  <div class="battle-top-panel">
+                      <div class="battle-top-row">
+                        <button class="btn btn-secondary battle-pause-btn battle-pause-icon-btn" onclick="window.game.ui.battleView.pauseBattle()" aria-label="暂停">||</button>
+                          <div id="battle-turn-meta" class="battle-turn-meta"></div>
+                      </div>
                     <div id="battle-progress-track" class="battle-progress-track"></div>
                 </div>
                 <div class="battle-main-panel" style="position: relative;">
@@ -160,7 +165,11 @@ class BattleView {
                         <div id="battle-board" class="battle-board"></div>
                         <div id="battle-animation-layer" class="battle-animation-layer"></div>
                     </div>
-                    <div id="battle-action-panel" class="battle-action-panel"></div>
+                    <div id="battle-fallen-panel" class="battle-fallen-panel"></div>
+                    <div class="battle-bottom-panel">
+                        <div id="battle-action-panel" class="battle-action-panel"></div>
+                        <div id="battle-detail-panel" class="battle-detail-panel"></div>
+                    </div>
                 </div>
             </div>
         `;
@@ -197,7 +206,43 @@ class BattleView {
         if (!this.isProcessingAction) {
             this.renderBoard(snapshot);
         }
+        this.renderFallenPanel(snapshot);
         this.renderActionPanel();
+    }
+
+    renderFallenPanel(snapshot) {
+        const panel = this.element.querySelector('#battle-fallen-panel');
+        if (!panel) {
+            return;
+        }
+        const fallenHeroes = snapshot?.fallenHeroes || [];
+        const stimulantState = battleManager.getBattleItemUsageState('stimulant');
+        const canSelectReviveTarget = Boolean(
+            this.pendingAction
+            && !this.isPaused
+            && this.selectionMode === 'revive-item'
+            && this.selectedBattleItemId === 'stimulant'
+        );
+
+        panel.innerHTML = `
+            <div class="battle-fallen-header">
+                <div class="battle-fallen-title">阵亡英雄</div>
+                <div class="battle-stimulant-usage">强心剂 ${stimulantState.used}/${stimulantState.maxUses}</div>
+            </div>
+            <div class="battle-fallen-list">
+                ${fallenHeroes.length > 0 ? fallenHeroes.map(hero => `
+                    <button
+                        type="button"
+                        class="battle-fallen-item ${canSelectReviveTarget ? 'is-revivable' : ''}"
+                        ${canSelectReviveTarget ? `onclick="window.game.ui.battleView.reviveFallenHero('${hero.id}')"` : 'disabled'}
+                        title="${canSelectReviveTarget ? `点击对 ${hero.name} 使用强心剂` : hero.name}"
+                    >
+                        <div class="battle-fallen-avatar">${this.getBattleUnitVisualMarkup(hero, 'progress')}</div>
+                        <div class="battle-fallen-name">${hero.name}</div>
+                    </button>
+                `).join('') : '<div class="battle-fallen-empty">当前没有已阵亡英雄</div>'}
+            </div>
+        `;
     }
 
     renderTurnMeta(snapshot) {
@@ -208,14 +253,14 @@ class BattleView {
         const actor = battleManager.currentActor;
         const pendingActorId = this.pendingAction?.context?.actor?.id || null;
         const isHeroTurn = Boolean(this.pendingAction && actor && actor.camp === 'hero' && actor.id === pendingActorId);
-        const countdownText = isHeroTurn ? ` · 剩余 ${this.pendingAction.remainingTime}s` : '';
+        const countdownText = isHeroTurn ? ` · 剩余 ${this.pendingAction.remainingTime}s` : ``;
         if (snapshot.isBossEntrancePlaying) {
-            meta.textContent = `第 ${snapshot.currentRound} 回合 · 领主登场中...`;
+            meta.textContent = `第${snapshot.currentRound}行动轮 · 领主登场中...`;
             return;
         }
         meta.textContent = actor
-            ? `第 ${snapshot.currentRound} 回合 · 当前行动："${actor.name}"${countdownText}`
-            : `第 ${snapshot.currentRound} 回合`;
+            ? `第${snapshot.currentRound}行动轮 · 当前行动：${actor.name}${countdownText}`
+            : `第${snapshot.currentRound}行动轮`;
 
     }
 
@@ -328,13 +373,13 @@ class BattleView {
                     token.style.left = newLeft;
                 }
 
-                token.className = newClass;
+                token.className = `${newClass} ${unit.portrait ? 'has-portrait' : ''}`.trim();
                 this.progressValueMap.set(unit.id, newPos);
             } else {
                 token = document.createElement('div');
-                token.className = newClass;
+                token.className = `${newClass} ${unit.portrait ? 'has-portrait' : ''}`.trim();
                 token.style.left = this._getProgressTokenLeft(track, 0);
-                token.innerHTML = `<span>${unit.icon}</span>`;
+                token.innerHTML = this.getBattleUnitVisualMarkup(unit, 'progress');
                 track.appendChild(token);
                 this.progressTokenMap.set(unit.id, token);
                 this.progressValueMap.set(unit.id, newPos);
@@ -365,6 +410,19 @@ class BattleView {
         return 1500 + (normalizedDistance - 10) * 20;
     }
 
+    getBattleUnitVisualMarkup(unit, variant = 'board') {
+        if (unit?.portrait) {
+            const className = variant === 'progress'
+                ? 'battle-progress-portrait'
+                : (variant === 'floating' ? 'battle-float-portrait' : 'battle-unit-portrait');
+            return `<img class="${className}" src="${unit.portrait}" alt="${unit.name || 'unit'}">`;
+        }
+        const className = variant === 'progress'
+            ? 'battle-progress-icon'
+            : (variant === 'floating' ? 'float-icon' : 'battle-unit-icon');
+        return `<div class="${className}">${unit?.icon || '✦'}</div>`;
+    }
+
 
     renderBoard(snapshot) {
         const board = this.element.querySelector('#battle-board');
@@ -391,11 +449,15 @@ class BattleView {
         const moveTargetSet = isMoveMode && actor
             ? new Set(battleManager.getReachableCells(actor).map(position => `${position.x},${position.y}`))
             : new Set();
-        const attackRangeSet = isTargetMode && actor
-            ? new Set(battleManager.getAttackRangeCells(actor).map(position => `${position.x},${position.y}`))
-            : new Set();
+        const targetPreviewCells = isTargetMode && actor
+            ? this.getBoardTargetPreviewCells(actor)
+            : [];
+        const attackRangeSet = new Set(targetPreviewCells.map(position => `${position.x},${position.y}`));
         const attackTargetIds = isTargetMode && actor
-            ? new Set(battleManager.getAttackableTargets(actor).map(target => target.id))
+            ? new Set(this.getBoardTargetCandidates(actor).map(target => target.id))
+            : new Set();
+        const attackTargetCellSet = isTargetMode && actor
+            ? new Set(this.getBoardTargetCandidates(actor).map(target => `${target.position.x},${target.position.y}`))
             : new Set();
 
 
@@ -408,9 +470,21 @@ class BattleView {
                 cell.dataset.y = String(y);
                 cell.addEventListener('click', () => this.handleBoardCellClick(x, y));
 
-                const unit = battleManager.getUnitAt({ x, y });
+                const position = { x, y };
+                const unit = battleManager.getUnitAt(position);
+                const obstacle = battleManager.getObstacleAt(position);
                 const cellKey = `${x},${y}`;
                 let isInteractiveCell = false;
+
+                if (obstacle) {
+                    cell.classList.add('occupied', 'obstacle');
+                    cell.innerHTML = `
+                        <div class="battle-obstacle-token" aria-hidden="true">
+                            <span class="battle-obstacle-icon">${obstacle.icon || '■'}</span>
+                            <span class="battle-obstacle-label">障碍</span>
+                        </div>
+                    `;
+                }
 
                 if (unit) {
                     cell.classList.add('occupied', unit.camp);
@@ -418,8 +492,8 @@ class BattleView {
                         cell.classList.add('active');
                     }
                     cell.innerHTML = `
-                        <div class="battle-unit-token ${unit.camp} ${unit.rank || 'normal'}" data-unit-id="${unit.id}">
-                            <div class="battle-unit-icon">${unit.icon}</div>
+                        <div class="battle-unit-token ${unit.camp} ${unit.rank || 'normal'} ${unit.portrait ? 'has-portrait' : ''}" data-unit-id="${unit.id}">
+                            ${this.getBattleUnitVisualMarkup(unit, 'board')}
                             <div class="battle-unit-mini-hp"><div style="width:${Math.max(0, unit.hp / unit.maxHp * 100)}%"></div></div>
                             <div class="battle-unit-mini-text">${unit.hp}/${unit.maxHp}</div>
                         </div>
@@ -436,13 +510,21 @@ class BattleView {
                     cell.classList.add('attack-range');
                 }
 
+                if (isTargetMode && attackRangeSet.has(cellKey) && !attackTargetCellSet.has(cellKey)) {
+                    cell.classList.add('attack-disabled');
+                }
+
                 if (isTargetMode && unit) {
-                    if (attackTargetIds.has(unit.id)) {
+                    if (attackTargetIds.has(unit.id) && attackTargetCellSet.has(cellKey)) {
                         cell.classList.add('attack-target');
                         isInteractiveCell = true;
                     } else {
                         cell.classList.add('attack-disabled');
                     }
+                }
+
+                if (isTargetMode && obstacle) {
+                    cell.classList.add('attack-disabled');
                 }
 
 
@@ -452,20 +534,56 @@ class BattleView {
         }
     }
 
+    getBoardTargetPreviewCells(actor) {
+        if (!actor) {
+            return [];
+        }
+        if (this.selectionMode === 'skill') {
+            const skillIndex = this.selectedSkillIndex;
+            if (Number.isFinite(skillIndex)) {
+                return battleManager.getSkillRangeCells(actor, skillIndex, { previewRaw: true, ignoreUsable: true });
+            }
+            const skillRangeSet = new Map();
+            battleManager.getUsableSkills(actor).forEach((skill) => {
+                battleManager.getSkillRangeCells(actor, skill.index, { previewRaw: true, ignoreUsable: true }).forEach((position) => {
+                    skillRangeSet.set(`${position.x},${position.y}`, position);
+                });
+            });
+            return [...skillRangeSet.values()];
+        }
+        return battleManager.getAttackRangeCells(actor);
+    }
+
+    getBoardTargetCandidates(actor) {
+        if (!actor) {
+            return [];
+        }
+        if (this.selectionMode === 'skill') {
+            if (!Number.isFinite(this.selectedSkillIndex)) {
+                return [];
+            }
+            return battleManager.getSkillTargetCandidates(actor, this.selectedSkillIndex);
+        }
+        return battleManager.getAttackableTargets(actor);
+    }
+
 
     renderActionPanel() {
         const panel = this.element.querySelector('#battle-action-panel');
+        const detailPanel = this.element.querySelector('#battle-detail-panel');
         if (!panel) {
             return;
         }
 
         if (this.isPaused) {
             panel.innerHTML = '<div class="battle-action-status">战斗已暂停</div>';
+            if (detailPanel) detailPanel.innerHTML = '<div class="battle-detail-empty">暂停中</div>';
             return;
         }
 
         if (battleManager.isAutoBattleEnabled()) {
             panel.innerHTML = '<div class="battle-action-status">自动战斗中，系统将自动处理本场战斗。</div>';
+            if (detailPanel) detailPanel.innerHTML = '<div class="battle-detail-empty">自动战斗中</div>';
             return;
         }
 
@@ -479,32 +597,35 @@ class BattleView {
             const statusText = actor
                 ? (actor.camp === 'enemy' ? '敌方行动中...' : '等待回合推进中...')
                 : '等待回合推进中...';
-            panel.innerHTML = `
-                <div class="battle-action-buttons" style="opacity:0.5;pointer-events:none;">
-                    <button class="btn btn-secondary" disabled>攻击</button>
-                    <button class="btn btn-secondary" disabled>移动</button>
-                    <button class="btn btn-secondary" disabled>防御</button>
-                    <button class="btn btn-secondary" disabled>使用道具</button>
-                    <button class="btn btn-secondary" disabled>使用技能</button>
-                </div>
-                <div class="battle-action-tip" style="color:#888;">${statusText}</div>
-            `;
-            return;
-        }
+              panel.innerHTML = `
+                  <div class="battle-action-buttons battle-action-buttons-vertical" style="opacity:0.5;pointer-events:none;">
+                      <button class="btn btn-secondary" disabled>攻击</button>
+                      <button class="btn btn-secondary" disabled>移动</button>
+                      <button class="btn btn-secondary" disabled>防御</button>
+                      <button class="btn btn-secondary" disabled>使用道具</button>
+                      <button class="btn btn-secondary" disabled>使用特技</button>
+                  </div>
+              `;
+              if (detailPanel) detailPanel.innerHTML = `<div class="battle-detail-empty">${statusText}</div>`;
+              return;
+          }
 
-        // 英雄行动阶段：正常渲染可用按钮
-        const heroActor = this.pendingAction.context.actor;
-        panel.innerHTML = `
-            <div class="battle-action-buttons">
-                <button class="btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')">攻击</button>
-                <button class="btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')">移动</button>
-                <button class="btn btn-secondary" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })">防御</button>
-                <button class="btn btn-secondary" onclick="window.game.ui.battleView.chooseBattleItem()">使用道具</button>
-                <button class="btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('skill')" ${heroActor.skill ? '' : 'disabled'}>使用技能</button>
-            </div>
-            <div class="battle-action-tip">${this.getSelectionTip()}</div>
-        `;
-    }
+          // 英雄行动阶段：正常渲染可用按钮
+          const heroActor = this.pendingAction.context.actor;
+          panel.innerHTML = `
+              <div class="battle-action-buttons battle-action-buttons-vertical">
+                  <button class="btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')">攻击</button>
+                  <button class="btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')">移动</button>
+                  <button class="btn btn-secondary" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })">防御</button>
+                  <button class="btn ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')">使用物品</button>
+                  <button class="btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" ${heroActor.skills?.length ? '' : 'disabled'}>使用特技</button>
+              </div>
+              <div class="battle-action-tip">${this.getSelectionTip()}</div>
+          `;
+          if (detailPanel) {
+              detailPanel.innerHTML = this.renderDetailPanel(heroActor);
+          }
+      }
 
     getSelectionTip() {
         switch (this.selectionMode) {
@@ -512,11 +633,92 @@ class BattleView {
                 return '点击左侧高亮格子移动。';
             case 'attack':
                 return '点击左侧高亮敌人攻击。';
+            case 'item':
+                return '在右侧选择物品后立即使用。';
+            case 'revive-item':
+                return '点击下方阵亡英雄头像，对其使用强心剂。';
             case 'skill':
-                return '点击左侧高亮敌人释放技能。';
+                return '先在右侧选择特技，再点击棋盘中的有效目标。';
             default:
                 return '请选择本回合行动。';
         }
+    }
+
+    renderDetailPanel(actor) {
+        if (!actor) {
+            return '<div class="battle-detail-empty">等待行动中</div>';
+        }
+
+        if (this.selectionMode === 'item') {
+            const itemMap = new Map();
+            itemManager.getAllItems().forEach(item => {
+                if (!['heal', 'revive'].includes(item.effect?.type)) {
+                    return;
+                }
+                if (!itemMap.has(item.id)) {
+                    itemMap.set(item.id, {
+                        ...item,
+                        totalCount: itemManager.getItemCount(item.id)
+                    });
+                }
+            });
+            const items = Array.from(itemMap.values());
+            if (items.length === 0) {
+                return '<div class="battle-detail-empty">当前没有可在战斗中使用的战斗物品</div>';
+            }
+            return `
+                <div class="battle-detail-list">
+                    ${items.map(item => `
+                        <button class="battle-detail-row ${this.selectedBattleItemId === item.id ? 'is-selected' : ''}" onclick="window.game.ui.battleView.useBattleItem('${item.id}', '${actor.id}')">
+                            <span class="battle-detail-row-icon">${item.iconSrc ? `<img class="battle-detail-row-image" src="${item.iconSrc}" alt="${item.name}">` : (item.icon || '✦')}</span>
+                            <span class="battle-detail-row-main">
+                                <span class="battle-detail-row-title">${item.name}</span>
+                                <span class="battle-detail-row-sub">${item.description || '战斗道具'}</span>
+                            </span>
+                            <span class="battle-detail-row-extra">${item.effect?.type === 'revive' ? `${battleManager.getBattleItemUsageState(item.id).used}/${battleManager.getBattleItemUsageState(item.id).maxUses}` : `x${item.totalCount}`}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        if (this.selectionMode === 'skill') {
+            const skills = battleManager.getUsableSkills(actor);
+            if (!skills.length) {
+                return '<div class="battle-detail-empty">当前英雄没有可用特技</div>';
+            }
+            return `
+                <div class="battle-detail-list">
+                    ${skills.map(skill => {
+                        const targetTypeLabel = skill.targetType === 'ally' ? '友方' : '敌方';
+                        const cooldownLabel = skill.cooldownRemaining > 0
+                            ? `冷却 ${skill.cooldownRemaining}/${skill.cooldownTurns}`
+                            : `冷却 ${skill.cooldownTurns}`;
+                        const hpCostLabel = skill.hpCost > 0 ? `耗血 ${skill.hpCost}` : '无消耗';
+                        const selectedClass = this.selectedSkillIndex === skill.index ? 'is-selected' : '';
+                        const disabledAttr = skill.canUse ? '' : 'disabled';
+                        const disabledLabel = skill.canUse ? '点击后选择目标' : (skill.cooldownRemaining > 0 ? '冷却中' : '生命不足');
+                        return `
+                            <button class="battle-detail-row ${selectedClass}" onclick="window.game.ui.battleView.selectSkill(${skill.index})" ${disabledAttr}>
+                                <span class="battle-detail-row-icon">✦</span>
+                                <span class="battle-detail-row-main">
+                                    <span class="battle-detail-row-title">${skill.name || `特技 ${skill.index + 1}`}</span>
+                                    <span class="battle-detail-row-sub">${skill.description || '暂无说明'}</span>
+                                    <span class="battle-detail-row-meta">范围 ${skill.range} · 目标 ${targetTypeLabel} ${skill.targetCount}个 · ${hpCostLabel} · ${cooldownLabel}</span>
+                                </span>
+                                <span class="battle-detail-row-extra">${disabledLabel}</span>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        if (this.selectionMode === 'revive-item') {
+            return '<div class="battle-detail-empty">已选中强心剂，请点击下方阵亡英雄头像执行复活。</div>';
+        }
+
+        return '<div class="battle-detail-empty">选择“使用物品”或“使用特技”后，这里会显示可用列表。</div>';
     }
 
     startPendingActionTimer() {
@@ -548,6 +750,10 @@ class BattleView {
                 return;
             }
             this.pendingAction.remainingTime -= 1;
+            if (window.audioManager && typeof window.audioManager.playSFX === 'function') {
+                const sfxVolume = Number.isFinite(window.audioManager.sfxVolume) ? window.audioManager.sfxVolume : 0.28;
+                window.audioManager.playSFX('battle_countdown_tick', Math.min(0.28, sfxVolume));
+            }
             if (this.pendingAction.remainingTime <= 0) {
                 this.resolvePendingAction({ type: 'defend', reason: 'timeout' });
                 return;
@@ -567,6 +773,8 @@ class BattleView {
                 timerId: null
             };
             this.selectionMode = null;
+            this.selectedSkillIndex = null;
+            this.selectedBattleItemId = null;
             this.startPendingActionTimer();
             this.renderBattleState();
         });
@@ -590,6 +798,8 @@ class BattleView {
         }
         this.pendingAction = null;
         this.selectionMode = null;
+        this.selectedSkillIndex = null;
+        this.selectedBattleItemId = null;
     }
 
     resolvePendingAction(action) {
@@ -606,7 +816,45 @@ class BattleView {
         if (!this.pendingAction || this.isPaused) {
             return;
         }
-        this.selectionMode = this.selectionMode === mode ? null : mode;
+        if (mode === 'item') {
+            this.selectionMode = this.selectionMode === 'item' ? null : 'item';
+            this.selectedSkillIndex = null;
+            this.selectedBattleItemId = null;
+        } else {
+            this.selectionMode = this.selectionMode === mode ? null : mode;
+            if (mode !== 'skill') {
+                this.selectedSkillIndex = null;
+            }
+            if (mode !== 'revive-item') {
+                this.selectedBattleItemId = null;
+            }
+        }
+        this.renderBattleState();
+    }
+
+    openSkillPanel() {
+        if (!this.pendingAction || this.isPaused) {
+            return;
+        }
+        this.selectionMode = this.selectionMode === 'skill' ? null : 'skill';
+        if (this.selectionMode === 'skill' && this.selectedSkillIndex === null) {
+            const heroActor = this.pendingAction.context.actor;
+            const usableSkill = battleManager.getUsableSkills(heroActor).find(skill => skill.canUse);
+            this.selectedSkillIndex = usableSkill ? usableSkill.index : null;
+        }
+        this.renderBattleState();
+    }
+
+    selectSkill(skillIndex) {
+        if (!this.pendingAction || this.isPaused) {
+            return;
+        }
+        const heroActor = this.pendingAction.context.actor;
+        if (!heroActor.canUseSkill?.(skillIndex)) {
+            return;
+        }
+        this.selectionMode = 'skill';
+        this.selectedSkillIndex = skillIndex;
         this.renderBattleState();
     }
 
@@ -624,52 +872,44 @@ class BattleView {
         }
         if (this.selectionMode === 'attack' || this.selectionMode === 'skill') {
             const target = battleManager.getUnitAt({ x, y });
-            if (target && target.camp !== actor.camp && actor.distanceTo(target) <= actor.attackRange) {
-                this.resolvePendingAction({ type: this.selectionMode, targetId: target.id });
+            const validTargets = this.getBoardTargetCandidates(actor);
+            if (target && validTargets.some(unit => unit.id === target.id)) {
+                this.resolvePendingAction({
+                    type: this.selectionMode,
+                    targetId: target.id,
+                    skillIndex: this.selectionMode === 'skill' ? this.selectedSkillIndex : undefined
+                });
             }
         }
     }
 
     chooseBattleItem() {
-        if (!this.pendingAction || this.isPaused) {
-            return;
-        }
-        const actor = this.pendingAction.context.actor;
-        const items = itemManager.getAllItems().filter(item => item.effect?.type === 'heal');
-        if (items.length === 0) {
-            Toast.info('当前没有可在战斗中使用的恢复道具');
-            return;
-        }
-
-        let content = '<div style="display:flex;flex-direction:column;gap:10px;">';
-        items.forEach(item => {
-            content += `
-                <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                    <div>
-                        <div style="font-weight:bold;">${item.icon} ${item.name} x${item.count}</div>
-                        <div style="font-size:12px;color:#a0a0a0;">${item.description}</div>
-                    </div>
-                    <button class="btn btn-primary btn-small" onclick="window.game.ui.battleView.useBattleItem('${item.id}', '${actor.id}')">使用</button>
-                </div>
-            `;
-        });
-        content += '</div>';
-
-        const modal = new Modal({
-            title: '选择道具',
-            content,
-            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }]
-        });
-        this.itemSelectModal = modal;
-        modal.show();
+        this.selectActionMode('item');
     }
 
     useBattleItem(itemId, actorId) {
         if (this.isPaused) {
             return;
         }
+        const item = itemManager.getItem(itemId);
+        if (!item) {
+            return;
+        }
         this.closeItemSelectModal();
+        if (item.effect?.type === 'revive') {
+            this.selectionMode = 'revive-item';
+            this.selectedBattleItemId = itemId;
+            this.renderBattleState();
+            return;
+        }
         this.resolvePendingAction({ type: 'item', itemId, targetId: actorId });
+    }
+
+    reviveFallenHero(heroId) {
+        if (!this.pendingAction || this.isPaused || this.selectionMode !== 'revive-item' || !this.selectedBattleItemId) {
+            return;
+        }
+        this.resolvePendingAction({ type: 'item', itemId: this.selectedBattleItemId, targetId: heroId });
     }
 
     pauseBattle() {
@@ -718,6 +958,11 @@ class BattleView {
         }
         this.isPaused = false;
         this.closePauseModal();
+        if (this.pendingAction && battleManager.isAutoBattleEnabled()) {
+            const autoAction = battleManager.chooseAutoAction(this.pendingAction.context.actor);
+            this.resolvePendingAction(autoAction);
+            return;
+        }
         if (this.pendingAction) {
             this.startPendingActionTimer();
         }
@@ -781,7 +1026,7 @@ class BattleView {
             title: '战斗失败',
             content: `
                 <div style="text-align:center;">
-                    <div style="font-size:64px;margin-bottom:15px;">💀</div>
+                    <div style="font-size:64px;margin-bottom:15px;">💣</div>
                     <p>再接再厉！</p>
                 </div>
             `,
@@ -791,7 +1036,7 @@ class BattleView {
     }
 
     fleeBattle() {
-        if (confirm('确定要逃跑吗?')) {
+        if (confirm('确定要逃跑吗？')) {
             this.stopBattle();
             eventManager.emit('viewChange', { view: 'dungeon' });
         }
@@ -892,7 +1137,7 @@ class BattleView {
         el.className = `battle-unit-floating ${unit.camp} ${unit.rank || 'normal'}`.trim();
         el.dataset.unitId = unit.id;
         el.innerHTML = `
-            <div class="float-icon">${unit.icon}</div>
+            ${this.getBattleUnitVisualMarkup(unit, 'floating')}
             <div class="float-hp"><div style="width:${Math.max(0, unit.hp / unit.maxHp * 100)}%"></div></div>
             <div class="float-text">${unit.hp}/${unit.maxHp}</div>
         `;

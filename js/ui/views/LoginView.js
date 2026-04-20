@@ -1,43 +1,47 @@
-/**
- * 登录/注册视图 - 全屏启动画面风格
+﻿/**
+ * 登录 / 注册视图
  */
 class LoginView {
     constructor() {
-        this.mode = 'login'; // 'login' | 'register'
+        this.mode = 'login';
         this.isSubmitting = false;
         this.element = null;
+        this.sessionNotice = '';
+        this.versionPolicy = null;
 
-        // 缓存键名
         this.KEY_ACCOUNT = 'survivor_remember_account';
         this.KEY_PASSWORD = 'survivor_remember_password';
         this.KEY_REMEMBER_PWD = 'survivor_remember_pwd_checked';
     }
 
-    /**
-     * 显示登录页（全屏覆盖）
-     */
     show() {
+        Modal.closeAll();
         this._ensureContainer();
         this.mode = 'login';
         this.render();
         this._fadeIn();
 
-        // 隐藏游戏主界面
         const appEl = document.getElementById('app');
         if (appEl) appEl.style.display = 'none';
         this._setGameChromeVisible(false);
 
-        // 隐藏 modal 和 toast 容器（登录期间不需要）
         const modalContainer = document.getElementById('modal-container');
         const toastContainer = document.getElementById('toast-container');
         if (modalContainer) modalContainer.style.display = 'none';
         if (toastContainer) toastContainer.style.display = 'none';
     }
 
-    /**
-     * 隐藏登录页，显示游戏界面
-     */
+    showSessionNotice(message) {
+        this.sessionNotice = message || '账号已在别处登录，请重新登录';
+        if (!this.element) {
+            this.show();
+            return;
+        }
+        this.render();
+    }
+
     hide() {
+        this.sessionNotice = '';
         if (this.element) {
             this.element.classList.add('login-fade-out');
             setTimeout(() => {
@@ -48,12 +52,10 @@ class LoginView {
             }, 400);
         }
 
-        // 显示游戏主界面
         const appEl = document.getElementById('app');
         if (appEl) appEl.style.display = '';
         this._setGameChromeVisible(true);
 
-        // 显示 modal 和 toast
         const modalContainer = document.getElementById('modal-container');
         const toastContainer = document.getElementById('toast-container');
         if (modalContainer) modalContainer.style.display = '';
@@ -102,15 +104,58 @@ class LoginView {
         }
     }
 
+    _renderNotice() {
+        if (!this.sessionNotice) {
+            return '';
+        }
+        return `
+            <div class="login-session-notice">
+                <div class="login-session-notice-title">登录状态已失效</div>
+                <div class="login-session-notice-text">${this._escapeAttr(this.sessionNotice)}</div>
+                <button class="login-session-notice-btn" id="login-session-notice-btn">重新登录</button>
+            </div>
+        `;
+    }
+
+    _renderVersionBadge() {
+        const version = window.VersionManager?.buildVersion || window.__SURVIVOR_BUILD_VERSION__ || 'dev';
+        return `<div class="login-version-badge">版本 ${this._escapeAttr(version)}</div>`;
+    }
+
+    _renderVersionPolicyNotice() {
+        const policy = window.versionCheckService?.getState?.() || this.versionPolicy;
+        if (!policy?.checked || !window.versionCheckService?.hasUpdateNotice?.()) {
+            return '';
+        }
+
+        const title = policy.forceUpdate ? '发现强制更新' : '发现新版本';
+        const description = policy.message
+            || (policy.forceUpdate
+                ? `当前版本 ${policy.currentVersion} 已停止支持，请更新到 ${policy.latestVersion || policy.minSupportedVersion}。`
+                : `当前版本 ${policy.currentVersion} 不是最新版本，建议更新到 ${policy.latestVersion}。`);
+        const actionText = policy.downloadUrl ? '前往更新' : '我知道了';
+
+        return `
+            <div class="login-version-notice ${policy.forceUpdate ? 'is-force' : ''}">
+                <div class="login-version-notice-title">${title}</div>
+                <div class="login-version-notice-text">${this._escapeAttr(description)}</div>
+                <button class="login-version-notice-btn" id="login-version-notice-btn">${actionText}</button>
+            </div>
+        `;
+    }
+
     _renderLogin(savedAccount, savedPwd, rememberChecked) {
         this.element.innerHTML = `
             <div class="login-backdrop">
                 <div class="login-particles"></div>
                 <div class="login-grid-overlay"></div>
             </div>
+            ${this._renderVersionBadge()}
             <div class="login-container">
+                ${this._renderNotice()}
+                ${this._renderVersionPolicyNotice()}
                 <div class="login-logo">
-                    <div class="login-logo-icon">☢️</div>
+                    <div class="login-logo-icon">☠️</div>
                     <h1 class="login-title">末日生存</h1>
                     <p class="login-subtitle">SURVIVOR</p>
                 </div>
@@ -145,7 +190,7 @@ class LoginView {
                     </div>
 
                     <button class="login-btn login-btn-primary" id="btn-login" onclick="window.loginView.handleLogin()">
-                        <span class="btn-text">登 录</span>
+                        <span class="btn-text">登录</span>
                         <span class="btn-loading" style="display:none;">登录中...</span>
                     </button>
 
@@ -156,19 +201,33 @@ class LoginView {
             </div>
         `;
 
-        // 绑定回车键提交
         const passwordInput = document.getElementById('login-password');
         if (passwordInput) {
-            passwordInput.addEventListener('keydown', (e) => {
+            passwordInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter') this.handleLogin();
             });
         }
         const accountInput = document.getElementById('login-account');
         if (accountInput) {
-            accountInput.addEventListener('keydown', (e) => {
+            accountInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter') {
                     const pwdInput = document.getElementById('login-password');
                     if (pwdInput) pwdInput.focus();
+                }
+            });
+        }
+        const noticeButton = document.getElementById('login-session-notice-btn');
+        if (noticeButton) {
+            noticeButton.addEventListener('click', () => {
+                this.sessionNotice = '';
+                this.render();
+            });
+        }
+        const versionButton = document.getElementById('login-version-notice-btn');
+        if (versionButton) {
+            versionButton.addEventListener('click', () => {
+                if (!window.versionCheckService?.openUpdateLink?.()) {
+                    versionButton.blur();
                 }
             });
         }
@@ -180,9 +239,11 @@ class LoginView {
                 <div class="login-particles"></div>
                 <div class="login-grid-overlay"></div>
             </div>
+            ${this._renderVersionBadge()}
             <div class="login-container">
+                ${this._renderVersionPolicyNotice()}
                 <div class="login-logo">
-                    <div class="login-logo-icon">☢️</div>
+                    <div class="login-logo-icon">☠️</div>
                     <h1 class="login-title">末日生存</h1>
                     <p class="login-subtitle">SURVIVOR</p>
                 </div>
@@ -212,7 +273,7 @@ class LoginView {
                             <span class="field-icon">🔒</span>密码
                         </label>
                         <input type="password" id="reg-password" class="login-input"
-                               placeholder="请输入密码（6位以上）" autocomplete="new-password" />
+                               placeholder="请输入密码（至少6位）" autocomplete="new-password" />
                     </div>
 
                     <div class="login-field">
@@ -224,7 +285,7 @@ class LoginView {
                     </div>
 
                     <button class="login-btn login-btn-primary" id="btn-register" onclick="window.loginView.handleRegister()">
-                        <span class="btn-text">注 册</span>
+                        <span class="btn-text">注册</span>
                         <span class="btn-loading" style="display:none;">注册中...</span>
                     </button>
 
@@ -235,11 +296,18 @@ class LoginView {
             </div>
         `;
 
-        // 回车键绑定
         const confirmInput = document.getElementById('reg-password-confirm');
         if (confirmInput) {
-            confirmInput.addEventListener('keydown', (e) => {
+            confirmInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter') this.handleRegister();
+            });
+        }
+        const versionButton = document.getElementById('login-version-notice-btn');
+        if (versionButton) {
+            versionButton.addEventListener('click', () => {
+                if (!window.versionCheckService?.openUpdateLink?.()) {
+                    versionButton.blur();
+                }
             });
         }
     }
@@ -256,12 +324,16 @@ class LoginView {
 
     async handleLogin() {
         if (this.isSubmitting) return;
+        if (window.versionCheckService?.isBlocked?.()) {
+            this._showError('login-error', '当前版本已停止支持，请先更新客户端');
+            this._shakePanel();
+            return;
+        }
 
         const account = (document.getElementById('login-account').value || '').trim();
         const password = document.getElementById('login-password').value || '';
         const remember = document.getElementById('login-remember').checked;
 
-        // 前端校验
         const error = this._validateLogin(account, password);
         if (error) {
             this._showError('login-error', error);
@@ -276,7 +348,6 @@ class LoginView {
         try {
             await authService.login(account, password);
 
-            // 保存缓存
             localStorage.setItem(this.KEY_ACCOUNT, account);
             if (remember) {
                 localStorage.setItem(this.KEY_PASSWORD, password);
@@ -286,10 +357,8 @@ class LoginView {
                 localStorage.removeItem(this.KEY_REMEMBER_PWD);
             }
 
-            // 登录成功，通知 Game 进入游戏
             this.hide();
             eventManager.emit('loginSuccess');
-
         } catch (err) {
             const msg = err?.message || '登录失败，请检查网络连接';
             this._showError('login-error', msg);
@@ -302,13 +371,17 @@ class LoginView {
 
     async handleRegister() {
         if (this.isSubmitting) return;
+        if (window.versionCheckService?.isBlocked?.()) {
+            this._showError('register-error', '当前版本已停止支持，请先更新客户端');
+            this._shakePanel();
+            return;
+        }
 
         const account = (document.getElementById('reg-account').value || '').trim();
         const nickname = (document.getElementById('reg-nickname').value || '').trim();
         const password = document.getElementById('reg-password').value || '';
         const confirmPassword = document.getElementById('reg-password-confirm').value || '';
 
-        // 前端校验
         const error = this._validateRegister(account, nickname, password, confirmPassword);
         if (error) {
             this._showError('register-error', error);
@@ -322,13 +395,9 @@ class LoginView {
 
         try {
             await authService.register({ account, password, nickname });
-
-            // 注册成功也保存账号
             localStorage.setItem(this.KEY_ACCOUNT, account);
-
             this.hide();
             eventManager.emit('loginSuccess');
-
         } catch (err) {
             const msg = err?.message || '注册失败，请检查网络连接';
             this._showError('register-error', msg);
@@ -339,28 +408,24 @@ class LoginView {
         }
     }
 
-    // ---- 校验方法 ----
-
     _validateLogin(account, password) {
         if (!account) return '请输入账号';
         if (!password) return '请输入密码';
-        if (account.length < 3 || account.length > 20) return '账号长度应为3-20位';
+        if (account.length < 3 || account.length > 20) return '账号长度应为 3-20 位';
         return null;
     }
 
     _validateRegister(account, nickname, password, confirmPassword) {
         if (!account) return '请输入账号';
-        if (account.length < 3 || account.length > 20) return '账号长度应为3-20位';
+        if (account.length < 3 || account.length > 20) return '账号长度应为 3-20 位';
         if (!/^[a-zA-Z0-9]+$/.test(account)) return '账号只能包含字母和数字';
         if (!nickname) return '请输入昵称';
-        if (nickname.length < 2 || nickname.length > 12) return '昵称长度应为2-12位';
+        if (nickname.length < 2 || nickname.length > 12) return '昵称长度应为 2-12 位';
         if (!password) return '请输入密码';
-        if (password.length < 6) return '密码至少6位';
-        if (password !== confirmPassword) return '两次密码不一致';
+        if (password.length < 6) return '密码至少 6 位';
+        if (password !== confirmPassword) return '两次密码输入不一致';
         return null;
     }
-
-    // ---- UI 辅助方法 ----
 
     _showError(elementId, message) {
         const el = document.getElementById(elementId);
@@ -379,7 +444,7 @@ class LoginView {
         const panel = this.element.querySelector('.login-form-panel');
         if (panel) {
             panel.classList.remove('login-shake');
-            void panel.offsetWidth; // 触发 reflow
+            void panel.offsetWidth;
             panel.classList.add('login-shake');
         }
     }

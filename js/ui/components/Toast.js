@@ -1,7 +1,14 @@
-/**
- * Toast提示组件
- */
 class Toast {
+    static getDisplayDuration(message, type, duration) {
+        const explicitDuration = Number(duration) || 0;
+        const text = String(message || '');
+        const baseDuration = explicitDuration > 0
+            ? explicitDuration
+            : (type === 'error' ? 2600 : 2000);
+        const extraDuration = Math.max(0, text.length - 10) * 90;
+        return Math.min(5000, baseDuration + extraDuration);
+    }
+
     static ensureContainer() {
         let container = document.getElementById('toast-container');
 
@@ -28,17 +35,18 @@ class Toast {
     static show(message, type = 'info', duration = 2000) {
         const toast = document.createElement('div');
         toast.className = `toast toast-${type} slide-up`;
-        toast.textContent = message;
+        toast.textContent = String(message || '');
         toast.style.position = 'relative';
         toast.style.zIndex = '1';
+        toast.setAttribute('role', 'status');
 
         const container = this.ensureContainer();
         container.appendChild(toast);
 
-        // 播放音效
+        const displayDuration = this.getDisplayDuration(message, type, duration);
+
         audioManager.playSFX('toast');
 
-        // 自动移除
         setTimeout(() => {
             toast.classList.add('fade-out');
             setTimeout(() => {
@@ -46,7 +54,7 @@ class Toast {
                     toast.parentNode.removeChild(toast);
                 }
             }, 300);
-        }, duration);
+        }, displayDuration);
     }
 
     static success(message, duration = 2000) {
@@ -66,5 +74,4 @@ class Toast {
     }
 }
 
-// 暴露到全局
 window.Toast = Toast;

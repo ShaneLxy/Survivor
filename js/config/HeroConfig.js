@@ -5,6 +5,7 @@ const HeroConfig = {
     defaultBaseStats: {
         hp: 100,
         attack: 20,
+        attackCoefficient: 1,
         defense: 10,
         speed: 20,
         crit: 5,
@@ -14,6 +15,12 @@ const HeroConfig = {
         dodge: 0,
         attackRange: 1,
         moveRange: 3
+    },
+
+    professionDefinitions: {
+        defender: { id: 'defender', name: '守备者', description: '高生存前排职业，擅长承伤与团队增益。', tags: ['frontline', 'buff', 'durable'] },
+        psionic: { id: 'psionic', name: '灵能者', description: '高速脆皮职业，偏向控制与辅助。', tags: ['control', 'buff', 'fast'] },
+        raider: { id: 'raider', name: '破袭者', description: '高攻击高暴击输出职业，偏向爆发。', tags: ['damage', 'burst', 'crit'] }
     },
 
     starMaxLevel: 16,
@@ -40,67 +47,78 @@ const HeroConfig = {
 
     displayStats: ['hp', 'attack', 'defense', 'speed', 'crit', 'antiCrit', 'defensePen', 'accuracy', 'dodge', 'attackRange', 'moveRange'],
 
-    heroes: [
-        {
-            id: 'hero_001',
-            name: '剑圣',
-            icon: '⚔️',
-            rarity: 'legendary',
-            baseStats: { hp: 150, attack: 32, defense: 11, speed: 25, crit: 10, antiCrit: 4, defensePen: 6, accuracy: 8, dodge: 4, attackRange: 1, moveRange: 3 },
-            skill: { name: '剑气斩', description: '对敌人造成150%攻击力的伤害', multiplier: 1.5 }
-        },
-        {
-            id: 'hero_002',
-            name: '法师',
-            icon: '🧙',
-            rarity: 'epic',
-            baseStats: { hp: 90, attack: 42, defense: 6, speed: 21, crit: 8, antiCrit: 4, defensePen: 4, accuracy: 6, dodge: 3, attackRange: 3, moveRange: 3 },
-            skill: { name: '火球术', description: '对敌人造成120%攻击力的伤害', multiplier: 1.2 }
-        },
-        {
-            id: 'hero_003',
-            name: '战士',
-            icon: '🛡️',
-            rarity: 'rare',
-            baseStats: { hp: 210, attack: 22, defense: 18, speed: 16, crit: 6, antiCrit: 8, defensePen: 2, accuracy: 6, dodge: 2, attackRange: 1, moveRange: 2 },
-            skill: { name: '盾击', description: '对敌人造成更高的打击伤害', multiplier: 1.35 }
-        },
-        {
-            id: 'hero_004',
-            name: '弓手',
-            icon: '🏹',
-            rarity: 'rare',
-            baseStats: { hp: 100, attack: 35, defense: 8, speed: 30, crit: 12, antiCrit: 4, defensePen: 5, accuracy: 10, dodge: 8, attackRange: 3, moveRange: 3 },
-            skill: { name: '穿透箭', description: '对敌人造成110%攻击力的伤害', multiplier: 1.1 }
-        },
-        {
-            id: 'hero_005',
-            name: '牧师',
-            icon: '💚',
-            rarity: 'common',
-            baseStats: { hp: 80, attack: 17, defense: 7, speed: 18, crit: 6, antiCrit: 8, defensePen: 1, accuracy: 6, dodge: 4, attackRange: 2, moveRange: 3 },
-            skill: { name: '治愈术', description: '以圣光打击敌人并保护自己', multiplier: 1.0 }
-        },
-        {
-            id: 'hero_006',
-            name: '刺客',
-            icon: '🗡️',
-            rarity: 'epic',
-            baseStats: { hp: 95, attack: 46, defense: 7, speed: 35, crit: 15, antiCrit: 5, defensePen: 8, accuracy: 12, dodge: 10, attackRange: 1, moveRange: 4 },
-            skill: { name: '背刺', description: '对敌人造成180%攻击力的伤害', multiplier: 1.8 }
+    rarityGrowthMultipliers: {
+        common: { level: 0.025, star: 0.06 },
+        rare: { level: 0.032, star: 0.075 },
+        epic: { level: 0.04, star: 0.09 },
+        legendary: { level: 0.05, star: 0.11 }
+    },
+
+    getUnitCatalog() {
+        return window.UnitCatalogLoader?.getData?.() || null;
+    },
+
+    getProfessionMap() {
+        const catalogMap = this.getUnitCatalog()?.professions || {};
+        return {
+            ...this.professionDefinitions,
+            ...catalogMap
+        };
+    },
+
+    getHeroList() {
+        const catalogHeroes = this.getUnitCatalog()?.heroes;
+        const source = Array.isArray(catalogHeroes) && catalogHeroes.length > 0 ? catalogHeroes : this.heroes;
+        return source.map(hero => this.normalizeHeroConfig(hero));
+    },
+
+    normalizeSkillCollection(skills, skill = null) {
+        if (Array.isArray(skills) && skills.length > 0) {
+            return skills.filter(Boolean).map(item => ({ ...item }));
         }
-    ],
+        if (skill) {
+            return [{ ...skill }];
+        }
+        return [];
+    },
+
+    getProfessionIconPath(professionId) {
+        if (!professionId) {
+            return null;
+        }
+        const rawPath = `assets/media/professions/${professionId}.png`;
+        return window.VersionManager?.getVersionedAssetUrl?.(rawPath) || rawPath;
+    },
+
+    normalizeHeroConfig(hero = {}) {
+        const skills = this.normalizeSkillCollection(hero.skills, hero.skill);
+        const portrait = hero.portrait
+            ? (window.VersionManager?.getVersionedAssetUrl?.(hero.portrait) || hero.portrait)
+            : null;
+        return {
+            ...hero,
+            rarity: this.normalizeRarity(hero.rarity),
+            profession: hero.profession || null,
+            portrait,
+            professionIcon: hero.professionIcon || this.getProfessionIconPath(hero.profession),
+            skills,
+            skill: skills[0] || null
+        };
+    },
+
+    heroes: [],
+
 
     getHeroConfig(id) {
-        return this.heroes.find(hero => hero.id === id) || null;
+        return this.getHeroList().find(hero => hero.id === id) || null;
     },
 
     getHeroesByRarity(rarity) {
-        return this.heroes.filter(hero => hero.rarity === rarity);
+        return this.getHeroList().filter(hero => hero.rarity === rarity);
     },
 
     getAllHeroes() {
-        return [...this.heroes];
+        return [...this.getHeroList()];
     },
 
     getAllHeroConfigs() {
@@ -115,11 +133,40 @@ const HeroConfig = {
         return [...this.displayStats];
     },
 
+    getProfessionConfig(professionId) {
+        return this.getProfessionMap()[professionId] || this.professionDefinitions[professionId] || null;
+    },
+
+    getProfessionName(professionId) {
+        return this.getProfessionConfig(professionId)?.name || '未定职业';
+    },
+
+    getSpecialTraitConfig(heroConfigId) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const config = hero.specialTraits;
+        if (!config || typeof config !== 'object') {
+            return null;
+        }
+        return {
+            name: config.name || hero.skill?.name || '专属特技',
+            summary: config.summary || '',
+            stages: Array.isArray(config.stages) ? config.stages.map(stage => ({ ...stage })) : []
+        };
+    },
+
     normalizeStats(baseStats = {}) {
         return {
             ...this.defaultBaseStats,
             ...baseStats
         };
+    },
+
+    normalizeRarity(rarity) {
+        return this.rarityGrowthMultipliers[rarity] ? rarity : 'common';
+    },
+
+    getGrowthConfigByRarity(rarity) {
+        return this.rarityGrowthMultipliers[this.normalizeRarity(rarity)];
     },
 
     normalizeStarLevel(level) {
@@ -161,13 +208,15 @@ const HeroConfig = {
         return (normalized + 1) * 50;
     },
 
-    getStarBonusMultiplier(level) {
+    getLevelCapByStars(starLevel) {
+        const normalized = this.normalizeStarLevel(starLevel);
+        return normalized * 30;
+    },
+
+    getStarBonusMultiplier(level, rarity = 'common') {
         const progress = Math.max(0, this.normalizeStarLevel(level) - 1);
-        const earlyBonus = Math.min(progress, 4) * 0.05;
-        const middleBonus = Math.min(Math.max(progress - 4, 0), 5) * 0.03;
-        const lateBonus = Math.min(Math.max(progress - 9, 0), 5) * 0.02;
-        const crownBonus = Math.max(progress - 14, 0) * 0.02;
-        return 1 + earlyBonus + middleBonus + lateBonus + crownBonus;
+        const growth = this.getGrowthConfigByRarity(rarity);
+        return 1 + progress * growth.star;
     },
 
     getSpecialTraitStages(heroConfigId) {
@@ -175,16 +224,16 @@ const HeroConfig = {
         const heroName = hero.name || '该英雄';
         const skillName = hero.skill?.name || '专属特技';
         const descriptions = [
-            `${heroName}掌握了基础战斗节奏，普通攻击更加稳定。`,
+            `${heroName}掌握了基础作战节奏，普通攻击更加稳定。`,
             '熟悉战场步法后，移动与站位显得更加从容。',
-            `开始理解 ${skillName} 的释放时机，战斗连贯性进一步提升。`,
-            '在交锋中积累经验，攻防转换更加顺手。',
+            `${skillName} 的释放时机开始变得精准，战斗连贯性进一步提升。`,
+            '在交锋中积累经验后，攻防转换更加顺手。',
             '完成五星历练后，已经具备独当一面的实力。',
             '迈入月阶后，对局势的判断变得更加冷静。',
-            '能在混战中保持稳定节奏，持续输出更可靠。',
+            '能够在混战中保持稳定节奏，持续输出更加可靠。',
             `对 ${skillName} 的掌控进一步加深，细节打磨更加到位。`,
             '形成成熟的作战风格，关键时刻也能稳住局面。',
-            '月阶圆满，拥有了持续压制对手的底气。',
+            '月阶圆满后，拥有了持续压制对手的底气。',
             '踏入红日阶段后，开始释放更强的战斗气场。',
             '即使身处高压环境，也能保持精准判断。',
             '更擅长捕捉敌方破绽，关键打击更加果断。',
@@ -193,20 +242,51 @@ const HeroConfig = {
             `加冕为王后，${skillName} 的潜力被彻底唤醒。`
         ];
 
-        return descriptions.map((description, index) => ({
+        const defaultStages = descriptions.map((description, index) => ({
             stage: index + 1,
+            title: null,
             description,
             ...this.getStarDisplayInfo(index + 1)
         }));
+
+        const customStages = this.getSpecialTraitConfig(heroConfigId)?.stages || [];
+        if (customStages.length <= 0) {
+            return defaultStages;
+        }
+
+        const customStageMap = new Map();
+        customStages.forEach(stage => {
+            const normalizedStage = this.normalizeStarLevel(stage?.stage);
+            customStageMap.set(normalizedStage, {
+                stage: normalizedStage,
+                title: stage?.title || null,
+                description: stage?.description || ''
+            });
+        });
+
+        return defaultStages.map(stage => {
+            const custom = customStageMap.get(stage.stage);
+            if (!custom) {
+                return stage;
+            }
+            return {
+                ...stage,
+                title: custom.title || stage.title || null,
+                description: custom.description || stage.description
+            };
+        });
     },
 
     calculateStats(heroConfig, level) {
         const base = this.normalizeStats(heroConfig?.baseStats || {});
-        const levelMultiplier = 1 + Math.max(0, level - 1) * 0.1;
+        const growth = this.getGrowthConfigByRarity(heroConfig?.rarity);
+        const normalizedLevel = Math.max(1, Number(level) || 1);
+        const levelMultiplier = 1 + Math.max(0, normalizedLevel - 1) * growth.level;
 
         return {
             hp: Math.floor(base.hp * levelMultiplier),
             attack: Math.floor(base.attack * levelMultiplier),
+            attackCoefficient: Math.max(0.05, Number(base.attackCoefficient) || 1),
             defense: Math.floor(base.defense * levelMultiplier),
             speed: Math.floor(base.speed * levelMultiplier),
             crit: base.crit,

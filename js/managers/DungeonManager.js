@@ -27,7 +27,7 @@ class DungeonManager {
     }
 
     getDungeonsByLevel(playerLevel) {
-        return this.dungeons.filter(dungeon => dungeon.canEnter(playerLevel));
+        return [...this.dungeons];
     }
 
     getMonsterCompendium(playerLevel) {
@@ -51,6 +51,7 @@ class DungeonManager {
                     icon: enemyConfig.icon,
                     rank: enemyConfig.rank || 'normal',
                     description: enemyConfig.description || '',
+                    skills: enemyConfig.skills ? enemyConfig.skills.map(skill => ({ ...skill })) : [],
                     skill: enemyConfig.skill ? { ...enemyConfig.skill } : null,
                     unlockLevel: dungeon.level,
                     dungeons: []

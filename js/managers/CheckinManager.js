@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 签到管理器 - 单例模式
  */
 class CheckinManager {
@@ -60,7 +60,7 @@ class CheckinManager {
         }
 
         eventManager.emit('checkinComplete', { day: claimedDay, rewards, nextDay: this.checkinDay });
-        return { success: true, message: '签到成功!', claimedDay, nextDay: this.checkinDay, rewards };
+        return { success: true, message: '签到成功！', claimedDay, nextDay: this.checkinDay, rewards };
     }
 
     grantRewards(rewardConfig) {

@@ -9,12 +9,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const typeorm_1 = require("@nestjs/typeorm");
 const auth_module_1 = require("./modules/auth/auth.module");
+const cdkey_module_1 = require("./modules/cdkey/cdkey.module");
 const health_controller_1 = require("./modules/health/health.controller");
+const mail_module_1 = require("./modules/mail/mail.module");
 const save_module_1 = require("./modules/save/save.module");
-const player_save_entity_1 = require("./modules/save/entities/player-save.entity");
-const user_account_entity_1 = require("./modules/users/entities/user-account.entity");
+const cloudbase_module_1 = require("./shared/cloudbase/cloudbase.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -25,35 +25,11 @@ exports.AppModule = AppModule = __decorate([
                 isGlobal: true,
                 envFilePath: ['.env.local', '.env'],
             }),
-            typeorm_1.TypeOrmModule.forRootAsync({
-                inject: [config_1.ConfigService],
-                useFactory: (configService) => {
-                    const dbType = (configService.get('DB_TYPE') || 'mysql');
-                    const synchronize = String(configService.get('DB_SYNC') ?? 'true') !== 'false';
-                    const entities = [user_account_entity_1.UserAccount, player_save_entity_1.PlayerSave];
-                    if (dbType === 'sqlite') {
-                        return {
-                            type: 'sqlite',
-                            database: configService.get('SQLITE_PATH') || './data/survivor.db',
-                            entities,
-                            synchronize,
-                        };
-                    }
-                    return {
-                        type: 'mysql',
-                        host: configService.get('DB_HOST') || '127.0.0.1',
-                        port: Number(configService.get('DB_PORT') || 3306),
-                        username: configService.get('DB_USERNAME') || 'root',
-                        password: configService.get('DB_PASSWORD') || '',
-                        database: configService.get('DB_NAME') || 'survivor_game',
-                        entities,
-                        synchronize,
-                        autoLoadEntities: true,
-                    };
-                },
-            }),
+            cloudbase_module_1.CloudbaseModule,
             auth_module_1.AuthModule,
+            cdkey_module_1.CdkeyModule,
             save_module_1.SaveModule,
+            mail_module_1.MailModule,
         ],
         controllers: [health_controller_1.HealthController],
     })

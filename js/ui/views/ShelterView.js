@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 避难所场景视图
  */
 class ShelterView {
@@ -25,8 +25,24 @@ class ShelterView {
         if (mediaConfig.type === 'video') {
             const poster = mediaConfig.poster ? ` poster="${mediaConfig.poster}"` : '';
             const mimeType = mediaConfig.mimeType || 'video/mp4';
+            const mobileFallbackSrc = mediaConfig.mobileFallbackSrc
+                ? ` data-mobile-fallback-src="${mediaConfig.mobileFallbackSrc}"`
+                : '';
             return `
-                <video class="scene-loop-media" autoplay muted loop playsinline${poster}>
+                <video
+                    class="scene-loop-media"
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                    webkit-playsinline="true"
+                    x5-playsinline="true"
+                    x5-video-player-type="h5-page"
+                    x5-video-player-fullscreen="false"
+                    x-webkit-airplay="deny"
+                    disablepictureinpicture
+                    controlslist="nofullscreen nodownload noremoteplayback"
+                    preload="auto"${poster}${mobileFallbackSrc}>
                     <source src="${mediaConfig.src}" type="${mimeType}">
                 </video>
             `;
@@ -92,13 +108,13 @@ class ShelterView {
         if (!effect) return '';
         switch (effect.type) {
             case 'energyBonus':
-                return `体力+${effect.value}`;
+                return `体力 +${effect.value}`;
             case 'production':
                 return (effect.outputs || [])
                     .map(output => `${output.type === 'item' ? (ItemConfig.getItemConfig(output.id)?.name || output.id) : shelterManager.getResourceDisplayName(output.id)} ${output.amountPerHour}/小时`)
                     .join(' · ');
             case 'statBonus':
-                return `属性加成${(effect.value * 100).toFixed(0)}%`;
+                return `属性加成 ${(effect.value * 100).toFixed(0)}%`;
             default:
                 return '';
         }

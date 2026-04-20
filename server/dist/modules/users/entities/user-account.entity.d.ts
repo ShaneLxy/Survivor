@@ -1,14 +1,12 @@
-import { PlayerSave } from '../../save/entities/player-save.entity';
-export declare class UserAccount {
-    id: number;
+export interface UserAccount {
+    _id: string;
     account: string | null;
     passwordHash: string | null;
     loginType: string;
     nickname: string | null;
     wechatOpenId: string | null;
     wechatUnionId: string | null;
-    lastLoginAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-    playerSave: PlayerSave;
+    lastLoginAt: string | null;
+    createdAt: string;
+    updatedAt: string;
 }

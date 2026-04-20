@@ -16,9 +16,9 @@ export declare class SaveController {
         success: boolean;
         message: string;
         saveData: {
-            version: string;
+            version: any;
             timestamp: number;
-            data: Record<string, any>;
+            data: any;
         };
     }>;
     deleteSave(req: any): Promise<{

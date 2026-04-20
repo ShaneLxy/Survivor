@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 通用棋盘战斗管理器 - 单例模式
  */
 class BattleManager {
@@ -9,7 +9,7 @@ class BattleManager {
         this.heroes = [];
         this.enemies = [];
         this.pendingBossWaves = [];
-        this.scene = BattleSceneConfig.getScene('standard_9x9');
+        this.scene = this.resolveSceneConfig('standard_9x9');
         this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = false;
@@ -19,10 +19,11 @@ class BattleManager {
         this.autoBattleOverride = null;
         this.maxRounds = 200;
         this.isBossEntrancePlaying = false;
+        this.battleItemUsage = {};
         BattleManager.instance = this;
     }
 
-    initBattle({ heroes, enemies, bossWaves = [], sceneId = 'standard_9x9' }) {
+    initBattle({ heroes, enemies, bossWaves = [], sceneId = 'standard_9x9', battlefield = null }) {
         this.heroes = heroes || [];
         this.enemies = enemies || [];
         this.pendingBossWaves = (bossWaves || []).map((wave, index) => ({
@@ -32,7 +33,7 @@ class BattleManager {
             bosses: [...(wave.bosses || [])],
             isSpawned: false
         }));
-        this.scene = BattleSceneConfig.getScene(sceneId);
+        this.scene = this.resolveSceneConfig(sceneId, battlefield);
         this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = true;
@@ -40,6 +41,12 @@ class BattleManager {
         this.currentActor = null;
         this.autoBattleOverride = null;
         this.isBossEntrancePlaying = false;
+        this.battleItemUsage = {
+            stimulant: {
+                maxUses: Math.min(2, itemManager.getItemCount('stimulant')),
+                used: 0
+            }
+        };
         this.placeUnits();
         this.initializeProgress();
         this.addLog('battle', '战斗开始！');
@@ -51,26 +58,106 @@ class BattleManager {
         this.decisionProvider = provider;
     }
 
+    resolveSceneConfig(sceneId = 'standard_9x9', battlefield = null) {
+        const baseScene = BattleSceneConfig.getScene(sceneId);
+        const width = Math.max(1, Number(battlefield?.cols ?? battlefield?.width ?? baseScene?.width) || 1);
+        const height = Math.max(1, Number(battlefield?.rows ?? battlefield?.height ?? baseScene?.height) || 1);
+        const heroSpawn = battlefield?.heroSpawn || {};
+        const enemySpawn = battlefield?.enemySpawn || {};
+        return {
+            ...baseScene,
+            width,
+            height,
+            actionTimeout: Math.max(1, Number(battlefield?.actionTimeout ?? baseScene?.actionTimeout) || 15),
+            heroSpawn: {
+                ...(baseScene?.heroSpawn || {}),
+                ...heroSpawn,
+                startRow: Utils.clamp(
+                    Number(heroSpawn.startRow ?? (battlefield ? (height - 1) : (baseScene?.heroSpawn?.startRow ?? (height - 1)))) || (height - 1),
+                    0,
+                    height - 1
+                ),
+                direction: Number(heroSpawn.direction ?? baseScene?.heroSpawn?.direction) >= 0 ? 1 : -1
+            },
+            enemySpawn: {
+                ...(baseScene?.enemySpawn || {}),
+                ...enemySpawn,
+                startRow: Utils.clamp(
+                    Number(enemySpawn.startRow ?? (battlefield ? 0 : (baseScene?.enemySpawn?.startRow ?? 0))) || 0,
+                    0,
+                    height - 1
+                ),
+                direction: Number(enemySpawn.direction ?? baseScene?.enemySpawn?.direction) >= 0 ? 1 : -1
+            },
+            obstacles: this.normalizeObstacles(battlefield?.obstacles, width, height)
+        };
+    }
+
+    normalizeObstacles(obstacles = [], width = this.scene?.width || 0, height = this.scene?.height || 0) {
+        if (!Array.isArray(obstacles)) {
+            return [];
+        }
+        const occupiedKeys = new Set();
+        return obstacles.reduce((result, entry, index) => {
+            const normalized = this.normalizeObstacleEntry(entry, width, height, index);
+            if (!normalized) {
+                return result;
+            }
+            const key = `${normalized.x},${normalized.y}`;
+            if (occupiedKeys.has(key)) {
+                return result;
+            }
+            occupiedKeys.add(key);
+            result.push(normalized);
+            return result;
+        }, []);
+    }
+
+    normalizeObstacleEntry(entry, width, height, index = 0) {
+        let row = null;
+        let col = null;
+        if (Array.isArray(entry)) {
+            row = Number(entry[0]);
+            col = Number(entry[1]);
+        } else if (entry && typeof entry === 'object') {
+            row = Number(entry.row ?? entry.y ?? (Number.isFinite(entry.y) ? entry.y + 1 : null));
+            col = Number(entry.col ?? entry.x ?? (Number.isFinite(entry.x) ? entry.x + 1 : null));
+        }
+        if (!Number.isFinite(row) || !Number.isFinite(col)) {
+            return null;
+        }
+        const position = { x: Math.floor(col) - 1, y: Math.floor(row) - 1 };
+        if (position.x < 0 || position.y < 0 || position.x >= width || position.y >= height) {
+            return null;
+        }
+        return {
+            id: `obstacle_${index + 1}`,
+            type: 'obstacle',
+            name: '障碍物',
+            icon: '■',
+            x: position.x,
+            y: position.y
+        };
+    }
+
     getAllUnits() {
         return [...this.heroes, ...this.enemies];
     }
 
-    placeSide(units, spawnConfig) {
-        let x = 0;
-        let y = spawnConfig.startRow;
+    placeSide(units, spawnConfig, occupiedKeys = new Set()) {
         units.forEach(unit => {
-            unit.setPosition({ x, y });
-            x += 1;
-            if (x >= this.scene.width) {
-                x = 0;
-                y += spawnConfig.direction;
+            const position = this.findSpawnPosition(spawnConfig, occupiedKeys);
+            if (position) {
+                unit.setPosition(position);
+                occupiedKeys.add(`${position.x},${position.y}`);
             }
         });
     }
 
     placeUnits() {
-        this.placeSide(this.enemies, this.scene.enemySpawn);
-        this.placeSide(this.heroes, this.scene.heroSpawn);
+        const occupiedKeys = new Set();
+        this.placeSide(this.enemies, this.scene.enemySpawn, occupiedKeys);
+        this.placeSide(this.heroes, this.scene.heroSpawn, occupiedKeys);
     }
 
     setInitialProgress(unit) {
@@ -82,7 +169,7 @@ class BattleManager {
         this.getAllUnits().forEach(unit => this.setInitialProgress(unit));
     }
 
-    findSpawnPosition(spawnConfig) {
+    findSpawnPosition(spawnConfig, occupiedKeys = new Set()) {
         for (let rowOffset = 0; rowOffset < this.scene.height; rowOffset++) {
             const y = spawnConfig.startRow + rowOffset * spawnConfig.direction;
             if (y < 0 || y >= this.scene.height) {
@@ -90,7 +177,8 @@ class BattleManager {
             }
             for (let x = 0; x < this.scene.width; x++) {
                 const position = { x, y };
-                if (!this.getUnitAt(position)) {
+                const key = `${x},${y}`;
+                if (!occupiedKeys.has(key) && !this.isCellBlocked(position)) {
                     return position;
                 }
             }
@@ -99,7 +187,8 @@ class BattleManager {
         for (let y = 0; y < this.scene.height; y++) {
             for (let x = 0; x < this.scene.width; x++) {
                 const position = { x, y };
-                if (!this.getUnitAt(position)) {
+                const key = `${x},${y}`;
+                if (!occupiedKeys.has(key) && !this.isCellBlocked(position)) {
                     return position;
                 }
             }
@@ -109,10 +198,16 @@ class BattleManager {
     }
 
     placeSpawnedUnits(units, spawnConfig = this.scene.enemySpawn, appendToEnemies = false) {
+        const occupiedKeys = new Set(
+            this.getAllUnits()
+                .filter(unit => unit.isAlive())
+                .map(unit => `${unit.position.x},${unit.position.y}`)
+        );
         units.forEach((unit) => {
-            const position = this.findSpawnPosition(spawnConfig);
+            const position = this.findSpawnPosition(spawnConfig, occupiedKeys);
             if (position) {
                 unit.setPosition(position);
+                occupiedKeys.add(`${position.x},${position.y}`);
             }
             this.setInitialProgress(unit);
             if (appendToEnemies && !this.enemies.includes(unit)) {
@@ -218,6 +313,8 @@ class BattleManager {
             currentActorId: this.currentActor?.id || null,
             heroes: this.heroes,
             enemies: this.enemies,
+            fallenHeroes: this.getFallenHeroes(),
+            battleItemUsage: { ...this.battleItemUsage },
             logs: this.getBattleLog()
         };
     }
@@ -230,8 +327,23 @@ class BattleManager {
         return position.x >= 0 && position.y >= 0 && position.x < this.scene.width && position.y < this.scene.height;
     }
 
+    getObstacleAt(position) {
+        if (!position) {
+            return null;
+        }
+        return (this.scene?.obstacles || []).find(obstacle => obstacle.x === position.x && obstacle.y === position.y) || null;
+    }
+
+    isObstacleAt(position) {
+        return Boolean(this.getObstacleAt(position));
+    }
+
     getUnitAt(position, ignoreUnitId = null) {
         return this.getAllUnits().find(unit => unit.id !== ignoreUnitId && unit.isAlive() && unit.position.x === position.x && unit.position.y === position.y) || null;
+    }
+
+    isCellBlocked(position, ignoreUnitId = null) {
+        return this.isObstacleAt(position) || Boolean(this.getUnitAt(position, ignoreUnitId));
     }
 
     getOpponents(actor) {
@@ -246,6 +358,109 @@ class BattleManager {
         return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
     }
 
+    getNeighborCells(position) {
+        return [
+            { x: position.x + 1, y: position.y },
+            { x: position.x - 1, y: position.y },
+            { x: position.x, y: position.y + 1 },
+            { x: position.x, y: position.y - 1 }
+        ].filter(cell => this.isInsideBoard(cell));
+    }
+
+    getPathDistance(start, target, ignoreUnitId = null) {
+        if (!start || !target || !this.isInsideBoard(start) || !this.isInsideBoard(target)) {
+            return Infinity;
+        }
+        if (start.x === target.x && start.y === target.y) {
+            return 0;
+        }
+        if (this.isCellBlocked(target, ignoreUnitId)) {
+            return Infinity;
+        }
+
+        const queue = [{ position: { x: start.x, y: start.y }, steps: 0 }];
+        const visited = new Set([`${start.x},${start.y}`]);
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const neighbors = this.getNeighborCells(current.position);
+            for (const neighbor of neighbors) {
+                const key = `${neighbor.x},${neighbor.y}`;
+                if (visited.has(key) || this.isCellBlocked(neighbor, ignoreUnitId)) {
+                    continue;
+                }
+                const nextSteps = current.steps + 1;
+                if (neighbor.x === target.x && neighbor.y === target.y) {
+                    return nextSteps;
+                }
+                visited.add(key);
+                queue.push({ position: neighbor, steps: nextSteps });
+            }
+        }
+
+        return Infinity;
+    }
+
+    getRawRangeCells(actor, range) {
+        const normalizedRange = Math.max(0, Number(range) || 0);
+        const cells = [];
+        for (let x = 0; x < this.scene.width; x++) {
+            for (let y = 0; y < this.scene.height; y++) {
+                const position = { x, y };
+                const distance = this.distanceBetween(actor.position, position);
+                if (distance > 0 && distance <= normalizedRange) {
+                    cells.push(position);
+                }
+            }
+        }
+        return cells;
+    }
+
+    getCellsOnLine(start, end) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const steps = Math.max(Math.abs(dx), Math.abs(dy));
+        const cells = [];
+        const keys = new Set();
+
+        if (steps <= 1) {
+            return cells;
+        }
+
+        for (let step = 1; step < steps; step++) {
+            const ratio = step / steps;
+            const x = Math.round(start.x + dx * ratio);
+            const y = Math.round(start.y + dy * ratio);
+            const key = `${x},${y}`;
+            if (keys.has(key) || (x === start.x && y === start.y) || (x === end.x && y === end.y)) {
+                continue;
+            }
+            keys.add(key);
+            cells.push({ x, y });
+        }
+
+        return cells;
+    }
+
+    hasObstacleBetween(start, end) {
+        return this.getCellsOnLine(start, end).some(cell => this.isObstacleAt(cell));
+    }
+
+    isCellTargetable(actor, position, range) {
+        if (!actor || !position || !this.isInsideBoard(position)) {
+            return false;
+        }
+        const normalizedRange = Math.max(0, Number(range) || 0);
+        const distance = this.distanceBetween(actor.position, position);
+        if (distance <= 0 || distance > normalizedRange) {
+            return false;
+        }
+        if (this.isObstacleAt(position)) {
+            return false;
+        }
+        return !this.hasObstacleBetween(actor.position, position);
+    }
+
     getReachableCells(actor) {
         const cells = [];
         for (let x = 0; x < this.scene.width; x++) {
@@ -254,7 +469,7 @@ class BattleManager {
                 if (this.distanceBetween(actor.position, position) === 0) {
                     continue;
                 }
-                if (this.distanceBetween(actor.position, position) <= actor.moveRange && !this.getUnitAt(position, actor.id)) {
+                if (this.getPathDistance(actor.position, position, actor.id) <= actor.moveRange) {
                     cells.push(position);
                 }
             }
@@ -263,21 +478,74 @@ class BattleManager {
     }
 
     getAttackableTargets(actor) {
-        return this.getOpponents(actor).filter(target => actor.distanceTo(target) <= actor.attackRange);
+        return this.getOpponents(actor).filter(target => this.isCellTargetable(actor, target.position, actor.attackRange));
+    }
+
+    getSkillTargetCandidates(actor, skillIndex = 0, options = {}) {
+        const ignoreUsable = options.ignoreUsable === true;
+        const targetType = actor.getSkillTargetType?.(skillIndex) || 'enemy';
+        const range = actor.getSkillRange?.(skillIndex) || actor.attackRange;
+        if (!ignoreUsable && !actor.canUseSkill?.(skillIndex)) {
+            return [];
+        }
+        const targetPool = targetType === 'ally'
+            ? this.getAllies(actor)
+            : this.getOpponents(actor);
+        return targetPool.filter(target => target.isAlive() && this.isCellTargetable(actor, target.position, range));
+    }
+
+    getSkillRangeCells(actor, skillIndex = 0, options = {}) {
+        const range = actor.getSkillRange?.(skillIndex) || actor.attackRange;
+        if (options.previewRaw) {
+            return this.getRawRangeCells(actor, range);
+        }
+        if (!options.ignoreUsable && !actor.canUseSkill?.(skillIndex)) {
+            return [];
+        }
+        return this.getRawRangeCells(actor, range).filter(position => !this.hasObstacleBetween(actor.position, position));
+    }
+
+    getSelectedSkillTargets(actor, primaryTarget, skillIndex = 0) {
+        const candidates = this.getSkillTargetCandidates(actor, skillIndex);
+        const targetCount = actor.getSkillTargetCount?.(skillIndex) || 1;
+        if (!primaryTarget) {
+            return [];
+        }
+        const sorted = [...candidates].sort((a, b) => {
+            if (a.id === primaryTarget.id) return -1;
+            if (b.id === primaryTarget.id) return 1;
+            const distanceDiff = this.distanceBetween(primaryTarget.position, a.position) - this.distanceBetween(primaryTarget.position, b.position);
+            if (distanceDiff !== 0) {
+                return distanceDiff;
+            }
+            return a.hp - b.hp;
+        });
+        return sorted.slice(0, targetCount);
+    }
+
+    getUsableSkills(actor) {
+        if (!actor?.skills?.length) {
+            return [];
+        }
+        return actor.skills.map((skill, index) => {
+            const state = actor.getSkillState?.(index) || {};
+            const hpCost = actor.getSkillHpCost?.(index) || 0;
+            return {
+                ...skill,
+                index,
+                range: actor.getSkillRange?.(index) || actor.attackRange,
+                targetType: actor.getSkillTargetType?.(index) || 'enemy',
+                targetCount: actor.getSkillTargetCount?.(index) || 1,
+                cooldownTurns: state.cooldownTurns || 0,
+                cooldownRemaining: state.cooldownRemaining || 0,
+                hpCost,
+                canUse: actor.canUseSkill?.(index) || false
+            };
+        });
     }
 
     getAttackRangeCells(actor) {
-        const cells = [];
-        for (let x = 0; x < this.scene.width; x++) {
-            for (let y = 0; y < this.scene.height; y++) {
-                const position = { x, y };
-                const distance = this.distanceBetween(actor.position, position);
-                if (distance > 0 && distance <= actor.attackRange) {
-                    cells.push(position);
-                }
-            }
-        }
-        return cells;
+        return this.getRawRangeCells(actor, actor.attackRange);
     }
 
     chooseBestMove(actor) {
@@ -310,7 +578,45 @@ class BattleManager {
         if (actor.camp !== 'hero') {
             return [];
         }
-        return itemManager.getAllItems().filter(item => item.effect?.type === 'heal');
+        const itemMap = new Map();
+        itemManager.getAllItems().forEach(item => {
+            if (!['heal', 'revive'].includes(item.effect?.type)) {
+                return;
+            }
+            if (!itemMap.has(item.id)) {
+                itemMap.set(item.id, item);
+            }
+        });
+        return Array.from(itemMap.values()).filter(item => {
+            if (item.effect?.type === 'revive') {
+                return this.canUseBattleItem('stimulant') && this.getFallenHeroes().length > 0;
+            }
+            return true;
+        });
+    }
+
+    getBattleItemUsageState(itemId) {
+        const state = this.battleItemUsage?.[itemId];
+        return state ? { ...state } : { maxUses: 0, used: 0 };
+    }
+
+    canUseBattleItem(itemId) {
+        const state = this.getBattleItemUsageState(itemId);
+        return state.used < state.maxUses;
+    }
+
+    consumeBattleItemUse(itemId) {
+        if (!this.battleItemUsage[itemId]) {
+            return;
+        }
+        this.battleItemUsage[itemId].used = Math.min(
+            this.battleItemUsage[itemId].maxUses,
+            (this.battleItemUsage[itemId].used || 0) + 1
+        );
+    }
+
+    getFallenHeroes() {
+        return this.heroes.filter(unit => !unit.isAlive());
     }
 
     chooseAutoAction(actor) {
@@ -319,10 +625,21 @@ class BattleManager {
             return { type: 'item', itemId: healItems[0].id, targetId: actor.id };
         }
 
+        const usableSkills = this.getUsableSkills(actor).filter(skill => skill.canUse);
+        const skillChoice = usableSkills.find(skill => {
+            const candidates = this.getSkillTargetCandidates(actor, skill.index);
+            return candidates.length > 0;
+        });
+        if (skillChoice) {
+            const skillTarget = this.getSkillTargetCandidates(actor, skillChoice.index)[0];
+            if (skillTarget) {
+                return { type: 'skill', targetId: skillTarget.id, skillIndex: skillChoice.index };
+            }
+        }
+
         const target = this.chooseTarget(actor);
         if (target) {
-            const useSkill = Boolean(actor.skill) && Math.random() < 0.35;
-            return { type: useSkill ? 'skill' : 'attack', targetId: target.id };
+            return { type: 'attack', targetId: target.id };
         }
 
         const moveCell = this.chooseBestMove(actor);
@@ -357,6 +674,7 @@ class BattleManager {
                 attackTargets: this.getAttackableTargets(actor),
                 moveCells: this.getReachableCells(actor),
                 usableItems: this.getUsableBattleItems(actor),
+                usableSkills: this.getUsableSkills(actor),
                 timeout: this.scene.actionTimeout || 15
             });
 
@@ -394,12 +712,28 @@ class BattleManager {
         }
 
         if (finalAction.type === 'item') {
+            const item = itemManager.getItem(finalAction.itemId);
+            if (!item) {
+                return this.executeAction(actor, { type: 'defend' });
+            }
             const target = this.findUnitById(finalAction.targetId) || actor;
+            if (item.effect?.type === 'revive') {
+                const isValidReviveTarget = target && target.camp === 'hero' && !target.isAlive();
+                if (!isValidReviveTarget || !this.canUseBattleItem(finalAction.itemId)) {
+                    return this.executeAction(actor, { type: 'defend' });
+                }
+            }
             const result = itemManager.useItem(finalAction.itemId, target);
             if (!result.success) {
                 return this.executeAction(actor, { type: 'defend' });
             }
-            this.addLog('item', `${actor.name} 使用了 ${ItemConfig.getItemConfig(finalAction.itemId)?.name || '道具'}，${result.message}`);
+            if (item.effect?.type === 'revive') {
+                this.consumeBattleItemUse(finalAction.itemId);
+                this.addLog('item', `${actor.name} 对 ${target.name} 使用了 ${item.name}：${result.message}`);
+                eventManager.emit('battleUnitRevive', { user: actor, target, itemId: finalAction.itemId, result });
+            } else {
+                this.addLog('item', `${actor.name} 使用了 ${ItemConfig.getItemConfig(finalAction.itemId)?.name || '道具'}：${result.message}`);
+            }
             eventManager.emit('battleUnitAction', { attacker: actor, target, damage: 0, actionType: 'item', message: result.message });
             this.emitStateChange();
             return;
@@ -407,14 +741,74 @@ class BattleManager {
 
         if (finalAction.type === 'attack' || finalAction.type === 'skill') {
             const target = this.findUnitById(finalAction.targetId);
-            if (!target || !target.isAlive() || actor.distanceTo(target) > actor.attackRange) {
+            const skillIndex = Number.isFinite(Number(finalAction.skillIndex)) ? Number(finalAction.skillIndex) : 0;
+            const isSkill = finalAction.type === 'skill';
+            const validTargets = isSkill
+                ? this.getSkillTargetCandidates(actor, skillIndex)
+                : this.getAttackableTargets(actor);
+            if (!target || !target.isAlive() || !validTargets.some(unit => unit.id === target.id)) {
                 return this.executeAction(actor, { type: 'defend' });
             }
-            const attackResult = actor.attackTarget(target, finalAction.type === 'skill');
+            if (isSkill && !actor.canUseSkill?.(skillIndex)) {
+                return this.executeAction(actor, { type: 'defend' });
+            }
+
+            if (isSkill) {
+                const skill = actor.getSkill(skillIndex);
+                const targets = this.getSelectedSkillTargets(actor, target, skillIndex);
+                const hpCost = actor.consumeSkillCost(skillIndex);
+                const skillLogs = [];
+                const actionTargets = [];
+                const effectType = actor.getSkillState(skillIndex)?.effectType || 'damage';
+
+                targets.forEach((targetUnit) => {
+                    if (effectType === 'heal') {
+                        const healValue = Math.max(1, Math.floor(actor._attack * actor.attackCoefficient * (Number(skill?.multiplier) || 1)));
+                        const actualHeal = targetUnit.heal(healValue);
+                        skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，恢复 ${actualHeal} 点生命`);
+                        actionTargets.push({ target: targetUnit, result: { hit: true, heal: actualHeal, useSkill: true, skillName: skill?.name || null } });
+                    } else {
+                        const attackResult = actor.attackTarget(targetUnit, true, skillIndex);
+                        if (!attackResult.hit) {
+                            skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，但被闪避了`);
+                        } else {
+                            skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}`);
+                        }
+                        actionTargets.push({ target: targetUnit, result: attackResult });
+                    }
+                });
+
+                if (hpCost > 0) {
+                    skillLogs.push(`${actor.name} 额外消耗 ${hpCost} 点生命施放特技`);
+                }
+                skillLogs.forEach(message => this.addLog(effectType === 'heal' ? 'heal' : 'damage', message));
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target,
+                    damage: 0,
+                    actionType: 'skill',
+                    result: {
+                        skillIndex,
+                        skillName: skill?.name || null,
+                        hpCost,
+                        targets: actionTargets.map(entry => ({ id: entry.target.id, name: entry.target.name, ...entry.result }))
+                    }
+                });
+                targets.forEach((targetUnit) => {
+                    if (!targetUnit.isAlive()) {
+                        this.addLog('death', `${targetUnit.name} 倒下了！`);
+                        eventManager.emit('battleUnitDie', { unit: targetUnit });
+                    }
+                });
+                this.emitStateChange();
+                return;
+            }
+
+            const attackResult = actor.attackTarget(target, false);
             if (!attackResult.hit) {
-                this.addLog('miss', `${actor.name} 攻击 ${target.name} 但被闪避了`);
+                this.addLog('miss', `${actor.name} 攻击 ${target.name}，但被闪避了`);
             } else {
-                const logText = `${actor.name} 对 ${target.name} 造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}${attackResult.useSkill ? ` [${attackResult.skillName}]` : ''}`;
+                const logText = `${actor.name} 对 ${target.name} 造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}`;
                 this.addLog('damage', logText);
             }
             eventManager.emit('battleUnitAction', { attacker: actor, target, damage: attackResult.damage, actionType: finalAction.type, result: attackResult });
@@ -485,14 +879,16 @@ class BattleManager {
     }
 
     checkBattleEnd() {
-        const heroesAlive = this.heroes.some(unit => unit.isAlive());
-        const enemiesAlive = this.enemies.some(unit => unit.isAlive());
+        const livingHeroes = this.heroes.filter(unit => unit && unit.isAlive());
+        const livingEnemies = this.enemies.filter(unit => unit && unit.isAlive());
+        const heroesAlive = livingHeroes.length > 0;
+        const enemiesAlive = livingEnemies.length > 0;
 
         if (!enemiesAlive && !this.hasPendingBossWaves()) {
             this.result = {
                 victory: true,
                 participants: this.heroes.map(unit => unit.id),
-                survivors: this.heroes.filter(unit => unit.isAlive()).map(unit => unit.id)
+                survivors: livingHeroes.map(unit => unit.id)
             };
             this.isBattling = false;
             this.addLog('result', '战斗胜利！');
@@ -584,6 +980,7 @@ class BattleManager {
         this.decisionProvider = null;
         this.autoBattleOverride = null;
         this.isBossEntrancePlaying = false;
+        this.battleItemUsage = {};
         this.emitStateChange();
     }
 }

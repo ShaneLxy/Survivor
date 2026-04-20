@@ -215,3 +215,7 @@ ModelManifest.xml
 log4net-1.2.13/
 
 .idea
+mobile/web/
+android/app/build/
+android/build/
+android/.gradle/

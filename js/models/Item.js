@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 道具模型
  */
 class Item {
@@ -33,7 +33,7 @@ class Item {
             return { success: false, message: '该道具无法使用' };
         }
         if (!this.effect) {
-            return { success: false, message: '无效果' };
+            return { success: false, message: '无效效果' };
         }
 
         const result = { success: true, message: '' };
@@ -53,13 +53,34 @@ class Item {
                 break;
             case 'hero_exp': {
                 const quantity = Math.max(1, Number(options.quantity) || 1);
-                result.effect = { type: 'hero_exp', value: (Number(this.effect.value) || 1) * quantity, quantity };
+                result.effect = {
+                    type: 'hero_exp',
+                    value: (Number(this.effect.value) || 1) * quantity,
+                    quantity
+                };
                 result.message = `提供了 ${result.effect.value} 点英雄经验`;
+                break;
+            }
+            case 'revive': {
+                if (target && typeof target.revive === 'function') {
+                    const reviveRatio = Math.max(0.05, Number(this.effect.value) || 0.3);
+                    const revived = target.revive(reviveRatio);
+                    if (revived > 0) {
+                        result.effect = { type: 'revive', value: revived, ratio: reviveRatio };
+                        result.message = `复活目标并恢复了 ${revived} 点生命`;
+                    } else {
+                        result.success = false;
+                        result.message = '目标无法被复活';
+                    }
+                } else {
+                    result.success = false;
+                    result.message = '该道具只能用于复活已阵亡英雄';
+                }
                 break;
             }
             case 'gacha':
                 result.effect = { type: 'gacha', count: this.effect.count };
-                result.message = '进行英雄抽卡';
+                result.message = '进行英雄招募';
                 break;
             default:
                 result.success = false;

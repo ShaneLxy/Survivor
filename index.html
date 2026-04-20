@@ -1,14 +1,18 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>末日生存 - Survivor</title>
-    <link rel="stylesheet" href="css/reset.css">
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/views.css">
-    <link rel="stylesheet" href="css/animations.css">
+    <script>window.__SURVIVOR_BUILD_VERSION__ = '2026.04.20.1';</script>
+    <link rel="stylesheet" href="css/reset.css?v=2026.04.20.1">
+    <link rel="stylesheet" href="css/common.css?v=2026.04.20.1">
+    <link rel="stylesheet" href="css/components.css?v=2026.04.20.1">
+    <link rel="stylesheet" href="css/views.css?v=2026.04.20.1">
+    <link rel="stylesheet" href="css/animations.css?v=2026.04.20.1">
 </head>
 <body>
     <div id="app">
@@ -24,66 +28,107 @@
     <div id="modal-container"></div>
     <div id="toast-container"></div>
 
-    <script src="js/core/EventManager.js"></script>
-    <script src="js/core/SaveManager.js"></script>
-    <script src="js/core/AudioManager.js"></script>
-    <script src="js/core/Utils.js"></script>
+    <script src="js/core/EventManager.js?v=2026.04.20.1"></script>
+    <script src="js/core/SaveManager.js?v=2026.04.20.1"></script>
+    <script src="js/core/AudioManager.js?v=2026.04.20.1"></script>
+    <script src="js/core/Utils.js?v=2026.04.20.1"></script>
 
-    <script src="js/api/HttpClient.js"></script>
-    <script src="js/api/AuthApi.js"></script>
-    <script src="js/api/SaveApi.js"></script>
-    <script src="js/services/AuthService.js"></script>
-    <script src="js/services/SaveSyncService.js"></script>
+    <script src="js/api/HttpClient.js?v=2026.04.20.1"></script>
+    <script src="js/api/AuthApi.js?v=2026.04.20.1"></script>
+    <script src="js/api/SaveApi.js?v=2026.04.20.1"></script>
+    <script src="js/api/MailApi.js?v=2026.04.20.1"></script>
+    <script src="js/api/CdkeyApi.js?v=2026.04.20.1"></script>
+    <script src="js/api/VersionApi.js?v=2026.04.20.1"></script>
+    <script src="js/services/AuthService.js?v=2026.04.20.1"></script>
+    <script src="js/services/SaveSyncService.js?v=2026.04.20.1"></script>
+    <script src="js/services/VersionCheckService.js?v=2026.04.20.1"></script>
 
-    <script src="js/config/GameConfig.js"></script>
-    <script src="js/config/HeroConfig.js"></script>
-    <script src="js/config/EquipmentConfig.js"></script>
-    <script src="js/config/BattleSceneConfig.js"></script>
-    <script src="js/config/DungeonConfig.js"></script>
-    <script src="js/config/BuildingConfig.js"></script>
-    <script src="js/config/ItemConfig.js"></script>
-    <script src="js/config/GachaConfig.js"></script>
-    <script src="js/config/ShopConfig.js"></script>
+    <script src="js/config/VersionManager.js?v=2026.04.20.1"></script>
+    <script src="js/config/GameConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/UnitCatalogLoader.js?v=2026.04.20.1"></script>
+    <script src="js/config/ResourceVisualConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/SceneMediaConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/SceneMediaConfigPatch.js?v=2026.04.20.1"></script>
+    <script src="js/config/HeroConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/EquipmentConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/BattleSceneConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/DungeonConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/BuildingConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/ItemConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/GachaConfig.js?v=2026.04.20.1"></script>
+    <script src="js/config/ShopConfig.js?v=2026.04.20.1"></script>
 
-    <script src="js/models/BattleUnit.js"></script>
-    <script src="js/models/Equipment.js"></script>
-    <script src="js/models/Hero.js"></script>
-    <script src="js/models/Building.js"></script>
-    <script src="js/models/Item.js"></script>
-    <script src="js/models/Dungeon.js"></script>
+    <script src="js/models/BattleUnit.js?v=2026.04.20.1"></script>
+    <script src="js/models/Equipment.js?v=2026.04.20.1"></script>
+    <script src="js/models/Hero.js?v=2026.04.20.1"></script>
+    <script src="js/models/Building.js?v=2026.04.20.1"></script>
+    <script src="js/models/Item.js?v=2026.04.20.1"></script>
+    <script src="js/models/Dungeon.js?v=2026.04.20.1"></script>
 
-    <script src="js/managers/HeroManager.js"></script>
-    <script src="js/managers/ShelterManager.js"></script>
-    <script src="js/managers/DungeonManager.js"></script>
-    <script src="js/managers/BattleManager.js"></script>
-    <script src="js/managers/ItemManager.js"></script>
-    <script src="js/managers/GachaManager.js"></script>
-    <script src="js/managers/CheckinManager.js"></script>
+    <script src="js/managers/HeroManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/ShelterManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/DungeonManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/BattleManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/ItemManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/GachaManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/CheckinManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/MailManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/TaskManager.js?v=2026.04.20.1"></script>
+    <script src="js/managers/TaskManagerPatch.js?v=2026.04.20.1"></script>
+    <script src="js/managers/ShelterManagerPatch.js?v=2026.04.20.1"></script>
+    <script src="js/managers/TutorialManager.js?v=2026.04.20.1"></script>
 
-    <script src="js/ui/components/Button.js"></script>
-    <script src="js/ui/components/Modal.js"></script>
-    <script src="js/ui/components/Toast.js"></script>
-    <script src="js/ui/components/ProgressBar.js"></script>
-    <script src="js/ui/components/ItemCard.js"></script>
-    <script src="js/ui/components/HeroCard.js"></script>
-    <script src="js/ui/components/Pagination.js"></script>
-    <script src="js/ui/components/RewardModal.js"></script>
-    <script src="js/ui/components/EquipmentEnhanceModal.js"></script>
-    <script src="js/ui/components/FloatingMenu.js"></script>
+    <script src="js/ui/components/Button.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/Modal.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/Toast.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/ProgressBar.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/ItemCard.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/HeroCard.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/Pagination.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/RareRewardReveal.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/RewardModal.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/EquipmentEnhanceModal.js?v=2026.04.20.1"></script>
+    <script src="js/ui/components/FloatingMenu.js?v=2026.04.20.1"></script>
 
-    <script src="js/ui/views/TopBar.js"></script>
-    <script src="js/ui/views/TabBar.js"></script>
-    <script src="js/ui/views/ItemGrid.js"></script>
-    <script src="js/ui/views/ShelterView.js"></script>
-    <script src="js/ui/views/HeroView.js"></script>
-    <script src="js/ui/views/DungeonView.js"></script>
-    <script src="js/ui/views/BattleView.js"></script>
-    <script src="js/ui/views/GachaView.js"></script>
-    <script src="js/ui/views/BackpackView.js"></script>
-    <script src="js/ui/views/ShopView.js"></script>
-    <script src="js/ui/views/CheckinView.js"></script>
-    <script src="js/ui/views/LoginView.js"></script>
+    <script src="js/ui/views/TopBar.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/TabBar.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ItemGrid.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ItemGridInteractionPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ItemGridBatchUsePatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterViewPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterScenePatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterInteractionPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterCompactPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterCompactRefreshPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShelterMailboxPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/HeroView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/DungeonView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/SceneVideoInlinePatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/DungeonViewPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/DungeonProgressPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/DungeonChapterPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/DungeonChapterRefreshPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/BattleView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/BattleViewPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/BattleFlowPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/BattleBoardFitPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/BattleBoardResponsivePatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/GachaView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/BackpackView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/ShopView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/CheckinView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/TaskView.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/TaskViewLayoutPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/TaskTutorialPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/TabBarPatch.js?v=2026.04.20.1"></script>
+    <script src="js/ui/views/LoginView.js?v=2026.04.20.1"></script>
 
-    <script src="js/main.js"></script>
+    <script src="js/main.js?v=2026.04.20.1"></script>
+    <script src="js/GamePatch.js?v=2026.04.20.1"></script>
+    <script src="js/TutorialGamePatch.js?v=2026.04.20.1"></script>
 </body>
 </html>
+
+
+

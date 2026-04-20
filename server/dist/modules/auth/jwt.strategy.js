@@ -25,9 +25,9 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         this.authService = authService;
     }
     async validate(payload) {
-        const user = await this.authService.validateJwtUser(payload?.sub);
+        const user = await this.authService.validateJwtUser(payload?.sub, payload?.sessionVersion);
         if (!user) {
-            throw new common_1.UnauthorizedException('登录态已失效');
+            throw new common_1.UnauthorizedException('登录状态已失效，请重新登录');
         }
         return user;
     }

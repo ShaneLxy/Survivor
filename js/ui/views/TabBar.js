@@ -1,5 +1,5 @@
-/**
- * 底部Tab导航栏
+﻿/**
+ * 底部 Tab 导航栏
  */
 class TabBar {
     constructor() {
@@ -7,11 +7,11 @@ class TabBar {
         this.activeTab = 'shelter';
         this.disabled = false;
         this.tabs = [
-            { id: 'shelter', name: '避难所', icon: '🏠' },
+            { id: 'shelter', name: '避难所', icon: '🏕' },
             { id: 'hero', name: '英雄', icon: '⚔️' },
-            { id: 'recruit', name: '招募', icon: '🧲' },
-            { id: 'dungeon', name: '副本', icon: '🏰' },
-            { id: 'shop', name: '商城', icon: '🛒' },
+            { id: 'recruit', name: '招募', icon: '🎲' },
+            { id: 'dungeon', name: '副本', icon: '🗺' },
+            { id: 'shop', name: '商城', icon: '🛍' },
             { id: 'checkin', name: '签到', icon: '📅' }
         ];
         this.init();
@@ -70,7 +70,6 @@ class TabBar {
         return this.activeTab;
     }
 }
-
 
 const tabBar = new TabBar();
 window.tabBar = tabBar;

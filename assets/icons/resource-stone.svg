@@ -1,0 +1,14 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="18" fill="#101319"/>
+  <path d="M14 38L20 22L38 16L50 27L47 43L30 49L14 38Z" fill="url(#stoneFill)" stroke="#CBD5E1" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M20 22L31 32L47 27" stroke="#64748B" stroke-width="2" stroke-linecap="round"/>
+  <path d="M31 32L30 49" stroke="#64748B" stroke-width="2" stroke-linecap="round"/>
+  <path d="M14 38L31 32" stroke="#64748B" stroke-width="2" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="stoneFill" x1="14" y1="16" x2="50" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="0.5" stop-color="#94A3B8"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+  </defs>
+</svg>

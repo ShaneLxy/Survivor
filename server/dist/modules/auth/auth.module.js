@@ -11,8 +11,6 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const passport_1 = require("@nestjs/passport");
-const typeorm_1 = require("@nestjs/typeorm");
-const user_account_entity_1 = require("../users/entities/user-account.entity");
 const auth_controller_1 = require("./auth.controller");
 const auth_service_1 = require("./auth.service");
 const jwt_auth_guard_1 = require("./jwt-auth.guard");
@@ -34,7 +32,6 @@ exports.AuthModule = AuthModule = __decorate([
                     },
                 }),
             }),
-            typeorm_1.TypeOrmModule.forFeature([user_account_entity_1.UserAccount]),
         ],
         controllers: [auth_controller_1.AuthController],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_auth_guard_1.JwtAuthGuard],

@@ -8,31 +8,29 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SaveService = void 0;
 const common_1 = require("@nestjs/common");
-const typeorm_1 = require("@nestjs/typeorm");
-const typeorm_2 = require("typeorm");
-const player_save_entity_1 = require("./entities/player-save.entity");
+const cloudbase_service_1 = require("../../shared/cloudbase/cloudbase.service");
 let SaveService = class SaveService {
-    constructor(saveRepository) {
-        this.saveRepository = saveRepository;
+    constructor(cloudbaseService) {
+        this.cloudbaseService = cloudbaseService;
     }
     async getSaveByAccountId(accountId) {
-        const save = await this.saveRepository.findOne({ where: { accountId } });
+        const collection = this.cloudbaseService.playerSaves();
+        const save = (await this.cloudbaseService.findOne(collection, {
+            accountId,
+        }));
         if (!save?.saveData) {
             return {
                 success: true,
-                message: '云端暂无存档',
+                message: 'No cloud save found',
                 saveData: null,
             };
         }
         return {
             success: true,
-            message: '获取云存档成功',
+            message: 'Cloud save loaded',
             saveData: {
                 version: save.version,
                 timestamp: save.lastSaveTime,
@@ -44,39 +42,63 @@ let SaveService = class SaveService {
         const wrapper = dto.saveData || {};
         const data = wrapper.data || {};
         const lastSaveTime = Number(data.lastSaveTime || wrapper.timestamp || Date.now());
-        let save = await this.saveRepository.findOne({ where: { accountId: user.id } });
-        if (!save) {
-            save = this.saveRepository.create({
-                accountId: user.id,
-                account: user,
+        const accountId = 'id' in user ? user.id : user._id;
+        const collection = this.cloudbaseService.playerSaves();
+        const existing = (await this.cloudbaseService.findOne(collection, {
+            accountId,
+        }));
+        const now = this.cloudbaseService.nowIso();
+        if (existing?._id && Number(existing.lastSaveTime || 0) > lastSaveTime) {
+            return {
+                success: true,
+                message: 'Cloud save kept because remote data is newer',
+                saveData: {
+                    version: existing.version,
+                    timestamp: existing.lastSaveTime,
+                    data: existing.saveData,
+                },
+            };
+        }
+        if (existing?._id) {
+            await this.cloudbaseService.updateById(collection, existing._id, {
+                version: wrapper.version || '2.0.0',
+                lastSaveTime,
+                saveData: data,
+                updatedAt: now,
             });
         }
-        save.version = wrapper.version || '2.0.0';
-        save.lastSaveTime = lastSaveTime;
-        save.saveData = data;
-        await this.saveRepository.save(save);
+        else {
+            await this.cloudbaseService.insert(collection, {
+                accountId,
+                version: wrapper.version || '2.0.0',
+                lastSaveTime,
+                saveData: data,
+                createdAt: now,
+                updatedAt: now,
+            });
+        }
         return {
             success: true,
-            message: '云存档保存成功',
+            message: 'Cloud save updated',
             saveData: {
-                version: save.version,
-                timestamp: save.lastSaveTime,
-                data: save.saveData,
+                version: wrapper.version || '2.0.0',
+                timestamp: lastSaveTime,
+                data,
             },
         };
     }
     async deleteSave(accountId) {
-        await this.saveRepository.delete({ accountId });
+        const collection = this.cloudbaseService.playerSaves();
+        await this.cloudbaseService.removeWhere(collection, { accountId });
         return {
             success: true,
-            message: '云存档已删除',
+            message: 'Cloud save deleted',
         };
     }
 };
 exports.SaveService = SaveService;
 exports.SaveService = SaveService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, typeorm_1.InjectRepository)(player_save_entity_1.PlayerSave)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [cloudbase_service_1.CloudbaseService])
 ], SaveService);
 //# sourceMappingURL=save.service.js.map

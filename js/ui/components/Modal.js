@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 弹窗组件
  */
 class Modal {
@@ -8,6 +8,7 @@ class Modal {
             content: '',
             buttons: [],
             showClose: true,
+            className: '',
             onClose: null,
             ...config
         };
@@ -16,21 +17,17 @@ class Modal {
         this.overlay = null;
     }
 
-    /**
-     * 创建弹窗
-     * @returns {HTMLElement}
-     */
     create() {
         try {
-            // 遮罩层
             this.overlay = document.createElement('div');
             this.overlay.className = 'modal-overlay';
 
-            // 弹窗内容
             const content = document.createElement('div');
             content.className = 'modal-content';
+            if (this.config.className) {
+                content.classList.add(...String(this.config.className).split(/\s+/).filter(Boolean));
+            }
 
-            // 标题栏
             const header = document.createElement('div');
             header.className = 'modal-header';
 
@@ -49,7 +46,6 @@ class Modal {
 
             content.appendChild(header);
 
-            // 内容区
             const body = document.createElement('div');
             body.className = 'modal-body';
             if (typeof this.config.content === 'string') {
@@ -59,7 +55,6 @@ class Modal {
             }
             content.appendChild(body);
 
-            // 按钮区
             if (this.config.buttons && this.config.buttons.length > 0) {
                 const footer = document.createElement('div');
                 footer.className = 'modal-footer';
@@ -78,7 +73,6 @@ class Modal {
 
             this.overlay.appendChild(content);
             this.element = content;
-
             return this.overlay;
         } catch (e) {
             console.error('Modal create error:', e);
@@ -86,9 +80,6 @@ class Modal {
         }
     }
 
-    /**
-     * 显示弹窗
-     */
     show() {
         if (!this.element) {
             this.create();
@@ -99,13 +90,9 @@ class Modal {
             container.appendChild(this.overlay);
         }
 
-        // 播放音效
         audioManager.playSFX('modal_open');
     }
 
-    /**
-     * 关闭弹窗
-     */
     close() {
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
@@ -116,10 +103,6 @@ class Modal {
         }
     }
 
-    /**
-     * 设置标题
-     * @param {string} title - 标题
-     */
     setTitle(title) {
         this.config.title = title;
         const titleElement = this.element.querySelector('.modal-title');
@@ -128,10 +111,6 @@ class Modal {
         }
     }
 
-    /**
-     * 设置内容
-     * @param {string|HTMLElement} content - 内容
-     */
     setContent(content) {
         this.config.content = content;
         const bodyElement = this.element.querySelector('.modal-body');
@@ -145,20 +124,20 @@ class Modal {
         }
     }
 
-    /**
-     * 销毁弹窗
-     */
     destroy() {
         this.close();
         this.element = null;
         this.overlay = null;
     }
 
-    /**
-     * 检查弹窗是否正在显示
-     * @returns {boolean}
-     */
     isShown() {
         return this.overlay && this.overlay.parentNode !== null;
+    }
+
+    static closeAll() {
+        const container = document.getElementById('modal-container');
+        if (container) {
+            container.innerHTML = '';
+        }
     }
 }

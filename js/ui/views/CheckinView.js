@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 签到视图
  */
 class CheckinView {
@@ -38,7 +38,7 @@ class CheckinView {
             itemsHtml += `
                 <div class="${dayClass} ${daySize}" onclick="${!isChecked && isToday ? "window.game.ui.checkinView.doCheckin()" : ''}">
                     <div class="day-number">${day}</div>
-                    <div class="day-status">${isChecked ? '✓' : (isToday ? '可签到' : '待签到')}</div>
+                    <div class="day-status">${isChecked ? '已签到' : (isToday ? '可签到' : '待签到')}</div>
                     <div class="day-reward">${rewardText}</div>
                 </div>
             `;
@@ -47,12 +47,12 @@ class CheckinView {
         this.element.innerHTML = `
             <div class="checkin-view">
                 <h2 class="checkin-title">每日签到</h2>
-                <p class="checkin-subtitle">连续签到7天，循环领取奖励</p>
+                <p class="checkin-subtitle">连续签到 7 天，循环领取奖励</p>
                 <div class="checkin-days">
                     ${itemsHtml}
                 </div>
                 ${status.isTodayCheckedIn ? `
-                    <div class="checkin-tips">今日已签到，明天再来吧~</div>
+                    <div class="checkin-tips">今日已签到，明天再来吧</div>
                 ` : `
                     <button class="btn btn-primary btn-large" onclick="window.game.ui.checkinView.doCheckin()">签到</button>
                 `}
@@ -80,7 +80,7 @@ class CheckinView {
         if (result.success) {
             this.render();
             await RewardModal.show({
-                title: `签到成功 - 第${result.claimedDay}天`,
+                title: `签到成功 - 第 ${result.claimedDay} 天`,
                 rewards: result.rewards,
                 summaryText: '本次签到奖励已入账'
             });

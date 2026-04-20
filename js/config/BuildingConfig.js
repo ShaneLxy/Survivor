@@ -29,7 +29,7 @@ const BuildingConfig = {
             description: '自动产出肉类，每小时稳定补给食物',
             maxLevel: 10,
             levels: [
-                { level: 1, outputs: [{ type: 'resource', id: 'meat', amountPerHour: 4 }], upgradeCost: { gold: 100, wood: 30, stone: 10 } },
+                { level: 1, outputs: [{ type: 'resource', id: 'meat', amountPerHour: 5 }], upgradeCost: { gold: 100, wood: 30, stone: 10 } },
                 { level: 2, outputs: [{ type: 'resource', id: 'meat', amountPerHour: 8 }], upgradeCost: { gold: 200, wood: 50, stone: 20 } },
                 { level: 3, outputs: [{ type: 'resource', id: 'meat', amountPerHour: 12 }], upgradeCost: { gold: 400, wood: 80, stone: 30 } },
                 { level: 4, outputs: [{ type: 'resource', id: 'meat', amountPerHour: 16 }], upgradeCost: { gold: 800, wood: 120, stone: 40 } },

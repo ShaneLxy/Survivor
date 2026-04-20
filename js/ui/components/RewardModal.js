@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 统一奖励弹窗组件
  *
  * 说明：
  * 1. 所有“获得奖励”的业务入口，都应该尽量先把奖励整理成统一结构后再交给本组件展示。
  * 2. 本组件负责：5x8 分页展示、顺序出场动画、点击任意位置跳过动画、点击奖励查看详情、确认后关闭。
- * 3. 底层 addItem/addResource/addFragments 这类方法只负责入账，不应该在底层自动弹奖励框。
+ * 3. 底层 addItem/addResource/addFragments 这类方法只负责入账，不应在底层自动弹奖励框。
  *    后续新增玩法时，推荐在业务入口层调用 RewardModal.show(...)。
  */
 class RewardModal {
@@ -41,7 +41,10 @@ class RewardModal {
         this.boundSkipListener = null;
     }
 
-    static show(config) {
+    static async show(config) {
+        if (!config?.skipRareReveal && window.RareRewardReveal) {
+            await window.RareRewardReveal.playSequence(config?.rewards || []);
+        }
         const modal = new RewardModal(config);
         return modal.show();
     }
@@ -188,7 +191,7 @@ class RewardModal {
         const end = pageRewards.length > 0 ? start + pageRewards.length : start;
         const revealed = Math.min(this.revealedCount, this.rewards.length);
 
-        this.statusElement.textContent = `第 ${this.currentPage}/${totalPages} 页 · 已揭晓 ${revealed}/${this.rewards.length} · 当前页 ${pageRewards.length > 0 ? `${start + 1}-${end}` : '0'}`;
+        this.statusElement.textContent = `第${this.currentPage}/${totalPages}页 · 已揭晓${revealed}/${this.rewards.length} · 当前页${pageRewards.length > 0 ? `${start + 1}-${end}` : '0'}`;
     }
 
     renderPage() {
@@ -242,8 +245,13 @@ class RewardModal {
 
         const icon = document.createElement('div');
         icon.className = 'reward-item-icon';
-        icon.textContent = reward.icon || '📦';
-        icon.style.color = rarityColor;
+        icon.innerHTML = RewardModal.renderIconMarkup(reward, {
+            fallbackText: reward.icon || '馃摝',
+            imageClass: 'reward-item-icon-image'
+        });
+        if (!reward.iconSrc) {
+            icon.style.color = rarityColor;
+        }
         cell.appendChild(icon);
 
         const name = document.createElement('div');
@@ -399,8 +407,13 @@ class RewardModal {
 
         const icon = document.createElement('div');
         icon.className = 'reward-detail-icon';
-        icon.textContent = reward.icon || '📦';
-        icon.style.color = rarityColor;
+        icon.innerHTML = RewardModal.renderIconMarkup(reward, {
+            fallbackText: reward.icon || '馃摝',
+            imageClass: 'reward-detail-icon-image'
+        });
+        if (!reward.iconSrc) {
+            icon.style.color = rarityColor;
+        }
         content.appendChild(icon);
 
         const badges = document.createElement('div');
@@ -503,7 +516,7 @@ class RewardModal {
                 type: 'item',
                 id: itemId,
                 name: itemId,
-                icon: '📦',
+                icon: '馃摝',
                 count: Math.max(0, Number(count) || 0),
                 rarity: 'common',
                 description: '未知道具',
@@ -540,7 +553,7 @@ class RewardModal {
                 type: 'hero',
                 id: heroConfigId,
                 name: '未知英雄',
-                icon: '🧙',
+                icon: '馃',
                 count: 1,
                 rarity: 'common',
                 description: '新英雄已加入队伍',
@@ -561,6 +574,7 @@ class RewardModal {
             id: heroConfig.id,
             name: heroConfig.name,
             icon: heroConfig.icon,
+            iconSrc: heroConfig.portrait || null,
             count: 1,
             rarity: heroConfig.rarity || 'common',
             description: '新英雄已加入你的英雄列表',
@@ -577,7 +591,8 @@ class RewardModal {
                 type: 'fragment',
                 id: heroConfigId,
                 name: '未知英雄碎片',
-                icon: '🧩',
+                icon: '馃З',
+                iconSrc: null,
                 count: Math.max(0, Number(count) || 0),
                 rarity: 'common',
                 description: '用于升星或后续合成英雄',
@@ -600,7 +615,8 @@ class RewardModal {
             type: 'fragment',
             id: `${heroConfig.id}_fragment`,
             name: `${heroConfig.name}碎片`,
-            icon: '🧩',
+            icon: heroConfig.icon || '❓',
+            iconSrc: heroConfig.portrait || null,
             count: Math.max(0, Number(count) || 0),
             rarity: heroConfig.rarity || 'common',
             description: `收集后可用于强化 ${heroConfig.name}`,
@@ -617,7 +633,7 @@ class RewardModal {
                 type: 'equipment',
                 id: 'unknown_equipment',
                 name: '未知装备',
-                icon: '📦',
+                icon: '馃摝',
                 count: 1,
                 rarity: 'common',
                 description: '随机打造获得的装备',
@@ -663,18 +679,18 @@ class RewardModal {
 
     static getFallbackResourceInfo(resourceId) {
         const map = {
-            gold: { name: '金币', icon: '💰', rarity: 'common', description: '通用货币，可用于抽卡、商城购买和建筑发展' },
-            wood: { name: '木材', icon: '🪵', rarity: 'common', description: '避难所建设的基础材料之一' },
-            stone: { name: '石材', icon: '🪨', rarity: 'common', description: '避难所建设的基础材料之一' },
-            meat: { name: '肉类', icon: '🍖', rarity: 'common', description: '重要食物资源，可维持生存' },
-            iron_ore: { name: '铁矿石', icon: '⛓️', rarity: 'rare', description: '装备强化的重要材料' },
+            gold: { name: '金币', icon: '💵', rarity: 'common', description: '通用货币，可用于招募、商城购买和建筑发展' },
+            wood: { name: '木材', icon: '🪔', rarity: 'common', description: '避难所建设的基础材料之一' },
+            stone: { name: '石材', icon: '🪇', rarity: 'common', description: '避难所建设的基础材料之一' },
+            meat: { name: '肉类', icon: '🍠', rarity: 'common', description: '重要食物资源，可维持生存' },
+            iron_ore: { name: '铁矿石', icon: '⛏️', rarity: 'rare', description: '装备强化的重要材料' },
             water: { name: '水源', icon: '💧', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' },
             diamond: { name: '钻石', icon: '💎', rarity: 'epic', description: '高价值稀有货币' }
         };
 
         return map[resourceId] || {
             name: resourceId,
-            icon: '📦',
+            icon: '馃摝',
             rarity: 'common',
             description: '基础资源'
         };
@@ -682,6 +698,16 @@ class RewardModal {
 
     static getRarityColor(rarity) {
         return GameConfig.getRarityConfig(rarity || 'common').color;
+    }
+
+    static renderIconMarkup(reward, options = {}) {
+        const fallbackText = options.fallbackText || reward?.icon || '馃摝';
+        const imageClass = options.imageClass || 'reward-icon-image';
+        if (reward?.iconSrc) {
+            const alt = reward?.name || 'reward';
+            return `<img class="${imageClass}" src="${reward.iconSrc}" alt="${alt}">`;
+        }
+        return fallbackText;
     }
 
     static getRarityName(rarity) {
@@ -699,7 +725,7 @@ class RewardModal {
             case 'energy':
                 return `恢复 ${effect.value} 点体力`;
             case 'gacha':
-                return `可进行 ${effect.count || 1} 次英雄召唤`;
+                return `可进行${effect.count || 1}次英雄召唤`;
             default:
                 return '';
         }

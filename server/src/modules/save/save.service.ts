@@ -1,30 +1,32 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { UserAccount } from '../users/entities/user-account.entity';
+import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+import {
+  PlayerSaveDocument,
+  UserAccountDocument,
+} from '../../shared/cloudbase/cloudbase.types';
 import { UpsertSaveDto } from './dto/upsert-save.dto';
-import { PlayerSave } from './entities/player-save.entity';
 
 @Injectable()
 export class SaveService {
-  constructor(
-    @InjectRepository(PlayerSave)
-    private readonly saveRepository: Repository<PlayerSave>,
-  ) {}
+  constructor(private readonly cloudbaseService: CloudbaseService) {}
 
-  async getSaveByAccountId(accountId: number) {
-    const save = await this.saveRepository.findOne({ where: { accountId } });
+  async getSaveByAccountId(accountId: string) {
+    const collection = this.cloudbaseService.playerSaves();
+    const save = (await this.cloudbaseService.findOne(collection, {
+      accountId,
+    })) as PlayerSaveDocument | null;
+
     if (!save?.saveData) {
       return {
         success: true,
-        message: '云端暂无存档',
+        message: 'No cloud save found',
         saveData: null,
       };
     }
 
     return {
       success: true,
-      message: '获取云存档成功',
+      message: 'Cloud save loaded',
       saveData: {
         version: save.version,
         timestamp: save.lastSaveTime,
@@ -33,40 +35,64 @@ export class SaveService {
     };
   }
 
-  async upsertSave(user: UserAccount, dto: UpsertSaveDto) {
+  async upsertSave(user: { id: string } | UserAccountDocument, dto: UpsertSaveDto) {
     const wrapper = dto.saveData || {};
     const data = wrapper.data || {};
     const lastSaveTime = Number(data.lastSaveTime || wrapper.timestamp || Date.now());
+    const accountId = 'id' in user ? user.id : user._id;
+    const collection = this.cloudbaseService.playerSaves();
+    const existing = (await this.cloudbaseService.findOne(collection, {
+      accountId,
+    })) as PlayerSaveDocument | null;
+    const now = this.cloudbaseService.nowIso();
 
-    let save = await this.saveRepository.findOne({ where: { accountId: user.id } });
-    if (!save) {
-      save = this.saveRepository.create({
-        accountId: user.id,
-        account: user,
+    if (existing?._id && Number(existing.lastSaveTime || 0) > lastSaveTime) {
+      return {
+        success: true,
+        message: 'Cloud save kept because remote data is newer',
+        saveData: {
+          version: existing.version,
+          timestamp: existing.lastSaveTime,
+          data: existing.saveData,
+        },
+      };
+    }
+
+    if (existing?._id) {
+      await this.cloudbaseService.updateById(collection, existing._id, {
+        version: wrapper.version || '2.0.0',
+        lastSaveTime,
+        saveData: data,
+        updatedAt: now,
+      });
+    } else {
+      await this.cloudbaseService.insert(collection, {
+        accountId,
+        version: wrapper.version || '2.0.0',
+        lastSaveTime,
+        saveData: data,
+        createdAt: now,
+        updatedAt: now,
       });
     }
 
-    save.version = wrapper.version || '2.0.0';
-    save.lastSaveTime = lastSaveTime;
-    save.saveData = data;
-    await this.saveRepository.save(save);
-
     return {
       success: true,
-      message: '云存档保存成功',
+      message: 'Cloud save updated',
       saveData: {
-        version: save.version,
-        timestamp: save.lastSaveTime,
-        data: save.saveData,
+        version: wrapper.version || '2.0.0',
+        timestamp: lastSaveTime,
+        data,
       },
     };
   }
 
-  async deleteSave(accountId: number) {
-    await this.saveRepository.delete({ accountId });
+  async deleteSave(accountId: string) {
+    const collection = this.cloudbaseService.playerSaves();
+    await this.cloudbaseService.removeWhere(collection, { accountId });
     return {
       success: true,
-      message: '云存档已删除',
+      message: 'Cloud save deleted',
     };
   }
 }

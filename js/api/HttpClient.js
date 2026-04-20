@@ -1,11 +1,25 @@
-/**
+﻿/**
  * HTTP 请求封装
  */
 class HttpClient {
     constructor() {
         this.baseUrlKey = 'survivor_api_base_url';
-        this.baseUrl = localStorage.getItem(this.baseUrlKey) || 'http://127.0.0.1:3000/api';
+        const isNativeApp = Boolean(window.Capacitor && (
+            typeof window.Capacitor.isNativePlatform === 'function'
+                ? window.Capacitor.isNativePlatform()
+                : true
+        ));
+        const isLocal = !isNativeApp && (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+        const defaultUrl = isLocal
+            ? 'http://127.0.0.1:3000/api'
+            : 'https://1301600838-lqvc5s34ok.ap-shanghai.tencentscf.com/api';
+        this.baseUrl = localStorage.getItem(this.baseUrlKey) || defaultUrl;
+        if (isNativeApp && /127\.0\.0\.1:3000\/api$/i.test(this.baseUrl)) {
+            this.baseUrl = defaultUrl;
+            localStorage.setItem(this.baseUrlKey, defaultUrl);
+        }
         this.token = null;
+        this.authExpiredNotified = false;
     }
 
     setBaseUrl(baseUrl) {
@@ -23,10 +37,26 @@ class HttpClient {
 
     setToken(token) {
         this.token = token || null;
+        if (this.token) {
+            this.authExpiredNotified = false;
+        }
     }
 
     clearToken() {
         this.token = null;
+        this.authExpiredNotified = false;
+    }
+
+    notifyAuthExpired(error) {
+        if (this.authExpiredNotified) {
+            return;
+        }
+        this.authExpiredNotified = true;
+        window.dispatchEvent(new CustomEvent('survivor:auth-expired', {
+            detail: {
+                message: error?.payload?.message || error?.message || '登录状态已失效，请重新登录'
+            }
+        }));
     }
 
     buildUrl(path) {
@@ -75,6 +105,9 @@ class HttpClient {
             const error = new Error(payload?.message || `请求失败：${response.status}`);
             error.status = response.status;
             error.payload = payload;
+            if (response.status === 401 && this.token) {
+                this.notifyAuthExpired(error);
+            }
             throw error;
         }
 
