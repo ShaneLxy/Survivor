@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 登录 / 注册视图
  */
 class LoginView {
@@ -83,10 +83,10 @@ class LoginView {
         const topBar = document.getElementById('top-bar');
         const tabBar = document.getElementById('tab-bar');
         if (topBar) {
-            topBar.style.display = visible ? 'flex' : 'none';
+            topBar.style.display = visible ? '' : 'none';
         }
         if (tabBar) {
-            tabBar.style.display = visible ? 'flex' : 'none';
+            tabBar.style.display = visible ? '' : 'none';
         }
     }
 

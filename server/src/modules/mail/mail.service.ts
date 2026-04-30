@@ -1,17 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { MongoService } from '../../shared/mongo/mongo.service';
 import {
   MailAttachment,
   PlayerMailDocument,
-} from '../../shared/cloudbase/cloudbase.types';
-import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+} from '../../shared/mongo/mongo.types';
 
 @Injectable()
 export class MailService {
-  constructor(private readonly cloudbaseService: CloudbaseService) {}
+  constructor(private readonly mongoService: MongoService) {}
 
   async listMails(accountId: string) {
-    const collection = this.cloudbaseService.playerMails();
-    const mails = (await this.cloudbaseService.findMany(collection, {
+    const collection = this.mongoService.playerMails();
+    const mails = (await this.mongoService.findMany(collection, {
       accountId,
     })) as PlayerMailDocument[];
 
@@ -24,8 +24,8 @@ export class MailService {
   async markRead(accountId: string, mailId: string) {
     const mail = await this.requireMail(accountId, mailId);
     if (!mail.readAt) {
-      const now = this.cloudbaseService.nowIso();
-      await this.cloudbaseService.updateById(this.cloudbaseService.playerMails(), mail._id, {
+      const now = this.mongoService.nowIso();
+      await this.mongoService.updateById(this.mongoService.playerMails(), mail._id, {
         readAt: now,
         updatedAt: now,
       });
@@ -59,8 +59,8 @@ export class MailService {
       };
     }
 
-    const now = this.cloudbaseService.nowIso();
-    await this.cloudbaseService.updateById(this.cloudbaseService.playerMails(), mail._id, {
+    const now = this.mongoService.nowIso();
+    await this.mongoService.updateById(this.mongoService.playerMails(), mail._id, {
       claimedAt: now,
       readAt: mail.readAt || now,
       updatedAt: now,
@@ -79,8 +79,8 @@ export class MailService {
   }
 
   async claimAll(accountId: string) {
-    const collection = this.cloudbaseService.playerMails();
-    const mails = (await this.cloudbaseService.findMany(collection, {
+    const collection = this.mongoService.playerMails();
+    const mails = (await this.mongoService.findMany(collection, {
       accountId,
     })) as PlayerMailDocument[];
 
@@ -96,10 +96,10 @@ export class MailService {
     }
 
     const rewardMap = new Map<string, MailAttachment>();
-    const now = this.cloudbaseService.nowIso();
+    const now = this.mongoService.nowIso();
 
     for (const mail of claimableMails) {
-      await this.cloudbaseService.updateById(collection, mail._id, {
+      await this.mongoService.updateById(collection, mail._id, {
         claimedAt: now,
         readAt: mail.readAt || now,
         updatedAt: now,
@@ -131,8 +131,8 @@ export class MailService {
   }
 
   private async requireMail(accountId: string, mailId: string) {
-    const collection = this.cloudbaseService.playerMails();
-    const mail = (await this.cloudbaseService.getById(collection, mailId)) as PlayerMailDocument | null;
+    const collection = this.mongoService.playerMails();
+    const mail = (await this.mongoService.getById(collection, mailId)) as PlayerMailDocument | null;
     if (!mail || mail.accountId !== accountId) {
       throw new NotFoundException('Mail not found');
     }

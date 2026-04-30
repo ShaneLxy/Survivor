@@ -443,20 +443,6 @@ class RewardModal {
         description.textContent = reward.description || '暂无说明';
         content.appendChild(description);
 
-        if (Array.isArray(reward.detailExtra) && reward.detailExtra.length > 0) {
-            const extraList = document.createElement('div');
-            extraList.className = 'reward-detail-extra';
-
-            reward.detailExtra.forEach((line) => {
-                const item = document.createElement('div');
-                item.className = 'reward-detail-extra-item';
-                item.textContent = line;
-                extraList.appendChild(item);
-            });
-
-            content.appendChild(extraList);
-        }
-
         const modal = new Modal({
             title: reward.name || '奖励详情',
             content,
@@ -467,6 +453,11 @@ class RewardModal {
             }]
         });
         modal.show();
+
+        const titleElement = modal.element?.querySelector('.modal-title');
+        if (titleElement) {
+            titleElement.style.color = rarityColor;
+        }
     }
 
 

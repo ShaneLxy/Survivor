@@ -19,24 +19,29 @@ class TopBar {
 
     create() {
         this.element.innerHTML = `
-            <div class="player-avatar" id="player-avatar" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <button type="button" class="player-avatar topbar-player-chip" id="player-avatar">
                 <div class="topbar-player-avatar-image-shell">
                     <div class="avatar-icon topbar-player-avatar-image"></div>
                 </div>
-                <span id="player-level" style="font-size:12px;color:#ffd700;font-weight:bold;">Lv.1</span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon">⚡</span>
-                <span class="status-label">体力</span>
-                <span class="status-value" id="player-energy">100/100</span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon">🪙</span>
-                <span class="status-value text-gold" id="player-gold">0</span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon">💎</span>
-                <span class="status-value text-diamond" id="player-diamond">0</span>
+                <span class="topbar-player-meta">
+                    <span class="topbar-player-kicker">PLAYER</span>
+                    <span class="topbar-player-level" id="player-level">Lv.1</span>
+                </span>
+            </button>
+            <div class="topbar-resource-strip">
+                <div class="status-item status-item-energy">
+                    <span class="status-icon status-icon-energy">⚡</span>
+                    <span class="status-label">体力</span>
+                    <span class="status-value" id="player-energy">100/100</span>
+                </div>
+                <div class="status-item status-item-gold">
+                    <span class="status-icon status-icon-resource status-icon-gold">G</span>
+                    <span class="status-value text-gold" id="player-gold">0</span>
+                </div>
+                <div class="status-item status-item-diamond">
+                    <span class="status-icon status-icon-diamond">◆</span>
+                    <span class="status-value text-diamond" id="player-diamond">0</span>
+                </div>
             </div>
         `;
         this.avatarElement = this.element.querySelector('#player-avatar');
@@ -56,10 +61,8 @@ class TopBar {
         if (!this.element) {
             return;
         }
-        const statusIcons = this.element.querySelectorAll('.status-icon');
-        const goldIcon = statusIcons[1];
+        const goldIcon = this.element.querySelector('.status-icon-gold');
         if (goldIcon) {
-            goldIcon.classList.add('status-icon-resource');
             goldIcon.innerHTML = ResourceVisualConfig.getIconMarkup('gold', 'resource-icon-image status-icon-image');
         }
     }

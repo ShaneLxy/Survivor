@@ -11,14 +11,14 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SaveService = void 0;
 const common_1 = require("@nestjs/common");
-const cloudbase_service_1 = require("../../shared/cloudbase/cloudbase.service");
+const mongo_service_1 = require("../../shared/mongo/mongo.service");
 let SaveService = class SaveService {
-    constructor(cloudbaseService) {
-        this.cloudbaseService = cloudbaseService;
+    constructor(mongoService) {
+        this.mongoService = mongoService;
     }
     async getSaveByAccountId(accountId) {
-        const collection = this.cloudbaseService.playerSaves();
-        const save = (await this.cloudbaseService.findOne(collection, {
+        const collection = this.mongoService.playerSaves();
+        const save = (await this.mongoService.findOne(collection, {
             accountId,
         }));
         if (!save?.saveData) {
@@ -43,11 +43,11 @@ let SaveService = class SaveService {
         const data = wrapper.data || {};
         const lastSaveTime = Number(data.lastSaveTime || wrapper.timestamp || Date.now());
         const accountId = 'id' in user ? user.id : user._id;
-        const collection = this.cloudbaseService.playerSaves();
-        const existing = (await this.cloudbaseService.findOne(collection, {
+        const collection = this.mongoService.playerSaves();
+        const existing = (await this.mongoService.findOne(collection, {
             accountId,
         }));
-        const now = this.cloudbaseService.nowIso();
+        const now = this.mongoService.nowIso();
         if (existing?._id && Number(existing.lastSaveTime || 0) > lastSaveTime) {
             return {
                 success: true,
@@ -60,7 +60,7 @@ let SaveService = class SaveService {
             };
         }
         if (existing?._id) {
-            await this.cloudbaseService.updateById(collection, existing._id, {
+            await this.mongoService.updateById(collection, existing._id, {
                 version: wrapper.version || '2.0.0',
                 lastSaveTime,
                 saveData: data,
@@ -68,7 +68,7 @@ let SaveService = class SaveService {
             });
         }
         else {
-            await this.cloudbaseService.insert(collection, {
+            await this.mongoService.insert(collection, {
                 accountId,
                 version: wrapper.version || '2.0.0',
                 lastSaveTime,
@@ -88,8 +88,8 @@ let SaveService = class SaveService {
         };
     }
     async deleteSave(accountId) {
-        const collection = this.cloudbaseService.playerSaves();
-        await this.cloudbaseService.removeWhere(collection, { accountId });
+        const collection = this.mongoService.playerSaves();
+        await this.mongoService.removeWhere(collection, { accountId });
         return {
             success: true,
             message: 'Cloud save deleted',
@@ -99,6 +99,6 @@ let SaveService = class SaveService {
 exports.SaveService = SaveService;
 exports.SaveService = SaveService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [cloudbase_service_1.CloudbaseService])
+    __metadata("design:paramtypes", [mongo_service_1.MongoService])
 ], SaveService);
 //# sourceMappingURL=save.service.js.map

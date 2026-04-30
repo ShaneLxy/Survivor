@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 签到视图
  */
 class CheckinView {
@@ -19,60 +19,159 @@ class CheckinView {
 
     render() {
         const status = checkinManager.getCheckinStatus();
-        const rewards = CheckinManager.REWARDS;
-
-        let itemsHtml = '';
-        rewards.forEach((reward, index) => {
-            const day = index + 1;
-            const isChecked = day <= status.claimedDay;
-            const isToday = status.canCheckin && day === status.nextDay;
-            const isFuture = day > status.claimedDay && day !== status.nextDay;
-
-            let dayClass = 'checkin-day';
-            if (isChecked) dayClass += ' checked';
-            if (isToday) dayClass += ' today';
-            if (isFuture) dayClass += ' future';
-            const daySize = day === 7 ? 'large' : '';
-            const rewardText = this.getRewardText(reward);
-
-            itemsHtml += `
-                <div class="${dayClass} ${daySize}" onclick="${!isChecked && isToday ? "window.game.ui.checkinView.doCheckin()" : ''}">
-                    <div class="day-number">${day}</div>
-                    <div class="day-status">${isChecked ? '已签到' : (isToday ? '可签到' : '待签到')}</div>
-                    <div class="day-reward">${rewardText}</div>
-                </div>
-            `;
-        });
+        const bonusRewards = CheckinManager.REWARDS;
+        const dailyRewards = CheckinManager.DAILY_REWARDS;
+        const cycleProgress = Math.round((status.claimedDay / bonusRewards.length) * 100);
+        const activeDay = status.isTodayCheckedIn ? status.claimedDay : status.nextDay;
+        const todayBonusReward = bonusRewards[Math.max(0, activeDay - 1)] || bonusRewards[0];
+        const totalCheckins = checkinManager.totalCheckins || 0;
+        const dailyRewardText = this.getRewardText(dailyRewards);
+        const bonusRewardText = this.getRewardText(todayBonusReward);
 
         this.element.innerHTML = `
             <div class="checkin-view">
-                <h2 class="checkin-title">每日签到</h2>
-                <p class="checkin-subtitle">连续签到 7 天，循环领取奖励</p>
-                <div class="checkin-days">
-                    ${itemsHtml}
+                <div class="checkin-stage-header">
+                    <div class="checkin-stage-heading-row">
+                        <div class="checkin-stage-heading-group">
+                            <div class="checkin-stage-kicker">SUPPLY CHECKPOINT</div>
+                            <h1 class="checkin-title">每日签到</h1>
+                            <div class="checkin-subtitle">每日固定补给稳定入账，七日补给队列作为累计签到额外奖励循环发放。</div>
+                        </div>
+                    </div>
+                    <div class="checkin-stage-stats">
+                        <div class="checkin-stage-stat">
+                            <span>今日状态</span>
+                            <strong>${status.isTodayCheckedIn ? '已领取' : '待领取'}</strong>
+                        </div>
+                        <div class="checkin-stage-stat">
+                            <span>本轮队列</span>
+                            <strong>${activeDay}/7</strong>
+                        </div>
+                        <div class="checkin-stage-stat">
+                            <span>累计签到</span>
+                            <strong>${totalCheckins}</strong>
+                        </div>
+                    </div>
                 </div>
-                ${status.isTodayCheckedIn ? `
-                    <div class="checkin-tips">今日已签到，明天再来吧</div>
-                ` : `
-                    <button class="btn btn-primary btn-large" onclick="window.game.ui.checkinView.doCheckin()">签到</button>
-                `}
+                <div class="checkin-supply-board">
+                    <div class="checkin-board-head">
+                        <div>
+                            <div class="checkin-board-kicker">BONUS SUPPLY ROUTE</div>
+                            <div class="checkin-board-title">七日补给队列</div>
+                            <div class="checkin-board-desc">额外补给按签到次数推进，第 8 次从 DAY 1 重新循环。</div>
+                        </div>
+                        <div class="checkin-board-count">${status.claimedDay}/${bonusRewards.length}</div>
+                    </div>
+                    <div class="checkin-cycle-meter" style="--checkin-progress: ${cycleProgress}%">
+                        <span></span>
+                    </div>
+                    <div class="checkin-days">
+                        ${bonusRewards.map((reward, index) => this.renderDayCard(reward, index + 1, status)).join('')}
+                    </div>
+                </div>
+                <div class="checkin-action-panel ${status.isTodayCheckedIn ? 'is-complete' : 'is-ready'}">
+                    <div class="checkin-action-copy">
+                        <span>${status.isTodayCheckedIn ? 'TODAY LOGGED' : 'READY TO CLAIM'}</span>
+                        <strong>${status.isTodayCheckedIn ? `第 ${activeDay} 天补给已入账` : `领取每日补给 + DAY ${activeDay} 额外补给`}</strong>
+                        <div class="checkin-claim-rewards">
+                            <div class="checkin-claim-row">
+                                <span>每日固定</span>
+                                <strong>${this.escapeHtml(dailyRewardText)}</strong>
+                            </div>
+                            <div class="checkin-claim-row is-bonus">
+                                <span>队列额外</span>
+                                <strong>${this.escapeHtml(bonusRewardText)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="checkin-claim-button" ${status.isTodayCheckedIn ? 'disabled' : 'onclick="window.game.ui.checkinView.doCheckin()"'}>
+                        ${status.isTodayCheckedIn ? '已完成' : '领取'}
+                    </button>
+                </div>
             </div>
         `;
     }
 
-    getRewardText(reward) {
-        const texts = [];
-        reward.rewards.forEach(r => {
+    renderDayCard(reward, day, status) {
+        const isChecked = day <= status.claimedDay;
+        const isToday = status.canCheckin && day === status.nextDay;
+        const isFuture = day > status.claimedDay && day !== status.nextDay;
+        const rewardChips = this.getRewardEntries(reward).map(item => `
+            <span class="day-reward-chip">
+                <span class="day-reward-icon">${this.escapeHtml(item.icon)}</span>
+                <span>${this.escapeHtml(item.label)}x${item.count}</span>
+            </span>
+        `).join('');
+        const classes = [
+            'checkin-day',
+            day === 7 ? 'is-premium' : '',
+            isChecked ? 'checked' : '',
+            isToday ? 'today' : '',
+            isFuture ? 'future' : ''
+        ].filter(Boolean).join(' ');
+        const statusText = isChecked ? '已领取' : (isToday ? '今日额外' : '待领取');
+        const clickAction = !isChecked && isToday ? 'onclick="window.game.ui.checkinView.doCheckin()"' : '';
+
+        return `
+            <div class="${classes}" ${clickAction}>
+                <div class="day-topline">
+                    <span class="day-index">DAY ${day}</span>
+                    <span class="day-status">${statusText}</span>
+                </div>
+                <div class="day-number">${day}</div>
+                <div class="day-reward">${rewardChips}</div>
+            </div>
+        `;
+    }
+
+    getRewardEntries(reward) {
+        const rewardList = Array.isArray(reward) ? reward : (reward?.rewards || []);
+        return rewardList.map(r => {
             if (r.type === 'resource') {
-                texts.push(`${shelterManager.getResourceDisplayName(r.id)}x${r.count}`);
-            } else if (r.type === 'item') {
-                const itemName = ItemConfig.getItemConfig(r.id)?.name || r.id;
-                texts.push(`${itemName}x${r.count}`);
-            } else if (r.type === 'random_fragments') {
-                texts.push(`随机碎片x${r.total}`);
+                const info = shelterManager.getResourceInfo(r.id);
+                return {
+                    icon: info.icon || '📦',
+                    label: info.name || r.id,
+                    count: r.count || 0
+                };
             }
+            if (r.type === 'item') {
+                const item = ItemConfig.getItemConfig(r.id) || {};
+                return {
+                    icon: item.icon || '🎁',
+                    label: item.name || r.id,
+                    count: r.count || 0
+                };
+            }
+            if (r.type === 'random_fragments') {
+                return {
+                    icon: '✦',
+                    label: '随机碎片',
+                    count: r.total || 0
+                };
+            }
+            return {
+                icon: '🎁',
+                label: r.id || '奖励',
+                count: r.count || r.total || 0
+            };
         });
-        return texts.join(' ');
+    }
+
+    getRewardText(reward) {
+        return this.getRewardEntries(reward)
+            .map(r => `${r.label}x${r.count}`)
+            .join(' ');
+    }
+
+    escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char]));
     }
 
     async doCheckin() {
@@ -80,9 +179,9 @@ class CheckinView {
         if (result.success) {
             this.render();
             await RewardModal.show({
-                title: `签到成功 - 第 ${result.claimedDay} 天`,
+                title: `签到成功 - DAY ${result.claimedDay}`,
                 rewards: result.rewards,
-                summaryText: '本次签到奖励已入账'
+                summaryText: '每日固定补给与队列额外补给已入账'
             });
             window.game.save();
         } else {

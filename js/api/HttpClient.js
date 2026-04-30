@@ -4,19 +4,23 @@
 class HttpClient {
     constructor() {
         this.baseUrlKey = 'survivor_api_base_url';
+        const runtimeConfig = window.__SURVIVOR_RUNTIME_CONFIG__ || {};
         const isNativeApp = Boolean(window.Capacitor && (
             typeof window.Capacitor.isNativePlatform === 'function'
                 ? window.Capacitor.isNativePlatform()
                 : true
         ));
         const isLocal = !isNativeApp && (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
-        const defaultUrl = isLocal
-            ? 'http://127.0.0.1:3000/api'
-            : 'https://1301600838-lqvc5s34ok.ap-shanghai.tencentscf.com/api';
-        this.baseUrl = localStorage.getItem(this.baseUrlKey) || defaultUrl;
-        if (isNativeApp && /127\.0\.0\.1:3000\/api$/i.test(this.baseUrl)) {
-            this.baseUrl = defaultUrl;
-            localStorage.setItem(this.baseUrlKey, defaultUrl);
+        const configuredUrl = String(runtimeConfig.apiBaseUrl || '').trim().replace(/\/+$/, '');
+        const sameOriginUrl = /^https?:$/i.test(location.protocol)
+            ? `${location.origin.replace(/\/+$/, '')}/api`
+            : '';
+        const defaultUrl = configuredUrl || (isLocal ? 'http://127.0.0.1:3000/api' : sameOriginUrl);
+        const storedUrl = localStorage.getItem(this.baseUrlKey);
+        this.baseUrl = storedUrl || defaultUrl;
+        if (isNativeApp && /127\.0\.0\.1:3000\/api$/i.test(this.baseUrl) && configuredUrl) {
+            this.baseUrl = configuredUrl;
+            localStorage.setItem(this.baseUrlKey, configuredUrl);
         }
         this.token = null;
         this.authExpiredNotified = false;

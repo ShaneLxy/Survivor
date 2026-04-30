@@ -1,14 +1,14 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
-import { UserAccountDocument } from '../../shared/cloudbase/cloudbase.types';
+import { MongoService } from '../../shared/mongo/mongo.service';
+import { UserAccountDocument } from '../../shared/mongo/mongo.types';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 export declare class AuthService {
-    private readonly cloudbaseService;
+    private readonly mongoService;
     private readonly jwtService;
     private readonly configService;
-    constructor(cloudbaseService: CloudbaseService, jwtService: JwtService, configService: ConfigService);
+    constructor(mongoService: MongoService, jwtService: JwtService, configService: ConfigService);
     register(dto: RegisterDto): Promise<{
         accessToken: string;
         user: {

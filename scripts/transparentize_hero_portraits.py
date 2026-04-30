@@ -12,29 +12,11 @@ SRC_DIR = Path(r"E:\AIGame\resource\hero")
 DST_DIR = ROOT / "assets" / "media" / "heroes"
 
 TARGET_FILES = [
-    "Yajin.jpg",
-    "Galaxy.png",
-    "Gray.png",
-    "Elise.jpg",
-    "PurpleFox.png",
-    "Hoshino.png",
-    "LingYue.png",
-    "Vera.png",
-    "King.png",
-    "Clockwork.png",
+    "HeiFa.png",
 ]
 
 PORTRAIT_UPDATES = {
-    "hero_010": "assets/media/heroes/Yajin.png",
-    "hero_011": "assets/media/heroes/Galaxy.png",
-    "hero_012": "assets/media/heroes/Gray.png",
-    "hero_013": "assets/media/heroes/Elise.png",
-    "hero_014": "assets/media/heroes/PurpleFox.png",
-    "hero_015": "assets/media/heroes/Hoshino.png",
-    "hero_016": "assets/media/heroes/LingYue.png",
-    "hero_017": "assets/media/heroes/Vera.png",
-    "hero_018": "assets/media/heroes/King.png",
-    "hero_019": "assets/media/heroes/Clockwork.png",
+    "hero_027": "assets/media/heroes/HeiFa.png",
 }
 
 

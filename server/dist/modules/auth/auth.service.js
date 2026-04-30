@@ -47,10 +47,10 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const bcrypt = __importStar(require("bcryptjs"));
-const cloudbase_service_1 = require("../../shared/cloudbase/cloudbase.service");
+const mongo_service_1 = require("../../shared/mongo/mongo.service");
 let AuthService = class AuthService {
-    constructor(cloudbaseService, jwtService, configService) {
-        this.cloudbaseService = cloudbaseService;
+    constructor(mongoService, jwtService, configService) {
+        this.mongoService = mongoService;
         this.jwtService = jwtService;
         this.configService = configService;
     }
@@ -58,15 +58,15 @@ let AuthService = class AuthService {
         const account = dto.account.trim();
         console.log('[AuthService.register] start:', { account });
         try {
-            const collection = this.cloudbaseService.userAccounts();
-            const existing = await this.cloudbaseService.findOne(collection, { account });
+            const collection = this.mongoService.userAccounts();
+            const existing = await this.mongoService.findOne(collection, { account });
             if (existing) {
                 throw new common_1.BadRequestException('Account already exists');
             }
-            const now = this.cloudbaseService.nowIso();
+            const now = this.mongoService.nowIso();
             const passwordHash = await bcrypt.hash(dto.password, 10);
             const sessionVersion = 1;
-            const id = await this.cloudbaseService.insert(collection, {
+            const id = await this.mongoService.insert(collection, {
                 account,
                 passwordHash,
                 nickname: dto.nickname?.trim() || account,
@@ -78,7 +78,7 @@ let AuthService = class AuthService {
                 createdAt: now,
                 updatedAt: now,
             });
-            const saved = await this.cloudbaseService.getById(collection, id);
+            const saved = await this.mongoService.getById(collection, id);
             console.log('[AuthService.register] success:', { account, id });
             return this.buildAuthResponse(saved);
         }
@@ -91,8 +91,8 @@ let AuthService = class AuthService {
         const account = dto.account.trim();
         console.log('[AuthService.login] start:', { account });
         try {
-            const collection = this.cloudbaseService.userAccounts();
-            const entity = (await this.cloudbaseService.findOne(collection, {
+            const collection = this.mongoService.userAccounts();
+            const entity = (await this.mongoService.findOne(collection, {
                 account,
             }));
             console.log('[AuthService.login] findOne result:', {
@@ -109,14 +109,14 @@ let AuthService = class AuthService {
             if (!matched) {
                 throw new common_1.UnauthorizedException('Invalid account or password');
             }
-            const lastLoginAt = this.cloudbaseService.nowIso();
+            const lastLoginAt = this.mongoService.nowIso();
             const sessionVersion = (Number(entity.sessionVersion) || 0) + 1;
-            await this.cloudbaseService.updateById(collection, entity._id, {
+            await this.mongoService.updateById(collection, entity._id, {
                 lastLoginAt,
                 sessionVersion,
                 updatedAt: lastLoginAt,
             });
-            const saved = await this.cloudbaseService.getById(collection, entity._id);
+            const saved = await this.mongoService.getById(collection, entity._id);
             console.log('[AuthService.login] success:', { account, id: entity._id });
             return this.buildAuthResponse(saved);
         }
@@ -129,8 +129,8 @@ let AuthService = class AuthService {
         if (!userId) {
             return null;
         }
-        const collection = this.cloudbaseService.userAccounts();
-        const entity = await this.cloudbaseService.getById(collection, userId);
+        const collection = this.mongoService.userAccounts();
+        const entity = await this.mongoService.getById(collection, userId);
         if (!entity) {
             return null;
         }
@@ -142,8 +142,8 @@ let AuthService = class AuthService {
         return this.serializeUser(account);
     }
     async getProfile(userId) {
-        const collection = this.cloudbaseService.userAccounts();
-        const entity = await this.cloudbaseService.getById(collection, userId);
+        const collection = this.mongoService.userAccounts();
+        const entity = await this.mongoService.getById(collection, userId);
         if (!entity) {
             throw new common_1.NotFoundException('Account not found');
         }
@@ -180,7 +180,7 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [cloudbase_service_1.CloudbaseService,
+    __metadata("design:paramtypes", [mongo_service_1.MongoService,
         jwt_1.JwtService,
         config_1.ConfigService])
 ], AuthService);

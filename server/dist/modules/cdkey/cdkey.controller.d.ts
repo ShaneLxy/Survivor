@@ -12,7 +12,7 @@ export declare class CdkeyController {
     } | {
         success: boolean;
         message: string;
-        rewards: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+        rewards: import("../../shared/mongo/mongo.types").MailAttachment[];
         cdkey: {
             id: string;
             code: string;

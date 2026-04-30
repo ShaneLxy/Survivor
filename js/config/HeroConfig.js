@@ -54,6 +54,42 @@ const HeroConfig = {
         legendary: { level: 0.05, star: 0.11 }
     },
 
+    specialTraitTracksByRarity: {
+        common: [
+            { stage: 1, kind: 'unlock', slot: 1, unlocksSlot: true, label: '解锁特技' },
+            { stage: 2, kind: 'boost', label: '第二强化' },
+            { stage: 3, kind: 'boost', label: '第三强化' },
+            { stage: 6, kind: 'boost', label: '第四强化' },
+            { stage: 11, kind: 'boost', label: '第五强化' },
+            { stage: 15, kind: 'boost', label: '第六强化' },
+            { stage: 16, kind: 'ultimate', label: '终极强化' }
+        ],
+        rare: [
+            { stage: 2, kind: 'unlock', slot: 1, unlocksSlot: true, label: '解锁第一特技' },
+            { stage: 4, kind: 'boost', label: '第一强化' },
+            { stage: 6, kind: 'boost', label: '第二强化' },
+            { stage: 11, kind: 'unlock', slot: 2, unlocksSlot: true, label: '解锁第二特技' },
+            { stage: 15, kind: 'boost', label: '第三强化' },
+            { stage: 16, kind: 'ultimate', label: '终极强化' }
+        ],
+        epic: [
+            { stage: 3, kind: 'unlock', slot: 1, unlocksSlot: true, label: '解锁第一特技' },
+            { stage: 4, kind: 'boost', label: '第一强化' },
+            { stage: 6, kind: 'unlock', slot: 2, unlocksSlot: true, label: '解锁第二特技' },
+            { stage: 11, kind: 'boost', label: '第三强化' },
+            { stage: 15, kind: 'unlock', slot: 3, unlocksSlot: true, label: '解锁第三特技' },
+            { stage: 16, kind: 'ultimate', label: '终极强化' }
+        ],
+        legendary: [
+            { stage: 3, kind: 'unlock', slot: 1, unlocksSlot: true, label: '解锁第一特技' },
+            { stage: 4, kind: 'boost', label: '第一强化' },
+            { stage: 6, kind: 'unlock', slot: 2, unlocksSlot: true, label: '解锁第二特技' },
+            { stage: 11, kind: 'boost', label: '第三强化' },
+            { stage: 15, kind: 'unlock', slot: 3, unlocksSlot: true, label: '解锁第三特技' },
+            { stage: 16, kind: 'ultimate', slot: 4, unlocksSlot: true, label: '解锁第四特技并终极强化' }
+        ]
+    },
+
     getUnitCatalog() {
         return window.UnitCatalogLoader?.getData?.() || null;
     },
@@ -141,6 +177,40 @@ const HeroConfig = {
         return this.getProfessionConfig(professionId)?.name || '未定职业';
     },
 
+    normalizeSpecialTraitTrackEntry(entry = {}, index = 0) {
+        const slot = Number(entry.slot);
+        const kind = entry.kind || (slot > 0 ? 'unlock' : 'boost');
+        return {
+            stage: this.normalizeStarLevel(entry.stage),
+            kind,
+            slot: Number.isFinite(slot) && slot > 0 ? slot : null,
+            unlocksSlot: Boolean(entry.unlocksSlot ?? ((kind === 'unlock' || kind === 'ultimate') && slot > 0)),
+            label: entry.label || `阶段${index + 1}`,
+            description: entry.description || ''
+        };
+    },
+
+    getSpecialTraitTrackByRarity(rarity, hero = null) {
+        const customTrack = Array.isArray(hero?.specialTraits?.track) ? hero.specialTraits.track : null;
+        const source = customTrack?.length ? customTrack : (this.specialTraitTracksByRarity[this.normalizeRarity(rarity)] || this.specialTraitTracksByRarity.common);
+        return source.map((entry, index) => this.normalizeSpecialTraitTrackEntry(entry, index));
+    },
+
+    getSpecialTraitSlotCount(rarity, hero = null) {
+        const configuredCount = Number(hero?.specialTraits?.slotCount);
+        if (Number.isFinite(configuredCount) && configuredCount > 0) {
+            return Math.max(1, Math.min(4, Math.floor(configuredCount)));
+        }
+
+        const customTraitsCount = Array.isArray(hero?.specialTraits?.traits) ? hero.specialTraits.traits.length : 0;
+        if (customTraitsCount > 0) {
+            return Math.max(1, Math.min(4, customTraitsCount));
+        }
+
+        const raritySlots = Number(window.GameConfig?.getRarityConfig?.(this.normalizeRarity(rarity))?.stars) || 1;
+        return Math.max(1, Math.min(4, raritySlots));
+    },
+
     getSpecialTraitConfig(heroConfigId) {
         const hero = this.getHeroConfig(heroConfigId) || {};
         const config = hero.specialTraits;
@@ -150,7 +220,9 @@ const HeroConfig = {
         return {
             name: config.name || hero.skill?.name || '专属特技',
             summary: config.summary || '',
-            stages: Array.isArray(config.stages) ? config.stages.map(stage => ({ ...stage })) : []
+            stages: Array.isArray(config.stages) ? config.stages.map(stage => ({ ...stage })) : [],
+            traits: Array.isArray(config.traits) ? config.traits.map(trait => ({ ...trait })) : [],
+            slotCount: Number(config.slotCount) || null
         };
     },
 
@@ -219,7 +291,302 @@ const HeroConfig = {
         return 1 + progress * growth.star;
     },
 
+    getSpecialTraitDefinitions(heroConfigId) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const rarity = this.normalizeRarity(hero.rarity);
+        const traitConfig = this.getSpecialTraitConfig(heroConfigId) || {};
+        const track = this.getSpecialTraitTrackByRarity(rarity, hero);
+        const skills = this.normalizeSkillCollection(hero.skills, hero.skill);
+        const customTraits = Array.isArray(traitConfig.traits) ? traitConfig.traits : [];
+        const slotCount = this.getSpecialTraitSlotCount(rarity, hero);
+        const unlockStageMap = new Map();
+
+        track.forEach(entry => {
+            if (entry.unlocksSlot && entry.slot) {
+                unlockStageMap.set(entry.slot, entry.stage);
+            }
+        });
+
+        return Array.from({ length: slotCount }, (_, index) => {
+            const slot = index + 1;
+            const source = customTraits[index] || skills[index] || {};
+            const unlockStage = unlockStageMap.get(slot) || track[0]?.stage || 1;
+            const unlockInfo = this.getStarDisplayInfo(unlockStage);
+            const generatedName = slotCount === 1 ? (source.name || '核心特技') : (source.name || `特技${slot}`);
+            return {
+                slot,
+                name: generatedName,
+                description: source.description || `该特技位将在后续为${hero.name || '该英雄'}配置具体效果。`,
+                unlockStage,
+                unlockLabel: `${unlockInfo.label}解锁`,
+                configured: Boolean(source.name || source.description)
+            };
+        });
+    },
+
+    buildSpecialTraitMilestoneDescription(entry, traits, hero, rarityName) {
+        const stageLabel = this.getStarDisplayInfo(entry.stage).label;
+        const traitName = entry.slot ? (traits[entry.slot - 1]?.name || `特技${entry.slot}`) : '';
+
+        if (entry.description) {
+            return entry.description;
+        }
+
+        if (entry.kind === 'unlock' && entry.slot) {
+            return `达到${stageLabel}后解锁${traitName}，后续可为该特技配置独立效果。`;
+        }
+
+        if (entry.kind === 'ultimate') {
+            if (entry.unlocksSlot && entry.slot) {
+                return `达到${stageLabel}后解锁${traitName}，并进入终极强化节点。`;
+            }
+            return `达到${stageLabel}后进入终极强化节点，用于承接该英雄的最终特技提升。`;
+        }
+
+        return `${rarityName}品质英雄在${stageLabel}进入“${entry.label}”节点，后续可为已解锁特技配置强化效果。`;
+    },
+
+    getSpecialTraitFramework(heroConfigId) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const rarity = this.normalizeRarity(hero.rarity);
+        const rarityConfig = window.GameConfig?.getRarityConfig?.(rarity) || { name: rarity };
+        const traitConfig = this.getSpecialTraitConfig(heroConfigId) || {};
+        const track = this.getSpecialTraitTrackByRarity(rarity, hero);
+        const traits = this.getSpecialTraitDefinitions(heroConfigId);
+        const defaultName = traits.length > 1 ? '专属特技体系' : (traits[0]?.name || hero.skill?.name || '专属特技');
+        const summary = traitConfig.summary || `${rarityConfig.name}品质英雄采用 ${traits.length} 个特技位的成长轨道，关键升星节点会逐步解锁或强化特技。`;
+
+        return {
+            name: traitConfig.name || defaultName,
+            summary,
+            rarity,
+            rarityName: rarityConfig.name || rarity,
+            slotCount: traits.length,
+            traits,
+            milestones: track.map((entry, index) => ({
+                ...this.getStarDisplayInfo(entry.stage),
+                stage: entry.stage,
+                sequence: index + 1,
+                kind: entry.kind,
+                slot: entry.slot,
+                unlocksSlot: entry.unlocksSlot,
+                label: entry.label,
+                description: this.buildSpecialTraitMilestoneDescription(entry, traits, hero, rarityConfig.name || rarity)
+            }))
+        };
+    },
+
+    getTraitBattleGrowth(heroConfigId) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const growth = hero?.specialTraits?.battleGrowth;
+        return growth && typeof growth === 'object' ? growth : null;
+    },
+
+    getTraitBattleModifiers(heroConfigId, starLevel) {
+        const normalizedStar = this.normalizeStarLevel(starLevel);
+        const growth = this.getTraitBattleGrowth(heroConfigId);
+        const modifiers = {
+            attackRangeBonus: 0,
+            statBonuses: {}
+        };
+
+        const attackRangeStages = Array.isArray(growth?.attackRangeStages) ? growth.attackRangeStages : [];
+        attackRangeStages.forEach(stageConfig => {
+            if (normalizedStar >= this.normalizeStarLevel(stageConfig?.stage)) {
+                modifiers.attackRangeBonus = Math.max(modifiers.attackRangeBonus, Number(stageConfig?.value) || 0);
+            }
+        });
+
+        const statStages = Array.isArray(growth?.statStages) ? growth.statStages : [];
+        statStages.forEach(stageConfig => {
+            if (normalizedStar < this.normalizeStarLevel(stageConfig?.stage)) {
+                return;
+            }
+            Object.entries(stageConfig?.stats || {}).forEach(([key, value]) => {
+                modifiers.statBonuses[key] = Number(value) || 0;
+            });
+        });
+
+        return modifiers;
+    },
+
+    getHeroSkillsForStarLevel(heroConfigId, starLevel) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const baseSkills = this.normalizeSkillCollection(hero.skills, hero.skill);
+        const normalizedStar = this.normalizeStarLevel(starLevel);
+        const growth = this.getTraitBattleGrowth(heroConfigId);
+        const skillGrowthMap = new Map();
+
+        (Array.isArray(growth?.skills) ? growth.skills : []).forEach(skillGrowth => {
+            const skillIndex = Math.max(0, Number(skillGrowth?.index) || 0);
+            skillGrowthMap.set(skillIndex, Array.isArray(skillGrowth?.stages) ? skillGrowth.stages : []);
+        });
+
+        return baseSkills.map((skill, index) => {
+            const evolvedSkill = { ...skill };
+            const growthStages = skillGrowthMap.get(index) || [];
+            growthStages.forEach(stageConfig => {
+                if (normalizedStar < this.normalizeStarLevel(stageConfig?.stage)) {
+                    return;
+                }
+                Object.entries(stageConfig || {}).forEach(([key, value]) => {
+                    if (key === 'stage') {
+                        return;
+                    }
+                    evolvedSkill[key] = value;
+                });
+            });
+            return evolvedSkill;
+        }).filter((skill) => {
+            const unlockStage = Math.max(1, Number(skill?.unlockStage) || 1);
+            return normalizedStar >= unlockStage;
+        });
+    },
+
+    getHeroReactiveEffectsForStarLevel(heroConfigId, starLevel) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const baseEffects = Array.isArray(hero.reactiveEffects)
+            ? hero.reactiveEffects.filter(Boolean).map(effect => ({
+                ...effect,
+                statusEffects: Array.isArray(effect?.statusEffects)
+                    ? effect.statusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : []
+            }))
+            : [];
+        const normalizedStar = this.normalizeStarLevel(starLevel);
+        const growth = this.getTraitBattleGrowth(heroConfigId);
+        const reactiveGrowthMap = new Map();
+
+        (Array.isArray(growth?.reactiveEffects) ? growth.reactiveEffects : []).forEach(effectGrowth => {
+            const effectIndex = Math.max(0, Number(effectGrowth?.index) || 0);
+            reactiveGrowthMap.set(effectIndex, Array.isArray(effectGrowth?.stages) ? effectGrowth.stages : []);
+        });
+
+        return baseEffects.map((effect, index) => {
+            const evolvedEffect = {
+                ...effect,
+                statusEffects: Array.isArray(effect?.statusEffects)
+                    ? effect.statusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : []
+            };
+            const growthStages = reactiveGrowthMap.get(index) || [];
+            growthStages.forEach(stageConfig => {
+                if (normalizedStar < this.normalizeStarLevel(stageConfig?.stage)) {
+                    return;
+                }
+                Object.entries(stageConfig || {}).forEach(([key, value]) => {
+                    if (key === 'stage') {
+                        return;
+                    }
+                    evolvedEffect[key] = key === 'statusEffects' && Array.isArray(value)
+                        ? value.filter(Boolean).map(status => ({ ...status }))
+                        : value;
+                });
+            });
+            return evolvedEffect;
+        }).filter((effect) => {
+            const unlockStage = Math.max(1, Number(effect?.unlockStage) || 1);
+            return normalizedStar >= unlockStage;
+        });
+    },
+
+    getHeroBasicAttackEffectsForStarLevel(heroConfigId, starLevel) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const baseEffects = Array.isArray(hero.basicAttackEffects)
+            ? hero.basicAttackEffects.filter(Boolean).map(effect => ({
+                ...effect,
+                statusEffects: Array.isArray(effect?.statusEffects)
+                    ? effect.statusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : []
+            }))
+            : [];
+        const normalizedStar = this.normalizeStarLevel(starLevel);
+        const growth = this.getTraitBattleGrowth(heroConfigId);
+        const effectGrowthMap = new Map();
+
+        (Array.isArray(growth?.basicAttackEffects) ? growth.basicAttackEffects : []).forEach(effectGrowth => {
+            const effectIndex = Math.max(0, Number(effectGrowth?.index) || 0);
+            effectGrowthMap.set(effectIndex, Array.isArray(effectGrowth?.stages) ? effectGrowth.stages : []);
+        });
+
+        return baseEffects.map((effect, index) => {
+            const evolvedEffect = {
+                ...effect,
+                statusEffects: Array.isArray(effect?.statusEffects)
+                    ? effect.statusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : []
+            };
+            const growthStages = effectGrowthMap.get(index) || [];
+            growthStages.forEach(stageConfig => {
+                if (normalizedStar < this.normalizeStarLevel(stageConfig?.stage)) {
+                    return;
+                }
+                Object.entries(stageConfig || {}).forEach(([key, value]) => {
+                    if (key === 'stage') {
+                        return;
+                    }
+                    evolvedEffect[key] = key === 'statusEffects' && Array.isArray(value)
+                        ? value.filter(Boolean).map(status => ({ ...status }))
+                        : value;
+                });
+            });
+            return evolvedEffect;
+        });
+    },
+
+    getHeroPassiveEffectsForStarLevel(heroConfigId, starLevel) {
+        const hero = this.getHeroConfig(heroConfigId) || {};
+        const baseEffects = Array.isArray(hero.passiveEffects)
+            ? hero.passiveEffects.filter(Boolean).map(effect => ({
+                ...effect,
+                statusEffects: Array.isArray(effect?.statusEffects)
+                    ? effect.statusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : [],
+                allyStatusEffects: Array.isArray(effect?.allyStatusEffects)
+                    ? effect.allyStatusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : []
+            }))
+            : [];
+        const normalizedStar = this.normalizeStarLevel(starLevel);
+        const growth = this.getTraitBattleGrowth(heroConfigId);
+        const effectGrowthMap = new Map();
+
+        (Array.isArray(growth?.passiveEffects) ? growth.passiveEffects : []).forEach(effectGrowth => {
+            const effectIndex = Math.max(0, Number(effectGrowth?.index) || 0);
+            effectGrowthMap.set(effectIndex, Array.isArray(effectGrowth?.stages) ? effectGrowth.stages : []);
+        });
+
+        return baseEffects.map((effect, index) => {
+            const evolvedEffect = {
+                ...effect,
+                statusEffects: Array.isArray(effect?.statusEffects)
+                    ? effect.statusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : [],
+                allyStatusEffects: Array.isArray(effect?.allyStatusEffects)
+                    ? effect.allyStatusEffects.filter(Boolean).map(status => ({ ...status }))
+                    : []
+            };
+            const growthStages = effectGrowthMap.get(index) || [];
+            growthStages.forEach(stageConfig => {
+                if (normalizedStar < this.normalizeStarLevel(stageConfig?.stage)) {
+                    return;
+                }
+                Object.entries(stageConfig || {}).forEach(([key, value]) => {
+                    if (key === 'stage') {
+                        return;
+                    }
+                    evolvedEffect[key] = (key === 'statusEffects' || key === 'allyStatusEffects') && Array.isArray(value)
+                        ? value.filter(Boolean).map(status => ({ ...status }))
+                        : value;
+                });
+            });
+            return evolvedEffect;
+        });
+    },
+
     getSpecialTraitStages(heroConfigId) {
+        return this.getSpecialTraitFramework(heroConfigId).milestones;
+
         const hero = this.getHeroConfig(heroConfigId) || {};
         const heroName = hero.name || '该英雄';
         const skillName = hero.skill?.name || '专属特技';

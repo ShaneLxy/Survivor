@@ -41,6 +41,7 @@ class Item {
             case 'heal':
                 if (target && typeof target.heal === 'function') {
                     const healed = target.heal(this.effect.value);
+                    result.effect = { type: 'heal', value: healed };
                     result.message = `恢复了${healed}点生命值`;
                 } else {
                     result.success = false;

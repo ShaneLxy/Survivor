@@ -15,7 +15,10 @@ class Hero {
         this.level = Math.max(1, Number(level) || 1);
         this.exp = 0;
         this.stars = HeroConfig.normalizeStarLevel(1);
-        this.skills = HeroConfig.normalizeSkillCollection(config.skills, config.skill);
+        this.skills = HeroConfig.getHeroSkillsForStarLevel(this.configId, this.stars);
+        this.reactiveEffects = HeroConfig.getHeroReactiveEffectsForStarLevel(this.configId, this.stars);
+        this.basicAttackEffects = HeroConfig.getHeroBasicAttackEffectsForStarLevel(this.configId, this.stars);
+        this.passiveEffects = HeroConfig.getHeroPassiveEffectsForStarLevel(this.configId, this.stars);
         this.skill = this.skills[0] || null;
         this.equipment = {
             weapon: null,
@@ -114,27 +117,41 @@ class Hero {
         return HeroConfig.getSpecialTraitStages(this.configId);
     }
 
+    getSpecialTraitFramework() {
+        return HeroConfig.getSpecialTraitFramework(this.configId);
+    }
+
     getBaseStats() {
         const config = HeroConfig.getHeroConfig(this.configId);
         const stats = HeroConfig.calculateStats(config, this.level);
         const starBonus = HeroConfig.getStarBonusMultiplier(this.stars, config?.rarity || this.rarity);
         const trainingBonus = Math.max(0, Number(window.shelterManager?.getTrainingGroundStatBonus?.() || 0));
         const trainingMultiplier = 1 + trainingBonus;
+        const traitModifiers = HeroConfig.getTraitBattleModifiers(this.configId, this.stars);
+        const statBonuses = traitModifiers.statBonuses || {};
 
         return {
-            hp: Math.floor(stats.hp * starBonus * trainingMultiplier),
-            attack: Math.floor(stats.attack * starBonus * trainingMultiplier),
+            hp: Math.floor((stats.hp + (Number(statBonuses.hp) || 0)) * starBonus * trainingMultiplier),
+            attack: Math.floor((stats.attack + (Number(statBonuses.attack) || 0)) * starBonus * trainingMultiplier),
             attackCoefficient: Math.max(0.05, Number(stats.attackCoefficient) || 1),
-            defense: Math.floor(stats.defense * starBonus * trainingMultiplier),
-            speed: Math.floor(stats.speed * starBonus * trainingMultiplier),
-            crit: Math.floor(stats.crit * starBonus * trainingMultiplier),
-            antiCrit: Math.floor(stats.antiCrit * starBonus * trainingMultiplier),
-            defensePen: Math.floor(stats.defensePen * starBonus * trainingMultiplier),
-            accuracy: Math.floor(stats.accuracy * starBonus * trainingMultiplier),
-            dodge: Math.floor(stats.dodge * starBonus * trainingMultiplier),
-            attackRange: stats.attackRange,
-            moveRange: stats.moveRange
+            defense: Math.floor((stats.defense + (Number(statBonuses.defense) || 0)) * starBonus * trainingMultiplier),
+            speed: Math.floor((stats.speed + (Number(statBonuses.speed) || 0)) * starBonus * trainingMultiplier),
+            crit: Math.floor((stats.crit + (Number(statBonuses.crit) || 0)) * starBonus * trainingMultiplier),
+            antiCrit: Math.floor((stats.antiCrit + (Number(statBonuses.antiCrit) || 0)) * starBonus * trainingMultiplier),
+            defensePen: Math.floor((stats.defensePen + (Number(statBonuses.defensePen) || 0)) * starBonus * trainingMultiplier),
+            accuracy: Math.floor((stats.accuracy + (Number(statBonuses.accuracy) || 0)) * starBonus * trainingMultiplier),
+            dodge: Math.floor((stats.dodge + (Number(statBonuses.dodge) || 0)) * starBonus * trainingMultiplier),
+            attackRange: Math.max(1, (stats.attackRange || 1) + (traitModifiers.attackRangeBonus || 0)),
+            moveRange: Math.max(1, (stats.moveRange || 1) + (Number(statBonuses.moveRange) || 0))
         };
+    }
+
+    refreshSkills() {
+        this.skills = HeroConfig.getHeroSkillsForStarLevel(this.configId, this.stars);
+        this.reactiveEffects = HeroConfig.getHeroReactiveEffectsForStarLevel(this.configId, this.stars);
+        this.basicAttackEffects = HeroConfig.getHeroBasicAttackEffectsForStarLevel(this.configId, this.stars);
+        this.passiveEffects = HeroConfig.getHeroPassiveEffectsForStarLevel(this.configId, this.stars);
+        this.skill = this.skills[0] || null;
     }
 
     getEquipmentStats() {
@@ -164,6 +181,7 @@ class Hero {
     refreshStats(resetHp = false) {
         const previousHp = this.hp;
         const previousMaxHp = this.maxHp;
+        this.refreshSkills();
         const baseStats = this.getBaseStats();
         const equipmentStats = this.getEquipmentStats();
 

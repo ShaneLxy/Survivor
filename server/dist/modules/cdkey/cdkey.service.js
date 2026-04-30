@@ -11,18 +11,18 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CdkeyService = void 0;
 const common_1 = require("@nestjs/common");
-const cloudbase_service_1 = require("../../shared/cloudbase/cloudbase.service");
+const mongo_service_1 = require("../../shared/mongo/mongo.service");
 let CdkeyService = class CdkeyService {
-    constructor(cloudbaseService) {
-        this.cloudbaseService = cloudbaseService;
+    constructor(mongoService) {
+        this.mongoService = mongoService;
     }
     async redeem(accountId, rawCode) {
         const code = String(rawCode || '').trim().toUpperCase();
         if (!code) {
             throw new common_1.BadRequestException('请输入兑换码');
         }
-        const collection = this.cloudbaseService.cdkeys();
-        const entity = (await this.cloudbaseService.findOne(collection, { code }));
+        const collection = this.mongoService.cdkeys();
+        const entity = (await this.mongoService.findOne(collection, { code }));
         if (!entity) {
             return { success: false, message: '兑换码不存在', rewards: [] };
         }
@@ -32,8 +32,8 @@ let CdkeyService = class CdkeyService {
         if (this.isExpired(entity.expireAt)) {
             return { success: false, message: '兑换码已过期', rewards: [] };
         }
-        const now = this.cloudbaseService.nowIso();
-        await this.cloudbaseService.updateById(collection, entity._id, {
+        const now = this.mongoService.nowIso();
+        await this.mongoService.updateById(collection, entity._id, {
             used: true,
             usedByAccountId: accountId,
             usedAt: now,
@@ -69,6 +69,6 @@ let CdkeyService = class CdkeyService {
 exports.CdkeyService = CdkeyService;
 exports.CdkeyService = CdkeyService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [cloudbase_service_1.CloudbaseService])
+    __metadata("design:paramtypes", [mongo_service_1.MongoService])
 ], CdkeyService);
 //# sourceMappingURL=cdkey.service.js.map

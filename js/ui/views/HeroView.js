@@ -27,19 +27,71 @@ class HeroView {
         this.element.innerHTML = '';
     }
 
+    resolveAssetUrl(path) {
+        if (!path) {
+            return '';
+        }
+        return window.VersionManager?.getVersionedAssetUrl?.(path) || path;
+    }
+
+    resolveAbsoluteAssetUrl(path) {
+        const resolved = this.resolveAssetUrl(path);
+        if (!resolved) {
+            return '';
+        }
+
+        try {
+            return new URL(resolved, window.location.href).toString();
+        } catch (error) {
+            return resolved;
+        }
+    }
+
+    getHeroUiStyle() {
+        const actionEmblem = this.resolveAbsoluteAssetUrl('assets/media/recruit/emblem_action.png');
+        return `style="--hero-command-action-emblem: url('${actionEmblem}');"`;
+    }
+
     render() {
+        const allHeroes = heroManager.getAllHeroes();
+        const teamCount = allHeroes.filter(hero => heroManager.isHeroInTeam(hero.id)).length;
         this.element.innerHTML = `
-            <div class="hero-view">
-                <h2 class="hero-view-title">英雄管理</h2>
-                <div class="hero-toolbar">
-                    <label class="hero-filter-label">
-                        <span>职业筛选</span>
-                        <select class="hero-filter-select" onchange="window.game.ui.heroView.setProfessionFilter(this.value)">
-                            ${this.getProfessionFilterOptions()}
-                        </select>
-                    </label>
-                    <button class="btn btn-secondary hero-toolbar-btn" onclick="window.game.ui.heroView.showHeroAlbum()">图鉴</button>
-                    <button class="btn btn-secondary hero-toolbar-btn" onclick="window.game.ui.heroView.showTeam()">编队</button>
+            <div class="hero-view" ${this.getHeroUiStyle()}>
+                <div class="hero-stage-header">
+                    <div class="hero-stage-heading-row">
+                        <div class="hero-stage-heading-group">
+                            <div class="hero-stage-kicker">HERO COMMAND</div>
+                            <h2 class="hero-view-title">英雄管理</h2>
+                        </div>
+                        <div class="hero-stage-stats">
+                            <div class="hero-stage-stat">
+                                <span class="hero-stage-stat-label">已收编</span>
+                                <strong class="hero-stage-stat-value">${allHeroes.length}</strong>
+                            </div>
+                            <div class="hero-stage-stat">
+                                <span class="hero-stage-stat-label">出战中</span>
+                                <strong class="hero-stage-stat-value">${teamCount}</strong>
+                            </div>
+                            <div class="hero-view-team-power hero-stage-stat hero-stage-stat-power" id="hero-team-power">
+                                <span class="hero-view-team-power-label">总战力</span>
+                                <span class="hero-view-team-power-value">${this.formatPower(heroManager.getTeamPower())}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-stage-subtitle">整备幸存者小队，筛选职业、查看图鉴，并调整出战编队。</div>
+                </div>
+                <div class="hero-toolbar hero-command-toolbar">
+                    ${this.renderProfessionTabs()}
+                    <div class="hero-command-actions">
+                        <button class="hero-command-action" type="button" onclick="window.game.ui.heroView.showHeroAlbum()">
+                            <span class="hero-command-action-icon" aria-hidden="true"></span>
+                            <span>图鉴</span>
+                        </button>
+                        <button class="hero-command-action hero-command-action-primary" type="button" onclick="window.game.ui.heroView.showTeam()">
+                            <span class="hero-command-action-icon" aria-hidden="true"></span>
+                            <span>编队</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="hero-grid-wrapper">
                     <div id="hero-grid" class="hero-grid"></div>
@@ -47,6 +99,21 @@ class HeroView {
             </div>
         `;
         this.renderHeroes();
+    }
+
+    formatPower(value) {
+        return Math.max(0, Number(value) || 0).toLocaleString('zh-CN');
+    }
+
+    updateTeamPowerDisplay() {
+        const powerElement = this.element.querySelector('#hero-team-power .hero-view-team-power-value');
+        if (!powerElement) {
+            return;
+        }
+        powerElement.textContent = this.formatPower(heroManager.getTeamPower());
+        powerElement.classList.remove('is-power-pulse');
+        void powerElement.offsetWidth;
+        powerElement.classList.add('is-power-pulse');
     }
 
     getProfessionFilterOptions() {
@@ -57,6 +124,44 @@ class HeroView {
             { value: 'defender', label: HeroConfig.getProfessionName('defender') }
         ];
         return options.map(option => `<option value="${option.value}" ${this.professionFilter === option.value ? 'selected' : ''}>${option.label}</option>`).join('');
+    }
+
+    getProfessionFilterItems() {
+        const heroes = heroManager.getAllHeroes();
+        const countByProfession = profession => heroes.filter(hero => hero.profession === profession).length;
+        return [
+            { value: 'all', label: '全部', subtitle: 'ALL UNITS', count: heroes.length, icon: this.resolveAbsoluteAssetUrl('assets/media/recruit/emblem_action.png') },
+            { value: 'raider', label: HeroConfig.getProfessionName('raider'), subtitle: 'RAIDER', count: countByProfession('raider'), icon: HeroConfig.getProfessionIconPath('raider') },
+            { value: 'psionic', label: HeroConfig.getProfessionName('psionic'), subtitle: 'PSIONIC', count: countByProfession('psionic'), icon: HeroConfig.getProfessionIconPath('psionic') },
+            { value: 'defender', label: HeroConfig.getProfessionName('defender'), subtitle: 'DEFENDER', count: countByProfession('defender'), icon: HeroConfig.getProfessionIconPath('defender') }
+        ];
+    }
+
+    renderProfessionTabs() {
+        return `
+            <div class="hero-filter-tabs" role="tablist" aria-label="职业筛选">
+                ${this.getProfessionFilterItems().map(item => {
+                    const isActive = this.professionFilter === item.value;
+                    const icon = item.icon
+                        ? `<span class="hero-filter-tab-icon"><img src="${item.icon}" alt="" aria-hidden="true"></span>`
+                        : '<span class="hero-filter-tab-icon hero-filter-tab-icon-fallback" aria-hidden="true"></span>';
+                    return `
+                        <button
+                            type="button"
+                            class="hero-filter-tab ${isActive ? 'is-active' : ''}"
+                            onclick="window.game.ui.heroView.setProfessionFilter('${item.value}')"
+                            role="tab"
+                            aria-selected="${isActive}"
+                            aria-label="${item.label}：${item.count}"
+                            title="${item.label}：${item.count}"
+                        >
+                            ${icon}
+                            <strong class="hero-filter-tab-count">${item.count}</strong>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        `;
     }
 
     setProfessionFilter(value) {
@@ -75,29 +180,103 @@ class HeroView {
     }
 
     showHeroAlbum() {
-        const allHeroConfigs = this.getSortedHeroAlbumConfigs();
-        const ownedConfigIds = new Set(heroManager.getAllHeroes().map(hero => hero.configId));
-        let content = '<div class="hero-modal-grid">';
-        allHeroConfigs.forEach(heroConfig => {
-            const isOwned = ownedConfigIds.has(heroConfig.id);
-            const rarityColor = this.getRarityColor(heroConfig.rarity);
-            content += `
-                <div class="hero-card hero-card-compact card ${isOwned ? '' : 'grayscale'}" style="opacity:${isOwned ? '1' : '0.5'};cursor:default;${isOwned ? '' : 'filter:grayscale(100%);'}">
-                    ${this.getProfessionBadgeMarkup(heroConfig)}
-                    ${this.getHeroAvatarMarkup(heroConfig)}
-                    <div class="hero-name" style="color:${rarityColor}">${heroConfig.name}</div>
-                    <div class="hero-stars" style="font-size:10px;color:${isOwned ? '#4caf50' : '#f44336'}">${isOwned ? '已拥有' : '未获得'}</div>
-                </div>
-            `;
-        });
-        content += '</div>';
+        const content = this.getHeroAlbumModalContent();
         const modal = new Modal({
             title: '英雄图鉴',
-            className: 'hero-preview-modal',
+            className: 'hero-preview-modal hero-command-modal-shell hero-album-modal-shell',
             content,
             buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }]
         });
         modal.show();
+    }
+
+    getHeroRosterHeader({ kicker, title, subtitle, metrics = [], logoCode = 'HC' }) {
+        const logoUrl = this.resolveAbsoluteAssetUrl('assets/media/recruit/emblem_action.png');
+        return `
+            <div class="hero-roster-command-header">
+                <div class="hero-roster-logo" aria-hidden="true">
+                    ${logoUrl ? `<img src="${logoUrl}" alt="">` : ''}
+                    <span>${logoCode}</span>
+                </div>
+                <div class="hero-roster-heading">
+                    <div class="hero-roster-kicker">${kicker}</div>
+                    <div class="hero-roster-title">${title}</div>
+                    <div class="hero-roster-subtitle">${subtitle}</div>
+                </div>
+                <div class="hero-roster-metrics">
+                    ${metrics.map(metric => `
+                        <div class="hero-roster-metric">
+                            <strong>${metric.value}</strong>
+                            <span>${metric.label}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    getHeroAlbumRarityStrip(allHeroConfigs, ownedConfigIds) {
+        const rarityOrder = ['legendary', 'epic', 'rare', 'common'];
+        const items = rarityOrder
+            .map(rarity => {
+                const configs = allHeroConfigs.filter(heroConfig => heroConfig.rarity === rarity);
+                if (configs.length === 0) {
+                    return '';
+                }
+                const owned = configs.filter(heroConfig => ownedConfigIds.has(heroConfig.id)).length;
+                const rarityColor = this.getRarityColor(rarity);
+                return `
+                    <div class="hero-roster-rarity-chip" style="--hero-card-rarity:${rarityColor};">
+                        <span>${this.getRarityName(rarity)}</span>
+                        <strong>${owned}/${configs.length}</strong>
+                    </div>
+                `;
+            })
+            .filter(Boolean)
+            .join('');
+
+        return `<div class="hero-roster-rarity-strip">${items}</div>`;
+    }
+
+    getHeroAlbumCardMarkup(heroConfig, isOwned) {
+        const rarityColor = this.getRarityColor(heroConfig.rarity);
+        return `
+            <div class="hero-card hero-card-compact hero-roster-card hero-album-card card ${isOwned ? 'is-owned' : 'is-locked'}" style="--hero-card-rarity:${rarityColor};" title="${heroConfig.name}">
+                ${this.getProfessionBadgeMarkup(heroConfig)}
+                ${this.getHeroAvatarMarkup(heroConfig)}
+                <div class="hero-name">${heroConfig.name}</div>
+                <div class="hero-roster-card-status ${isOwned ? 'is-owned' : 'is-locked'}">${isOwned ? '已拥有' : '未获得'}</div>
+            </div>
+        `;
+    }
+
+    getHeroAlbumModalContent() {
+        const allHeroConfigs = this.getSortedHeroAlbumConfigs();
+        const ownedConfigIds = new Set(heroManager.getAllHeroes().map(hero => hero.configId));
+        const ownedCount = allHeroConfigs.filter(heroConfig => ownedConfigIds.has(heroConfig.id)).length;
+        const ownedHeroes = heroManager.getAllHeroes();
+        const cards = allHeroConfigs
+            .map(heroConfig => this.getHeroAlbumCardMarkup(heroConfig, ownedConfigIds.has(heroConfig.id)))
+            .join('');
+
+        return `
+            <div class="hero-roster-modal hero-album-terminal">
+                ${this.getHeroRosterHeader({
+                    kicker: 'HERO INDEX',
+                    title: '英雄图鉴',
+                    subtitle: '查阅已收编与待发现英雄档案，快速确认职业与稀有度。',
+                    logoCode: 'IDX',
+                    metrics: [
+                        { value: `${ownedCount}/${allHeroConfigs.length}`, label: '图鉴' },
+                        { value: `${ownedHeroes.length}`, label: '已收编' }
+                    ]
+                })}
+                ${this.getHeroAlbumRarityStrip(allHeroConfigs, ownedConfigIds)}
+                <div class="hero-modal-grid hero-roster-grid hero-album-grid">
+                    ${cards}
+                </div>
+            </div>
+        `;
     }
 
     getHeroRarityOrder(rarity) {
@@ -161,6 +340,7 @@ class HeroView {
         this.heroDetailModal = new Modal({
             title: hero.name,
             content: this.getHeroDetailContent(hero),
+            className: 'hero-detail-modal',
             buttons: [
                 { text: '关闭', className: 'btn-secondary', onClick: () => this.closeHeroDetail() }
             ],
@@ -245,8 +425,7 @@ class HeroView {
         const expRequired = hero.getExpRequired();
         const levelCap = hero.getLevelCap();
         const currentFragments = heroManager.getFragments(hero.configId);
-        const starDisplay = info.starInfo || HeroConfig.getStarDisplayInfo(info.stars);
-        const statRows = HeroConfig.getDisplayStats().map(statKey => {
+        const buildStatRows = statKeys => statKeys.map(statKey => {
             const definition = HeroConfig.getStatDefinition(statKey);
             const value = statKey === 'hp' ? info.stats.maxHp : info.stats[statKey];
             return `
@@ -256,42 +435,85 @@ class HeroView {
                 </div>
             `;
         }).join('');
+        const coreStatKeys = ['hp', 'attack', 'defense', 'speed'];
+        const advancedStatKeys = HeroConfig.getDisplayStats().filter(statKey => !coreStatKeys.includes(statKey));
+        const coreStatRows = buildStatRows(coreStatKeys);
+        const advancedStatRows = buildStatRows(advancedStatKeys);
 
         const equipmentSlots = ['weapon', 'clothes', 'pants', 'shoes'].map(slot => this.getEquipmentSlotMarkup(hero, slot)).join('');
         const starCostHtml = starUpgradeInfo.isMax
             ? `<span style="color:#fbbf24;">已升满</span>（当前 ${currentFragments}）`
             : `<span style="color:${starUpgradeInfo.can ? '#4caf50' : '#f87171'}">${starUpgradeInfo.cost} 个碎片</span>（当前 ${currentFragments}）`;
+        const expPercent = expRequired > 0 ? Math.max(0, Math.min(100, (info.exp / expRequired) * 100)) : 100;
 
         return `
             <div class="hero-detail-panel">
-                <div class="hero-detail-header">
-                    <div class="hero-detail-visual">
-                        ${this.getHeroAvatarMarkup(info, 'large')}
+                <div class="hero-detail-hero-card hero-detail-rarity-${hero.rarity}">
+                    <div class="hero-detail-header">
+                        <div class="hero-detail-visual">
+                            <div class="hero-detail-visual-frame">
+                                ${this.getHeroAvatarMarkup(info, 'large')}
+                                ${this.getProfessionBadgeMarkup(info)}
+                                <div class="hero-detail-overlay hero-detail-power-overlay">
+                                    <span class="hero-detail-power-label">战力</span>
+                                    <strong class="hero-detail-power-value">${info.power}</strong>
+                                </div>
+                                <div class="hero-detail-overlay hero-detail-level-overlay">LV.${info.level}</div>
+                                ${this.getHeroStarMarkup(info.stars, 'hero-detail-stars')}
+                            </div>
+                        </div>
+                        <div class="hero-detail-info">
+                            <div class="hero-detail-info-row hero-detail-info-row-top">
+                                <div class="hero-detail-title-group">
+                                    <div class="hero-detail-name" style="color:${this.getRarityColor(hero.rarity)};">${hero.name}</div>
+                                    <span class="hero-detail-meta-item hero-detail-rarity-tag">${this.getRarityName(hero.rarity)}</span>
+                                    <div class="hero-detail-profession">${HeroConfig.getProfessionName(info.profession)}</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="hero-detail-equipment-column hero-detail-equipment-column-right">${equipmentSlots}</div>
+                    <div class="hero-detail-actions">
+                        <button class="btn btn-primary" onclick="window.game.ui.heroView.levelUpHero('${hero.id}')">升级</button>
+                        <button class="btn btn-primary" onclick="window.game.ui.heroView.upgradeStars('${hero.id}')">升星</button>
+                        <button class="btn btn-secondary" onclick="window.game.ui.heroView.showSpecialTraits('${hero.id}')">特技</button>
+                    </div>
                 </div>
-                <div class="hero-detail-info">
-                    <div class="hero-detail-info-row hero-detail-info-row-top">
-                        <div class="hero-detail-name" style="color:${this.getRarityColor(hero.rarity)};">${hero.name}</div>
-                        <div class="hero-detail-profession">${HeroConfig.getProfessionName(info.profession)}</div>
+                <div class="hero-detail-growth-card">
+                    <div class="hero-detail-section-head">
+                        <span>成长</span>
+                        <span>等级上限 Lv.${levelCap}</span>
                     </div>
-                    <div class="hero-detail-info-row hero-detail-info-row-meta">
-                        <span class="hero-detail-meta-item">${this.getRarityName(hero.rarity)}</span>
-                        <span class="hero-detail-meta-item">等级 Lv.${info.level}</span>
-                        <span class="hero-detail-meta-item">${starDisplay.label}</span>
+                    <div class="hero-detail-exp-track">
+                        <div class="hero-detail-exp-fill" style="width:${expPercent.toFixed(2)}%;"></div>
                     </div>
-                    <div class="hero-detail-info-row hero-detail-info-row-power">
-                        <span class="hero-detail-power">战力 ${info.power}</span>
+                    <div class="hero-detail-growth-meta">
+                        <span class="hero-exp-progress">经验：${info.exp}/${expRequired}</span>
+                        <span class="hero-star-cost">升星消耗：${starCostHtml}</span>
                     </div>
                 </div>
-                <div class="hero-detail-actions">
-                    <button class="btn btn-primary" onclick="window.game.ui.heroView.levelUpHero('${hero.id}')">升级</button>
-                    <button class="btn btn-primary" onclick="window.game.ui.heroView.upgradeStars('${hero.id}')">升星</button>
-                    <button class="btn btn-secondary" onclick="window.game.ui.heroView.showSpecialTraits('${hero.id}')">特技</button>
+                <div class="hero-detail-equipment-panel">
+                    <div class="hero-detail-section-head">
+                        <span>装备</span>
+                        <span>点击可查看或更换</span>
+                    </div>
+                    <div class="hero-detail-equipment-strip">${equipmentSlots}</div>
                 </div>
-                <div class="hero-exp-progress">经验：${info.exp}/${expRequired} · 当前等级上限 Lv.${levelCap}</div>
-                <div class="hero-star-cost">升星消耗：${starCostHtml}</div>
-                <div class="hero-stat-grid">${statRows}</div>
+                <div class="hero-detail-stats-panel">
+                    <div class="hero-detail-stats-section">
+                        <div class="hero-detail-section-head">
+                            <span>核心属性</span>
+                            <span>战斗基础面板</span>
+                        </div>
+                        <div class="hero-stat-grid hero-stat-grid-core">${coreStatRows}</div>
+                    </div>
+                    <div class="hero-detail-stats-section">
+                        <div class="hero-detail-section-head">
+                            <span>进阶属性</span>
+                            <span>点击词条可查看说明</span>
+                        </div>
+                        <div class="hero-stat-grid hero-stat-grid-advanced">${advancedStatRows}</div>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -384,6 +606,7 @@ class HeroView {
         if (result?.success) {
             Toast.success(`${hero.name}升级了！`);
             this.render();
+            this.updateTeamPowerDisplay();
             this.updateHeroDetailModal(hero);
             window.game.save();
         } else if (result?.reason === 'star_level_cap') {
@@ -414,6 +637,7 @@ class HeroView {
             this.equipmentBubble = null;
             Toast.success(`${hero.name}升星成功`);
             this.render();
+            this.updateTeamPowerDisplay();
             this.updateHeroDetailModal(hero);
             window.game.save();
         } else {
@@ -428,25 +652,43 @@ class HeroView {
             return;
         }
         const currentStage = hero.stars;
-        const traitConfig = HeroConfig.getSpecialTraitConfig(hero.configId);
-        const traits = hero.getSpecialTraitStages();
+        const traitFramework = hero.getSpecialTraitFramework();
+        const currentStageInfo = HeroConfig.getStarDisplayInfo(currentStage);
+        const unlockedTraitCount = traitFramework.traits.filter(trait => currentStage >= trait.unlockStage).length;
         const content = `
             <div class="hero-trait-panel">
                 <div class="hero-trait-intro">
-                    <div><strong>${traitConfig?.name || hero.skill?.name || '专属特技'}</strong></div>
-                    ${traitConfig?.summary ? `<div>${traitConfig.summary}</div>` : ''}
-                    <div>当前阶段：${HeroConfig.getStarDisplayInfo(currentStage).label}</div>
+                    <div class="hero-trait-meta">当前阶段：${currentStageInfo.label} · 已解锁 ${unlockedTraitCount}/${traitFramework.slotCount} 个特技位</div>
                 </div>
+                <div class="hero-trait-section-title">特技位概览</div>
+                <div class="hero-trait-slots">
+                    ${traitFramework.traits.map(trait => {
+                        const unlocked = currentStage >= trait.unlockStage;
+                        return `
+                            <div class="hero-trait-slot ${unlocked ? 'unlocked' : 'locked'}">
+                                <div class="hero-trait-slot-header">
+                                    <div class="hero-trait-slot-title">特技${trait.slot} · ${trait.name}</div>
+                                    <div class="hero-trait-slot-badge">${unlocked ? '已解锁' : trait.unlockLabel}</div>
+                                </div>
+                                <div class="hero-trait-slot-desc">${trait.description}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="hero-trait-section-title">成长节点</div>
                 <div class="hero-trait-list">
-                    ${traits.map(trait => `
-                        <div class="hero-trait-row ${currentStage >= trait.stage ? 'unlocked' : 'locked'}">
-                            <div class="hero-trait-stage ${trait.className}">${trait.text}</div>
+                    ${traitFramework.milestones.map(milestone => {
+                        const relatedTrait = milestone.slot ? traitFramework.traits[milestone.slot - 1] : null;
+                        const stateClass = currentStage === milestone.stage ? 'current' : (currentStage > milestone.stage ? 'unlocked' : 'locked');
+                        return `
+                        <div class="hero-trait-row ${stateClass}">
+                            <div class="hero-trait-stage ${milestone.className}">${milestone.text}</div>
                             <div class="hero-trait-content">
-                                <div class="hero-trait-title">${trait.title ? `${trait.label} · ${trait.title}` : trait.label}</div>
-                                <div class="hero-trait-desc">${trait.description}</div>
+                                <div class="hero-trait-title">${milestone.label}${relatedTrait ? ` · ${relatedTrait.name}` : ''}</div>
+                                <div class="hero-trait-desc">${milestone.description}</div>
                             </div>
                         </div>
-                    `).join('')}
+                    `;}).join('')}
                 </div>
             </div>
         `;
@@ -580,7 +822,7 @@ class HeroView {
         }
         this.teamModal = new Modal({
             title: '英雄编队',
-            className: 'hero-preview-modal',
+            className: 'hero-preview-modal hero-command-modal-shell hero-team-modal-shell',
             content: this.getTeamModalContent(),
             buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => { if (this.teamModal) { this.teamModal.close(); this.teamModal = null; } } }]
         });
@@ -589,22 +831,72 @@ class HeroView {
 
     getTeamModalContent() {
         const heroes = heroManager.getAllHeroes();
-        let content = '<div class="hero-modal-grid">';
-        heroes.forEach(hero => {
+        const maxTeamSize = Number(heroManager.maxTeamSize) || 4;
+        const teamHeroes = typeof heroManager.getTeam === 'function'
+            ? heroManager.getTeam()
+            : heroes.filter(hero => heroManager.isHeroInTeam(hero.id));
+        const teamCount = teamHeroes.length;
+        const isTeamFull = teamCount >= maxTeamSize;
+        const teamSlots = Array.from({ length: maxTeamSize }).map((_, index) => {
+            const hero = teamHeroes[index];
+            if (!hero) {
+                return `
+                    <div class="hero-team-slot is-empty">
+                        <span class="hero-team-slot-index">0${index + 1}</span>
+                        <strong>待编入</strong>
+                        <span>EMPTY</span>
+                    </div>
+                `;
+            }
+            const rarityColor = this.getRarityColor(hero.rarity);
+            return `
+                <button type="button" class="hero-team-slot is-filled" style="--hero-card-rarity:${rarityColor};" onclick="window.game.ui.heroView.toggleTeam('${hero.id}')" title="点击移出编队">
+                    <span class="hero-team-slot-index">0${index + 1}</span>
+                    <strong>${hero.name}</strong>
+                    <span>${this.formatPower(hero.getPower?.() || 0)} 战力</span>
+                </button>
+            `;
+        }).join('');
+        const cards = heroes.map(hero => {
             const inTeam = heroManager.isHeroInTeam(hero.id);
             const rarityColor = this.getRarityColor(hero.rarity);
-            content += `
-                <div class="hero-card hero-card-compact card ${inTeam ? 'selected' : ''}" style="cursor:pointer;border-color:${rarityColor};" onclick="window.game.ui.heroView.toggleTeam('${hero.id}')">
+            const blocked = !inTeam && isTeamFull;
+            return `
+                <div class="hero-card hero-card-compact hero-roster-card hero-team-roster-card card ${inTeam ? 'selected is-in-team' : ''} ${blocked ? 'is-team-blocked' : ''}" style="--hero-card-rarity:${rarityColor};" onclick="window.game.ui.heroView.toggleTeam('${hero.id}')" title="${inTeam ? '点击移出编队' : '点击加入编队'}">
                     ${inTeam ? '<div class="hero-team-badge">已参战</div>' : ''}
                     ${this.getProfessionBadgeMarkup(hero)}
                     ${this.getHeroAvatarMarkup(hero)}
-                    <div class="hero-name" style="color:${rarityColor};">${hero.name}</div>
+                    <div class="hero-name">${hero.name}</div>
                     ${this.getHeroStarMarkup(hero.stars, 'hero-team-stars')}
+                    <div class="hero-roster-power">${this.formatPower(hero.getPower?.() || 0)}</div>
                 </div>
             `;
-        });
-        content += '</div>';
-        return content;
+        }).join('');
+
+        return `
+            <div class="hero-roster-modal hero-team-terminal">
+                ${this.getHeroRosterHeader({
+                    kicker: 'SQUAD DEPLOY',
+                    title: '英雄编队',
+                    subtitle: '点击英雄切换参战状态，满编后需先移出一个席位。',
+                    logoCode: 'OPS',
+                    metrics: [
+                        { value: `${teamCount}/${maxTeamSize}`, label: '出战' },
+                        { value: this.formatPower(heroManager.getTeamPower()), label: '总战力' }
+                    ]
+                })}
+                <div class="hero-team-slots">
+                    ${teamSlots}
+                </div>
+                <div class="hero-roster-section-head">
+                    <span>候选名单</span>
+                    <strong>${heroes.length} 名</strong>
+                </div>
+                <div class="hero-modal-grid hero-roster-grid hero-team-grid">
+                    ${cards}
+                </div>
+            </div>
+        `;
     }
 
     toggleTeam(heroId) {
@@ -625,6 +917,7 @@ class HeroView {
         }
         if (this.visible) {
             this.renderHeroes();
+            this.updateTeamPowerDisplay();
         }
         this.updateTeamModal();
         window.game.save();
@@ -651,6 +944,7 @@ class HeroView {
     refresh() {
         if (this.visible) {
             this.render();
+            this.updateTeamPowerDisplay();
         }
         if (this.activeHeroId) {
             const hero = heroManager.getHero(this.activeHeroId);

@@ -23,8 +23,10 @@ class Pagination {
 
         // 上一页按钮
         const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
         prevBtn.className = 'pagination-btn';
-        prevBtn.textContent = '◀';
+        prevBtn.setAttribute('aria-label', '上一页');
+        prevBtn.innerHTML = '<span aria-hidden="true">‹</span>';
         prevBtn.disabled = this.config.currentPage <= 1;
         prevBtn.addEventListener('click', () => this.prevPage());
         container.appendChild(prevBtn);
@@ -37,8 +39,10 @@ class Pagination {
 
         // 下一页按钮
         const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
         nextBtn.className = 'pagination-btn';
-        nextBtn.textContent = '▶';
+        nextBtn.setAttribute('aria-label', '下一页');
+        nextBtn.innerHTML = '<span aria-hidden="true">›</span>';
         nextBtn.disabled = this.config.currentPage >= this.config.totalPages;
         nextBtn.addEventListener('click', () => this.nextPage());
         container.appendChild(nextBtn);

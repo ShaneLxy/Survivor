@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 战斗场景视图
  */
 class BattleView {
@@ -16,6 +16,7 @@ class BattleView {
         this.skipBattleRequested = false;
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
+        this.inspectedUnitId = null;
         // 动画系统相关
         this.animationLayer = null;
         this.lastUnitPositions = new Map();
@@ -31,6 +32,9 @@ class BattleView {
         this.progressTokenMap = new Map();
         this.progressValueMap = new Map();
         this.displayProgressMap = new Map();
+        this.hpTrailMap = new Map();
+        this.hpTrailTimers = new Map();
+        this.combatTextBurstMap = new Map();
 
     }
 
@@ -80,6 +84,10 @@ class BattleView {
         this.progressTokenMap = new Map();
         this.progressValueMap = new Map();
         this.displayProgressMap = new Map();
+        this.hpTrailMap = new Map();
+        this.clearHpTrailTimers();
+        this.combatTextBurstMap = new Map();
+        this.inspectedUnitId = null;
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
         this.battleSessionId++;
@@ -132,6 +140,9 @@ class BattleView {
                 } else if (data.actionType === 'item' && data.target) {
                     this.actionQueue.push({ type: 'heal', data });
                     this.processActionQueue();
+                } else if ((data.actionType === 'status' || data.actionType === 'status_expire') && data.target) {
+                    this.actionQueue.push({ type: 'status', data });
+                    this.processActionQueue();
                 }
             }
         });
@@ -154,9 +165,13 @@ class BattleView {
                     <div class="battle-boss-alert-banner">领主登场!</div>
                 </div>
                   <div class="battle-top-panel">
-                      <div class="battle-top-row">
-                        <button class="btn btn-secondary battle-pause-btn battle-pause-icon-btn" onclick="window.game.ui.battleView.pauseBattle()" aria-label="暂停">||</button>
-                          <div id="battle-turn-meta" class="battle-turn-meta"></div>
+                      <div class="battle-hud-bar">
+                        <button class="btn btn-secondary battle-pause-btn battle-pause-icon-btn" onclick="window.game.ui.battleView.pauseBattle()" aria-label="暂停" title="暂停">II</button>
+                          <div class="battle-hud-meta">
+                              <div class="battle-hud-kicker">TACTICAL ROUND</div>
+                              <div id="battle-turn-meta" class="battle-turn-meta"></div>
+                          </div>
+                          <div id="battle-countdown-chip" class="battle-countdown-chip" aria-live="polite">待机</div>
                       </div>
                     <div id="battle-progress-track" class="battle-progress-track"></div>
                 </div>
@@ -223,6 +238,13 @@ class BattleView {
             && this.selectionMode === 'revive-item'
             && this.selectedBattleItemId === 'stimulant'
         );
+        const shouldCollapse = fallenHeroes.length === 0 && !canSelectReviveTarget;
+
+        panel.classList.toggle('is-collapsed', shouldCollapse);
+        if (shouldCollapse) {
+            panel.innerHTML = '';
+            return;
+        }
 
         panel.innerHTML = `
             <div class="battle-fallen-header">
@@ -423,6 +445,177 @@ class BattleView {
         return `<div class="${className}">${unit?.icon || '✦'}</div>`;
     }
 
+    getStatusDisplayInfo(effect = {}) {
+        const type = effect.type || 'custom';
+        const isBuff = (effect.modifierType === 'percent' || effect.modifierType === 'flat')
+            ? (Number(effect.value) || 0) > 0
+            : !['slow', 'stun', 'silence', 'taunt', 'haze_mark', 'bleed', 'burn'].includes(type);
+        switch (type) {
+            case 'slow':
+                return { icon: '↓', shortName: '减速', className: 'debuff' };
+            case 'stun':
+                return { icon: '✦', shortName: '眩晕', className: 'control' };
+            case 'silence':
+                return { icon: '◇', shortName: '沉默', className: 'control' };
+            case 'taunt':
+                return { icon: '!', shortName: '嘲讽', className: 'control' };
+            case 'haze_mark':
+                return { icon: '⌖', shortName: '破意', className: 'debuff' };
+            case 'black_wall':
+                return { icon: '▣', shortName: '铁壁', className: 'buff' };
+            case 'battle_guard':
+                return { icon: '◆', shortName: '减伤', className: 'buff' };
+            case 'bleed':
+                return { icon: '🩸', shortName: '流血', className: 'debuff' };
+            case 'burn':
+                return { icon: '🔥', shortName: '灼烧', className: 'debuff' };
+            default:
+                return { icon: isBuff ? '↑' : '•', shortName: effect.name || '状态', className: isBuff ? 'buff' : 'debuff' };
+        }
+    }
+
+    getUnitStatusBadgesMarkup(unit, variant = 'board') {
+        const effects = unit?.getStatusEffects?.() || [];
+        if (!effects.length) {
+            return '';
+        }
+        const buffs = [];
+        const debuffs = [];
+        effects.forEach((effect) => {
+            const info = this.getStatusDisplayInfo(effect);
+            const badge = {
+                ...info,
+                turns: Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1),
+                title: `${effect.name || info.shortName} · 剩余${Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1)}回合`
+            };
+            if (info.className === 'buff') {
+                buffs.push(badge);
+            } else {
+                debuffs.push(badge);
+            }
+        });
+
+        const renderGroup = (items, side) => {
+            if (!items.length) {
+                return '';
+            }
+            const visible = items.slice(0, 2);
+            const hidden = items.length - visible.length;
+            return `
+                <div class="battle-status-group ${side}">
+                    ${visible.map(item => `
+                        <span class="battle-status-badge ${item.className}" title="${item.title}">
+                            <span class="battle-status-icon">${item.icon}</span>
+                            <span class="battle-status-turn">${item.turns}</span>
+                        </span>
+                    `).join('')}
+                    ${hidden > 0 ? `<span class="battle-status-badge extra" title="还有${hidden}个状态">+${hidden}</span>` : ''}
+                </div>
+            `;
+        };
+
+        return `
+            <div class="battle-status-strip ${variant}">
+                ${renderGroup(buffs, 'buffs')}
+                ${renderGroup(debuffs, 'debuffs')}
+            </div>
+        `;
+    }
+
+    formatStatusEffectText(effect = {}) {
+        const info = this.getStatusDisplayInfo(effect);
+        const turns = Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
+        if (effect.type === 'slow') {
+            return `${info.shortName} ${Math.round(Math.abs((Number(effect.value) || 0) * 100))}% · ${turns}回合`;
+        }
+        if (effect.type === 'silence' || effect.type === 'bleed' || effect.type === 'stun') {
+            return `${info.shortName} · ${turns}回合`;
+        }
+        if (effect.type === 'taunt') {
+            return effect.sourceName
+                ? `${info.shortName} ${effect.sourceName} · ${turns}回合`
+                : `${info.shortName} · ${turns}回合`;
+        }
+        if (effect.type === 'haze_mark') {
+            const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
+            return bonus > 0 ? `${info.shortName} 易伤${bonus}% · ${turns}回合` : `${info.shortName} · ${turns}回合`;
+        }
+        if (effect.type === 'black_wall') {
+            const defenseBonus = Math.round((Number(effect.value) || 0) * 100);
+            const reduction = Math.round((Number(effect.damageReduction) || 0) * 1000) / 10;
+            const reductionText = reduction > 0 ? ` / 减伤${reduction}%` : '';
+            return `${info.shortName} 防御+${defenseBonus}%${reductionText} · ${turns}回合`;
+        }
+        if (effect.type === 'battle_guard') {
+            const reduction = Math.round((Number(effect.damageReduction) || 0) * 100);
+            return reduction > 0 ? `${info.shortName} 减伤${reduction}% · ${turns}回合` : `${info.shortName} · ${turns}回合`;
+        }
+        if (effect.type === 'burn') {
+            const stackCount = Math.max(1, Number(effect.maxStacks) || 1) > 1 ? ` · 叠层` : '';
+            return `${info.shortName}${stackCount} · ${turns}回合`;
+        }
+        if ((effect.modifierType === 'percent' || effect.modifierType === 'flat') && Number.isFinite(Number(effect.value))) {
+            const sign = (Number(effect.value) || 0) > 0 ? '+' : '';
+            const suffix = effect.modifierType === 'flat' ? '' : '%';
+            const value = effect.modifierType === 'flat'
+                ? Number(effect.value) || 0
+                : Math.round((Number(effect.value) || 0) * 100);
+            return `${effect.name || info.shortName} ${sign}${value}${suffix} · ${turns}回合`;
+        }
+        return `${effect.name || info.shortName} · ${turns}回合`;
+    }
+
+    getSelectedDetailUnit(actor = null) {
+        const inspected = this.inspectedUnitId ? battleManager.findUnitById(this.inspectedUnitId) : null;
+        return inspected || actor || null;
+    }
+
+    renderUnitDetailPanel(unit) {
+        if (!unit) {
+            return '<div class="battle-detail-empty">点击棋盘中的单位可以查看状态与属性。</div>';
+        }
+        const statuses = unit.getStatusEffects?.() || [];
+        const stats = unit.getStats?.() || {};
+        const speedText = stats.effectiveSpeed && stats.effectiveSpeed !== stats.speed
+            ? `${stats.effectiveSpeed}（基础${stats.speed}）`
+            : `${stats.speed || unit.speed}`;
+        return `
+            <div class="battle-unit-detail-card">
+                <div class="battle-unit-detail-head">
+                    <div class="battle-unit-detail-avatar">${this.getBattleUnitVisualMarkup(unit, 'progress')}</div>
+                    <div class="battle-unit-detail-meta">
+                        <div class="battle-unit-detail-name">${unit.name}</div>
+                        <div class="battle-unit-detail-sub">${unit.camp === 'hero' ? '我方单位' : '敌方单位'} · ${HeroConfig?.getProfessionName?.(unit.profession) || unit.profession || '未知职业'}</div>
+                        <div class="battle-unit-detail-hp">生命 ${unit.hp}/${unit.maxHp}</div>
+                    </div>
+                </div>
+                <div class="battle-unit-detail-stats">
+                    <span>攻击 ${stats.attack || unit._attack || 0}</span>
+                    <span>防御 ${stats.defense || unit.defense || 0}</span>
+                    <span>速度 ${speedText}</span>
+                    <span>射程 ${stats.attackRange || unit.attackRange || 1}</span>
+                </div>
+                <div class="battle-unit-detail-section">
+                    <div class="battle-unit-detail-section-title">当前状态</div>
+                    ${statuses.length ? `
+                        <div class="battle-unit-status-list">
+                            ${statuses.map(effect => {
+                                const info = this.getStatusDisplayInfo(effect);
+                                return `
+                                    <div class="battle-unit-status-row ${info.className}">
+                                        <span class="battle-unit-status-icon">${info.icon}</span>
+                                        <span class="battle-unit-status-main">${effect.name || info.shortName}</span>
+                                        <span class="battle-unit-status-desc">${this.formatStatusEffectText(effect)}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : '<div class="battle-detail-empty compact">当前没有状态效果</div>'}
+                </div>
+            </div>
+        `;
+    }
+
 
     renderBoard(snapshot) {
         const board = this.element.querySelector('#battle-board');
@@ -494,7 +687,8 @@ class BattleView {
                     cell.innerHTML = `
                         <div class="battle-unit-token ${unit.camp} ${unit.rank || 'normal'} ${unit.portrait ? 'has-portrait' : ''}" data-unit-id="${unit.id}">
                             ${this.getBattleUnitVisualMarkup(unit, 'board')}
-                            <div class="battle-unit-mini-hp"><div style="width:${Math.max(0, unit.hp / unit.maxHp * 100)}%"></div></div>
+                            ${this.getUnitStatusBadgesMarkup(unit, 'board')}
+                            ${this.getUnitHpMarkup(unit, 'board')}
                             <div class="battle-unit-mini-text">${unit.hp}/${unit.maxHp}</div>
                         </div>
                     `;
@@ -527,8 +721,11 @@ class BattleView {
                     cell.classList.add('attack-disabled');
                 }
 
-
-                cell.disabled = !(boardClickable && isInteractiveCell);
+                const inspectable = Boolean(unit);
+                if (inspectable) {
+                    cell.classList.add('inspectable');
+                }
+                cell.disabled = !(boardClickable && isInteractiveCell) && !inspectable;
                 board.appendChild(cell);
             }
         }
@@ -577,13 +774,13 @@ class BattleView {
 
         if (this.isPaused) {
             panel.innerHTML = '<div class="battle-action-status">战斗已暂停</div>';
-            if (detailPanel) detailPanel.innerHTML = '<div class="battle-detail-empty">暂停中</div>';
+            if (detailPanel) detailPanel.innerHTML = this.renderUnitDetailPanel(this.getSelectedDetailUnit());
             return;
         }
 
         if (battleManager.isAutoBattleEnabled()) {
             panel.innerHTML = '<div class="battle-action-status">自动战斗中，系统将自动处理本场战斗。</div>';
-            if (detailPanel) detailPanel.innerHTML = '<div class="battle-detail-empty">自动战斗中</div>';
+            if (detailPanel) detailPanel.innerHTML = this.renderUnitDetailPanel(this.getSelectedDetailUnit());
             return;
         }
 
@@ -606,7 +803,12 @@ class BattleView {
                       <button class="btn btn-secondary" disabled>使用特技</button>
                   </div>
               `;
-              if (detailPanel) detailPanel.innerHTML = `<div class="battle-detail-empty">${statusText}</div>`;
+              if (detailPanel) {
+                  const detailUnit = this.getSelectedDetailUnit(actor);
+                  detailPanel.innerHTML = detailUnit
+                      ? this.renderUnitDetailPanel(detailUnit)
+                      : `<div class="battle-detail-empty">${statusText}</div>`;
+              }
               return;
           }
 
@@ -614,11 +816,11 @@ class BattleView {
           const heroActor = this.pendingAction.context.actor;
           panel.innerHTML = `
               <div class="battle-action-buttons battle-action-buttons-vertical">
-                  <button class="btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')">攻击</button>
-                  <button class="btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')">移动</button>
-                  <button class="btn btn-secondary" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })">防御</button>
-                  <button class="btn ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')">使用物品</button>
-                  <button class="btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" ${heroActor.skills?.length ? '' : 'disabled'}>使用特技</button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span class="battle-command-icon">ATK</span><span>攻击</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span class="battle-command-icon">MOV</span><span>移动</span></button>
+                  <button class="btn btn-secondary battle-command-btn" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span class="battle-command-icon">DEF</span><span>防御</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span class="battle-command-icon">KIT</span><span>物品</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span class="battle-command-icon">SPC</span><span>特技</span></button>
               </div>
               <div class="battle-action-tip">${this.getSelectionTip()}</div>
           `;
@@ -648,6 +850,7 @@ class BattleView {
         if (!actor) {
             return '<div class="battle-detail-empty">等待行动中</div>';
         }
+        const inspected = this.getSelectedDetailUnit(actor);
 
         if (this.selectionMode === 'item') {
             const itemMap = new Map();
@@ -690,14 +893,18 @@ class BattleView {
             return `
                 <div class="battle-detail-list">
                     ${skills.map(skill => {
-                        const targetTypeLabel = skill.targetType === 'ally' ? '友方' : '敌方';
+                        const targetTypeLabel = skill.targetType === 'self'
+                            ? '自身'
+                            : (skill.targetType === 'ally' ? '友方' : '敌方');
                         const cooldownLabel = skill.cooldownRemaining > 0
                             ? `冷却 ${skill.cooldownRemaining}/${skill.cooldownTurns}`
                             : `冷却 ${skill.cooldownTurns}`;
                         const hpCostLabel = skill.hpCost > 0 ? `耗血 ${skill.hpCost}` : '无消耗';
                         const selectedClass = this.selectedSkillIndex === skill.index ? 'is-selected' : '';
                         const disabledAttr = skill.canUse ? '' : 'disabled';
-                        const disabledLabel = skill.canUse ? '点击后选择目标' : (skill.cooldownRemaining > 0 ? '冷却中' : '生命不足');
+                        const disabledLabel = skill.canUse
+                            ? (skill.targetType === 'self' ? '点击后立即释放' : '点击后选择目标')
+                            : (skill.cooldownRemaining > 0 ? '冷却中' : '条件不足');
                         return `
                             <button class="battle-detail-row ${selectedClass}" onclick="window.game.ui.battleView.selectSkill(${skill.index})" ${disabledAttr}>
                                 <span class="battle-detail-row-icon">✦</span>
@@ -718,7 +925,11 @@ class BattleView {
             return '<div class="battle-detail-empty">已选中强心剂，请点击下方阵亡英雄头像执行复活。</div>';
         }
 
-        return '<div class="battle-detail-empty">选择“使用物品”或“使用特技”后，这里会显示可用列表。</div>';
+        if (inspected) {
+            return this.renderUnitDetailPanel(inspected);
+        }
+
+        return '<div class="battle-detail-empty">选择“使用物品”或“使用特技”后，这里会显示可用列表；也可以点击棋盘单位查看状态。</div>';
     }
 
     startPendingActionTimer() {
@@ -769,7 +980,7 @@ class BattleView {
             this.pendingAction = {
                 context,
                 resolve,
-                remainingTime: context.timeout || 15,
+                remainingTime: context.timeout || 25,
                 timerId: null
             };
             this.selectionMode = null;
@@ -850,7 +1061,16 @@ class BattleView {
             return;
         }
         const heroActor = this.pendingAction.context.actor;
-        if (!heroActor.canUseSkill?.(skillIndex)) {
+        if (!battleManager.canActorUseSkill?.(heroActor, skillIndex)) {
+            return;
+        }
+        const skill = heroActor.getSkill?.(skillIndex) || heroActor.skills?.[skillIndex] || null;
+        if (skill?.targetType === 'self') {
+            this.resolvePendingAction({
+                type: 'skill',
+                targetId: heroActor.id,
+                skillIndex
+            });
             return;
         }
         this.selectionMode = 'skill';
@@ -859,19 +1079,26 @@ class BattleView {
     }
 
     handleBoardCellClick(x, y) {
+        const clickedUnit = battleManager.getUnitAt({ x, y });
+        const actor = this.pendingAction?.context?.actor;
+        if (clickedUnit) {
+            this.inspectedUnitId = clickedUnit.id;
+        }
         if (!this.pendingAction || this.isPaused || battleManager.isAutoBattleEnabled()) {
+            this.renderBattleState();
             return;
         }
-        const actor = this.pendingAction.context.actor;
         if (this.selectionMode === 'move') {
             const canMove = battleManager.getReachableCells(actor).some(position => position.x === x && position.y === y);
             if (canMove) {
                 this.resolvePendingAction({ type: 'move', position: { x, y } });
+            } else if (clickedUnit) {
+                this.renderBattleState();
             }
             return;
         }
         if (this.selectionMode === 'attack' || this.selectionMode === 'skill') {
-            const target = battleManager.getUnitAt({ x, y });
+            const target = clickedUnit;
             const validTargets = this.getBoardTargetCandidates(actor);
             if (target && validTargets.some(unit => unit.id === target.id)) {
                 this.resolvePendingAction({
@@ -879,8 +1106,12 @@ class BattleView {
                     targetId: target.id,
                     skillIndex: this.selectionMode === 'skill' ? this.selectedSkillIndex : undefined
                 });
+                return;
             }
+            this.renderBattleState();
+            return;
         }
+        this.renderBattleState();
     }
 
     chooseBattleItem() {
@@ -1063,7 +1294,10 @@ class BattleView {
                         await this.handleAttackAnimation(task.data.attacker, task.data.target, task.data);
                         break;
                     case 'heal':
-                        await this.handleHealAnimation(task.data.attacker, task.data.target);
+                        await this.handleHealAnimation(task.data);
+                        break;
+                    case 'status':
+                        await this.handleStatusAnimation(task.data);
                         break;
                     case 'die':
                         await this.handleDeathAnimation(task.data.unit);
@@ -1138,10 +1372,189 @@ class BattleView {
         el.dataset.unitId = unit.id;
         el.innerHTML = `
             ${this.getBattleUnitVisualMarkup(unit, 'floating')}
-            <div class="float-hp"><div style="width:${Math.max(0, unit.hp / unit.maxHp * 100)}%"></div></div>
+            ${this.getUnitHpMarkup(unit, 'floating')}
             <div class="float-text">${unit.hp}/${unit.maxHp}</div>
         `;
         return el;
+    }
+
+    getHpPercentByValue(hp, maxHp) {
+        if (!maxHp) {
+            return 0;
+        }
+        return Math.max(0, Math.min(100, hp / maxHp * 100));
+    }
+
+    getUnitHpPercent(unit) {
+        return this.getHpPercentByValue(unit?.hp || 0, unit?.maxHp || 0);
+    }
+
+    getDisplayedHpTrailPercent(unit) {
+        if (!unit) {
+            return 0;
+        }
+        return this.hpTrailMap.has(unit.id)
+            ? this.hpTrailMap.get(unit.id)
+            : this.getUnitHpPercent(unit);
+    }
+
+    getUnitHpMarkup(unit, variant = 'board') {
+        const currentPercent = this.getUnitHpPercent(unit);
+        const trailPercent = Math.max(currentPercent, this.getDisplayedHpTrailPercent(unit));
+        const prefix = variant === 'floating' ? 'float-hp' : 'battle-unit-mini-hp';
+        return `
+            <div class="${prefix}">
+                <div class="${prefix}-trail" style="width:${trailPercent}%"></div>
+                <div class="${prefix}-fill" style="width:${currentPercent}%"></div>
+            </div>
+        `;
+    }
+
+    clearHpTrailTimers() {
+        this.hpTrailTimers.forEach(timerId => clearTimeout(timerId));
+        this.hpTrailTimers.clear();
+    }
+
+    setUnitHpTrail(unitId, percent) {
+        this.hpTrailMap.set(unitId, Math.max(0, Math.min(100, Number(percent) || 0)));
+    }
+
+    scheduleHpTrailDrop(unit, previousHp, currentHp) {
+        if (!unit || !Number.isFinite(previousHp) || !Number.isFinite(currentHp)) {
+            return;
+        }
+        const previousPercent = this.getHpPercentByValue(previousHp, unit.maxHp);
+        const currentPercent = this.getHpPercentByValue(currentHp, unit.maxHp);
+        const existingTimer = this.hpTrailTimers.get(unit.id);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+            this.hpTrailTimers.delete(unit.id);
+        }
+        if (currentPercent >= previousPercent) {
+            this.setUnitHpTrail(unit.id, currentPercent);
+            return;
+        }
+        this.setUnitHpTrail(unit.id, previousPercent);
+        const timerId = setTimeout(() => {
+            this.setUnitHpTrail(unit.id, currentPercent);
+            this.hpTrailTimers.delete(unit.id);
+            if (this.visible && !this.isProcessingAction) {
+                this.renderBoard(battleManager.getSnapshot());
+            }
+        }, 180);
+        this.hpTrailTimers.set(unit.id, timerId);
+    }
+
+    getActionEntries(actionData, fallbackTarget) {
+        const entries = [];
+        const result = actionData?.result || {};
+        if (Array.isArray(result.targets) && result.targets.length > 0) {
+            result.targets.forEach((entry) => {
+                const unit = battleManager.findUnitById(entry.id)
+                    || battleManager.getAllUnits().find(candidate => candidate.id === entry.id)
+                    || (fallbackTarget?.id === entry.id ? fallbackTarget : null);
+                if (unit) {
+                    entries.push({ unit, result: entry });
+                }
+            });
+            return entries;
+        }
+        if (fallbackTarget) {
+            entries.push({ unit: fallbackTarget, result });
+        }
+        return entries;
+    }
+
+    getCombatTextOffset(unitId) {
+        const current = this.combatTextBurstMap.get(unitId) || 0;
+        const next = (current + 1) % 4;
+        this.combatTextBurstMap.set(unitId, next);
+        return {
+            x: ((next % 2 === 0 ? -1 : 1) * (10 + next * 3)),
+            y: next * 10
+        };
+    }
+
+    spawnCombatText(position, text, variant = 'damage') {
+        if (!this.animationLayer || !position || !text) {
+            return;
+        }
+        const label = document.createElement('div');
+        label.className = `battle-combat-text ${variant}`.trim();
+        label.textContent = text;
+        label.style.left = `${position.left + position.width / 2}px`;
+        label.style.top = `${position.top + Math.max(10, position.height * 0.2)}px`;
+        this.animationLayer.appendChild(label);
+        setTimeout(() => {
+            if (label.parentNode) {
+                label.parentNode.removeChild(label);
+            }
+        }, variant === 'skill-label' ? 900 : 1050);
+    }
+
+    spawnSkillLabel(position, skillName) {
+        if (!skillName) {
+            return;
+        }
+        this.spawnCombatText({
+            left: position.left,
+            top: Math.max(0, position.top - 18),
+            width: position.width,
+            height: 0
+        }, skillName, 'skill-label');
+    }
+
+    spawnTriggerLabel(position, triggerName) {
+        if (!triggerName) {
+            return;
+        }
+        this.spawnCombatText({
+            left: position.left,
+            top: Math.max(0, position.top - 18),
+            width: position.width,
+            height: 0
+        }, triggerName, 'skill-label');
+    }
+
+    applyActionEntryFeedback(entries, targetFloats = []) {
+        entries.forEach((entry) => {
+            const { unit, result } = entry;
+            const targetFloat = targetFloats.find(item => item.entry?.unit?.id === unit.id);
+            const position = targetFloat?.position || this.getCellScreenPosition(unit.position.x, unit.position.y);
+            if (!position || !result) {
+                return;
+            }
+            const offset = this.getCombatTextOffset(unit.id);
+            const textPosition = {
+                ...position,
+                left: position.left + offset.x,
+                top: Math.max(0, position.top - offset.y)
+            };
+            if (result.hit === false) {
+                this.spawnCombatText(textPosition, 'MISS', 'miss');
+                return;
+            }
+            if (Number(result.heal) > 0) {
+                const previousHp = Math.max(0, unit.hp - Number(result.heal));
+                this.setUnitHpTrail(unit.id, this.getHpPercentByValue(previousHp, unit.maxHp));
+                this.spawnCombatText(textPosition, `+${result.heal}`, 'heal');
+                return;
+            }
+            if (Number(result.damage) > 0) {
+                const previousHp = Math.min(unit.maxHp, unit.hp + Number(result.damage));
+                this.scheduleHpTrailDrop(unit, previousHp, unit.hp);
+                this.spawnCombatText(textPosition, `-${result.damage}`, result.isCritical ? 'crit' : 'damage');
+            }
+            if (Array.isArray(result.appliedEffects) && result.appliedEffects.length > 0) {
+                result.appliedEffects.forEach((effect, index) => {
+                    this.spawnCombatText({
+                        ...textPosition,
+                        left: textPosition.left + index * 8,
+                        top: Math.max(0, textPosition.top - 12 - index * 4)
+                    }, effect.name || this.getStatusDisplayInfo(effect).shortName, 'status-label');
+                });
+            }
+        });
     }
 
 
@@ -1190,58 +1603,102 @@ class BattleView {
      */
     async handleAttackAnimation(attacker, target, actionData) {
         const attackerPos = this.getCellScreenPosition(attacker.position.x, attacker.position.y);
-        const targetPos = this.getCellScreenPosition(target.position.x, target.position.y);
-        if (!attackerPos || !targetPos) return;
+        if (!attackerPos) return;
 
-        // 计算冲刺方向和距离
-        const dx = targetPos.left - attackerPos.left;
-        const dy = targetPos.top - attackerPos.top;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const lungeDist = Math.max(Math.min(distance * 0.55, 45), 15);
-        const lungeX = distance > 1 ? (dx / distance) * lungeDist : 0;
-        const lungeY = distance > 1 ? (dy / distance) * lungeDist : 0;
+        const actionEntries = this.getActionEntries(actionData, target);
+        const primaryEntry = actionEntries[0] || null;
+        const primaryTarget = primaryEntry?.unit || target;
+        const targetPos = primaryTarget ? this.getCellScreenPosition(primaryTarget.position.x, primaryTarget.position.y) : null;
+        const skillName = actionData?.result?.skillName || primaryEntry?.result?.skillName || null;
+        const triggerName = actionData?.result?.triggerName || primaryEntry?.result?.triggerName || null;
+        const pureHealAction = actionEntries.length > 0 && actionEntries.every(entry => Number(entry.result?.heal) > 0 && !entry.result?.damage);
 
-        // 隐藏原始单位
+        if (actionData?.actionType === 'skill' && skillName) {
+            this.spawnSkillLabel(attackerPos, skillName);
+        } else if (triggerName) {
+            this.spawnTriggerLabel(attackerPos, triggerName);
+        }
+
         this.hideUnitInBoard(attacker.id);
 
-        // 创建攻击者浮动元素
         const attackerFloat = this.createFloatingUnit(attacker);
         attackerFloat.style.left = `${attackerPos.left}px`;
         attackerFloat.style.top = `${attackerPos.top}px`;
         attackerFloat.style.width = `${attackerPos.width}px`;
         attackerFloat.style.height = `${attackerPos.height}px`;
-        attackerFloat.style.setProperty('--lunge-x', `${lungeX}px`);
-        attackerFloat.style.setProperty('--lunge-y', `${lungeY}px`);
 
-        // 隐藏被攻击者
-        this.hideUnitInBoard(target.id);
+        if (!pureHealAction && targetPos) {
+            const dx = targetPos.left - attackerPos.left;
+            const dy = targetPos.top - attackerPos.top;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const lungeDist = Math.max(Math.min(distance * 0.55, 45), 15);
+            const lungeX = distance > 1 ? (dx / distance) * lungeDist : 0;
+            const lungeY = distance > 1 ? (dy / distance) * lungeDist : 0;
+            attackerFloat.style.setProperty('--lunge-x', `${lungeX}px`);
+            attackerFloat.style.setProperty('--lunge-y', `${lungeY}px`);
+        }
 
-        // 创建被击者浮动元素
-        const targetFloat = this.createFloatingUnit(target);
-        targetFloat.style.left = `${targetPos.left}px`;
-        targetFloat.style.top = `${targetPos.top}px`;
-        targetFloat.style.width = `${targetPos.width}px`;
-        targetFloat.style.height = `${targetPos.height}px`;
+        const targetFloats = [];
+        const uniqueTargetIds = new Set();
+        actionEntries.forEach((entry) => {
+            if (!entry?.unit || uniqueTargetIds.has(entry.unit.id)) {
+                return;
+            }
+            uniqueTargetIds.add(entry.unit.id);
+            const entryPos = this.getCellScreenPosition(entry.unit.position.x, entry.unit.position.y);
+            if (!entryPos) {
+                return;
+            }
+            this.hideUnitInBoard(entry.unit.id);
+            const targetFloat = this.createFloatingUnit(entry.unit);
+            targetFloat.style.left = `${entryPos.left}px`;
+            targetFloat.style.top = `${entryPos.top}px`;
+            targetFloat.style.width = `${entryPos.width}px`;
+            targetFloat.style.height = `${entryPos.height}px`;
+            targetFloats.push({ element: targetFloat, position: entryPos, entry });
+        });
 
         if (this.animationLayer) {
             this.animationLayer.appendChild(attackerFloat);
-            this.animationLayer.appendChild(targetFloat);
+            targetFloats.forEach(({ element }) => this.animationLayer.appendChild(element));
         }
 
-        // 攻击者冲撞动画
         requestAnimationFrame(() => {
-            attackerFloat.classList.add('battle-unit-attacking');
-            // 被击者在冲撞到达时触发受击效果（延迟约100ms）
-            setTimeout(() => {
-                targetFloat.classList.add('battle-unit-hit');
-            }, 95);
+            if (pureHealAction) {
+                attackerFloat.classList.add('battle-unit-casting');
+                targetFloats.forEach(({ element }) => element.classList.add('battle-unit-heal'));
+            } else {
+                attackerFloat.classList.add('battle-unit-attacking');
+                setTimeout(() => {
+                    targetFloats.forEach(({ element, entry }) => {
+                        element.classList.add(entry?.result?.isCritical ? 'battle-unit-hit-critical' : 'battle-unit-hit');
+                    });
+                }, 95);
+            }
         });
 
-        // 等待动画完成 + 行动间隔
-        await new Promise(resolve => setTimeout(resolve, 1220));  // 420ms动画 + 800ms间隔
+        this.applyActionEntryFeedback(actionEntries, targetFloats);
 
-        // 清理
-        [attackerFloat, targetFloat].forEach(el => {
+        if (Number(actionData?.result?.selfHeal) > 0) {
+            this.spawnCombatText({
+                left: attackerPos.left + 8,
+                top: Math.max(0, attackerPos.top - 8),
+                width: attackerPos.width,
+                height: attackerPos.height
+            }, `+${actionData.result.selfHeal}`, 'heal');
+        }
+        if (Number(actionData?.result?.hpCost) > 0) {
+            this.spawnCombatText({
+                left: attackerPos.left - 8,
+                top: Math.max(0, attackerPos.top + 12),
+                width: attackerPos.width,
+                height: attackerPos.height
+            }, `-${actionData.result.hpCost}生命`, 'status-damage');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, pureHealAction ? 1080 : 1220));
+
+        [attackerFloat, ...targetFloats.map(({ element }) => element)].forEach(el => {
             if (el.parentNode) el.parentNode.removeChild(el);
         });
     }
@@ -1250,7 +1707,9 @@ class BattleView {
     /**
      * 治疗动画（较温和的效果）
      */
-    async handleHealAnimation(actor, target) {
+    async handleHealAnimation(actionData) {
+        const target = actionData?.target;
+        if (!target) return;
         const targetPos = this.getCellScreenPosition(target.position.x, target.position.y);
         if (!targetPos) return;
 
@@ -1266,10 +1725,17 @@ class BattleView {
             this.animationLayer.appendChild(targetFloat);
         }
 
-        // 绿色闪烁表示治疗
+        const effect = actionData?.result?.effect || {};
+        const healValue = Number(effect.value) || 0;
+        if (healValue > 0) {
+            this.setUnitHpTrail(target.id, this.getHpPercentByValue(Math.max(0, target.hp - healValue), target.maxHp));
+            this.spawnCombatText(targetPos, effect.type === 'revive' ? `复活 +${healValue}` : `+${healValue}`, effect.type === 'revive' ? 'revive' : 'heal');
+        }
+
         targetFloat.style.transition = 'filter 0.3s ease';
         requestAnimationFrame(() => {
             targetFloat.style.filter = 'brightness(1.4) saturate(1.2)';
+            targetFloat.classList.add('battle-unit-heal');
             setTimeout(() => {
                 targetFloat.style.filter = 'brightness(1)';
             }, 250);
@@ -1281,6 +1747,46 @@ class BattleView {
             targetFloat.parentNode.removeChild(targetFloat);
         }
 
+    }
+
+    async handleStatusAnimation(actionData) {
+        const target = actionData?.target;
+        if (!target) {
+            return;
+        }
+        const targetPos = this.getCellScreenPosition(target.position.x, target.position.y);
+        if (!targetPos) {
+            return;
+        }
+        if (actionData.actionType === 'status') {
+            const damage = Number(actionData?.result?.damage) || 0;
+            const appliedEffects = Array.isArray(actionData?.result?.appliedEffects) ? actionData.result.appliedEffects : [];
+            if (damage > 0) {
+                const statusName = actionData?.result?.statusName || '状态';
+                this.spawnCombatText(targetPos, `${statusName} -${damage}`, 'status-damage');
+            } else if (appliedEffects.length > 0) {
+                appliedEffects.forEach((effect, index) => {
+                    this.spawnCombatText({
+                        ...targetPos,
+                        left: targetPos.left + index * 8,
+                        top: targetPos.top - index * 6
+                    }, effect.name || '状态', 'status-label');
+                });
+            } else {
+                const statusName = actionData?.result?.statusName || '状态';
+                this.spawnCombatText(targetPos, statusName, 'status-label');
+            }
+        } else if (actionData.actionType === 'status_expire') {
+            const expiredEffects = Array.isArray(actionData?.result?.expiredEffects) ? actionData.result.expiredEffects : [];
+            expiredEffects.forEach((effect, index) => {
+                this.spawnCombatText({
+                    ...targetPos,
+                    left: targetPos.left + index * 8,
+                    top: targetPos.top - index * 6
+                }, `${effect.name || '状态'}结束`, 'status-expire');
+            });
+        }
+        await new Promise(resolve => setTimeout(resolve, 650));
     }
 
     /**
@@ -1371,11 +1877,15 @@ class BattleView {
         this.animationLayer = null;
         this.actionQueue = [];
         this.isProcessingAction = false;
+        this.clearHpTrailTimers();
         this.resolveActionQueueWaiters();
         this.actionQueueWaiters = [];
         this.progressTokenMap = new Map();
         this.progressValueMap = new Map();
         this.displayProgressMap = new Map();
+        this.hpTrailMap = new Map();
+        this.combatTextBurstMap = new Map();
+        this.inspectedUnitId = null;
         battleManager.reset();
 
         this.currentDungeon = null;

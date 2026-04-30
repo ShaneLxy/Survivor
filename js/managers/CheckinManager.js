@@ -22,9 +22,15 @@ class CheckinManager {
         { day: 7, rewards: [{ type: 'random_fragments', total: 50 }] }
     ];
 
+    static DAILY_REWARDS = [
+        { type: 'resource', id: 'diamond', count: 100 },
+        { type: 'item', id: 'stimulant', count: 1 },
+        { type: 'resource', id: 'meat', count: 10 }
+    ];
+
     init(saveData) {
         if (saveData) {
-            this.checkinDay = saveData.checkinDay || 1;
+            this.checkinDay = this.normalizeCheckinDay(saveData.checkinDay);
             this.lastCheckinDate = saveData.lastCheckinDate || null;
             this.totalCheckins = saveData.totalCheckins || 0;
         } else {
@@ -46,12 +52,14 @@ class CheckinManager {
         }
 
         const claimedDay = this.checkinDay;
-        const rewardConfig = CheckinManager.REWARDS[claimedDay - 1];
-        if (!rewardConfig) {
+        const bonusRewardConfig = CheckinManager.REWARDS[claimedDay - 1];
+        if (!bonusRewardConfig) {
             return { success: false, message: '签到配置错误' };
         }
 
-        const rewards = this.grantRewards(rewardConfig);
+        const dailyRewards = this.grantRewards(CheckinManager.DAILY_REWARDS);
+        const bonusRewards = this.grantRewards(bonusRewardConfig);
+        const rewards = [...dailyRewards, ...bonusRewards];
         this.lastCheckinDate = new Date().toDateString();
         this.totalCheckins++;
         this.checkinDay++;
@@ -59,14 +67,30 @@ class CheckinManager {
             this.checkinDay = 1;
         }
 
-        eventManager.emit('checkinComplete', { day: claimedDay, rewards, nextDay: this.checkinDay });
-        return { success: true, message: '签到成功！', claimedDay, nextDay: this.checkinDay, rewards };
+        const payload = {
+            day: claimedDay,
+            rewards,
+            dailyRewards,
+            bonusRewards,
+            nextDay: this.checkinDay
+        };
+        eventManager.emit('checkinComplete', payload);
+        return {
+            success: true,
+            message: '签到成功！',
+            claimedDay,
+            nextDay: this.checkinDay,
+            rewards,
+            dailyRewards,
+            bonusRewards
+        };
     }
 
     grantRewards(rewardConfig) {
         const rewards = [];
 
-        rewardConfig.rewards.forEach(reward => {
+        const rewardList = Array.isArray(rewardConfig) ? rewardConfig : (rewardConfig?.rewards || []);
+        rewardList.forEach(reward => {
             if (reward.type === 'resource') {
                 shelterManager.addResource(reward.id, reward.count);
                 rewards.push(RewardModal.createResourceReward(reward.id, reward.count));
@@ -83,6 +107,12 @@ class CheckinManager {
         });
 
         return rewards;
+    }
+
+    normalizeCheckinDay(day) {
+        const normalizedDay = Math.floor(Number(day) || 1);
+        if (normalizedDay < 1) return 1;
+        return ((normalizedDay - 1) % 7) + 1;
     }
 
     generateRandomFragments(total) {
@@ -141,7 +171,8 @@ class CheckinManager {
             claimedDay,
             isTodayCheckedIn,
             canCheckin: !isTodayCheckedIn,
-            rewards: CheckinManager.REWARDS
+            rewards: CheckinManager.REWARDS,
+            dailyRewards: CheckinManager.DAILY_REWARDS
         };
     }
 }

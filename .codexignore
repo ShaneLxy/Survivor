@@ -1,0 +1,81 @@
+# 依赖目录
+node_modules/
+vendor/
+venv/
+.venv/
+env/
+
+# Git / 编辑器
+.git/
+.vscode/
+.idea/
+
+# 构建产物
+dist/
+build/
+out/
+target/
+.next/
+.nuxt/
+.cache/
+coverage/
+
+# 日志和临时文件
+*.log
+logs/
+tmp/
+temp/
+
+# 环境变量 / 密钥
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# 大文件 / 压缩包
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.mp4
+*.mov
+*.avi
+*.psd
+*.ai
+
+# Python
+__pycache__/
+*.pyc
+
+# Java / Gradle / Maven
+.gradle/
+.mvn/
+*.class
+
+# Rust
+Cargo.lock
+target/
+
+# Go
+bin/
+
+# 数据库 / 本地数据
+*.sqlite
+*.db
+*.dump
+
+node_modules/
+.next/
+.nuxt/
+dist/
+build/
+.cache/
+coverage/
+
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env

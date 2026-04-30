@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 游戏主入口
  */
 class Game {
@@ -200,7 +200,7 @@ class Game {
 
         // 显示底部导航栏（可能被 handleLogout 隐藏过）
         if (this.ui?.tabBar?.element) {
-            this.ui.tabBar.element.style.display = 'flex';
+            this.ui.tabBar.element.style.display = '';
         }
 
         if (this.ui?.itemGrid) {
@@ -279,17 +279,21 @@ class Game {
         const tabBarElement = document.getElementById('tab-bar');
         const itemSectionElement = document.getElementById('item-section');
         const isBattleMode = viewId === 'battle';
+        const isRecruitMode = viewId === 'recruit';
+        const isHeroMode = viewId === 'hero';
         if (appElement) {
             appElement.classList.toggle('battle-mode', isBattleMode);
+            appElement.classList.toggle('recruit-mode', isRecruitMode);
+            appElement.classList.toggle('hero-mode', isHeroMode);
         }
         if (topBarElement) {
-            topBarElement.style.display = 'flex';
+            topBarElement.style.display = isBattleMode ? 'none' : '';
         }
         if (tabBarElement) {
-            tabBarElement.style.display = isBattleMode ? 'none' : 'flex';
+            tabBarElement.style.display = isBattleMode ? 'none' : '';
         }
         if (itemSectionElement) {
-            itemSectionElement.style.display = isBattleMode ? 'none' : '';
+            itemSectionElement.style.display = (isBattleMode || isRecruitMode) ? 'none' : '';
         }
         if (this.ui?.tabBar?.setDisabled) {
             this.ui.tabBar.setDisabled(isBattleMode);

@@ -1,13 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import {
-  CdkeyDocument,
-  MailAttachment,
-} from '../../shared/cloudbase/cloudbase.types';
-import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { MongoService } from '../../shared/mongo/mongo.service';
+import { CdkeyDocument, MailAttachment } from '../../shared/mongo/mongo.types';
 
 @Injectable()
 export class CdkeyService {
-  constructor(private readonly cloudbaseService: CloudbaseService) {}
+  constructor(private readonly mongoService: MongoService) {}
 
   async redeem(accountId: string, rawCode: string) {
     const code = String(rawCode || '').trim().toUpperCase();
@@ -15,8 +12,8 @@ export class CdkeyService {
       throw new BadRequestException('请输入兑换码');
     }
 
-    const collection = this.cloudbaseService.cdkeys();
-    const entity = (await this.cloudbaseService.findOne(collection, { code })) as CdkeyDocument | null;
+    const collection = this.mongoService.cdkeys();
+    const entity = (await this.mongoService.findOne(collection, { code })) as CdkeyDocument | null;
     if (!entity) {
       return { success: false, message: '兑换码不存在', rewards: [] };
     }
@@ -27,8 +24,8 @@ export class CdkeyService {
       return { success: false, message: '兑换码已过期', rewards: [] };
     }
 
-    const now = this.cloudbaseService.nowIso();
-    await this.cloudbaseService.updateById(collection, entity._id, {
+    const now = this.mongoService.nowIso();
+    await this.mongoService.updateById(collection, entity._id, {
       used: true,
       usedByAccountId: accountId,
       usedAt: now,

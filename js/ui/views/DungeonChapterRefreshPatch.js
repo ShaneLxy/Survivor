@@ -99,6 +99,95 @@
         return this.getChapterAccessibility(chapter.id);
     };
 
+    DungeonView.prototype.getChapterProgressSummary = function(chapters) {
+        const safeChapters = Array.isArray(chapters) ? chapters : [];
+        const unlockedChapters = safeChapters.filter((chapter) => this.getChapterAccessibility(chapter.id).accessible);
+        const allStages = safeChapters.flatMap((chapter) => chapter.dungeons || []);
+        const clearedStages = allStages.filter((dungeon) => dungeonManager.isCompleted(dungeon.id));
+
+        return {
+            unlockedChapterCount: unlockedChapters.length,
+            chapterCount: safeChapters.length,
+            clearedStageCount: clearedStages.length,
+            stageCount: allStages.length
+        };
+    };
+
+    DungeonView.prototype.getRewardChipIcon = function(rewardLine) {
+        if (rewardLine.startsWith('金币')) {
+            return 'G';
+        }
+        if (rewardLine.startsWith('经验')) {
+            return 'XP';
+        }
+        return '◇';
+    };
+
+    DungeonView.prototype.getRewardChipMarkup = function(rewardLine) {
+        return `
+            <span class="dungeon-reward-chip">
+                <i aria-hidden="true">${this.getRewardChipIcon(rewardLine)}</i>
+                <strong>${rewardLine}</strong>
+            </span>
+        `;
+    };
+
+    DungeonView.prototype.getChapterTacticalSummary = function(chapter) {
+        const stages = chapter?.dungeons || [];
+        const clearedStages = stages.filter((stage) => dungeonManager.isCompleted(stage.id));
+        const primaryStage = stages[0] || null;
+        const levels = stages.map((stage) => stage.level).filter((level) => Number.isFinite(level));
+        const minLevel = levels.length ? Math.min(...levels) : 1;
+        const maxLevel = levels.length ? Math.max(...levels) : minLevel;
+        const rewards = primaryStage && typeof this.getDungeonRewardPreview === 'function'
+            ? this.getDungeonRewardPreview(primaryStage).slice(0, 3)
+            : [];
+        const enemyCount = stages.reduce((sum, stage) => sum + stage.getInfo().enemyCount, 0);
+        const stageCount = stages.length || 0;
+        const clearedStageCount = clearedStages.length;
+
+        return {
+            stageCount,
+            clearedStageCount,
+            completionRatio: stageCount > 0 ? Math.round((clearedStageCount / stageCount) * 100) : 0,
+            primaryStage,
+            rewards,
+            minLevel,
+            maxLevel,
+            enemyCount,
+            levelLabel: minLevel === maxLevel ? `Lv.${minLevel}` : `Lv.${minLevel}-${maxLevel}`
+        };
+    };
+
+    DungeonView.prototype.getChapterStatus = function(chapter, accessibility) {
+        const statusAccessibility = accessibility || this.getChapterAccessibility(chapter.id);
+        const summary = this.getChapterTacticalSummary(chapter);
+
+        if (!statusAccessibility.accessible) {
+            return { key: 'locked', className: 'is-locked', label: '封锁中', action: '前置未完成' };
+        }
+        if (summary.stageCount > 0 && summary.clearedStageCount >= summary.stageCount) {
+            return { key: 'cleared', className: 'is-cleared', label: '已清剿', action: '复盘档案' };
+        }
+        if (summary.clearedStageCount > 0) {
+            return { key: 'progress', className: 'is-progress', label: '推进中', action: '继续推进' };
+        }
+        return { key: 'ready', className: 'is-ready', label: '可探索', action: '打开作战档案' };
+    };
+
+    DungeonView.prototype.getChapterRouteMarkup = function(chapters, selectedChapterId) {
+        return `
+            <div class="dungeon-chapter-route" aria-hidden="true">
+                ${chapters.map((chapter) => {
+                    const accessibility = this.getChapterAccessibility(chapter.id);
+                    const status = this.getChapterStatus(chapter, accessibility);
+                    const activeClass = chapter.id === selectedChapterId ? 'is-active' : '';
+                    return `<span class="dungeon-chapter-route-node ${status.className} ${activeClass}"></span>`;
+                }).join('')}
+            </div>
+        `;
+    };
+
     DungeonView.prototype.openChapterStageModal = function(chapterId) {
         const chapter = this.getChapters().find((entry) => entry.id === chapterId);
         if (!chapter) {
@@ -244,21 +333,48 @@
         const rewardPreview = this.getDungeonRewardPreview(activeStage);
         const enemyPreview = this.getDungeonEnemyPreview(activeStage);
         const canSweep = dungeonManager.canSweep(activeStage.id);
+        const stageCompleted = dungeonManager.isCompleted(activeStage.id);
+        const stars = dungeonManager.getStars(activeStage.id);
+        const actionLabel = stageCompleted ? '再次挑战' : '开始挑战';
+        const stageCountClass = `chapter-stage-count-${Math.max(1, Math.min(stages.length, 5))}`;
 
         return `
             <div class="chapter-stage-layout">
-                <div class="chapter-stage-list chapter-stage-list-horizontal">
+                <div class="chapter-stage-list chapter-stage-list-horizontal ${stageCountClass}">
                     ${stages.map((stage, index) => `
-                        <button class="chapter-stage-item ${activeStage.id === stage.id ? 'is-active' : ''}"
+                        <button class="chapter-stage-item ${activeStage.id === stage.id ? 'is-active' : ''} ${dungeonManager.isCompleted(stage.id) ? 'is-completed' : 'is-pending'}"
                             onclick="window.game.ui.dungeonView.selectStage('${chapter.id}', '${stage.id}')">
                             <span class="chapter-stage-item-index">关卡 ${index + 1}</span>
-                            <span>推荐 Lv.${stage.level}</span>
+                            <span>${dungeonManager.isCompleted(stage.id) ? '已清剿' : `Lv.${stage.level}`}</span>
                         </button>
                     `).join('')}
                 </div>
                 <div class="chapter-stage-detail">
-                    <div class="chapter-stage-detail-title">${activeStage.name}</div>
+                    <div class="chapter-stage-detail-heading">
+                        <div>
+                            <div class="chapter-stage-detail-kicker">OPERATION FILE</div>
+                            <div class="chapter-stage-detail-title">${activeStage.name}</div>
+                        </div>
+                        <div class="chapter-stage-status ${stageCompleted ? 'is-completed' : 'is-pending'}">
+                            <span>${stageCompleted ? '已清剿' : '待挑战'}</span>
+                            <strong>${stageCompleted ? `${stars}星` : `Lv.${activeStage.level}`}</strong>
+                        </div>
+                    </div>
                     <div class="chapter-stage-detail-desc">${activeStage.description || '危险仍在蔓延，整备完成后再深入。'}</div>
+                    <div class="chapter-stage-tactical-grid">
+                        <div>
+                            <span>体力消耗</span>
+                            <strong>${activeStage.energyCost}</strong>
+                        </div>
+                        <div>
+                            <span>敌方单位</span>
+                            <strong>${activeStage.getInfo().enemyCount}</strong>
+                        </div>
+                        <div>
+                            <span>推荐等级</span>
+                            <strong>Lv.${activeStage.level}</strong>
+                        </div>
+                    </div>
                     <div class="chapter-stage-detail-section">
                         <div class="chapter-stage-detail-label">敌人预览</div>
                         <div class="dungeon-enemy-preview-row">
@@ -273,16 +389,11 @@
                     <div class="chapter-stage-detail-section">
                         <div class="chapter-stage-detail-label">掉落预览</div>
                         <div class="dungeon-reward-preview-row">
-                            ${rewardPreview.map((reward) => `<span class="dungeon-reward-chip">${reward}</span>`).join('')}
+                            ${rewardPreview.map((reward) => this.getRewardChipMarkup(reward)).join('')}
                         </div>
                     </div>
-                    <div class="chapter-stage-detail-meta">
-                        <span>体力 ${activeStage.energyCost}</span>
-                        <span>敌人 ${activeStage.getInfo().enemyCount}</span>
-                        <span>推荐等级 Lv.${activeStage.level}</span>
-                    </div>
                     <div class="chapter-stage-detail-actions">
-                        <button class="btn btn-primary" onclick="window.game.ui.dungeonView.enterDungeon('${activeStage.id}')">进入战斗</button>
+                        <button class="btn btn-primary chapter-stage-primary-action" onclick="window.game.ui.dungeonView.enterDungeon('${activeStage.id}')">${actionLabel}</button>
                         <button class="btn ${canSweep ? 'btn-success' : 'btn-secondary'}" ${canSweep ? '' : 'disabled'} onclick="window.game.ui.dungeonView.sweepDungeon('${activeStage.id}')">扫荡</button>
                     </div>
                 </div>
@@ -299,6 +410,14 @@
         const stageCount = selectedChapter?.dungeons?.length || 0;
         const background = selectedChapter?.background || window.GameSceneBackgrounds?.dungeon?.src || '';
         const chapterAccessibility = selectedChapter ? this.getChapterAccessibility(selectedChapter.id) : { accessible: true, message: '' };
+        const chapterSummary = selectedChapter ? this.getChapterTacticalSummary(selectedChapter) : null;
+        const chapterStatus = selectedChapter ? this.getChapterStatus(selectedChapter, chapterAccessibility) : null;
+        const prevChapterStatus = prevChapter ? this.getChapterStatus(prevChapter) : null;
+        const nextChapterStatus = nextChapter ? this.getChapterStatus(nextChapter) : null;
+        const progressSummary = this.getChapterProgressSummary(chapters);
+        const headerSubtitle = selectedChapter && chapterSummary
+            ? `第${selectedChapter.index}章 · ${selectedChapter.name} · ${chapterSummary.clearedStageCount}/${chapterSummary.stageCount} 已清剿`
+            : '左右切换章节，查看本章节关卡详情。';
 
         this.element.innerHTML = `
             <div class="scene-view dungeon-view dungeon-view-chapter" style="--chapter-bg:url('${background}')">
@@ -310,32 +429,84 @@
                 <div class="scene-view-overlay dungeon-clear-overlay"></div>
                 <div class="scene-view-content dungeon-chapter-content">
                     <div class="dungeon-header-bar dungeon-header-bar-patched">
-                        <div>
+                        <div class="dungeon-stage-heading-group">
+                            <div class="dungeon-stage-kicker">DUNGEON</div>
                             <h2 class="dungeon-title">副本章节</h2>
-                            <div class="dungeon-subtitle">左右切换章节，点击中间章节卡查看本章节关卡详情。</div>
+                            <div class="dungeon-subtitle">${headerSubtitle}</div>
                         </div>
-                        <button class="btn btn-secondary" onclick="window.game.ui.dungeonView.openMonsterCodexModal()">怪物图鉴</button>
+                        <div class="dungeon-stage-stats">
+                            <div class="dungeon-stage-stat">
+                                <span>章节</span>
+                                <strong>${progressSummary.unlockedChapterCount}/${progressSummary.chapterCount}</strong>
+                            </div>
+                            <div class="dungeon-stage-stat">
+                                <span>通关</span>
+                                <strong>${progressSummary.clearedStageCount}/${progressSummary.stageCount}</strong>
+                            </div>
+                            ${chapterSummary ? `
+                                <div class="dungeon-stage-stat dungeon-stage-stat-current">
+                                    <span>当前</span>
+                                    <strong>${chapterSummary.clearedStageCount}/${chapterSummary.stageCount}</strong>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <button class="btn btn-secondary dungeon-codex-btn" onclick="window.game.ui.dungeonView.openMonsterCodexModal()" title="怪物图鉴" aria-label="怪物图鉴">图鉴</button>
                     </div>
                     <div class="dungeon-chapter-carousel">
+                        ${this.getChapterRouteMarkup(chapters, selectedChapter?.id)}
                         <button class="dungeon-chapter-arrow ${prevChapter ? '' : 'is-hidden'}" ${prevChapter ? `onclick="window.game.ui.dungeonView.switchChapterByOffset(-1)"` : ''}>&lsaquo;</button>
-                        <button type="button" class="dungeon-chapter-peek left ${prevChapter ? '' : 'is-hidden'}" ${prevChapter ? `onclick="window.game.ui.dungeonView.switchChapterTo('${prevChapter.id}')"` : 'disabled'}>
-                            ${prevChapter ? `<span>第${prevChapter.index}章</span><strong>${prevChapter.name}</strong>` : ''}
+                        <button type="button" class="dungeon-chapter-peek left ${prevChapter ? '' : 'is-hidden'} ${prevChapterStatus?.className || ''}" ${prevChapter ? `onclick="window.game.ui.dungeonView.switchChapterTo('${prevChapter.id}')"` : 'disabled'}>
+                            ${prevChapter ? `<span>第${prevChapter.index}章 · ${prevChapterStatus.label}</span><strong>${prevChapter.name}</strong>` : ''}
                         </button>
                         ${selectedChapter ? `
-                            <button type="button" class="dungeon-chapter-card card ${chapterAccessibility.accessible ? '' : 'is-locked'}" onclick="window.game.ui.dungeonView.openChapterStageModal('${selectedChapter.id}')">
-                                <div class="dungeon-chapter-card-kicker">第${selectedChapter.index}章</div>
-                                <div class="dungeon-chapter-card-title">${selectedChapter.name}</div>
-                                <div class="dungeon-chapter-card-desc">${selectedChapter.description}</div>
-                                <div class="dungeon-chapter-card-meta">
-                                    <span>${stageCount} 个关卡</span>
-                                    <span>推荐 Lv.${selectedChapter.dungeons[0]?.level || 1}</span>
+                            <button type="button" class="dungeon-chapter-card card ${chapterStatus.className}" onclick="window.game.ui.dungeonView.openChapterStageModal('${selectedChapter.id}')">
+                                <div class="dungeon-chapter-status-badge">${chapterStatus.label}</div>
+                                <div class="dungeon-chapter-card-head">
+                                    <div>
+                                        <div class="dungeon-chapter-card-kicker">第${selectedChapter.index}章 · 作战档案</div>
+                                        <div class="dungeon-chapter-card-title">${selectedChapter.name}</div>
+                                    </div>
+                                    <div class="dungeon-chapter-threat">
+                                        <span>威胁</span>
+                                        <strong>${chapterSummary.levelLabel}</strong>
+                                    </div>
                                 </div>
-                                <div class="dungeon-chapter-card-tip">点击查看章节详情</div>
+                                <div class="dungeon-chapter-card-desc">${selectedChapter.description}</div>
+                                <div class="dungeon-chapter-progress">
+                                    <div class="dungeon-chapter-progress-copy">
+                                        <span>清剿进度</span>
+                                        <strong>${chapterSummary.clearedStageCount}/${chapterSummary.stageCount}</strong>
+                                    </div>
+                                    <div class="dungeon-chapter-progress-track">
+                                        <i style="width:${chapterSummary.completionRatio}%"></i>
+                                    </div>
+                                </div>
+                                <div class="dungeon-chapter-dossier">
+                                    <div>
+                                        <span>关卡</span>
+                                        <strong>${stageCount}</strong>
+                                    </div>
+                                    <div>
+                                        <span>敌方</span>
+                                        <strong>${chapterSummary.enemyCount}</strong>
+                                    </div>
+                                    <div>
+                                        <span>推荐</span>
+                                        <strong>${chapterSummary.levelLabel}</strong>
+                                    </div>
+                                </div>
+                                <div class="dungeon-chapter-reward-strip">
+                                    ${chapterSummary.rewards.map((reward) => this.getRewardChipMarkup(reward)).join('')}
+                                </div>
+                                <div class="dungeon-chapter-action-row">
+                                    <span>${chapterStatus.action}</span>
+                                    <strong>${chapterAccessibility.accessible ? '查看关卡' : '需要清剿前章'}</strong>
+                                </div>
                                 ${chapterAccessibility.accessible ? '' : `<div class="dungeon-chapter-lock-overlay"><span>${chapterAccessibility.message}</span></div>`}
                             </button>
                         ` : '<div class="shelter-empty">暂无章节</div>'}
-                        <button type="button" class="dungeon-chapter-peek right ${nextChapter ? '' : 'is-hidden'}" ${nextChapter ? `onclick="window.game.ui.dungeonView.switchChapterTo('${nextChapter.id}')"` : 'disabled'}>
-                            ${nextChapter ? `<span>第${nextChapter.index}章</span><strong>${nextChapter.name}</strong>` : ''}
+                        <button type="button" class="dungeon-chapter-peek right ${nextChapter ? '' : 'is-hidden'} ${nextChapterStatus?.className || ''}" ${nextChapter ? `onclick="window.game.ui.dungeonView.switchChapterTo('${nextChapter.id}')"` : 'disabled'}>
+                            ${nextChapter ? `<span>第${nextChapter.index}章 · ${nextChapterStatus.label}</span><strong>${nextChapter.name}</strong>` : ''}
                         </button>
                         <button class="dungeon-chapter-arrow ${nextChapter ? '' : 'is-hidden'}" ${nextChapter ? `onclick="window.game.ui.dungeonView.switchChapterByOffset(1)"` : ''}>&rsaquo;</button>
                     </div>

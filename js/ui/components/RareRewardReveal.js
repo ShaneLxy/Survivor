@@ -53,20 +53,101 @@ class RareRewardReveal {
         };
     }
 
-    static buildArrowMaskMarkup(theme, side) {
-        const arrows = [];
-        for (let index = 0; index < 36; index++) {
-            const row = Math.floor(index / 6);
-            const opacity = 0.35 + (index % 6) * 0.09;
-            const scale = 0.84 + row * 0.05 + (index % 2) * 0.04;
-            arrows.push(`
-                <span
-                    class="rare-reward-arrow ${side}"
-                    style="--arrow-opacity:${opacity.toFixed(2)};--arrow-scale:${scale.toFixed(2)};--arrow-color:${index % 3 === 0 ? theme.color : (index % 3 === 1 ? theme.colorSoft : theme.colorDeep)}">
-                </span>
-            `);
-        }
-        return arrows.join('');
+    static buildDoorMaskMarkup(side) {
+        const scratches = Array.from({ length: 8 }, (_, index) => {
+            const left = 8 + index * 11;
+            const width = 8 + (index % 3) * 6;
+            const rotate = side === 'top' ? -8 + (index % 5) * 4 : 8 - (index % 5) * 4;
+            const top = 14 + (index % 4) * 15;
+            return `<span class="rare-reward-door-scratch" style="left:${left}%;top:${top}%;width:${width}%;transform:rotate(${rotate}deg);"></span>`;
+        }).join('');
+
+        const gouges = Array.from({ length: 5 }, (_, index) => {
+            const left = 10 + index * 16;
+            const width = 16 + (index % 3) * 8;
+            const rotate = side === 'top' ? -18 + index * 7 : 18 - index * 7;
+            const top = 22 + (index % 3) * 18;
+            return `<span class="rare-reward-door-gouge" style="left:${left}%;top:${top}%;width:${width}%;transform:rotate(${rotate}deg);"></span>`;
+        }).join('');
+
+        const dents = Array.from({ length: 5 }, (_, index) => {
+            const left = 12 + index * 17;
+            const top = 18 + (index % 3) * 18;
+            const size = 16 + (index % 2) * 6;
+            return `<span class="rare-reward-door-dent" style="left:${left}%;top:${top}%;width:${size}px;height:${Math.round(size * 0.56)}px;"></span>`;
+        }).join('');
+
+        const impactMarks = Array.from({ length: 4 }, (_, index) => {
+            const left = 18 + index * 18;
+            const top = 18 + (index % 2) * 26;
+            const size = 18 + (index % 2) * 8;
+            return `<span class="rare-reward-door-impact" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;"></span>`;
+        }).join('');
+
+        const bolts = Array.from({ length: 6 }, (_, index) => {
+            const left = 10 + index * 16;
+            return `<span class="rare-reward-door-bolt" style="left:${left}%;"></span>`;
+        }).join('');
+
+        const statusLights = Array.from({ length: 3 }, (_, index) => {
+            return `<span class="rare-reward-door-status-light ${index === 0 ? 'is-alert' : ''}"></span>`;
+        }).join('');
+
+        const steamJets = Array.from({ length: 4 }, (_, index) => {
+            const left = 18 + index * 18;
+            const delay = (index * 0.06).toFixed(2);
+            return `<span class="rare-reward-door-steam-jet" style="left:${left}%;--steam-delay:${delay}s;"></span>`;
+        }).join('');
+
+        const sparks = Array.from({ length: 6 }, (_, index) => {
+            const left = 16 + index * 12;
+            const delay = (index * 0.03).toFixed(2);
+            const drift = -26 + index * 10;
+            return `<span class="rare-reward-door-spark" style="left:${left}%;--spark-delay:${delay}s;--spark-drift:${drift}px;"></span>`;
+        }).join('');
+
+        return `
+            <div class="rare-reward-door-shell ${side}">
+                <div class="rare-reward-door-frame left"></div>
+                <div class="rare-reward-door-frame right"></div>
+                <div class="rare-reward-door-slab ${side}">
+                    <div class="rare-reward-door-slab-inner"></div>
+                    <div class="rare-reward-door-sweep"></div>
+                </div>
+                <div class="rare-reward-door-warning-band ${side}">
+                    <span class="rare-reward-door-warning-text">WARNING</span>
+                    <span class="rare-reward-door-warning-stripes"></span>
+                </div>
+                <div class="rare-reward-door-label ${side}">WARNING</div>
+                <div class="rare-reward-door-serial ${side}">BAY-04 / PRESSURE LOCK</div>
+                <div class="rare-reward-door-status ${side}">
+                    ${statusLights}
+                </div>
+                <div class="rare-reward-door-center-ridge ${side}"></div>
+                <div class="rare-reward-door-bolts ${side}">
+                    ${bolts}
+                </div>
+                <div class="rare-reward-door-scratches ${side}">
+                    ${scratches}
+                </div>
+                <div class="rare-reward-door-gouges ${side}">
+                    ${gouges}
+                </div>
+                <div class="rare-reward-door-dents ${side}">
+                    ${dents}
+                </div>
+                <div class="rare-reward-door-impacts ${side}">
+                    ${impactMarks}
+                </div>
+                <div class="rare-reward-door-grime ${side}"></div>
+                <div class="rare-reward-door-steam ${side}">
+                    ${steamJets}
+                </div>
+                <div class="rare-reward-door-sparks ${side}">
+                    ${sparks}
+                </div>
+            </div>
+        `;
     }
 
     static getRewardTypeLabel(reward) {
@@ -108,14 +189,10 @@ class RareRewardReveal {
                     <span class="rare-reward-starburst"></span>
                 </div>
                 <div class="rare-reward-mask top">
-                    <div class="rare-reward-mask-pattern">
-                        ${this.buildArrowMaskMarkup(theme, 'top')}
-                    </div>
+                    ${this.buildDoorMaskMarkup('top')}
                 </div>
                 <div class="rare-reward-mask bottom">
-                    <div class="rare-reward-mask-pattern">
-                        ${this.buildArrowMaskMarkup(theme, 'bottom')}
-                    </div>
+                    ${this.buildDoorMaskMarkup('bottom')}
                 </div>
                 <div class="rare-reward-stage">
                     <div class="rare-reward-panel">

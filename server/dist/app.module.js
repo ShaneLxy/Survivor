@@ -14,7 +14,8 @@ const cdkey_module_1 = require("./modules/cdkey/cdkey.module");
 const health_controller_1 = require("./modules/health/health.controller");
 const mail_module_1 = require("./modules/mail/mail.module");
 const save_module_1 = require("./modules/save/save.module");
-const cloudbase_module_1 = require("./shared/cloudbase/cloudbase.module");
+const mongo_module_1 = require("./shared/mongo/mongo.module");
+const selectedEnvFile = process.env.ENV_FILE || '.env.local';
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -23,9 +24,9 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
-                envFilePath: ['.env.local', '.env'],
+                envFilePath: [selectedEnvFile, '.env.local', '.env'],
             }),
-            cloudbase_module_1.CloudbaseModule,
+            mongo_module_1.MongoModule,
             auth_module_1.AuthModule,
             cdkey_module_1.CdkeyModule,
             save_module_1.SaveModule,

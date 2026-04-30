@@ -7,7 +7,9 @@ class ItemGrid {
         this.element = document.getElementById('item-grid');
         this.paginationElement = document.getElementById('pagination');
         this.currentPage = 1;
-        this.pageSize = 18;
+        this.defaultPageSize = 12;
+        this.heroPageSize = 12;
+        this.pageSize = this.defaultPageSize;
         this.items = [];
 
         this.currentTab = 'shelter';
@@ -52,6 +54,10 @@ class ItemGrid {
         this.refresh();
     }
 
+    getPageSize() {
+        return this.currentTab === 'hero' ? this.heroPageSize : this.defaultPageSize;
+    }
+
     setInventoryCategory(category) {
         this.inventoryCategory = category;
         this.refresh();
@@ -64,6 +70,7 @@ class ItemGrid {
 
     refresh() {
         this.renderToolbar();
+        this.pageSize = this.getPageSize();
         this.items = this.getAllDisplayItems();
         this.currentPage = 1;
         this.pagination.setPage(1);
@@ -82,8 +89,12 @@ class ItemGrid {
             return;
         }
         this.toolbarElement.innerHTML = `
-            <button class="item-grid-tab ${this.inventoryCategory === 'item' ? 'active' : ''}" onclick="window.game.ui.itemGrid.setInventoryCategory('item')">普通物品</button>
-            <button class="item-grid-tab ${this.inventoryCategory === 'equipment' ? 'active' : ''}" onclick="window.game.ui.itemGrid.setInventoryCategory('equipment')">装备</button>
+            <button type="button" class="item-grid-tab ${this.inventoryCategory === 'item' ? 'active' : ''}" onclick="window.game.ui.itemGrid.setInventoryCategory('item')">
+                <span class="item-grid-tab-text">普通物品</span>
+            </button>
+            <button type="button" class="item-grid-tab ${this.inventoryCategory === 'equipment' ? 'active' : ''}" onclick="window.game.ui.itemGrid.setInventoryCategory('equipment')">
+                <span class="item-grid-tab-text">装备</span>
+            </button>
         `;
     }
 
@@ -158,19 +169,22 @@ class ItemGrid {
     }
 
     updatePagination() {
+        this.pageSize = this.getPageSize();
         const totalPages = Math.max(1, Math.ceil(this.items.length / this.pageSize));
         this.pagination.setTotalPages(totalPages);
     }
 
     render() {
         this.element.innerHTML = '';
-        const start = (this.currentPage - 1) * this.pageSize;
-        const end = start + this.pageSize;
+        const pageSize = this.getPageSize();
+        this.pageSize = pageSize;
+        const start = (this.currentPage - 1) * pageSize;
+        const end = start + pageSize;
         const pageItems = this.items.slice(start, end);
         pageItems.forEach(item => {
             new ItemCard({ item, onClick: () => this.onItemClick(item), onLongPress: current => this.onItemLongPress(current) }).render(this.element);
         });
-        for (let index = 0; index < this.pageSize - pageItems.length; index++) {
+        for (let index = 0; index < pageSize - pageItems.length; index++) {
             new ItemCard({ item: null }).render(this.element);
         }
     }

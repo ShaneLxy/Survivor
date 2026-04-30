@@ -1,8 +1,8 @@
-import { MailAttachment } from '../../shared/cloudbase/cloudbase.types';
-import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+import { MongoService } from '../../shared/mongo/mongo.service';
+import { MailAttachment } from '../../shared/mongo/mongo.types';
 export declare class MailService {
-    private readonly cloudbaseService;
-    constructor(cloudbaseService: CloudbaseService);
+    private readonly mongoService;
+    constructor(mongoService: MongoService);
     listMails(accountId: string): Promise<{
         success: boolean;
         mails: {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 底部 Tab 导航栏
  */
 class TabBar {
@@ -7,12 +7,12 @@ class TabBar {
         this.activeTab = 'shelter';
         this.disabled = false;
         this.tabs = [
-            { id: 'shelter', name: '避难所', icon: '🏕' },
-            { id: 'hero', name: '英雄', icon: '⚔️' },
-            { id: 'recruit', name: '招募', icon: '🎲' },
-            { id: 'dungeon', name: '副本', icon: '🗺' },
-            { id: 'shop', name: '商城', icon: '🛍' },
-            { id: 'checkin', name: '签到', icon: '📅' }
+            { id: 'shelter', name: '避难所', icon: '⌂' },
+            { id: 'hero', name: '英雄', icon: '⚔' },
+            { id: 'recruit', name: '招募', icon: '✦' },
+            { id: 'dungeon', name: '副本', icon: '⌖' },
+            { id: 'shop', name: '商城', icon: '◆' },
+            { id: 'checkin', name: '签到', icon: '▣' }
         ];
         this.init();
     }
@@ -29,9 +29,10 @@ class TabBar {
             tabBtn.className = 'tab-item';
             tabBtn.dataset.tab = tab.id;
             tabBtn.type = 'button';
+            tabBtn.title = tab.name;
             tabBtn.innerHTML = `
-                <div class="tab-icon">${tab.icon}</div>
-                <div class="tab-label">${tab.name}</div>
+                <span class="tab-icon" aria-hidden="true">${tab.icon}</span>
+                <span class="tab-label">${tab.name}</span>
             `;
             tabBtn.addEventListener('click', () => this.switchTab(tab.id));
             this.element.appendChild(tabBtn);

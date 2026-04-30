@@ -26,13 +26,21 @@
         const actor = battleManager.currentActor;
         const pendingActorId = this.pendingAction?.context?.actor?.id || null;
         const isHeroTurn = Boolean(this.pendingAction && actor && actor.camp === 'hero' && actor.id === pendingActorId);
-        const countdownText = isHeroTurn ? ` · 剩余 ${this.pendingAction.remainingTime}s` : '';
+        const countdownChip = this.element.querySelector('#battle-countdown-chip');
+        if (countdownChip) {
+            const remaining = Math.max(0, Number(this.pendingAction?.remainingTime) || 0);
+            countdownChip.textContent = isHeroTurn
+                ? `${remaining}s`
+                : (actor?.camp === 'enemy' ? '敌方' : '待机');
+            countdownChip.classList.toggle('is-warning', isHeroTurn && remaining <= 5);
+            countdownChip.classList.toggle('is-enemy', Boolean(actor && actor.camp === 'enemy'));
+        }
         if (snapshot.isBossEntrancePlaying) {
             meta.textContent = `${this.getRoundLabel(snapshot.currentRound)} · 领主登场中...`;
             return;
         }
         meta.textContent = actor
-            ? `${this.getRoundLabel(snapshot.currentRound)} · 当前行动: ${actor.name}${countdownText}`
+            ? `${this.getRoundLabel(snapshot.currentRound)} · 当前行动: ${actor.name}`
             : this.getRoundLabel(snapshot.currentRound);
     };
 

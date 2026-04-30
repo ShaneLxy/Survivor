@@ -124,7 +124,7 @@ class DungeonView {
 
         this.codexModal = new Modal({
             className: 'monster-codex-modal-shell',
-            title: '怪物图鉴',
+            title: '敌方情报终端',
             content: this.getMonsterCodexModalContent(),
             buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => this.codexModal?.close() }],
             onClose: () => {
@@ -156,39 +156,114 @@ class DungeonView {
         this.refreshMonsterCodexModal();
     }
 
+    getCodexTabConfigs() {
+        return [
+            { key: 'normal', label: '普通', code: 'NORMAL', shortCode: 'N' },
+            { key: 'elite', label: '精英', code: 'ELITE', shortCode: 'E' },
+            { key: 'boss', label: '领主', code: 'LORD', shortCode: 'B' }
+        ];
+    }
+
+    getCodexTabStats(tab) {
+        const entries = this.codexCache?.[tab] || [];
+        const unlocked = entries.filter((entry) => entry.unlocked).length;
+        return {
+            total: entries.length,
+            unlocked
+        };
+    }
+
+    getCodexOverview() {
+        return this.getCodexTabConfigs().reduce((summary, tab) => {
+            const stats = this.getCodexTabStats(tab.key);
+            summary.total += stats.total;
+            summary.unlocked += stats.unlocked;
+            return summary;
+        }, { total: 0, unlocked: 0 });
+    }
+
+    getMonsterThreatLabel(rank) {
+        if (rank === 'boss') {
+            return '高危领主';
+        }
+        if (rank === 'elite') {
+            return '精英威胁';
+        }
+        return '常规目标';
+    }
+
+    getMonsterCodexListMarkup(entries) {
+        if (entries.length === 0) {
+            return '<div class="monster-codex-empty">当前分类暂无怪物</div>';
+        }
+
+        return entries.map(entry => `
+            <button type="button" class="monster-codex-list-item ${entry.rank} ${entry.unlocked ? 'is-unlocked' : 'is-locked'} ${entry.id === this.activeCodexEnemyId ? 'is-active' : ''}"
+                ${entry.unlocked ? `onclick="window.game.ui.dungeonView.selectMonsterCodexEntry('${entry.id}')"` : 'disabled'}>
+                <span class="monster-codex-list-icon">${entry.unlocked ? entry.icon : '?'}</span>
+                <span class="monster-codex-list-main">
+                    <span class="monster-codex-list-name">${entry.unlocked ? entry.name : '未知目标'}</span>
+                    <span class="monster-codex-list-meta">${entry.unlocked ? `Lv.${entry.previewLevel} · ${entry.rankLabel}` : `需要 Lv.${entry.unlockLevel}`}</span>
+                </span>
+                <span class="monster-codex-list-status">${entry.unlocked ? '已识别' : '封锁'}</span>
+            </button>
+        `).join('');
+    }
+
     getMonsterCodexModalContent() {
         const entries = this.getCurrentCodexEntries();
         const activeEntry = this.ensureActiveCodexSelection();
+        const tabConfigs = this.getCodexTabConfigs();
+        const overview = this.getCodexOverview();
+        const activeTabStats = this.getCodexTabStats(this.activeCodexTab);
         return `
             <div class="monster-codex-modal-layout">
-                <div class="monster-codex-modal-left">
-                    <div class="monster-codex-header">
-                        <div>
-                            <div class="monster-codex-title">怪物图鉴</div>
-                            <div class="monster-codex-subtitle">已开放副本中的怪物会显示真实信息，未开放内容会以 ? 占位。</div>
-                        </div>
-                        <div class="monster-codex-note">属性按怪物所在副本强度计算</div>
+                <div class="monster-codex-command-header">
+                    <div class="monster-codex-logo" aria-hidden="true">
+                        <span>MC</span>
                     </div>
+                    <div class="monster-codex-heading">
+                        <div class="monster-codex-kicker">MONSTER CODEX</div>
+                        <div class="monster-codex-title">怪物图鉴</div>
+                        <div class="monster-codex-subtitle">记录副本敌方单位、威胁等级与专属技能，未开放内容将保持封锁状态。</div>
+                    </div>
+                    <div class="monster-codex-header-metrics">
+                        <div class="monster-codex-header-metric">
+                            <strong>${overview.unlocked}/${overview.total}</strong>
+                            <span>总识别</span>
+                        </div>
+                        <div class="monster-codex-header-metric">
+                            <strong>${activeTabStats.unlocked}/${activeTabStats.total}</strong>
+                            <span>当前分类</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="monster-codex-modal-left">
                     <div class="monster-codex-tabs">
-                        <button class="btn ${this.activeCodexTab === 'normal' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.dungeonView.switchCodexTab('normal', true)">普通</button>
-                        <button class="btn ${this.activeCodexTab === 'elite' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.dungeonView.switchCodexTab('elite', true)">精英</button>
-                        <button class="btn ${this.activeCodexTab === 'boss' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.dungeonView.switchCodexTab('boss', true)">领主</button>
+                        ${tabConfigs.map((tab) => {
+                            const stats = this.getCodexTabStats(tab.key);
+                            return `
+                                <button type="button" class="monster-codex-tab ${tab.key} ${this.activeCodexTab === tab.key ? 'is-active' : ''}"
+                                    onclick="window.game.ui.dungeonView.switchCodexTab('${tab.key}', true)">
+                                    <span class="monster-codex-tab-code">${tab.shortCode}</span>
+                                    <span class="monster-codex-tab-main">
+                                        <span>${tab.label}</span>
+                                        <strong>${stats.unlocked}/${stats.total}</strong>
+                                    </span>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="monster-codex-entry-heading">
+                        <span>情报索引</span>
+                        <strong>${activeTabStats.unlocked} 已识别</strong>
                     </div>
                     <div class="monster-codex-entry-list">
-                        ${entries.length === 0 ? '<div class="monster-codex-empty">当前分类暂无怪物</div>' : entries.map(entry => `
-                            <button type="button" class="monster-codex-list-item ${entry.rank} ${entry.unlocked ? 'is-unlocked' : 'is-locked'} ${entry.id === this.activeCodexEnemyId ? 'is-active' : ''}"
-                                ${entry.unlocked ? `onclick="window.game.ui.dungeonView.selectMonsterCodexEntry('${entry.id}')"` : 'disabled'}>
-                                <span class="monster-codex-list-icon">${entry.unlocked ? entry.icon : '?'}</span>
-                                <span class="monster-codex-list-main">
-                                    <span class="monster-codex-list-name">${entry.unlocked ? entry.name : '未解锁'}</span>
-                                    <span class="monster-codex-list-meta">${entry.unlocked ? `Lv.${entry.previewLevel} · ${entry.rankLabel}` : `Lv.${entry.unlockLevel} 解锁`}</span>
-                                </span>
-                            </button>
-                        `).join('')}
+                        ${this.getMonsterCodexListMarkup(entries)}
                     </div>
                 </div>
                 <div class="monster-codex-modal-right">
-                    ${activeEntry ? this.getMonsterDetailContent(activeEntry) : '<div class="monster-codex-empty">当前分类还没有已解锁怪物</div>'}
+                    ${activeEntry ? this.getMonsterDetailContent(activeEntry) : '<div class="monster-codex-empty monster-codex-empty-panel">当前分类还没有已解锁怪物</div>'}
                 </div>
             </div>
         `;
@@ -196,39 +271,62 @@ class DungeonView {
 
     getMonsterDetailContent(entry) {
         const stats = entry.stats || {};
-        const dungeonText = entry.dungeons.map(item => `${item.name} (Lv.${item.level})`).join('、');
+        const dungeonText = entry.dungeons.map(item => `${item.name} Lv.${item.level}`).join('、');
         const skillName = entry.skill?.name || '无';
         const skillDescription = entry.skill?.description || '该怪物暂无专属技能。';
+        const power = this.calculateMonsterPower(stats);
         return `
-            <div class="monster-detail-panel monster-detail-panel-inline">
+            <div class="monster-detail-panel monster-detail-panel-inline ${entry.rank}">
                 <div class="monster-detail-header">
-                    <div class="monster-detail-icon ${entry.rank}">${entry.icon}</div>
+                    <div class="monster-detail-icon-wrap">
+                        <div class="monster-detail-icon ${entry.rank}">${entry.icon}</div>
+                        <div class="monster-detail-threat">${this.getMonsterThreatLabel(entry.rank)}</div>
+                    </div>
                     <div class="monster-detail-main">
-                        <div class="monster-detail-name">${entry.name}</div>
-                        <div class="monster-detail-tags">
+                        <div class="monster-detail-kicker">ENEMY FILE</div>
+                        <div class="monster-detail-name-row">
+                            <div class="monster-detail-name">${entry.name}</div>
                             <span class="monster-rank-badge ${entry.rank}">${entry.rankLabel}</span>
+                        </div>
+                        <div class="monster-detail-tags">
                             <span class="monster-rank-badge neutral">副本强度 Lv.${entry.previewLevel}</span>
+                            <span class="monster-rank-badge neutral">战术档案</span>
                         </div>
                         <div class="monster-detail-desc">${entry.description}</div>
-                        <div class="monster-detail-dungeon">出现副本：${dungeonText}</div>
+                    </div>
+                    <div class="monster-detail-power">
+                        <span>战力评估</span>
+                        <strong>${power}</strong>
+                    </div>
+                </div>
+                <div class="monster-detail-intel-strip">
+                    <div class="monster-detail-intel-item">
+                        <span>出现副本</span>
+                        <strong>${dungeonText || '未知区域'}</strong>
+                    </div>
+                    <div class="monster-detail-intel-item">
+                        <span>攻击距离</span>
+                        <strong>${stats.attackRange || 0}</strong>
+                    </div>
+                    <div class="monster-detail-intel-item">
+                        <span>移动距离</span>
+                        <strong>${stats.moveRange || 0}</strong>
                     </div>
                 </div>
                 <div class="monster-detail-stats">
-                    ${this.buildMonsterStatItem('生命', `${stats.hp || 0}`)}
-                    ${this.buildMonsterStatItem('攻击', `${stats.attack || 0}`)}
-                    ${this.buildMonsterStatItem('防御', `${stats.defense || 0}`)}
+                    ${this.buildMonsterStatItem('生命', `${stats.hp || 0}`, 'is-core')}
+                    ${this.buildMonsterStatItem('攻击', `${stats.attack || 0}`, 'is-core')}
+                    ${this.buildMonsterStatItem('防御', `${stats.defense || 0}`, 'is-core')}
                     ${this.buildMonsterStatItem('速度', `${stats.speed || 0}`)}
                     ${this.buildMonsterStatItem('暴击', `${stats.crit || 0}`)}
                     ${this.buildMonsterStatItem('抗暴', `${stats.antiCrit || 0}`)}
                     ${this.buildMonsterStatItem('破防', `${stats.defensePen || 0}`)}
                     ${this.buildMonsterStatItem('命中', `${stats.accuracy || 0}`)}
                     ${this.buildMonsterStatItem('闪避', `${stats.dodge || 0}`)}
-                    ${this.buildMonsterStatItem('攻击距离', `${stats.attackRange || 0}`)}
-                    ${this.buildMonsterStatItem('移动距离', `${stats.moveRange || 0}`)}
-                    ${this.buildMonsterStatItem('战力', `${this.calculateMonsterPower(stats)}`)}
                 </div>
-                <div class="monster-detail-skill card">
-                    <div class="monster-detail-skill-title">专属技能：${skillName}</div>
+                <div class="monster-detail-skill">
+                    <div class="monster-detail-skill-kicker">SPECIAL SKILL</div>
+                    <div class="monster-detail-skill-title">${skillName}</div>
                     <div class="monster-detail-skill-desc">${skillDescription}</div>
                 </div>
             </div>
@@ -239,9 +337,9 @@ class DungeonView {
         this.openMonsterCodexModal(enemyId);
     }
 
-    buildMonsterStatItem(label, value) {
+    buildMonsterStatItem(label, value, className = '') {
         return `
-            <div class="monster-detail-stat-item">
+            <div class="monster-detail-stat-item ${className}">
                 <span>${label}</span>
                 <strong>${value}</strong>
             </div>

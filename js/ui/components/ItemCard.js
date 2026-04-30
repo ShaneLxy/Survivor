@@ -29,13 +29,15 @@ class ItemCard {
         }
 
         const card = document.createElement('div');
-        card.className = 'item-card card';
+        card.className = `item-card card item-card-${item.type || 'item'} item-rarity-${item.rarity || 'common'}`;
         if (this.config.disabled) {
             card.classList.add('disabled');
         }
 
         const rarityColor = this.getRarityColor(item.rarity);
+        card.style.setProperty('--item-rarity-color', rarityColor);
         card.style.borderColor = rarityColor;
+        card.title = `${item.name || '物品'} x${item.totalCount || item.count || 1}`;
 
         // 图标
         const icon = document.createElement('div');

@@ -1,8 +1,8 @@
-import { MailAttachment } from '../../shared/cloudbase/cloudbase.types';
-import { CloudbaseService } from '../../shared/cloudbase/cloudbase.service';
+import { MongoService } from '../../shared/mongo/mongo.service';
+import { MailAttachment } from '../../shared/mongo/mongo.types';
 export declare class CdkeyService {
-    private readonly cloudbaseService;
-    constructor(cloudbaseService: CloudbaseService);
+    private readonly mongoService;
+    constructor(mongoService: MongoService);
     redeem(accountId: string, rawCode: string): Promise<{
         success: boolean;
         message: string;

@@ -14,14 +14,14 @@ export declare class MailController {
             expireAt: string;
             readAt: string;
             claimedAt: string;
-            attachments: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+            attachments: import("../../shared/mongo/mongo.types").MailAttachment[];
         }[];
     }>;
     claimAll(req: any): Promise<{
         success: boolean;
         message: string;
         claimedCount: number;
-        rewards: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+        rewards: import("../../shared/mongo/mongo.types").MailAttachment[];
         mails: {
             id: string;
             title: string;
@@ -32,7 +32,7 @@ export declare class MailController {
             expireAt: string;
             readAt: string;
             claimedAt: string;
-            attachments: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+            attachments: import("../../shared/mongo/mongo.types").MailAttachment[];
         }[];
     }>;
     markRead(req: any, mailId: string): Promise<{
@@ -47,7 +47,7 @@ export declare class MailController {
             expireAt: string;
             readAt: string;
             claimedAt: string;
-            attachments: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+            attachments: import("../../shared/mongo/mongo.types").MailAttachment[];
         };
     }>;
     claim(req: any, mailId: string): Promise<{
@@ -63,8 +63,8 @@ export declare class MailController {
             expireAt: string;
             readAt: string;
             claimedAt: string;
-            attachments: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+            attachments: import("../../shared/mongo/mongo.types").MailAttachment[];
         };
-        rewards: import("../../shared/cloudbase/cloudbase.types").MailAttachment[];
+        rewards: import("../../shared/mongo/mongo.types").MailAttachment[];
     }>;
 }

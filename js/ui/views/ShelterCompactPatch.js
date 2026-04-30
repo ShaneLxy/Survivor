@@ -25,13 +25,17 @@
         return `
             <div class="shelter-top-status card">
                 <div class="shelter-top-status-main">
-                    <div class="shelter-top-status-title">避难所 Lv.${shelter?.level || 1}</div>
-                    <div class="shelter-top-status-subtitle">${this.getShelterStageText?.(shelter?.level || 1) || '初始营火'}</div>
+                    <div class="shelter-top-status-heading-group">
+                        <div class="shelter-top-status-kicker">SHELTER</div>
+                        <div class="shelter-top-status-title">避难所 Lv.${shelter?.level || 1}</div>
+                        <div class="shelter-top-status-stage">${this.getShelterStageText?.(shelter?.level || 1) || '初始营火'}</div>
+                    </div>
+                    <div class="shelter-top-status-timer">
+                        <span>统一计时</span>
+                        <strong>${this.formatElapsedTimer(aggregate.elapsedSeconds)}</strong>
+                    </div>
                 </div>
-                <div class="shelter-top-status-timer">
-                    <span>统一计时</span>
-                    <strong>${this.formatElapsedTimer(aggregate.elapsedSeconds)}</strong>
-                </div>
+                <div class="shelter-top-status-subtitle">管理营地建筑、统一收取产出，并规划下一次升级。</div>
                 <div class="shelter-top-status-preview">${rewardText}</div>
             </div>
         `;
@@ -122,7 +126,9 @@
                     ${this.getCompactTopStatus()}
                     <div class="shelter-side-button-column">
                         ${this.getCompactButtonList().map((button) => `
-                            <button class="shelter-side-button ${button.id === 'collect_all' ? 'collect-all' : ''}"
+                            <button type="button"
+                                class="shelter-side-button shelter-side-button-${button.id} ${button.id === 'collect_all' ? 'collect-all' : ''}"
+                                data-shelter-action="${button.id}"
                                 onclick="window.game.ui.shelterView.openBuildingDetail('${button.id}')">
                                 <span class="shelter-side-button-icon">${button.icon}</span>
                                 <span class="shelter-side-button-label">${button.label}</span>

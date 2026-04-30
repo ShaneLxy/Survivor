@@ -1,0 +1,203 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1600" role="img" aria-label="Hero archive wall background">
+  <defs>
+    <linearGradient id="wall" x1="540" y1="0" x2="540" y2="1600" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#202027"/>
+      <stop offset="0.42" stop-color="#14151a"/>
+      <stop offset="1" stop-color="#08090d"/>
+    </linearGradient>
+    <radialGradient id="lampAmber" cx="18%" cy="8%" r="55%">
+      <stop offset="0" stop-color="#df9851" stop-opacity="0.32"/>
+      <stop offset="0.42" stop-color="#b86e34" stop-opacity="0.09"/>
+      <stop offset="1" stop-color="#b86e34" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lampBlue" cx="88%" cy="18%" r="50%">
+      <stop offset="0" stop-color="#5ca8ff" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#356796" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#356796" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2e2be"/>
+      <stop offset="0.52" stop-color="#cdb384"/>
+      <stop offset="1" stop-color="#8e744f"/>
+    </linearGradient>
+    <linearGradient id="paperCool" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9e2e6"/>
+      <stop offset="0.5" stop-color="#a5b5ba"/>
+      <stop offset="1" stop-color="#64747d"/>
+    </linearGradient>
+    <linearGradient id="photo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#242f37"/>
+      <stop offset="1" stop-color="#080b0f"/>
+    </linearGradient>
+    <radialGradient id="pin" cx="42%" cy="34%" r="64%">
+      <stop offset="0" stop-color="#ffe7ad"/>
+      <stop offset="0.36" stop-color="#e89638"/>
+      <stop offset="1" stop-color="#62300f"/>
+    </radialGradient>
+    <pattern id="wallGrain" width="76" height="76" patternUnits="userSpaceOnUse">
+      <path d="M4 13H40M20 50H74M0 72H32" stroke="#ffffff" stroke-opacity="0.035" stroke-width="2"/>
+      <path d="M64 6 73 15M10 60 20 67M45 31 55 35" stroke="#d4a160" stroke-opacity="0.045" stroke-width="1.5"/>
+    </pattern>
+    <pattern id="paperGrain" width="22" height="22" patternUnits="userSpaceOnUse">
+      <path d="M2 7H20M5 18H14" stroke="#3b2a17" stroke-opacity="0.06" stroke-width="1"/>
+      <circle cx="17" cy="4" r="1.1" fill="#3b2a17" opacity="0.05"/>
+    </pattern>
+    <filter id="paperShadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="15" stdDeviation="11" flood-color="#000000" flood-opacity="0.46"/>
+    </filter>
+    <filter id="pinShadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <g id="miniPortrait">
+      <rect x="0" y="0" width="70" height="84" rx="4" fill="url(#photo)" stroke="#e7c17e" stroke-opacity="0.24"/>
+      <circle cx="35" cy="34" r="14" fill="#111923" opacity="0.94"/>
+      <path d="M14 78c6-23 37-28 43 0Z" fill="#111923" opacity="0.94"/>
+      <path d="M9 9H61" stroke="#7fc1ff" stroke-opacity="0.18" stroke-width="3"/>
+    </g>
+    <g id="dataLines">
+      <rect x="0" y="0" width="84" height="5" rx="2.5" fill="#3d2d1b" opacity="0.36"/>
+      <rect x="0" y="17" width="126" height="5" rx="2.5" fill="#3d2d1b" opacity="0.24"/>
+      <rect x="0" y="34" width="104" height="5" rx="2.5" fill="#3d2d1b" opacity="0.24"/>
+      <rect x="0" y="51" width="132" height="5" rx="2.5" fill="#3d2d1b" opacity="0.18"/>
+    </g>
+    <g id="fileA">
+      <rect width="210" height="285" rx="5" fill="url(#paper)" filter="url(#paperShadow)"/>
+      <rect width="210" height="285" rx="5" fill="url(#paperGrain)" opacity="0.78"/>
+      <path d="M18 22H192M18 262H192" stroke="#51391f" stroke-opacity="0.22" stroke-width="3"/>
+      <use href="#miniPortrait" x="22" y="46"/>
+      <use href="#dataLines" x="104" y="54"/>
+      <rect x="22" y="152" width="166" height="6" rx="3" fill="#7b321f" opacity="0.28"/>
+      <rect x="22" y="174" width="138" height="6" rx="3" fill="#3d2d1b" opacity="0.22"/>
+      <rect x="22" y="196" width="152" height="6" rx="3" fill="#3d2d1b" opacity="0.17"/>
+      <rect x="22" y="226" width="58" height="18" rx="3" fill="#8f2f20" opacity="0.23"/>
+      <rect x="96" y="226" width="70" height="18" rx="3" fill="#192d37" opacity="0.2"/>
+    </g>
+    <g id="fileB">
+      <rect width="170" height="236" rx="5" fill="url(#paperCool)" filter="url(#paperShadow)"/>
+      <rect width="170" height="236" rx="5" fill="url(#paperGrain)" opacity="0.48"/>
+      <path d="M16 24H154M16 214H154" stroke="#13232d" stroke-opacity="0.24" stroke-width="3"/>
+      <rect x="20" y="44" width="54" height="68" rx="4" fill="url(#photo)" stroke="#d7eef7" stroke-opacity="0.2"/>
+      <circle cx="47" cy="72" r="12" fill="#0b1118"/>
+      <path d="M27 106c6-20 34-22 40 0Z" fill="#0b1118"/>
+      <rect x="86" y="49" width="60" height="5" rx="2.5" fill="#13232d" opacity="0.34"/>
+      <rect x="86" y="68" width="48" height="5" rx="2.5" fill="#13232d" opacity="0.22"/>
+      <rect x="86" y="87" width="66" height="5" rx="2.5" fill="#13232d" opacity="0.2"/>
+      <rect x="20" y="132" width="128" height="5" rx="2.5" fill="#13232d" opacity="0.22"/>
+      <rect x="20" y="152" width="110" height="5" rx="2.5" fill="#13232d" opacity="0.18"/>
+      <rect x="20" y="178" width="56" height="18" rx="3" fill="#c27a32" opacity="0.22"/>
+    </g>
+    <g id="note">
+      <rect width="124" height="92" rx="4" fill="#c79b4b" filter="url(#paperShadow)" opacity="0.92"/>
+      <path d="M12 20H102M12 40H92M12 60H76" stroke="#3b2a17" stroke-opacity="0.3" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <g id="pinDot">
+      <circle cx="0" cy="0" r="10" fill="url(#pin)" filter="url(#pinShadow)"/>
+      <circle cx="-3" cy="-4" r="2.2" fill="#fff5c9" opacity="0.7"/>
+    </g>
+  </defs>
+
+  <rect width="1080" height="1600" fill="url(#wall)"/>
+  <rect width="1080" height="1600" fill="url(#wallGrain)" opacity="0.9"/>
+  <rect width="1080" height="1600" fill="url(#lampAmber)"/>
+  <rect width="1080" height="1600" fill="url(#lampBlue)"/>
+
+  <g opacity="0.28">
+    <path d="M0 235H1080M0 604H1080M0 1015H1080M0 1402H1080" stroke="#d59a58" stroke-width="2"/>
+    <path d="M126 0V1600M387 0V1600M642 0V1600M916 0V1600" stroke="#ffffff" stroke-opacity="0.05" stroke-width="2"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M148 155 445 292 716 168 940 370" stroke="#9c2c21" stroke-opacity="0.42" stroke-width="5"/>
+    <path d="M188 526 395 412 646 604 896 516" stroke="#9c2c21" stroke-opacity="0.36" stroke-width="4"/>
+    <path d="M150 912 386 776 686 915 928 782" stroke="#b04429" stroke-opacity="0.36" stroke-width="4"/>
+    <path d="M250 1236 520 1100 800 1262" stroke="#9c2c21" stroke-opacity="0.32" stroke-width="5"/>
+    <path d="M462 280 398 412 386 776 520 1100" stroke="#bf8d4c" stroke-opacity="0.22" stroke-width="3"/>
+    <path d="M716 168 646 604 686 915 800 1262" stroke="#bf8d4c" stroke-opacity="0.18" stroke-width="3"/>
+  </g>
+
+  <g opacity="0.98">
+    <g transform="translate(86 86) rotate(-7 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="105" y="10"/>
+    </g>
+    <g transform="translate(382 132) rotate(5 85 118)">
+      <use href="#fileB"/>
+      <use href="#pinDot" x="84" y="8"/>
+    </g>
+    <g transform="translate(666 66) rotate(-11 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+    <g transform="translate(890 264) rotate(9 62 46)">
+      <use href="#note"/>
+      <use href="#pinDot" x="63" y="8"/>
+    </g>
+
+    <g transform="translate(128 402) rotate(8 85 118)">
+      <use href="#fileB"/>
+      <use href="#pinDot" x="84" y="9"/>
+    </g>
+    <g transform="translate(320 334) rotate(-4 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+    <g transform="translate(598 420) rotate(7 85 118)">
+      <use href="#fileB"/>
+      <use href="#pinDot" x="84" y="8"/>
+    </g>
+    <g transform="translate(786 380) rotate(-6 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+
+    <g transform="translate(78 780) rotate(-9 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+    <g transform="translate(332 716) rotate(10 62 46)">
+      <use href="#note"/>
+      <use href="#pinDot" x="62" y="8"/>
+    </g>
+    <g transform="translate(438 740) rotate(4 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+    <g transform="translate(742 700) rotate(-8 85 118)">
+      <use href="#fileB"/>
+      <use href="#pinDot" x="84" y="8"/>
+    </g>
+
+    <g transform="translate(180 1088) rotate(7 85 118)">
+      <use href="#fileB"/>
+      <use href="#pinDot" x="84" y="8"/>
+    </g>
+    <g transform="translate(430 1034) rotate(-6 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+    <g transform="translate(726 1120) rotate(8 105 142)">
+      <use href="#fileA"/>
+      <use href="#pinDot" x="104" y="10"/>
+    </g>
+    <g transform="translate(54 1326) rotate(-5 62 46)">
+      <use href="#note"/>
+      <use href="#pinDot" x="62" y="8"/>
+    </g>
+    <g transform="translate(572 1340) rotate(5 85 118)">
+      <use href="#fileB"/>
+      <use href="#pinDot" x="84" y="8"/>
+    </g>
+  </g>
+
+  <g opacity="0.34">
+    <path d="M54 295 278 276M728 314 1015 288M82 680 288 644M690 1070 1028 1024" stroke="#000000" stroke-width="10" stroke-linecap="round"/>
+    <path d="M64 292 284 274M724 310 1018 284M82 676 286 641M686 1066 1028 1020" stroke="#f1d5a0" stroke-opacity="0.45" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <g opacity="0.18">
+    <path d="M0 0H1080V1600H0Z" fill="none" stroke="#f0b86a" stroke-width="18"/>
+    <path d="M0 0H1080V1600H0Z" fill="none" stroke="#000000" stroke-opacity="0.8" stroke-width="54"/>
+  </g>
+  <rect width="1080" height="1600" fill="url(#wall)" opacity="0.18"/>
+  <rect width="1080" height="1600" fill="none" stroke="#ffc77b" stroke-opacity="0.08" stroke-width="2"/>
+</svg>

@@ -11,11 +11,17 @@
 
         return `
             <div class="task-tutorial-shortcut card">
+                <div class="task-card-icon" aria-hidden="true">N</div>
                 <div class="task-tutorial-shortcut-main">
-                    <div class="task-tutorial-shortcut-title">新手指引</div>
+                    <div class="task-card-title-row">
+                        <div class="task-tutorial-shortcut-title">新手指引</div>
+                        <div class="task-card-status">${tutorialDone ? '可回放' : '未完成'}</div>
+                    </div>
                     <div class="task-tutorial-shortcut-desc">${shortcutText}</div>
                 </div>
-                <button class="btn btn-primary" onclick="window.game.ui.taskView.restartTutorial()">${tutorialDone ? '重新查看' : '开始指引'}</button>
+                <div class="task-card-action">
+                    <button class="btn btn-primary task-claim-btn" onclick="window.game.ui.taskView.restartTutorial()">${tutorialDone ? '回放' : '开始'}</button>
+                </div>
             </div>
         `;
     };

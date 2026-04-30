@@ -38,7 +38,7 @@ class HeroManager {
     }
 
     createInitialHero() {
-        const config = HeroConfig.getHeroConfig('hero_011');
+        const config = HeroConfig.getHeroConfig('hero_023');
         if (!config) {
             return;
         }
@@ -212,6 +212,10 @@ class HeroManager {
         return this.getTeam().map(hero => hero.id);
     }
 
+    getTeamPower() {
+        return this.getTeam().reduce((sum, hero) => sum + (hero?.getPower?.() || 0), 0);
+    }
+
     refreshAllHeroes() {
         this.heroes.forEach(hero => {
             hero.refreshStats(false);
@@ -332,6 +336,7 @@ class HeroManager {
     createBattleUnits() {
         return this.getTeam().map(hero => new BattleUnit({
             id: hero.id,
+            configId: hero.configId,
             name: hero.name,
             icon: hero.icon,
             type: 'hero',
@@ -352,6 +357,9 @@ class HeroManager {
                 moveRange: hero.moveRange
             },
             skills: hero.skills,
+            basicAttackEffects: hero.basicAttackEffects,
+            passiveEffects: hero.passiveEffects,
+            reactiveEffects: hero.reactiveEffects,
             skill: hero.skill,
             portrait: hero.portrait,
             professionIcon: hero.professionIcon,

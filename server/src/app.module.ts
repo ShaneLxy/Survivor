@@ -5,15 +5,17 @@ import { CdkeyModule } from './modules/cdkey/cdkey.module';
 import { HealthController } from './modules/health/health.controller';
 import { MailModule } from './modules/mail/mail.module';
 import { SaveModule } from './modules/save/save.module';
-import { CloudbaseModule } from './shared/cloudbase/cloudbase.module';
+import { MongoModule } from './shared/mongo/mongo.module';
+
+const selectedEnvFile = process.env.ENV_FILE || '.env.local';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: [selectedEnvFile, '.env.local', '.env'],
     }),
-    CloudbaseModule,
+    MongoModule,
     AuthModule,
     CdkeyModule,
     SaveModule,
