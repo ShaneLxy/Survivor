@@ -4,19 +4,51 @@
     }
 
     BattleView.prototype.getBattleBackground = function() {
-        const chapter = (window.DungeonChapterConfig || []).find((entry) => entry.dungeonIds.includes(this.currentDungeon?.id));
-        return chapter?.background || window.GameSceneBackgrounds?.battle?.src || '';
+        const dungeonId = this.currentDungeon?.id;
+        const chapter = (window.DungeonChapterConfig || []).find((entry) => {
+            const dungeonIds = Array.isArray(entry?.dungeonIds) ? entry.dungeonIds : [];
+            return dungeonId && dungeonIds.includes(dungeonId);
+        });
+        const background = chapter?.battleBackground || chapter?.background || this.currentDungeon?.battleBackground || window.GameSceneBackgrounds?.battle?.src || '';
+        return this.resolveAssetUrl?.(background) || background;
     };
 
     const originalRenderShell = BattleView.prototype.renderShell;
     BattleView.prototype.renderShell = function() {
         originalRenderShell.call(this);
         const view = this.element.querySelector('.battle-view');
+        const stage = this.element.querySelector('.battle-board-stage');
+        const board = this.element.querySelector('.battle-board');
         const background = this.getBattleBackground();
         if (view && background) {
             view.classList.add('battle-view-themed');
             view.style.setProperty('--battle-bg-image', `url('${background}')`);
+            view.dataset.battleBackground = background;
         }
+        if (stage && background) {
+            const image = document.createElement('img');
+            image.className = 'battle-background-image';
+            image.alt = '';
+            image.decoding = 'async';
+            image.loading = 'eager';
+            image.addEventListener('load', () => {
+                stage.classList.add('is-background-loaded');
+                stage.classList.remove('is-background-missing');
+            }, { once: true });
+            image.addEventListener('error', () => {
+                stage.classList.add('is-background-missing');
+                stage.classList.remove('is-background-loaded');
+            }, { once: true });
+            image.src = background;
+            stage.insertBefore(image, stage.firstChild);
+        }
+        [stage, board].forEach((element) => {
+            if (!element || !background) {
+                return;
+            }
+            element.classList.add('battle-themed-surface');
+            element.style.setProperty('--battle-bg-image', `url('${background}')`);
+        });
     };
 
     BattleView.prototype.waitWhilePaused = async function() {

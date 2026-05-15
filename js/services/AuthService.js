@@ -90,6 +90,12 @@ class AuthService {
         return response;
     }
 
+    async tapTapLogin(payload) {
+        const response = await AuthApi.tapTapLogin(payload);
+        this.setSession(response);
+        return response;
+    }
+
     logout() {
         this.sessionExpiredHandled = false;
         this.clearSession();

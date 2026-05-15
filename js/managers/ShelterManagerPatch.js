@@ -41,6 +41,14 @@
             return { success: false, message: '当前暂无可收获资源' };
         }
 
+        const itemRewards = aggregate.rewards
+            .filter(reward => reward.type === 'item')
+            .map(reward => ({ id: reward.id, count: reward.amount || 1 }));
+        const inventoryCheck = itemManager.canAddItemBundle(itemRewards);
+        if (!inventoryCheck.success) {
+            return { success: false, message: inventoryCheck.message || '背包容量达到上限' };
+        }
+
         aggregate.rewards.forEach((reward) => {
             if (reward.type === 'item') {
                 itemManager.addItem(reward.id, reward.amount);

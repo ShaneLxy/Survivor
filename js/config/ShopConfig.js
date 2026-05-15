@@ -3,7 +3,11 @@
  */
 const ShopConfig = {
     getShopItems() {
-        return [
+        if (Array.isArray(this.gmShopItems)) {
+            return this.gmShopItems.map(item => this.withVisuals(item));
+        }
+
+        const items = [
             {
                 id: 'shop_001',
                 name: '随机英雄碎片x10',
@@ -137,6 +141,30 @@ const ShopConfig = {
                 giveCount: 1
             }
         ];
+        return items.map(item => this.withVisuals(item));
+    },
+
+    getShopItemIconSrc(item) {
+        if (!item) {
+            return '';
+        }
+        if (item.type === 'resource') {
+            return (typeof ResourceVisualConfig !== 'undefined' ? ResourceVisualConfig.get(item.giveItem)?.src : '') || '';
+        }
+        if (item.type === 'consumable') {
+            return ItemConfig.getItemConfig(item.giveItem)?.iconSrc || '';
+        }
+        if (item.type === 'fragment') {
+            return ItemConfig.getItemIconSrc?.('hero_summon') || 'assets/images/items/hero-summon.png';
+        }
+        return '';
+    },
+
+    withVisuals(item) {
+        return {
+            ...item,
+            iconSrc: this.getShopItemIconSrc(item)
+        };
     },
 
     getFragmentRarity(giveItem) {
@@ -218,6 +246,7 @@ const ShopConfig = {
         item.actualItemId = fragmentRarity ? null : item.giveItem;
         item.actualItemName = item.name;
         item.actualItemIcon = item.icon;
+        item.actualItemIconSrc = item.iconSrc || this.getShopItemIconSrc(item);
         item.fragmentRarity = fragmentRarity;
         return item;
     }

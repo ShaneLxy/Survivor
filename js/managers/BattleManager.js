@@ -21,10 +21,11 @@ class BattleManager {
         this.isBossEntrancePlaying = false;
         this.battleItemUsage = {};
         this.formationStates = [];
+        this.environmentEffect = 'none';
         BattleManager.instance = this;
     }
 
-    initBattle({ heroes, enemies, bossWaves = [], sceneId = 'standard_9x9', battlefield = null }) {
+    initBattle({ heroes, enemies, bossWaves = [], sceneId = 'standard_9x9', battlefield = null, environmentEffect = 'none' }) {
         this.heroes = heroes || [];
         this.enemies = enemies || [];
         this.pendingBossWaves = (bossWaves || []).map((wave, index) => ({
@@ -35,6 +36,7 @@ class BattleManager {
             isSpawned: false
         }));
         this.scene = this.resolveSceneConfig(sceneId, battlefield);
+        this.environmentEffect = this.normalizeEnvironmentEffect(environmentEffect || battlefield?.environmentEffect);
         this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = true;
@@ -60,39 +62,121 @@ class BattleManager {
         this.decisionProvider = provider;
     }
 
+    normalizeEnvironmentEffect(effect) {
+        const rawType = typeof effect === 'object' && effect !== null
+            ? (effect.type || effect.id || effect.effect || 'none')
+            : effect;
+        const type = String(rawType || 'none').trim().toLowerCase().replace(/[\s-]+/g, '_');
+        const aliases = {
+            poison: 'poison_fog',
+            toxic: 'poison_fog',
+            toxic_fog: 'poison_fog',
+            dust: 'dust_smoke',
+            sand: 'dust_smoke',
+            storm: 'storm_night',
+            stormnight: 'storm_night',
+            heavy_rain: 'storm_night',
+            lightning_rain: 'storm_night'
+        };
+        const normalized = aliases[type] || type;
+        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night'].includes(normalized) ? normalized : 'none';
+    }
+
     resolveSceneConfig(sceneId = 'standard_9x9', battlefield = null) {
         const baseScene = BattleSceneConfig.getScene(sceneId);
         const width = Math.max(1, Number(battlefield?.cols ?? battlefield?.width ?? baseScene?.width) || 1);
         const height = Math.max(1, Number(battlefield?.rows ?? battlefield?.height ?? baseScene?.height) || 1);
         const heroSpawn = battlefield?.heroSpawn || {};
         const enemySpawn = battlefield?.enemySpawn || {};
+        const baseHeroSpawn = baseScene?.heroSpawn || {};
+        const baseEnemySpawn = baseScene?.enemySpawn || {};
         return {
             ...baseScene,
             width,
             height,
             actionTimeout: Math.max(1, Number(battlefield?.actionTimeout ?? baseScene?.actionTimeout) || 15),
-            heroSpawn: {
-                ...(baseScene?.heroSpawn || {}),
+            heroSpawn: this.normalizeSpawnConfig({
+                ...baseHeroSpawn,
                 ...heroSpawn,
-                startRow: Utils.clamp(
-                    Number(heroSpawn.startRow ?? (battlefield ? (height - 1) : (baseScene?.heroSpawn?.startRow ?? (height - 1)))) || (height - 1),
-                    0,
-                    height - 1
-                ),
-                direction: Number(heroSpawn.direction ?? baseScene?.heroSpawn?.direction) >= 0 ? 1 : -1
-            },
-            enemySpawn: {
-                ...(baseScene?.enemySpawn || {}),
+                startRow: heroSpawn.startRow ?? (battlefield ? (height - 1) : (baseHeroSpawn.startRow ?? (height - 1))),
+                direction: heroSpawn.direction ?? baseHeroSpawn.direction ?? -1
+            }, width, height, height - 1, -1),
+            enemySpawn: this.normalizeSpawnConfig({
+                ...baseEnemySpawn,
                 ...enemySpawn,
-                startRow: Utils.clamp(
-                    Number(enemySpawn.startRow ?? (battlefield ? 0 : (baseScene?.enemySpawn?.startRow ?? 0))) || 0,
-                    0,
-                    height - 1
-                ),
-                direction: Number(enemySpawn.direction ?? baseScene?.enemySpawn?.direction) >= 0 ? 1 : -1
-            },
+                startRow: enemySpawn.startRow ?? (battlefield ? 0 : (baseEnemySpawn.startRow ?? 0)),
+                direction: enemySpawn.direction ?? baseEnemySpawn.direction ?? 1
+            }, width, height, 0, 1),
             obstacles: this.normalizeObstacles(battlefield?.obstacles, width, height)
         };
+    }
+
+    normalizeSpawnConfig(spawnConfig = {}, width, height, defaultStartRow = 0, defaultDirection = 1) {
+        const rawStartRow = Number(spawnConfig.startRow);
+        const startRow = Utils.clamp(
+            Number.isFinite(rawStartRow) ? Math.floor(rawStartRow) : defaultStartRow,
+            0,
+            height - 1
+        );
+        const rawDirection = Number(spawnConfig.direction);
+        const direction = Number.isFinite(rawDirection)
+            ? (rawDirection >= 0 ? 1 : -1)
+            : (defaultDirection >= 0 ? 1 : -1);
+        return {
+            ...spawnConfig,
+            startRow,
+            direction,
+            positions: this.normalizeSpawnPositions(
+                spawnConfig.positions || spawnConfig.points || spawnConfig.cells,
+                width,
+                height
+            )
+        };
+    }
+
+    normalizeSpawnPositions(positions = [], width, height) {
+        if (!Array.isArray(positions)) {
+            return [];
+        }
+        const occupiedKeys = new Set();
+        return positions.reduce((result, entry) => {
+            const normalized = this.normalizeSpawnPositionEntry(entry, width, height);
+            if (!normalized) {
+                return result;
+            }
+            const key = `${normalized.x},${normalized.y}`;
+            if (occupiedKeys.has(key)) {
+                return result;
+            }
+            occupiedKeys.add(key);
+            result.push(normalized);
+            return result;
+        }, []);
+    }
+
+    normalizeSpawnPositionEntry(entry, width, height) {
+        let x = null;
+        let y = null;
+        if (Array.isArray(entry)) {
+            y = Number(entry[0]) - 1;
+            x = Number(entry[1]) - 1;
+        } else if (entry && typeof entry === 'object') {
+            if (entry.row !== undefined || entry.col !== undefined) {
+                y = Number(entry.row) - 1;
+                x = Number(entry.col) - 1;
+            } else {
+                x = Number(entry.x);
+                y = Number(entry.y);
+            }
+        }
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return null;
+        }
+        const position = { x: Math.floor(x), y: Math.floor(y) };
+        if (position.x < 0 || position.y < 0 || position.x >= width || position.y >= height) {
+            return null;
+        }
+        return position;
     }
 
     normalizeObstacles(obstacles = [], width = this.scene?.width || 0, height = this.scene?.height || 0) {
@@ -118,6 +202,7 @@ class BattleManager {
     normalizeObstacleEntry(entry, width, height, index = 0) {
         let row = null;
         let col = null;
+        const obstacleConfig = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
         if (Array.isArray(entry)) {
             row = Number(entry[0]);
             col = Number(entry[1]);
@@ -135,8 +220,9 @@ class BattleManager {
         return {
             id: `obstacle_${index + 1}`,
             type: 'obstacle',
-            name: '障碍物',
-            icon: '■',
+            name: obstacleConfig.name || '障碍物',
+            icon: obstacleConfig.icon || '■',
+            iconSrc: obstacleConfig.iconSrc || obstacleConfig.image || obstacleConfig.src || 'assets/images/battle/obstacle-barricade.png',
             x: position.x,
             y: position.y
         };
@@ -148,7 +234,14 @@ class BattleManager {
 
     placeSide(units, spawnConfig, occupiedKeys = new Set()) {
         units.forEach(unit => {
-            const position = this.findSpawnPosition(spawnConfig, occupiedKeys);
+            const preferredPosition = this.normalizeSpawnPositionEntry(
+                unit.preferredSpawnPosition || unit.spawnPosition,
+                this.scene.width,
+                this.scene.height
+            );
+            const position = preferredPosition && this.isSpawnPositionAvailable(preferredPosition, occupiedKeys)
+                ? preferredPosition
+                : this.findSpawnPosition(spawnConfig, occupiedKeys);
             if (position) {
                 unit.setPosition(position);
                 occupiedKeys.add(`${position.x},${position.y}`);
@@ -173,6 +266,13 @@ class BattleManager {
     }
 
     findSpawnPosition(spawnConfig, occupiedKeys = new Set()) {
+        const configuredPositions = Array.isArray(spawnConfig?.positions) ? spawnConfig.positions : [];
+        for (const position of configuredPositions) {
+            if (this.isSpawnPositionAvailable(position, occupiedKeys)) {
+                return position;
+            }
+        }
+
         for (let rowOffset = 0; rowOffset < this.scene.height; rowOffset++) {
             const y = spawnConfig.startRow + rowOffset * spawnConfig.direction;
             if (y < 0 || y >= this.scene.height) {
@@ -180,8 +280,7 @@ class BattleManager {
             }
             for (let x = 0; x < this.scene.width; x++) {
                 const position = { x, y };
-                const key = `${x},${y}`;
-                if (!occupiedKeys.has(key) && !this.isCellBlocked(position)) {
+                if (this.isSpawnPositionAvailable(position, occupiedKeys)) {
                     return position;
                 }
             }
@@ -190,14 +289,21 @@ class BattleManager {
         for (let y = 0; y < this.scene.height; y++) {
             for (let x = 0; x < this.scene.width; x++) {
                 const position = { x, y };
-                const key = `${x},${y}`;
-                if (!occupiedKeys.has(key) && !this.isCellBlocked(position)) {
+                if (this.isSpawnPositionAvailable(position, occupiedKeys)) {
                     return position;
                 }
             }
         }
 
         return null;
+    }
+
+    isSpawnPositionAvailable(position, occupiedKeys = new Set()) {
+        if (!position || !this.isInsideBoard(position)) {
+            return false;
+        }
+        const key = `${position.x},${position.y}`;
+        return !occupiedKeys.has(key) && !this.isObstacleAt(position);
     }
 
     placeSpawnedUnits(units, spawnConfig = this.scene.enemySpawn, appendToEnemies = false) {
@@ -207,7 +313,14 @@ class BattleManager {
                 .map(unit => `${unit.position.x},${unit.position.y}`)
         );
         units.forEach((unit) => {
-            const position = this.findSpawnPosition(spawnConfig, occupiedKeys);
+            const preferredPosition = this.normalizeSpawnPositionEntry(
+                unit.preferredSpawnPosition || unit.spawnPosition,
+                this.scene.width,
+                this.scene.height
+            );
+            const position = preferredPosition && this.isSpawnPositionAvailable(preferredPosition, occupiedKeys)
+                ? preferredPosition
+                : this.findSpawnPosition(spawnConfig, occupiedKeys);
             if (position) {
                 unit.setPosition(position);
                 occupiedKeys.add(`${position.x},${position.y}`);
@@ -310,6 +423,7 @@ class BattleManager {
     getSnapshot() {
         return {
             scene: this.scene,
+            environmentEffect: this.environmentEffect,
             currentRound: this.currentRound,
             isBattling: this.isBattling,
             isBossEntrancePlaying: this.isBossEntrancePlaying,
@@ -350,6 +464,26 @@ class BattleManager {
         return this.isObstacleAt(position) || Boolean(this.getUnitAt(position, ignoreUnitId));
     }
 
+    isCellBlockedForMovement(position, actor, destination = null) {
+        if (this.isObstacleAt(position)) {
+            return true;
+        }
+
+        const occupyingUnit = this.getUnitAt(position, actor?.id || null);
+        if (!occupyingUnit) {
+            return false;
+        }
+
+        const isDestination = destination
+            && destination.x === position.x
+            && destination.y === position.y;
+        if (isDestination) {
+            return true;
+        }
+
+        return !actor || occupyingUnit.camp !== actor.camp;
+    }
+
     getOpponents(actor) {
         return actor.camp === 'hero' ? this.enemies.filter(unit => unit.isAlive()) : this.heroes.filter(unit => unit.isAlive());
     }
@@ -371,14 +505,14 @@ class BattleManager {
         ].filter(cell => this.isInsideBoard(cell));
     }
 
-    getPathDistance(start, target, ignoreUnitId = null) {
+    getPathDistance(start, target, actor = null) {
         if (!start || !target || !this.isInsideBoard(start) || !this.isInsideBoard(target)) {
             return Infinity;
         }
         if (start.x === target.x && start.y === target.y) {
             return 0;
         }
-        if (this.isCellBlocked(target, ignoreUnitId)) {
+        if (this.isCellBlockedForMovement(target, actor, target)) {
             return Infinity;
         }
 
@@ -390,7 +524,7 @@ class BattleManager {
             const neighbors = this.getNeighborCells(current.position);
             for (const neighbor of neighbors) {
                 const key = `${neighbor.x},${neighbor.y}`;
-                if (visited.has(key) || this.isCellBlocked(neighbor, ignoreUnitId)) {
+                if (visited.has(key) || this.isCellBlockedForMovement(neighbor, actor, target)) {
                     continue;
                 }
                 const nextSteps = current.steps + 1;
@@ -473,7 +607,7 @@ class BattleManager {
                 if (this.distanceBetween(actor.position, position) === 0) {
                     continue;
                 }
-                if (this.getPathDistance(actor.position, position, actor.id) <= actor.moveRange) {
+                if (this.getPathDistance(actor.position, position, actor) <= actor.moveRange) {
                     cells.push(position);
                 }
             }
@@ -1250,7 +1384,7 @@ class BattleManager {
         }
         const itemMap = new Map();
         itemManager.getAllItems().forEach(item => {
-            if (!['heal', 'revive'].includes(item.effect?.type)) {
+            if (!['heal', 'revive', 'battle_status', 'max_hp'].includes(item.effect?.type)) {
                 return;
             }
             if (!itemMap.has(item.id)) {
@@ -1260,6 +1394,9 @@ class BattleManager {
         return Array.from(itemMap.values()).filter(item => {
             if (item.effect?.type === 'revive') {
                 return this.canUseBattleItem('stimulant') && this.getFallenHeroes().length > 0;
+            }
+            if (item.effect?.target === 'self' && !actor?.isAlive?.()) {
+                return false;
             }
             return true;
         });
@@ -1295,7 +1432,7 @@ class BattleManager {
             return tauntedAction;
         }
 
-        const healItems = this.getUsableBattleItems(actor);
+        const healItems = this.getUsableBattleItems(actor).filter(item => item.effect?.type === 'heal');
         if (actor.camp === 'hero' && actor.hp / actor.maxHp <= 0.4 && healItems.length > 0) {
             return { type: 'item', itemId: healItems[0].id, targetId: actor.id };
         }
@@ -1404,6 +1541,20 @@ class BattleManager {
             case 'burn':
                 return `${name}（持续${duration}回合，可叠加）`;
             default:
+                if ((effect.modifierType === 'percent' || effect.modifierType === 'flat') && Number.isFinite(Number(effect.value))) {
+                    const statNameMap = {
+                        attack: '攻击力',
+                        defense: '防御力',
+                        speed: '速度'
+                    };
+                    const statName = statNameMap[effect.stat] || '属性';
+                    const value = effect.modifierType === 'flat'
+                        ? Math.abs(Number(effect.value) || 0)
+                        : Math.round(Math.abs(Number(effect.value) || 0) * 100);
+                    const suffix = effect.modifierType === 'flat' ? '' : '%';
+                    const sign = (Number(effect.value) || 0) >= 0 ? '+' : '-';
+                    return `${name}（${statName}${sign}${value}${suffix}，持续${duration}回合）`;
+                }
                 return `${name}（持续${duration}回合）`;
         }
     }
@@ -1708,6 +1859,8 @@ class BattleManager {
                 if (!isValidReviveTarget || !this.canUseBattleItem(finalAction.itemId)) {
                     return this.executeAction(actor, { type: 'defend' });
                 }
+            } else if (item.effect?.target === 'self' && target.id !== actor.id) {
+                return this.executeAction(actor, { type: 'defend' });
             }
             const result = itemManager.useItem(finalAction.itemId, target);
             if (!result.success) {
@@ -2140,6 +2293,7 @@ class BattleManager {
         this.autoBattleOverride = null;
         this.isBossEntrancePlaying = false;
         this.battleItemUsage = {};
+        this.environmentEffect = 'none';
         this.emitStateChange();
     }
 }

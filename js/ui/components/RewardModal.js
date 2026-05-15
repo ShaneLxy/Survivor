@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 统一奖励弹窗组件
  *
  * 说明：
@@ -14,9 +14,11 @@ class RewardModal {
             rewards: [],
             summaryText: '',
             confirmText: '确认',
+            secondaryActionText: '',
             pageSize: 40,
             revealDelay: Math.max(80, Math.min(180, Number(GameConfig?.ui?.animations?.gachaDelay) || 120)),
             onConfirm: null,
+            onSecondaryAction: null,
 
             ...config
         };
@@ -36,6 +38,7 @@ class RewardModal {
         this.statusElement = null;
         this.hintElement = null;
         this.confirmButton = null;
+        this.secondaryButton = null;
 
         this.resolvePromise = null;
         this.boundSkipListener = null;
@@ -53,9 +56,16 @@ class RewardModal {
         return new Promise((resolve) => {
             this.resolvePromise = resolve;
             this.create();
+            RewardModal.activeInstances.add(this);
             this.modal.show();
             this.renderPage();
             this.startRevealAnimation();
+        });
+    }
+
+    static closeActive(result = 'confirm') {
+        [...RewardModal.activeInstances].forEach((instance) => {
+            instance.forceClose?.(result);
         });
     }
 
@@ -117,6 +127,15 @@ class RewardModal {
         this.confirmButton.disabled = true;
         this.confirmButton.addEventListener('click', () => this.handleConfirm());
         footer.appendChild(this.confirmButton);
+
+        if (this.config.secondaryActionText) {
+            this.secondaryButton = document.createElement('button');
+            this.secondaryButton.className = 'btn btn-secondary reward-modal-secondary-action';
+            this.secondaryButton.textContent = this.config.secondaryActionText;
+            this.secondaryButton.disabled = true;
+            this.secondaryButton.addEventListener('click', () => this.handleSecondaryAction());
+            footer.appendChild(this.secondaryButton);
+        }
 
         this.root.appendChild(footer);
 
@@ -238,6 +257,7 @@ class RewardModal {
         if (shouldAnimate) {
             cell.classList.add('revealed');
         }
+        cell.style.setProperty('--reward-rarity-color', rarityColor);
         cell.style.borderColor = rarityColor;
         cell.dataset.index = String(index);
         cell.title = `${reward.name || '未知奖励'} x${reward.count || 1}`;
@@ -286,6 +306,9 @@ class RewardModal {
         this.animating = true;
         this.skipRequested = false;
         this.confirmButton.disabled = true;
+        if (this.secondaryButton) {
+            this.secondaryButton.disabled = true;
+        }
         this.updateHint();
 
         for (let i = this.revealedCount; i < this.rewards.length; i++) {
@@ -351,6 +374,9 @@ class RewardModal {
         this.skipRequested = false;
         this.lastAnimatedIndex = -1;
         this.confirmButton.disabled = false;
+        if (this.secondaryButton) {
+            this.secondaryButton.disabled = false;
+        }
         this.updateStatus();
         this.updateHint();
     }
@@ -370,11 +396,35 @@ class RewardModal {
             this.hintElement.textContent = '正在快速展开全部奖励，请稍候';
         } else if (this.animating) {
             this.hintElement.textContent = '奖励展示中，点击任意位置可立即展开全部奖励';
+        } else if (this.secondaryButton) {
+            this.hintElement.textContent = '点击奖励图标可查看简介，确认或继续进行同一次操作';
         } else {
             this.hintElement.textContent = '点击奖励图标可查看简介，翻页浏览后点击下方确认关闭';
         }
     }
 
+    closeWithResult(result) {
+        if (this.modal) {
+            this.modal.close();
+        }
+
+        if (this.resolvePromise) {
+            this.resolvePromise(result);
+            this.resolvePromise = null;
+        }
+    }
+
+    forceClose(result = 'confirm') {
+        this.skipRequested = true;
+        this.animating = false;
+        if (this.pendingWait) {
+            clearTimeout(this.pendingWait.timeoutId);
+            const resolver = this.pendingWait.resolve;
+            this.pendingWait = null;
+            resolver?.();
+        }
+        this.closeWithResult(result);
+    }
 
     async handleConfirm() {
         if (this.animating) {
@@ -390,20 +440,38 @@ class RewardModal {
             }
         }
 
-        if (this.modal) {
-            this.modal.close();
+        this.closeWithResult('confirm');
+    }
+
+    async handleSecondaryAction() {
+        if (this.animating) {
+            this.skipAnimation();
+            return;
         }
 
-        if (this.resolvePromise) {
-            this.resolvePromise(true);
-            this.resolvePromise = null;
+        if (this.confirmButton) {
+            this.confirmButton.disabled = true;
         }
+        if (this.secondaryButton) {
+            this.secondaryButton.disabled = true;
+        }
+
+        if (typeof this.config.onSecondaryAction === 'function') {
+            try {
+                await this.config.onSecondaryAction();
+            } catch (error) {
+                console.error('[RewardModal] onSecondaryAction error:', error);
+            }
+        }
+
+        this.closeWithResult('secondary');
     }
 
     showRewardDetail(reward) {
         const rarityColor = RewardModal.getRarityColor(reward.rarity);
         const content = document.createElement('div');
         content.className = 'reward-detail';
+        content.style.setProperty('--reward-rarity-color', rarityColor);
 
         const icon = document.createElement('div');
         icon.className = 'reward-detail-icon';
@@ -446,6 +514,7 @@ class RewardModal {
         const modal = new Modal({
             title: reward.name || '奖励详情',
             content,
+            className: 'reward-detail-modal-shell',
             buttons: [{
                 text: '关闭',
                 className: 'btn-secondary',
@@ -453,6 +522,7 @@ class RewardModal {
             }]
         });
         modal.show();
+        modal.element?.style.setProperty('--reward-rarity-color', rarityColor);
 
         const titleElement = modal.element?.querySelector('.modal-title');
         if (titleElement) {
@@ -462,6 +532,7 @@ class RewardModal {
 
 
     cleanup() {
+        RewardModal.activeInstances.delete(this);
         if (this.pendingWait) {
             clearTimeout(this.pendingWait.timeoutId);
             this.pendingWait = null;
@@ -491,6 +562,7 @@ class RewardModal {
             id: resourceId,
             name: resourceInfo.name,
             icon: resourceInfo.icon,
+            iconSrc: resourceInfo.iconSrc || null,
             count: Math.max(0, Number(count) || 0),
             rarity: resourceInfo.rarity || 'common',
             description: resourceInfo.description || '基础资源',
@@ -528,6 +600,7 @@ class RewardModal {
             id: itemId,
             name: itemConfig.name,
             icon: itemConfig.icon,
+            iconSrc: itemConfig.iconSrc || null,
             count: Math.max(0, Number(count) || 0),
             rarity: itemConfig.rarity || 'common',
             description: itemConfig.description || '暂无说明',
@@ -639,6 +712,7 @@ class RewardModal {
             id: resolvedEquipment.instanceId || resolvedEquipment.templateId,
             name: resolvedEquipment.name,
             icon: resolvedEquipment.icon,
+            iconSrc: resolvedEquipment.iconSrc || null,
             count: 1,
             rarity: resolvedEquipment.rarity || 'common',
             description: resolvedEquipment.description || '随机打造获得的装备',
@@ -669,14 +743,15 @@ class RewardModal {
     }
 
     static getFallbackResourceInfo(resourceId) {
+        const getIconSrc = (id) => (typeof ResourceVisualConfig !== 'undefined' ? ResourceVisualConfig.get(id)?.src : '') || '';
         const map = {
-            gold: { name: '金币', icon: '💵', rarity: 'common', description: '通用货币，可用于招募、商城购买和建筑发展' },
-            wood: { name: '木材', icon: '🪔', rarity: 'common', description: '避难所建设的基础材料之一' },
-            stone: { name: '石材', icon: '🪇', rarity: 'common', description: '避难所建设的基础材料之一' },
-            meat: { name: '肉类', icon: '🍠', rarity: 'common', description: '重要食物资源，可维持生存' },
-            iron_ore: { name: '铁矿石', icon: '⛏️', rarity: 'rare', description: '装备强化的重要材料' },
+            gold: { name: '金币', icon: 'G', iconSrc: getIconSrc('gold'), rarity: 'common', description: '通用货币，可用于招募、商城购买和建筑发展' },
+            wood: { name: '木材', icon: 'W', iconSrc: getIconSrc('wood'), rarity: 'common', description: '避难所建设的基础材料之一' },
+            stone: { name: '石材', icon: 'S', iconSrc: getIconSrc('stone'), rarity: 'common', description: '避难所建设的基础材料之一' },
+            meat: { name: '肉类', icon: 'M', iconSrc: getIconSrc('meat'), rarity: 'common', description: '重要食物资源，可维持生存' },
+            iron_ore: { name: '铁矿石', icon: 'I', iconSrc: getIconSrc('iron_ore'), rarity: 'rare', description: '装备强化的重要材料' },
             water: { name: '水源', icon: '💧', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' },
-            diamond: { name: '钻石', icon: '💎', rarity: 'epic', description: '高价值稀有货币' }
+            diamond: { name: '钻石', icon: 'D', iconSrc: getIconSrc('diamond'), rarity: 'epic', description: '高价值稀有货币' }
         };
 
         return map[resourceId] || {
@@ -716,7 +791,9 @@ class RewardModal {
             case 'energy':
                 return `恢复 ${effect.value} 点体力`;
             case 'gacha':
-                return `可进行${effect.count || 1}次英雄召唤`;
+                return effect.poolId === 'equipment_pool'
+                    ? `可进行${effect.count || 1}次装备打造`
+                    : `可进行${effect.count || 1}次英雄招募`;
             default:
                 return '';
         }
@@ -751,4 +828,5 @@ class RewardModal {
     }
 }
 
+RewardModal.activeInstances = new Set();
 window.RewardModal = RewardModal;

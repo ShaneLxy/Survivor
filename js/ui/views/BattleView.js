@@ -17,6 +17,7 @@ class BattleView {
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
         this.inspectedUnitId = null;
+        this.isFallenTrayOpen = false;
         // 动画系统相关
         this.animationLayer = null;
         this.lastUnitPositions = new Map();
@@ -35,6 +36,18 @@ class BattleView {
         this.hpTrailMap = new Map();
         this.hpTrailTimers = new Map();
         this.combatTextBurstMap = new Map();
+        this.effectTimers = new Set();
+        this.environmentCanvas = null;
+        this.environmentContext = null;
+        this.environmentAnimationFrame = null;
+        this.environmentResizeObserver = null;
+        this.environmentParticles = [];
+        this.environmentEffectType = 'none';
+        this.environmentLastTime = 0;
+        this.environmentBounds = { width: 0, height: 0 };
+        this.environmentFlashAlpha = 0;
+        this.environmentFlashCooldown = 0;
+        this.environmentFlashStartX = 0;
 
     }
 
@@ -46,6 +59,23 @@ class BattleView {
         this.visible = false;
         this.stopBattle();
         this.element.innerHTML = '';
+    }
+
+    resolveAssetUrl(path) {
+        return path ? (window.VersionManager?.getVersionedAssetUrl?.(path) || path) : '';
+    }
+
+    renderObstacleMarkup(obstacle) {
+        const obstacleName = obstacle?.name || '障碍物';
+        const iconSrc = this.resolveAssetUrl(obstacle?.iconSrc || 'assets/images/battle/obstacle-barricade.png');
+        const visual = iconSrc
+            ? `<img class="battle-obstacle-image" src="${iconSrc}" alt="${obstacleName}">`
+            : `<span class="battle-obstacle-icon">${obstacle?.icon || '■'}</span>`;
+        return `
+            <div class="battle-obstacle-token" aria-hidden="true">
+                ${visual}
+            </div>
+        `;
     }
 
     async startBattle(dungeonId, sceneId = 'standard_9x9') {
@@ -87,15 +117,25 @@ class BattleView {
         this.hpTrailMap = new Map();
         this.clearHpTrailTimers();
         this.combatTextBurstMap = new Map();
+        this.clearBattleEffectTimers();
+        this.stopEnvironmentEffect();
         this.inspectedUnitId = null;
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
         this.battleSessionId++;
-        battleManager.initBattle({ heroes, enemies, bossWaves, sceneId: dungeon.sceneId || sceneId, battlefield });
+        battleManager.initBattle({
+            heroes,
+            enemies,
+            bossWaves,
+            sceneId: dungeon.sceneId || sceneId,
+            battlefield,
+            environmentEffect: battleSetup.environmentEffect || dungeon.environmentEffect
+        });
 
 
         battleManager.setDecisionProvider(context => this.requestPlayerAction(context));
         this.renderShell();
+        this.startEnvironmentEffect(battleManager.getSnapshot()?.environmentEffect || battleSetup.environmentEffect);
         this.subscribeBattleEvents();
         this.renderBattleState();
 
@@ -176,12 +216,16 @@ class BattleView {
                     <div id="battle-progress-track" class="battle-progress-track"></div>
                 </div>
                 <div class="battle-main-panel" style="position: relative;">
-                    <div id="battle-board-container" style="position:relative;flex:1;min-width:0;min-height:0;">
-                        <div id="battle-board" class="battle-board"></div>
-                        <div id="battle-animation-layer" class="battle-animation-layer"></div>
+                    <div id="battle-board-container" style="position:relative;min-width:0;min-height:0;width:100%;height:100%;">
+                        <div class="battle-board-stage">
+                            <div id="battle-board" class="battle-board"></div>
+                            <canvas id="battle-environment-layer" class="battle-environment-layer" aria-hidden="true"></canvas>
+                            <div id="battle-animation-layer" class="battle-animation-layer"></div>
+                        </div>
                     </div>
-                    <div id="battle-fallen-panel" class="battle-fallen-panel"></div>
+                    <div id="battle-fallen-tray" class="battle-fallen-tray" aria-hidden="true"></div>
                     <div class="battle-bottom-panel">
+                        <button id="battle-fallen-toggle" class="battle-fallen-toggle" onclick="window.game.ui.battleView.toggleFallenTray()" aria-expanded="false" aria-label="阵亡英雄">↑</button>
                         <div id="battle-action-panel" class="battle-action-panel"></div>
                         <div id="battle-detail-panel" class="battle-detail-panel"></div>
                     </div>
@@ -190,6 +234,361 @@ class BattleView {
         `;
 
         this.animationLayer = this.element.querySelector('#battle-animation-layer');
+        this.environmentCanvas = this.element.querySelector('#battle-environment-layer');
+    }
+
+    normalizeEnvironmentEffect(effect) {
+        const rawType = typeof effect === 'object' && effect !== null
+            ? (effect.type || effect.id || effect.effect || 'none')
+            : effect;
+        const type = String(rawType || 'none').trim().toLowerCase().replace(/[\s-]+/g, '_');
+        const aliases = {
+            poison: 'poison_fog',
+            toxic: 'poison_fog',
+            toxic_fog: 'poison_fog',
+            dust: 'dust_smoke',
+            sand: 'dust_smoke',
+            storm: 'storm_night',
+            stormnight: 'storm_night',
+            heavy_rain: 'storm_night',
+            lightning_rain: 'storm_night'
+        };
+        const normalized = aliases[type] || type;
+        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night'].includes(normalized) ? normalized : 'none';
+    }
+
+    startEnvironmentEffect(effect) {
+        this.stopEnvironmentEffect();
+        const type = this.normalizeEnvironmentEffect(effect);
+        this.environmentEffectType = type;
+        if (type === 'none' || !this.environmentCanvas || window.game?.settings?.environmentEffectsDisabled) {
+            return;
+        }
+
+        const canvas = this.environmentCanvas;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            return;
+        }
+
+        this.environmentContext = context;
+        canvas.dataset.effect = type;
+        this.environmentFlashStartX = 0;
+        const resize = () => this.resizeEnvironmentCanvas(true);
+        this.environmentResizeObserver = typeof ResizeObserver !== 'undefined'
+            ? new ResizeObserver(resize)
+            : null;
+        const stage = canvas.parentElement;
+        if (this.environmentResizeObserver && stage) {
+            this.environmentResizeObserver.observe(stage);
+        }
+        resize();
+
+        this.environmentLastTime = performance.now();
+        const tick = (now) => {
+            const delta = Math.min(0.05, Math.max(0.001, (now - this.environmentLastTime) / 1000));
+            this.environmentLastTime = now;
+            this.updateEnvironmentParticles(delta);
+            this.drawEnvironmentParticles();
+            this.environmentAnimationFrame = requestAnimationFrame(tick);
+        };
+        this.environmentAnimationFrame = requestAnimationFrame(tick);
+    }
+
+    stopEnvironmentEffect() {
+        if (this.environmentAnimationFrame) {
+            cancelAnimationFrame(this.environmentAnimationFrame);
+            this.environmentAnimationFrame = null;
+        }
+        if (this.environmentResizeObserver) {
+            this.environmentResizeObserver.disconnect();
+            this.environmentResizeObserver = null;
+        }
+        if (this.environmentContext && this.environmentBounds.width && this.environmentBounds.height) {
+            this.environmentContext.clearRect(0, 0, this.environmentBounds.width, this.environmentBounds.height);
+        }
+        if (this.environmentCanvas) {
+            delete this.environmentCanvas.dataset.effect;
+        }
+        this.environmentContext = null;
+        this.environmentParticles = [];
+        this.environmentEffectType = 'none';
+        this.environmentBounds = { width: 0, height: 0 };
+        this.environmentFlashAlpha = 0;
+        this.environmentFlashCooldown = 0;
+        this.environmentFlashStartX = 0;
+    }
+
+    resizeEnvironmentCanvas(resetParticles = false) {
+        const canvas = this.environmentCanvas;
+        if (!canvas || !this.environmentContext) {
+            return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        const nextWidth = Math.round(width * pixelRatio);
+        const nextHeight = Math.round(height * pixelRatio);
+        if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+            canvas.width = nextWidth;
+            canvas.height = nextHeight;
+            this.environmentContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+            resetParticles = true;
+        }
+        this.environmentBounds = { width, height };
+        if (resetParticles || this.environmentParticles.length === 0) {
+            this.resetEnvironmentParticles();
+        }
+    }
+
+    resetEnvironmentParticles() {
+        const { width, height } = this.environmentBounds;
+        if (!width || !height || this.environmentEffectType === 'none') {
+            this.environmentParticles = [];
+            return;
+        }
+        const areaFactor = Math.max(0.62, Math.min(1.18, (width * height) / (360 * 520)));
+        const counts = {
+            smoke: Math.round(18 * areaFactor),
+            poison_fog: Math.round(20 * areaFactor),
+            dust_smoke: Math.round(24 * areaFactor),
+            rain: Math.round(58 * areaFactor),
+            storm_night: Math.round(86 * areaFactor),
+            snow: Math.round(42 * areaFactor)
+        };
+        const count = counts[this.environmentEffectType] || 0;
+        this.environmentFlashAlpha = 0;
+        this.environmentFlashCooldown = this.environmentEffectType === 'storm_night'
+            ? 1.6 + Math.random() * 2.8
+            : 0;
+        this.environmentParticles = Array.from({ length: count }, () =>
+            this.createEnvironmentParticle(this.environmentEffectType, true)
+        );
+    }
+
+    createEnvironmentParticle(type, initial = false) {
+        const { width, height } = this.environmentBounds;
+        const randomBetween = (min, max) => min + Math.random() * (max - min);
+        if (type === 'rain' || type === 'storm_night') {
+            const isStorm = type === 'storm_night';
+            return {
+                x: randomBetween(-width * 0.18, width * 1.16),
+                y: initial ? randomBetween(-height * 0.12, height * 1.05) : randomBetween(-52, -10),
+                length: isStorm ? randomBetween(28, 54) : randomBetween(14, 30),
+                speed: isStorm ? randomBetween(560, 860) : randomBetween(360, 560),
+                drift: isStorm ? randomBetween(-156, -86) : randomBetween(-86, -46),
+                alpha: isStorm ? randomBetween(0.38, 0.74) : randomBetween(0.24, 0.52),
+                width: isStorm ? randomBetween(1.05, 2.05) : randomBetween(0.8, 1.35)
+            };
+        }
+        if (type === 'snow') {
+            return {
+                x: randomBetween(-20, width + 20),
+                y: initial ? randomBetween(-height * 0.08, height * 1.05) : randomBetween(-30, -6),
+                radius: randomBetween(1.1, 2.8),
+                speed: randomBetween(18, 46),
+                drift: randomBetween(-14, 18),
+                sway: randomBetween(10, 28),
+                phase: randomBetween(0, Math.PI * 2),
+                alpha: randomBetween(0.34, 0.72)
+            };
+        }
+        const fogProfiles = {
+            smoke: {
+                x: [width * 0.04, width * 0.96],
+                y: [height * 0.16, height * 1.08],
+                freshY: [height * 0.74, height * 1.08],
+                radius: [20, 52],
+                speed: [8, 20],
+                drift: [-10, 10],
+                duration: [6.2, 10.5],
+                alpha: [0.1, 0.23],
+                scale: [0.84, 1.36],
+                grow: 6.2
+            },
+            poison_fog: {
+                x: [width * 0.02, width * 0.98],
+                y: [height * 0.08, height * 1.05],
+                freshY: [height * 0.62, height * 1.08],
+                radius: [24, 62],
+                speed: [5, 14],
+                drift: [-16, 18],
+                duration: [7.2, 12.5],
+                alpha: [0.1, 0.22],
+                scale: [0.92, 1.48],
+                grow: 5.4
+            },
+            dust_smoke: {
+                x: [-width * 0.08, width * 0.98],
+                y: [height * 0.18, height * 1.04],
+                freshY: [height * 0.58, height * 1.02],
+                radius: [12, 34],
+                speed: [6, 16],
+                drift: [18, 58],
+                duration: [4.8, 8.2],
+                alpha: [0.12, 0.27],
+                scale: [0.78, 1.18],
+                grow: 4.7
+            }
+        };
+        const profile = fogProfiles[type] || fogProfiles.smoke;
+        return {
+            x: randomBetween(profile.x[0], profile.x[1]),
+            y: initial ? randomBetween(profile.y[0], profile.y[1]) : randomBetween(profile.freshY[0], profile.freshY[1]),
+            radius: randomBetween(profile.radius[0], profile.radius[1]),
+            speed: randomBetween(profile.speed[0], profile.speed[1]),
+            drift: randomBetween(profile.drift[0], profile.drift[1]),
+            life: initial ? randomBetween(0, 1) : 0,
+            duration: randomBetween(profile.duration[0], profile.duration[1]),
+            alpha: randomBetween(profile.alpha[0], profile.alpha[1]),
+            scale: randomBetween(profile.scale[0], profile.scale[1]),
+            grow: profile.grow
+        };
+    }
+
+    updateEnvironmentParticles(delta) {
+        if (!this.environmentParticles.length) {
+            return;
+        }
+        const { width, height } = this.environmentBounds;
+        const type = this.environmentEffectType;
+        if (type === 'storm_night') {
+            this.environmentFlashCooldown -= delta;
+            if (this.environmentFlashCooldown <= 0) {
+                this.environmentFlashAlpha = 0.62 + Math.random() * 0.26;
+                this.environmentFlashStartX = width * (0.22 + Math.random() * 0.46);
+                this.environmentFlashCooldown = 2.2 + Math.random() * 4.8;
+            }
+            this.environmentFlashAlpha = Math.max(0, this.environmentFlashAlpha - delta * 2.8);
+        }
+        this.environmentParticles = this.environmentParticles.map((particle) => {
+            if (type === 'rain' || type === 'storm_night') {
+                particle.x += particle.drift * delta;
+                particle.y += particle.speed * delta;
+                if (particle.y > height + particle.length || particle.x < -80) {
+                    return this.createEnvironmentParticle(type);
+                }
+                return particle;
+            }
+            if (type === 'snow') {
+                particle.phase += delta * 1.8;
+                particle.x += (particle.drift + Math.sin(particle.phase) * particle.sway) * delta;
+                particle.y += particle.speed * delta;
+                if (particle.y > height + 12 || particle.x < -36 || particle.x > width + 36) {
+                    return this.createEnvironmentParticle(type);
+                }
+                return particle;
+            }
+            particle.life += delta / particle.duration;
+            particle.x += particle.drift * delta;
+            particle.y -= particle.speed * delta;
+            particle.radius += delta * (particle.grow || 5.5);
+            if (particle.life >= 1 || particle.y < -particle.radius || particle.x > width + particle.radius) {
+                return this.createEnvironmentParticle(type);
+            }
+            return particle;
+        });
+    }
+
+    drawEnvironmentParticles() {
+        const context = this.environmentContext;
+        const { width, height } = this.environmentBounds;
+        if (!context || !width || !height) {
+            return;
+        }
+        context.clearRect(0, 0, width, height);
+        const type = this.environmentEffectType;
+        if (type === 'storm_night') {
+            context.save();
+            context.fillStyle = 'rgba(4, 10, 24, 0.32)';
+            context.fillRect(0, 0, width, height);
+            context.restore();
+        }
+        if (type === 'rain' || type === 'storm_night') {
+            context.save();
+            context.lineCap = 'round';
+            this.environmentParticles.forEach((particle) => {
+                context.globalAlpha = particle.alpha;
+                context.strokeStyle = type === 'storm_night'
+                    ? 'rgba(190, 218, 255, 0.92)'
+                    : 'rgba(176, 213, 255, 0.84)';
+                context.lineWidth = particle.width;
+                context.beginPath();
+                context.moveTo(particle.x, particle.y);
+                context.lineTo(particle.x + particle.drift * 0.05, particle.y + particle.length);
+                context.stroke();
+            });
+            context.restore();
+            if (type === 'storm_night' && this.environmentFlashAlpha > 0) {
+                context.save();
+                context.globalAlpha = this.environmentFlashAlpha;
+                context.fillStyle = 'rgba(210, 230, 255, 0.42)';
+                context.fillRect(0, 0, width, height);
+                context.strokeStyle = 'rgba(230, 242, 255, 0.82)';
+                context.lineWidth = Math.max(1.2, width * 0.006);
+                context.beginPath();
+                const startX = this.environmentFlashStartX || width * 0.5;
+                context.moveTo(startX, 0);
+                context.lineTo(startX + width * 0.07, height * 0.18);
+                context.lineTo(startX - width * 0.02, height * 0.34);
+                context.lineTo(startX + width * 0.1, height * 0.52);
+                context.stroke();
+                context.restore();
+            }
+            return;
+        }
+        if (type === 'snow') {
+            context.save();
+            this.environmentParticles.forEach((particle) => {
+                context.globalAlpha = particle.alpha;
+                context.fillStyle = 'rgba(235, 248, 255, 0.94)';
+                context.beginPath();
+                context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                context.fill();
+            });
+            context.restore();
+            return;
+        }
+        context.save();
+        if (type === 'poison_fog') {
+            context.fillStyle = 'rgba(31, 82, 45, 0.08)';
+            context.fillRect(0, 0, width, height);
+        } else if (type === 'dust_smoke') {
+            context.fillStyle = 'rgba(126, 92, 54, 0.07)';
+            context.fillRect(0, 0, width, height);
+        }
+        const palettes = {
+            smoke: [
+                [0, '190, 190, 178', 1],
+                [0.42, '126, 132, 124', 0.78],
+                [1, '126, 132, 124', 0]
+            ],
+            poison_fog: [
+                [0, '126, 218, 92', 0.92],
+                [0.46, '44, 132, 57', 0.72],
+                [1, '18, 73, 38', 0]
+            ],
+            dust_smoke: [
+                [0, '222, 174, 103', 0.92],
+                [0.48, '143, 105, 63', 0.72],
+                [1, '96, 72, 48', 0]
+            ]
+        };
+        const palette = palettes[type] || palettes.smoke;
+        this.environmentParticles.forEach((particle) => {
+            const fade = Math.sin(Math.min(1, particle.life) * Math.PI);
+            const radius = Math.max(8, particle.radius * particle.scale);
+            const gradient = context.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, radius);
+            palette.forEach(([stop, color, alphaScale]) => {
+                gradient.addColorStop(stop, `rgba(${color}, ${particle.alpha * fade * alphaScale})`);
+            });
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+            context.fill();
+        });
+        context.restore();
     }
 
     async playBossEntrance(payload = {}) {
@@ -221,48 +620,51 @@ class BattleView {
         if (!this.isProcessingAction) {
             this.renderBoard(snapshot);
         }
-        this.renderFallenPanel(snapshot);
+        this.renderFallenTray(snapshot);
         this.renderActionPanel();
     }
 
-    renderFallenPanel(snapshot) {
-        const panel = this.element.querySelector('#battle-fallen-panel');
-        if (!panel) {
+    renderFallenTray(snapshot = battleManager.getSnapshot()) {
+        const tray = this.element.querySelector('#battle-fallen-tray');
+        const toggle = this.element.querySelector('#battle-fallen-toggle');
+        if (!tray || !toggle) {
             return;
         }
+
         const fallenHeroes = snapshot?.fallenHeroes || [];
-        const stimulantState = battleManager.getBattleItemUsageState('stimulant');
-        const canSelectReviveTarget = Boolean(
-            this.pendingAction
-            && !this.isPaused
-            && this.selectionMode === 'revive-item'
-            && this.selectedBattleItemId === 'stimulant'
-        );
-        const shouldCollapse = fallenHeroes.length === 0 && !canSelectReviveTarget;
+        const isReviveMode = this.selectionMode === 'revive-item';
+        const hasFallen = fallenHeroes.length > 0;
+        const selectedItemId = this.selectedBattleItemId || 'stimulant';
+        const usage = battleManager.getBattleItemUsageState(selectedItemId);
+        const canRevive = isReviveMode && usage.used < usage.maxUses;
+        const isVisible = hasFallen && (this.isFallenTrayOpen || isReviveMode);
 
-        panel.classList.toggle('is-collapsed', shouldCollapse);
-        if (shouldCollapse) {
-            panel.innerHTML = '';
+        toggle.disabled = !hasFallen;
+        toggle.className = `battle-fallen-toggle ${isVisible ? 'is-active' : ''} ${hasFallen ? '' : 'is-disabled'}`.trim();
+        toggle.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+        toggle.title = hasFallen ? '阵亡英雄' : '暂无阵亡英雄';
+
+        if (!isVisible) {
+            tray.className = 'battle-fallen-tray';
+            tray.setAttribute('aria-hidden', 'true');
+            tray.innerHTML = '';
             return;
         }
 
-        panel.innerHTML = `
-            <div class="battle-fallen-header">
-                <div class="battle-fallen-title">阵亡英雄</div>
-                <div class="battle-stimulant-usage">强心剂 ${stimulantState.used}/${stimulantState.maxUses}</div>
-            </div>
-            <div class="battle-fallen-list">
-                ${fallenHeroes.length > 0 ? fallenHeroes.map(hero => `
-                    <button
-                        type="button"
-                        class="battle-fallen-item ${canSelectReviveTarget ? 'is-revivable' : ''}"
-                        ${canSelectReviveTarget ? `onclick="window.game.ui.battleView.reviveFallenHero('${hero.id}')"` : 'disabled'}
-                        title="${canSelectReviveTarget ? `点击对 ${hero.name} 使用强心剂` : hero.name}"
-                    >
-                        <div class="battle-fallen-avatar">${this.getBattleUnitVisualMarkup(hero, 'progress')}</div>
-                        <div class="battle-fallen-name">${hero.name}</div>
+        tray.className = `battle-fallen-tray is-visible ${isReviveMode ? 'is-revive-mode' : ''}`.trim();
+        tray.setAttribute('aria-hidden', 'false');
+        tray.innerHTML = `
+            <div class="battle-fallen-tray-list">
+                ${fallenHeroes.map(hero => `
+                    <button class="battle-fallen-tray-item ${canRevive ? 'is-revivable' : ''}" onclick="window.game.ui.battleView.reviveFallenHero('${hero.id}')" ${canRevive ? '' : 'disabled'} title="${canRevive ? `使用强心剂复活 ${hero.name}` : hero.name}">
+                        <span class="battle-fallen-tray-avatar">${this.getBattleUnitVisualMarkup(hero, 'progress')}</span>
+                        <span class="battle-fallen-tray-name">${hero.name}</span>
                     </button>
-                `).join('') : '<div class="battle-fallen-empty">当前没有已阵亡英雄</div>'}
+                `).join('')}
+            </div>
+            <div class="battle-fallen-tray-usage">
+                <span class="battle-fallen-tray-usage-label">强心剂</span>
+                <span class="battle-fallen-tray-usage-value">${usage.used}/${usage.maxUses}</span>
             </div>
         `;
     }
@@ -522,6 +924,65 @@ class BattleView {
         `;
     }
 
+    getStatusMergeKey(effect = {}) {
+        const type = effect.type || 'custom';
+        const effectType = effect.effectType || '';
+        const stat = effect.stat || '';
+        const modifierType = effect.modifierType || '';
+        const name = effect.name || '';
+        if (effectType === 'stat_modifier' || modifierType) {
+            const direction = (Number(effect.value) || 0) >= 0 ? 'up' : 'down';
+            return [type, effectType, stat, modifierType, direction].join(':');
+        }
+        return [type, effectType, stat, name].join(':');
+    }
+
+    getMergedStatusEffects(effects = []) {
+        const groups = new Map();
+        effects.filter(Boolean).forEach((effect) => {
+            const key = this.getStatusMergeKey(effect);
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+            groups.get(key).push(effect);
+        });
+
+        return Array.from(groups.values()).map(group => this.mergeStatusEffectGroup(group)).sort((a, b) => {
+            const priority = { control: 0, debuff: 1, buff: 2 };
+            const aInfo = this.getStatusDisplayInfo(a);
+            const bInfo = this.getStatusDisplayInfo(b);
+            const aPriority = priority[aInfo.className] ?? 3;
+            const bPriority = priority[bInfo.className] ?? 3;
+            if (aPriority !== bPriority) {
+                return aPriority - bPriority;
+            }
+            return (Number(b.remainingTurns) || 0) - (Number(a.remainingTurns) || 0);
+        });
+    }
+
+    mergeStatusEffectGroup(group = []) {
+        const [baseEffect = {}] = group;
+        if (group.length <= 1) {
+            return { ...baseEffect, mergedCount: 1 };
+        }
+
+        const merged = {
+            ...baseEffect,
+            mergedCount: group.length,
+            remainingTurns: Math.max(...group.map(effect => Number(effect.remainingTurns ?? effect.durationTurns) || 0)),
+            durationTurns: Math.max(...group.map(effect => Number(effect.durationTurns ?? effect.remainingTurns) || 0))
+        };
+
+        ['value', 'attackPercentBonus', 'defensePercentBonus', 'damageReduction', 'damageTakenDebuffBonus'].forEach((key) => {
+            const values = group.map(effect => Number(effect[key])).filter(value => Number.isFinite(value));
+            if (values.length === group.length && values.length > 0) {
+                merged[key] = values.reduce((sum, value) => sum + value, 0);
+            }
+        });
+
+        return merged;
+    }
+
     formatStatusEffectText(effect = {}) {
         const info = this.getStatusDisplayInfo(effect);
         const turns = Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
@@ -574,7 +1035,7 @@ class BattleView {
         if (!unit) {
             return '<div class="battle-detail-empty">点击棋盘中的单位可以查看状态与属性。</div>';
         }
-        const statuses = unit.getStatusEffects?.() || [];
+        const statuses = this.getMergedStatusEffects(unit.getStatusEffects?.() || []);
         const stats = unit.getStats?.() || {};
         const speedText = stats.effectiveSpeed && stats.effectiveSpeed !== stats.speed
             ? `${stats.effectiveSpeed}（基础${stats.speed}）`
@@ -588,27 +1049,29 @@ class BattleView {
                         <div class="battle-unit-detail-sub">${unit.camp === 'hero' ? '我方单位' : '敌方单位'} · ${HeroConfig?.getProfessionName?.(unit.profession) || unit.profession || '未知职业'}</div>
                         <div class="battle-unit-detail-hp">生命 ${unit.hp}/${unit.maxHp}</div>
                     </div>
-                </div>
-                <div class="battle-unit-detail-stats">
+                    <div class="battle-unit-detail-stats">
                     <span>攻击 ${stats.attack || unit._attack || 0}</span>
                     <span>防御 ${stats.defense || unit.defense || 0}</span>
                     <span>速度 ${speedText}</span>
                     <span>射程 ${stats.attackRange || unit.attackRange || 1}</span>
+                    </div>
                 </div>
                 <div class="battle-unit-detail-section">
                     <div class="battle-unit-detail-section-title">当前状态</div>
                     ${statuses.length ? `
                         <div class="battle-unit-status-list">
-                            ${statuses.map(effect => {
+                            ${statuses.slice(0, 3).map(effect => {
                                 const info = this.getStatusDisplayInfo(effect);
+                                const stackText = Number(effect.mergedCount) > 1 ? ` · ${effect.mergedCount}层` : '';
                                 return `
                                     <div class="battle-unit-status-row ${info.className}">
                                         <span class="battle-unit-status-icon">${info.icon}</span>
                                         <span class="battle-unit-status-main">${effect.name || info.shortName}</span>
-                                        <span class="battle-unit-status-desc">${this.formatStatusEffectText(effect)}</span>
+                                        <span class="battle-unit-status-desc">${this.formatStatusEffectText(effect)}${stackText}</span>
                                     </div>
                                 `;
                             }).join('')}
+                            ${statuses.length > 3 ? `<div class="battle-unit-status-more">另有 ${statuses.length - 3} 项状态</div>` : ''}
                         </div>
                     ` : '<div class="battle-detail-empty compact">当前没有状态效果</div>'}
                 </div>
@@ -671,12 +1134,7 @@ class BattleView {
 
                 if (obstacle) {
                     cell.classList.add('occupied', 'obstacle');
-                    cell.innerHTML = `
-                        <div class="battle-obstacle-token" aria-hidden="true">
-                            <span class="battle-obstacle-icon">${obstacle.icon || '■'}</span>
-                            <span class="battle-obstacle-label">障碍</span>
-                        </div>
-                    `;
+                    cell.innerHTML = this.renderObstacleMarkup(obstacle);
                 }
 
                 if (unit) {
@@ -816,11 +1274,11 @@ class BattleView {
           const heroActor = this.pendingAction.context.actor;
           panel.innerHTML = `
               <div class="battle-action-buttons battle-action-buttons-vertical">
-                  <button class="btn battle-command-btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span class="battle-command-icon">ATK</span><span>攻击</span></button>
-                  <button class="btn battle-command-btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span class="battle-command-icon">MOV</span><span>移动</span></button>
-                  <button class="btn btn-secondary battle-command-btn" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span class="battle-command-icon">DEF</span><span>防御</span></button>
-                  <button class="btn battle-command-btn ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span class="battle-command-icon">KIT</span><span>物品</span></button>
-                  <button class="btn battle-command-btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span class="battle-command-icon">SPC</span><span>特技</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span>攻击</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span>移动</span></button>
+                  <button class="btn btn-secondary battle-command-btn" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span>防御</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span>物品</span></button>
+                  <button class="btn battle-command-btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span>特技</span></button>
               </div>
               <div class="battle-action-tip">${this.getSelectionTip()}</div>
           `;
@@ -838,7 +1296,7 @@ class BattleView {
             case 'item':
                 return '在右侧选择物品后立即使用。';
             case 'revive-item':
-                return '点击下方阵亡英雄头像，对其使用强心剂。';
+                return '点击上方阵亡英雄浮层头像，对其使用强心剂。';
             case 'skill':
                 return '先在右侧选择特技，再点击棋盘中的有效目标。';
             default:
@@ -855,7 +1313,7 @@ class BattleView {
         if (this.selectionMode === 'item') {
             const itemMap = new Map();
             itemManager.getAllItems().forEach(item => {
-                if (!['heal', 'revive'].includes(item.effect?.type)) {
+                if (!['heal', 'revive', 'battle_status', 'max_hp'].includes(item.effect?.type)) {
                     return;
                 }
                 if (!itemMap.has(item.id)) {
@@ -910,7 +1368,6 @@ class BattleView {
                                 <span class="battle-detail-row-icon">✦</span>
                                 <span class="battle-detail-row-main">
                                     <span class="battle-detail-row-title">${skill.name || `特技 ${skill.index + 1}`}</span>
-                                    <span class="battle-detail-row-sub">${skill.description || '暂无说明'}</span>
                                     <span class="battle-detail-row-meta">范围 ${skill.range} · 目标 ${targetTypeLabel} ${skill.targetCount}个 · ${hpCostLabel} · ${cooldownLabel}</span>
                                 </span>
                                 <span class="battle-detail-row-extra">${disabledLabel}</span>
@@ -922,9 +1379,12 @@ class BattleView {
         }
 
         if (this.selectionMode === 'revive-item') {
-            return '<div class="battle-detail-empty">已选中强心剂，请点击下方阵亡英雄头像执行复活。</div>';
+            const fallenHeroes = battleManager.getSnapshot()?.fallenHeroes || [];
+            if (!fallenHeroes.length) {
+                return '<div class="battle-detail-empty">当前没有阵亡英雄</div>';
+            }
+            return '<div class="battle-detail-empty">请在棋盘上方的阵亡英雄浮层中选择复活目标</div>';
         }
-
         if (inspected) {
             return this.renderUnitDetailPanel(inspected);
         }
@@ -986,6 +1446,7 @@ class BattleView {
             this.selectionMode = null;
             this.selectedSkillIndex = null;
             this.selectedBattleItemId = null;
+            this.isFallenTrayOpen = false;
             this.startPendingActionTimer();
             this.renderBattleState();
         });
@@ -1019,6 +1480,7 @@ class BattleView {
         }
         const resolver = this.pendingAction.resolve;
         this.clearPendingAction();
+        this.isFallenTrayOpen = false;
         this.renderBattleState();
         resolver(action || { type: 'defend' });
     }
@@ -1040,6 +1502,9 @@ class BattleView {
                 this.selectedBattleItemId = null;
             }
         }
+        if (this.selectionMode !== 'revive-item') {
+            this.isFallenTrayOpen = false;
+        }
         this.renderBattleState();
     }
 
@@ -1053,6 +1518,7 @@ class BattleView {
             const usableSkill = battleManager.getUsableSkills(heroActor).find(skill => skill.canUse);
             this.selectedSkillIndex = usableSkill ? usableSkill.index : null;
         }
+        this.isFallenTrayOpen = false;
         this.renderBattleState();
     }
 
@@ -1075,6 +1541,7 @@ class BattleView {
         }
         this.selectionMode = 'skill';
         this.selectedSkillIndex = skillIndex;
+        this.isFallenTrayOpen = false;
         this.renderBattleState();
     }
 
@@ -1118,6 +1585,18 @@ class BattleView {
         this.selectActionMode('item');
     }
 
+    toggleFallenTray() {
+        const snapshot = battleManager.getSnapshot();
+        const fallenHeroes = snapshot?.fallenHeroes || [];
+        if (!fallenHeroes.length) {
+            this.isFallenTrayOpen = false;
+            this.renderFallenTray(snapshot);
+            return;
+        }
+        this.isFallenTrayOpen = !this.isFallenTrayOpen;
+        this.renderFallenTray(snapshot);
+    }
+
     useBattleItem(itemId, actorId) {
         if (this.isPaused) {
             return;
@@ -1130,6 +1609,7 @@ class BattleView {
         if (item.effect?.type === 'revive') {
             this.selectionMode = 'revive-item';
             this.selectedBattleItemId = itemId;
+            this.isFallenTrayOpen = true;
             this.renderBattleState();
             return;
         }
@@ -1229,6 +1709,18 @@ class BattleView {
         this.renderBattleState();
     }
 
+    applyEnvironmentEffectSettingChange() {
+        if (!this.visible) {
+            return;
+        }
+        const snapshot = battleManager.getSnapshot?.();
+        if (window.game?.settings?.environmentEffectsDisabled) {
+            this.stopEnvironmentEffect();
+            return;
+        }
+        this.startEnvironmentEffect(snapshot?.environmentEffect || this.currentDungeon?.environmentEffect);
+    }
+
     toggleAutoBattle() {
         window.game.settings.autoBattle = !window.game.settings.autoBattle;
         window.game.save();
@@ -1254,14 +1746,32 @@ class BattleView {
         }
 
         const modal = new Modal({
-            title: '战斗失败',
+            title: '作战失败',
+            showClose: false,
+            className: 'battle-defeat-modal-shell',
             content: `
-                <div style="text-align:center;">
-                    <div style="font-size:64px;margin-bottom:15px;">💣</div>
-                    <p>再接再厉！</p>
+                <div class="battle-defeat-modal">
+                    <div class="battle-defeat-emblem" aria-hidden="true">
+                        <span class="battle-defeat-emblem-core">!</span>
+                    </div>
+                    <div class="battle-defeat-copy">
+                        <div class="battle-defeat-kicker">MISSION FAILED</div>
+                        <h3>防线已被突破</h3>
+                        <p>本次作战未能完成，返回副本页后可以重新调整阵容、站位和装备，再次发起挑战。</p>
+                    </div>
+                    <div class="battle-defeat-advice">
+                        <div>
+                            <span>战况</span>
+                            <strong>未通关</strong>
+                        </div>
+                        <div>
+                            <span>下一步</span>
+                            <strong>整备阵容</strong>
+                        </div>
+                    </div>
                 </div>
             `,
-            buttons: [{ text: '确定', className: 'btn-primary', onClick: () => { modal.close(); eventManager.emit('viewChange', { view: 'dungeon' }); } }]
+            buttons: [{ text: '返回副本', className: 'btn-primary battle-defeat-modal-action', onClick: () => { modal.close(); eventManager.emit('viewChange', { view: 'dungeon' }); } }]
         });
         modal.show();
     }
@@ -1492,6 +2002,152 @@ class BattleView {
         }, variant === 'skill-label' ? 900 : 1050);
     }
 
+    scheduleBattleEffect(callback, delay = 0) {
+        if (delay <= 0) {
+            if (this.visible) {
+                callback();
+            }
+            return null;
+        }
+        const timerId = setTimeout(() => {
+            this.effectTimers.delete(timerId);
+            if (this.visible) {
+                callback();
+            }
+        }, delay);
+        this.effectTimers.add(timerId);
+        return timerId;
+    }
+
+    clearBattleEffectTimers() {
+        if (!this.effectTimers) {
+            this.effectTimers = new Set();
+            return;
+        }
+        this.effectTimers.forEach(timerId => clearTimeout(timerId));
+        this.effectTimers.clear();
+    }
+
+    getEffectCenter(position) {
+        return {
+            x: position.left + position.width / 2,
+            y: position.top + position.height / 2
+        };
+    }
+
+    spawnBattleEffect(className, position, options = {}) {
+        if (!this.animationLayer || !position) {
+            return null;
+        }
+        const effect = document.createElement('div');
+        effect.className = `battle-effect ${className}`.trim();
+        if (options.isCritical) {
+            effect.classList.add('is-critical');
+        }
+        if (options.isRevive) {
+            effect.classList.add('is-revive');
+        }
+
+        const center = this.getEffectCenter(position);
+        const left = Number.isFinite(Number(options.left)) ? Number(options.left) : center.x;
+        const top = Number.isFinite(Number(options.top)) ? Number(options.top) : center.y;
+        effect.style.left = `${left}px`;
+        effect.style.top = `${top}px`;
+
+        if (Number.isFinite(Number(options.width))) {
+            effect.style.width = `${Number(options.width)}px`;
+        }
+        if (Number.isFinite(Number(options.height))) {
+            effect.style.height = `${Number(options.height)}px`;
+        }
+        if (Number.isFinite(Number(options.angle))) {
+            effect.style.setProperty('--effect-angle', `${Number(options.angle)}deg`);
+        }
+        if (Number.isFinite(Number(options.scale))) {
+            effect.style.setProperty('--effect-scale', `${Number(options.scale)}`);
+        }
+        if (options.html) {
+            effect.innerHTML = options.html;
+        }
+
+        this.animationLayer.appendChild(effect);
+        this.scheduleBattleEffect(() => {
+            if (effect.parentNode) {
+                effect.parentNode.removeChild(effect);
+            }
+        }, Number(options.duration) || 900);
+        return effect;
+    }
+
+    spawnAttackTrail(fromPosition, toPosition, options = {}) {
+        this.scheduleBattleEffect(() => {
+            if (!fromPosition || !toPosition) {
+                return;
+            }
+            const from = this.getEffectCenter(fromPosition);
+            const to = this.getEffectCenter(toPosition);
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 4) {
+                return;
+            }
+            this.spawnBattleEffect('battle-attack-trail', fromPosition, {
+                left: from.x,
+                top: from.y,
+                width: Math.max(24, distance),
+                height: options.isCritical ? 8 : 6,
+                angle: Math.atan2(dy, dx) * 180 / Math.PI,
+                duration: options.isCritical ? 620 : 520,
+                isCritical: options.isCritical
+            });
+        }, Number(options.delay) || 0);
+    }
+
+    spawnImpactEffect(position, options = {}) {
+        this.scheduleBattleEffect(() => {
+            const size = options.isCritical ? 78 : 54;
+            this.spawnBattleEffect('battle-hit-spark', position, {
+                width: size,
+                height: size,
+                angle: Number(options.angle) || 0,
+                duration: options.isCritical ? 780 : 620,
+                isCritical: options.isCritical
+            });
+            if (options.shake !== false) {
+                this.triggerBattleShake(options.isCritical ? 'critical' : 'hit');
+            }
+        }, Number(options.delay) || 0);
+    }
+
+    spawnHealEffect(position, options = {}) {
+        this.scheduleBattleEffect(() => {
+            const count = options.isRevive ? 7 : 5;
+            const motes = Array.from({ length: count }, (_, index) => `<span style="--mote-index:${index}"></span>`).join('');
+            this.spawnBattleEffect('battle-heal-burst', position, {
+                width: options.isRevive ? 74 : 62,
+                height: options.isRevive ? 74 : 62,
+                duration: options.isRevive ? 980 : 860,
+                isRevive: options.isRevive,
+                html: motes
+            });
+        }, Number(options.delay) || 0);
+    }
+
+    triggerBattleShake(kind = 'hit') {
+        const stage = this.element.querySelector('.battle-board-stage');
+        if (!stage) {
+            return;
+        }
+        const className = kind === 'critical' ? 'battle-shake-critical' : 'battle-shake-hit';
+        stage.classList.remove('battle-shake-hit', 'battle-shake-critical');
+        void stage.offsetWidth;
+        stage.classList.add(className);
+        this.scheduleBattleEffect(() => {
+            stage.classList.remove(className);
+        }, kind === 'critical' ? 420 : 260);
+    }
+
     spawnSkillLabel(position, skillName) {
         if (!skillName) {
             return;
@@ -1537,12 +2193,14 @@ class BattleView {
             if (Number(result.heal) > 0) {
                 const previousHp = Math.max(0, unit.hp - Number(result.heal));
                 this.setUnitHpTrail(unit.id, this.getHpPercentByValue(previousHp, unit.maxHp));
+                this.spawnHealEffect(position, { delay: 60, isRevive: result.effect?.type === 'revive' });
                 this.spawnCombatText(textPosition, `+${result.heal}`, 'heal');
                 return;
             }
             if (Number(result.damage) > 0) {
                 const previousHp = Math.min(unit.maxHp, unit.hp + Number(result.damage));
                 this.scheduleHpTrailDrop(unit, previousHp, unit.hp);
+                this.spawnImpactEffect(position, { delay: 120, isCritical: result.isCritical });
                 this.spawnCombatText(textPosition, `-${result.damage}`, result.isCritical ? 'crit' : 'damage');
             }
             if (Array.isArray(result.appliedEffects) && result.appliedEffects.length > 0) {
@@ -1669,6 +2327,16 @@ class BattleView {
                 targetFloats.forEach(({ element }) => element.classList.add('battle-unit-heal'));
             } else {
                 attackerFloat.classList.add('battle-unit-attacking');
+                targetFloats.forEach(({ position, entry }, index) => {
+                    const result = entry?.result || {};
+                    if (result.hit === false || !(Number(result.damage) > 0)) {
+                        return;
+                    }
+                    this.spawnAttackTrail(attackerPos, position, {
+                        delay: 35 + Math.min(index * 70, 180),
+                        isCritical: result.isCritical
+                    });
+                });
                 setTimeout(() => {
                     targetFloats.forEach(({ element, entry }) => {
                         element.classList.add(entry?.result?.isCritical ? 'battle-unit-hit-critical' : 'battle-unit-hit');
@@ -1680,6 +2348,7 @@ class BattleView {
         this.applyActionEntryFeedback(actionEntries, targetFloats);
 
         if (Number(actionData?.result?.selfHeal) > 0) {
+            this.spawnHealEffect(attackerPos, { delay: 120 });
             this.spawnCombatText({
                 left: attackerPos.left + 8,
                 top: Math.max(0, attackerPos.top - 8),
@@ -1729,6 +2398,7 @@ class BattleView {
         const healValue = Number(effect.value) || 0;
         if (healValue > 0) {
             this.setUnitHpTrail(target.id, this.getHpPercentByValue(Math.max(0, target.hp - healValue), target.maxHp));
+            this.spawnHealEffect(targetPos, { delay: 40, isRevive: effect.type === 'revive' });
             this.spawnCombatText(targetPos, effect.type === 'revive' ? `复活 +${healValue}` : `+${healValue}`, effect.type === 'revive' ? 'revive' : 'heal');
         }
 
@@ -1760,9 +2430,14 @@ class BattleView {
         }
         if (actionData.actionType === 'status') {
             const damage = Number(actionData?.result?.damage) || 0;
+            const heal = Number(actionData?.result?.heal) || 0;
             const appliedEffects = Array.isArray(actionData?.result?.appliedEffects) ? actionData.result.appliedEffects : [];
-            if (damage > 0) {
+            if (heal > 0) {
+                this.spawnHealEffect(targetPos, { delay: 40 });
+                this.spawnCombatText(targetPos, `+${heal}`, 'heal');
+            } else if (damage > 0) {
                 const statusName = actionData?.result?.statusName || '状态';
+                this.spawnImpactEffect(targetPos, { delay: 80, shake: false });
                 this.spawnCombatText(targetPos, `${statusName} -${damage}`, 'status-damage');
             } else if (appliedEffects.length > 0) {
                 appliedEffects.forEach((effect, index) => {
@@ -1878,6 +2553,9 @@ class BattleView {
         this.actionQueue = [];
         this.isProcessingAction = false;
         this.clearHpTrailTimers();
+        this.clearBattleEffectTimers();
+        this.stopEnvironmentEffect();
+        this.environmentCanvas = null;
         this.resolveActionQueueWaiters();
         this.actionQueueWaiters = [];
         this.progressTokenMap = new Map();

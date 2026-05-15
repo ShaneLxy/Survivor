@@ -40,6 +40,8 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
     this.db = this.client.db(this.dbName);
     await Promise.all([
       this.userAccounts().createIndex({ account: 1 }, { unique: true, sparse: true }),
+      this.userAccounts().createIndex({ taptapOpenId: 1 }, { unique: true, sparse: true }),
+      this.userAccounts().createIndex({ taptapUnionId: 1 }, { unique: true, sparse: true }),
       this.playerSaves().createIndex({ accountId: 1 }, { unique: true }),
       this.playerMails().createIndex({ accountId: 1 }),
       this.cdkeys().createIndex({ code: 1 }, { unique: true }),

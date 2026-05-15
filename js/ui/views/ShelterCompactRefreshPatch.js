@@ -9,6 +9,7 @@
             { id: 'building_farm', label: '农场', icon: '🌾' },
             { id: 'building_mine', label: '矿场', icon: '⛏️' },
             { id: 'building_well', label: '水井', icon: '💧' },
+            { id: 'building_training_ground', label: '\u8bad\u7ec3\u573a', icon: '\ud83c\udfd8\ufe0f' },
             { id: 'collect_all', label: '一键收取', icon: '📦' }
         ];
     };
@@ -54,7 +55,6 @@
                     </div>
                 </div>
                 <div class="shelter-top-status-subtitle">管理营地建筑、统一收取产出，并规划下一次升级。</div>
-                <div class="shelter-top-status-preview">${rewardText}</div>
             </div>
         `;
     };
@@ -68,9 +68,17 @@
 
         if (building.id === 'building_shelter') {
             return [{
-                label: '体力上限',
+                label: '\u4f53\u529b\u4e0a\u9650',
                 current: `+${currentLevel?.energyBonus || 0}`,
-                next: nextLevel ? `+${nextLevel.energyBonus || 0}` : '已满级'
+                next: nextLevel ? `+${nextLevel.energyBonus || 0}` : '\u5df2\u6ee1\u7ea7'
+            }];
+        }
+
+        if (building.id === 'building_training_ground') {
+            return [{
+                label: '\u5c5e\u6027\u52a0\u6210',
+                current: `+${((currentLevel?.statBonus || 0) * 100).toFixed(0)}%`,
+                next: nextLevel ? `+${((nextLevel?.statBonus || 0) * 100).toFixed(0)}%` : '\u5df2\u6ee1\u7ea7'
             }];
         }
 

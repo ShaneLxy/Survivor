@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Survivor GM Console</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="nav-rail">
+      <div class="brand-block">
+        <div class="brand-mark">S</div>
+        <div>
+          <div class="brand-title">Survivor GM</div>
+          <div class="brand-subtitle">运营控制台</div>
+        </div>
+      </div>
+
+      <button class="nav-item active" data-view="catalog" type="button">
+        <span class="nav-icon">▦</span>
+        <span>资源目录</span>
+      </button>
+      <button class="nav-item" data-view="enemy" type="button">
+        <span class="nav-icon">※</span>
+        <span>怪物信息</span>
+      </button>
+      <button class="nav-item" data-view="gacha" type="button">
+        <span class="nav-icon">◎</span>
+        <span>招募奖池</span>
+      </button>
+      <button class="nav-item" data-view="shop" type="button">
+        <span class="nav-icon">$</span>
+        <span>商城配置</span>
+      </button>
+      <button class="nav-item" data-view="welfare" type="button">
+        <span class="nav-icon">礼</span>
+        <span>福利礼包</span>
+      </button>
+      <button class="nav-item" data-view="dungeon" type="button">
+        <span class="nav-icon">▧</span>
+        <span>副本关卡</span>
+      </button>
+      <button class="nav-item" data-view="shelter" type="button">
+        <span class="nav-icon">⌂</span>
+        <span>避难所建筑</span>
+      </button>
+      <button class="nav-item" data-view="mail" type="button">
+        <span class="nav-icon">✉</span>
+        <span>玩家邮件</span>
+      </button>
+      <button class="nav-item" data-view="cdkey" type="button">
+        <span class="nav-icon">⌗</span>
+        <span>CDKEY</span>
+      </button>
+      <button class="nav-item" data-view="package" type="button">
+        <span class="nav-icon">APK</span>
+        <span>打包模块</span>
+      </button>
+      <button class="nav-item" data-view="settings" type="button">
+        <span class="nav-icon">⚙</span>
+        <span>连接设置</span>
+      </button>
+
+      <div class="nav-spacer"></div>
+      <div class="connection-card">
+        <div class="status-line">
+          <span id="connectionDot" class="status-dot"></span>
+          <span id="connectionText">未连接</span>
+        </div>
+        <button id="refreshAllBtn" class="ghost-button full" type="button">刷新数据</button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="top-strip">
+        <div>
+          <h1 id="viewTitle">资源目录</h1>
+          <p id="viewSubtitle">查询和维护资源、道具、装备配置</p>
+        </div>
+        <div class="top-actions">
+          <input id="globalSearchInput" class="search-input" type="search" placeholder="搜索名称 / ID">
+          <button id="testConnectionBtn" class="primary-button" type="button">测试连接</button>
+        </div>
+      </header>
+
+      <section id="catalogView" class="view active">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <div class="segmented-control" role="tablist">
+                <button class="segment active" data-catalog-type="items" type="button">道具</button>
+                <button class="segment" data-catalog-type="resources" type="button">资源</button>
+                <button class="segment" data-catalog-type="equipment" type="button">装备</button>
+                <button class="segment" data-catalog-type="enemySkills" type="button">敌技</button>
+              </div>
+              <button id="newCatalogBtn" class="icon-button" title="新建条目" type="button">＋</button>
+            </div>
+            <div class="filter-row">
+              <select id="rarityFilter" class="select-input">
+                <option value="">全部品质</option>
+                <option value="common">普通</option>
+                <option value="rare">稀有</option>
+                <option value="epic">史诗</option>
+                <option value="legendary">传说</option>
+              </select>
+              <select id="typeFilter" class="select-input">
+                <option value="">全部类型</option>
+              </select>
+            </div>
+            <div id="catalogList" class="data-list"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="editorTitle">选择一个条目</h2>
+                <p id="editorMeta">ID、名称、图片、描述与配置字段</p>
+              </div>
+              <span id="editorSource" class="source-chip">base</span>
+            </div>
+            <form id="catalogForm" class="form-grid">
+              <label>
+                <span>ID</span>
+                <input id="catalogId" name="id" class="text-input" required>
+              </label>
+              <label>
+                <span>名称</span>
+                <input id="catalogName" name="name" class="text-input">
+              </label>
+              <label>
+                <span>图标字符</span>
+                <input id="catalogIcon" name="icon" class="text-input">
+              </label>
+              <label>
+                <span>图片路径 / URL</span>
+                <input id="catalogIconSrc" name="iconSrc" class="text-input">
+              </label>
+              <label class="file-row">
+                <span>本地图片</span>
+                <input id="catalogImageFile" type="file" accept="image/*">
+              </label>
+              <div class="image-preview-wrap">
+                <div id="catalogImagePreview" class="image-preview">IMG</div>
+              </div>
+              <label>
+                <span>类型 / 部位</span>
+                <input id="catalogTypeField" name="type" class="text-input">
+              </label>
+              <label>
+                <span>品质</span>
+                <select id="catalogRarity" name="rarity" class="select-input">
+                  <option value="common">普通</option>
+                  <option value="rare">稀有</option>
+                  <option value="epic">史诗</option>
+                  <option value="legendary">传说</option>
+                </select>
+              </label>
+              <label>
+                <span>堆叠上限</span>
+                <input id="catalogStackLimit" name="stackLimit" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>可用品质</span>
+                <input id="catalogRarities" name="rarities" class="text-input" placeholder="common,rare">
+              </label>
+              <label class="wide">
+                <span>描述</span>
+                <textarea id="catalogDescription" name="description" class="textarea-input" rows="3"></textarea>
+              </label>
+              <label class="wide">
+                <span>效果 JSON</span>
+                <textarea id="catalogEffect" name="effect" class="textarea-input code-input" rows="4"></textarea>
+              </label>
+              <label class="wide">
+                <span>属性 JSON</span>
+                <textarea id="catalogStats" name="stats" class="textarea-input code-input" rows="4"></textarea>
+              </label>
+              <label class="wide">
+                <span>装备属性规则 JSON</span>
+                <textarea id="catalogStatRules" name="statRules" class="textarea-input code-input" rows="5"></textarea>
+              </label>
+              <div class="form-actions wide">
+                <button id="saveCatalogBtn" class="primary-button" type="submit">保存条目</button>
+                <button id="deleteCatalogBtn" class="danger-button" type="button">撤销 GM 改动</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="enemyView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>怪物列表</h2>
+              <button id="newEnemyBtn" class="icon-button" title="新建怪物" type="button">+</button>
+            </div>
+            <input id="enemySearchInput" class="text-input" type="search" placeholder="搜索怪物名称 / ID">
+            <div id="enemyList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="enemyEditorTitle">选择一个怪物</h2>
+                <p id="enemyEditorMeta">仅维护怪物名称、介绍和立绘资源</p>
+              </div>
+              <span id="enemyEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="enemyForm" class="form-grid">
+              <label>
+                <span>怪物 ID</span>
+                <input id="enemyId" class="text-input" required>
+              </label>
+              <label>
+                <span>名称</span>
+                <input id="enemyName" class="text-input">
+              </label>
+              <label class="wide">
+                <span>立绘路径 / URL</span>
+                <input id="enemyArtSrc" class="text-input">
+              </label>
+              <label class="file-row">
+                <span>本地图片</span>
+                <input id="enemyImageFile" type="file" accept="image/*">
+              </label>
+              <div class="image-preview-wrap">
+                <div id="enemyImagePreview" class="image-preview">IMG</div>
+              </div>
+              <label class="wide">
+                <span>介绍</span>
+                <textarea id="enemyDescription" class="textarea-input" rows="5"></textarea>
+              </label>
+              <div class="form-actions wide">
+                <button id="saveEnemyBtn" class="primary-button" type="submit">保存怪物</button>
+                <button id="deleteEnemyBtn" class="danger-button" type="button">撤销 GM 改动</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="gachaView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>&#x5956;&#x6C60;&#x5217;&#x8868;</h2>
+              <button id="newPoolBtn" class="icon-button" title="&#x65B0;&#x5EFA;&#x5956;&#x6C60;" type="button">+</button>
+            </div>
+            <input id="poolSearchInput" class="text-input" type="search" placeholder="&#x641C;&#x7D22;&#x5956;&#x6C60;&#x540D;&#x79F0; / ID">
+            <div id="poolList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="poolEditorTitle">&#x9009;&#x62E9;&#x4E00;&#x4E2A;&#x5956;&#x6C60;</h2>
+                <p id="poolEditorMeta">&#x914D;&#x7F6E;&#x82F1;&#x96C4;&#x62DB;&#x52DF;&#x3001;&#x88C5;&#x5907;&#x6253;&#x9020;&#x7684;&#x62BD;&#x53D6;&#x5185;&#x5BB9;&#x3001;&#x6570;&#x91CF;&#x8303;&#x56F4;&#x548C;&#x6982;&#x7387;&#x6743;&#x91CD;</p>
+              </div>
+              <span id="poolEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="poolForm" class="form-grid">
+              <label>
+                <span>ID</span>
+                <input id="poolId" class="text-input" required>
+              </label>
+              <label>
+                <span>&#x540D;&#x79F0;</span>
+                <input id="poolName" class="text-input">
+              </label>
+              <label>
+                <span>&#x56FE;&#x6807;</span>
+                <input id="poolIcon" class="text-input">
+              </label>
+              <label>
+                <span>&#x6D88;&#x8017;&#x8D44;&#x6E90;</span>
+                <input id="poolCostResource" class="text-input" list="rewardTargetOptions" placeholder="diamond">
+              </label>
+              <label>
+                <span>&#x5355;&#x62BD;&#x6D88;&#x8017;</span>
+                <input id="poolCostSingle" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>&#x5341;&#x8FDE;&#x6D88;&#x8017;</span>
+                <input id="poolCostTen" class="text-input" type="number" min="0">
+              </label>
+              <label class="wide">
+                <span>&#x63CF;&#x8FF0;</span>
+                <textarea id="poolDescription" class="textarea-input" rows="3"></textarea>
+              </label>
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>&#x5956;&#x6C60;&#x6761;&#x76EE;</span>
+                  <button id="addPoolEntryBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x6761;&#x76EE;</button>
+                </div>
+                <div id="poolEntryRows" class="editable-table"></div>
+              </div>
+              <div class="form-actions wide">
+                <button id="savePoolBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;&#x5956;&#x6C60;</button>
+                <button id="deletePoolBtn" class="danger-button" type="button">&#x64A4;&#x9500; GM &#x6539;&#x52A8;</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="shelterView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>&#x5EFA;&#x7B51;&#x5217;&#x8868;</h2>
+              <button id="newShelterBuildingBtn" class="icon-button" title="&#x65B0;&#x5EFA;&#x5EFA;&#x7B51;" type="button">+</button>
+            </div>
+            <input id="shelterBuildingSearchInput" class="text-input" type="search" placeholder="&#x641C;&#x7D22;&#x5EFA;&#x7B51;&#x540D;&#x79F0; / ID">
+            <div id="shelterBuildingList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="shelterBuildingEditorTitle">&#x9009;&#x62E9;&#x4E00;&#x4E2A;&#x5EFA;&#x7B51;</h2>
+                <p id="shelterBuildingEditorMeta">&#x914D;&#x7F6E;&#x56FE;&#x6807;&#x3001;&#x540D;&#x79F0;&#x3001;&#x63CF;&#x8FF0;&#x3001;&#x7B49;&#x7EA7;&#x4E0A;&#x9650;&#x3001;&#x6BCF;&#x7EA7;&#x6536;&#x76CA;&#x4E0E;&#x5347;&#x7EA7;&#x6D88;&#x8017;</p>
+              </div>
+              <span id="shelterBuildingEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="shelterBuildingForm" class="form-grid">
+              <label>
+                <span>&#x5EFA;&#x7B51; ID</span>
+                <input id="shelterBuildingId" class="text-input" required>
+              </label>
+              <label>
+                <span>&#x5EFA;&#x7B51;&#x540D;&#x79F0;</span>
+                <input id="shelterBuildingName" class="text-input">
+              </label>
+              <label>
+                <span>&#x56FE;&#x6807; Logo</span>
+                <input id="shelterBuildingIcon" class="text-input">
+              </label>
+              <label>
+                <span>&#x56FE;&#x7247;&#x8DEF;&#x5F84; / URL</span>
+                <input id="shelterBuildingIconSrc" class="text-input">
+              </label>
+              <label class="file-row">
+                <span>&#x672C;&#x5730;&#x56FE;&#x7247;</span>
+                <button id="pickShelterBuildingImageBtn" class="ghost-button" type="button">&#x9009;&#x62E9;&#x56FE;&#x7247;</button>
+              </label>
+              <div class="image-preview-wrap">
+                <div id="shelterBuildingImagePreview" class="image-preview">IMG</div>
+              </div>
+              <label>
+                <span>&#x7B49;&#x7EA7;&#x4E0A;&#x9650;</span>
+                <input id="shelterBuildingMaxLevel" class="text-input" type="number" min="1">
+              </label>
+              <label class="wide">
+                <span>&#x5EFA;&#x7B51;&#x63CF;&#x8FF0;</span>
+                <textarea id="shelterBuildingDescription" class="textarea-input" rows="3"></textarea>
+              </label>
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>&#x6BCF;&#x7EA7;&#x6536;&#x76CA;&#x4E0E;&#x5347;&#x7EA7;&#x6D88;&#x8017;</span>
+                </div>
+                <div id="shelterBuildingLevelRows" class="editable-table"></div>
+                <div class="nested-editor-actions">
+                  <button id="addShelterBuildingLevelBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x7B49;&#x7EA7;</button>
+                </div>
+              </div>
+              <div class="form-actions wide">
+                <button id="saveShelterBuildingBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;&#x5EFA;&#x7B51;</button>
+                <button id="deleteShelterBuildingBtn" class="danger-button" type="button">&#x64A4;&#x9500; GM &#x6539;&#x52A8;</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="shopView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>&#x5546;&#x57CE;&#x5546;&#x54C1;&#x5217;&#x8868;</h2>
+              <button id="newShopItemBtn" class="icon-button" title="&#x65B0;&#x5EFA;&#x5546;&#x54C1;" type="button">+</button>
+            </div>
+            <input id="shopSearchInput" class="text-input" type="search" placeholder="&#x641C;&#x7D22;&#x5546;&#x54C1;&#x540D;&#x79F0; / ID">
+            <div id="shopItemList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="shopEditorTitle">&#x9009;&#x62E9;&#x4E00;&#x4E2A;&#x5546;&#x54C1;</h2>
+                <p id="shopEditorMeta">&#x914D;&#x7F6E;&#x5546;&#x57CE;&#x552E;&#x5356;&#x5185;&#x5BB9;&#x3001;&#x4EF7;&#x683C;&#x3001;&#x9650;&#x8D2D;&#x4E0E;&#x53D1;&#x653E;&#x9053;&#x5177;</p>
+              </div>
+              <span id="shopEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="shopForm" class="form-grid">
+              <label>
+                <span>ID</span>
+                <input id="shopItemId" class="text-input" required>
+              </label>
+              <label>
+                <span>&#x5546;&#x54C1;&#x540D;&#x79F0;</span>
+                <input id="shopItemName" class="text-input">
+              </label>
+              <label>
+                <span>&#x56FE;&#x6807;</span>
+                <input id="shopItemIcon" class="text-input">
+              </label>
+              <label>
+                <span>&#x56FE;&#x7247;&#x8DEF;&#x5F84; / URL</span>
+                <input id="shopItemIconSrc" class="text-input">
+              </label>
+              <label>
+                <span>&#x5546;&#x54C1;&#x7C7B;&#x578B;</span>
+                <select id="shopItemType" class="select-input">
+                  <option value="consumable">&#x9053;&#x5177;</option>
+                  <option value="resource">&#x8D44;&#x6E90;</option>
+                  <option value="fragment">&#x788E;&#x7247;</option>
+                </select>
+              </label>
+              <label>
+                <span>&#x54C1;&#x8D28;</span>
+                <select id="shopItemRarity" class="select-input">
+                  <option value="common">&#x666E;&#x901A;</option>
+                  <option value="rare">&#x7A00;&#x6709;</option>
+                  <option value="epic">&#x53F2;&#x8BD7;</option>
+                  <option value="legendary">&#x4F20;&#x8BF4;</option>
+                </select>
+              </label>
+              <label>
+                <span>&#x4EF7;&#x683C;</span>
+                <input id="shopItemPrice" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>&#x8D27;&#x5E01;&#x7C7B;&#x578B;</span>
+                <input id="shopItemCurrency" class="text-input" list="rewardTargetOptions" placeholder="gold">
+              </label>
+              <label>
+                <span>&#x9650;&#x8D2D;&#x6B21;&#x6570;</span>
+                <input id="shopItemMaxBuy" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>&#x6392;&#x5E8F;</span>
+                <input id="shopItemSortOrder" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>&#x53D1;&#x653E;&#x9053;&#x5177;</span>
+                <input id="shopItemGiveItem" class="text-input" list="rewardTargetOptions" placeholder="meat">
+              </label>
+              <label>
+                <span>&#x53D1;&#x653E;&#x6570;&#x91CF;</span>
+                <input id="shopItemGiveCount" class="text-input" type="number" min="1">
+              </label>
+              <label class="wide">
+                <span>&#x63CF;&#x8FF0;</span>
+                <textarea id="shopItemDescription" class="textarea-input" rows="4"></textarea>
+              </label>
+              <div class="form-actions wide">
+                <button id="saveShopItemBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;&#x5546;&#x54C1;</button>
+                <button id="deleteShopItemBtn" class="danger-button" type="button">&#x4E0B;&#x67B6;&#x5546;&#x54C1;</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="welfareView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>福利礼包列表</h2>
+              <button id="newWelfareGiftBtn" class="icon-button" title="新建福利礼包" type="button">+</button>
+            </div>
+            <input id="welfareGiftSearchInput" class="text-input" type="search" placeholder="搜索礼包名称 / ID">
+            <div id="welfareGiftList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="welfareGiftEditorTitle">选择一个福利礼包</h2>
+                <p id="welfareGiftEditorMeta">配置礼包名称、描述、排序以及发放奖励</p>
+              </div>
+              <span id="welfareGiftEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="welfareGiftForm" class="form-grid">
+              <label>
+                <span>ID</span>
+                <input id="welfareGiftId" class="text-input" required>
+              </label>
+              <label>
+                <span>配置类型</span>
+                <select id="welfareGiftKind" class="select-input">
+                  <option value="gift">福利礼包</option>
+                  <option value="monthCard">月卡</option>
+                </select>
+              </label>
+              <label>
+                <span>礼包名称</span>
+                <input id="welfareGiftName" class="text-input">
+              </label>
+              <label>
+                <span>排序</span>
+                <input id="welfareGiftSortOrder" class="text-input" type="number" min="0">
+              </label>
+              <label class="welfare-gift-only">
+                <span>普通玩家次数</span>
+                <input id="welfareGiftLimitNormal" class="text-input" type="number" min="0">
+              </label>
+              <label class="welfare-gift-only">
+                <span>福利月卡次数</span>
+                <input id="welfareGiftLimitWelfare" class="text-input" type="number" min="0">
+              </label>
+              <label class="welfare-gift-only">
+                <span>至尊月卡次数</span>
+                <input id="welfareGiftLimitSupreme" class="text-input" type="number" min="0">
+              </label>
+              <label class="month-card-only">
+                <span>副标题</span>
+                <input id="welfareGiftSubtitle" class="text-input">
+              </label>
+              <label class="month-card-only">
+                <span>激活观看次数</span>
+                <input id="welfareGiftRequiredViews" class="text-input" type="number" min="1">
+              </label>
+              <label class="month-card-only">
+                <span>角标文案</span>
+                <input id="welfareGiftBadge" class="text-input">
+              </label>
+              <div class="wide reward-block">
+                <div class="block-title">
+                  <span id="welfareRewardBlockTitle">奖励内容</span>
+                  <button class="ghost-button" data-open-picker="welfare" type="button">添加奖励</button>
+                </div>
+                <div id="welfareGiftRewards" class="reward-list"></div>
+              </div>
+              <label class="wide">
+                <span>礼包描述</span>
+                <textarea id="welfareGiftDescription" class="textarea-input" rows="4"></textarea>
+              </label>
+              <div class="form-actions wide">
+                <button id="saveWelfareGiftBtn" class="primary-button" type="submit">保存礼包</button>
+                <button id="deleteWelfareGiftBtn" class="danger-button" type="button">下架礼包</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="dungeonView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>&#x7AE0;&#x8282;&#x4E0E;&#x5173;&#x5361;</h2>
+              <div class="inline-tools">
+                <button id="newDungeonChapterBtn" class="ghost-button" type="button">&#x65B0;&#x5EFA;&#x7AE0;&#x8282;</button>
+                <button id="newDungeonBtn" class="primary-button" type="button">&#x65B0;&#x5EFA;&#x5173;&#x5361;</button>
+              </div>
+            </div>
+            <input id="dungeonSearchInput" class="text-input" type="search" placeholder="&#x641C;&#x7D22;&#x7AE0;&#x8282; / &#x5173;&#x5361;&#x540D;&#x79F0; / ID">
+            <div id="dungeonList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="dungeonEditorTitle">&#x9009;&#x62E9;&#x7AE0;&#x8282;&#x6216;&#x5173;&#x5361;</h2>
+                <p id="dungeonEditorMeta">&#x53EF;&#x7F16;&#x8F91;&#x7AE0;&#x8282;&#x4FE1;&#x606F;&#x3001;&#x5173;&#x5361;&#x6218;&#x573A;&#x3001;&#x5956;&#x52B1;&#x3001;&#x654C;&#x4EBA;&#x4E0E; BOSS &#x6CE2;&#x6B21;</p>
+              </div>
+              <span id="dungeonEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="dungeonForm" class="form-grid">
+              <label>
+                <span>ID</span>
+                <input id="dungeonId" class="text-input" required>
+              </label>
+              <label>
+                <span>&#x540D;&#x79F0;</span>
+                <input id="dungeonName" class="text-input">
+              </label>
+              <label>
+                <span>&#x7AE0;&#x8282;&#x5E8F;&#x53F7;</span>
+                <input id="dungeonChapterNumber" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>&#x5173;&#x5361;&#x5E8F;&#x53F7;</span>
+                <input id="dungeonStageNumber" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>&#x63A8;&#x8350;&#x7B49;&#x7EA7;</span>
+                <input id="dungeonRecommendedLevel" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>&#x4F53;&#x529B;&#x6D88;&#x8017;</span>
+                <input id="dungeonEnergyCost" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>&#x56FE;&#x6807;</span>
+                <input id="dungeonIcon" class="text-input">
+              </label>
+              <label>
+                <span>&#x573A;&#x666F; ID</span>
+                <input id="dungeonSceneId" class="text-input">
+              </label>
+              <label>
+                <span>&#x6218;&#x6597;&#x73AF;&#x5883;&#x7279;&#x6548;</span>
+                <select id="dungeonEnvironmentEffect" class="select-input">
+                  <option value="none">&#x65E0;</option>
+                  <option value="smoke">&#x70DF;&#x96FE;</option>
+                  <option value="poison_fog">&#x6BD2;&#x96FE;</option>
+                  <option value="dust_smoke">&#x7070;&#x5C18;&#x70DF;&#x96FE;</option>
+                  <option value="rain">&#x4E0B;&#x96E8;</option>
+                  <option value="storm_night">&#x66B4;&#x96E8;&#x591C;</option>
+                  <option value="snow">&#x4E0B;&#x96EA;</option>
+                </select>
+              </label>
+              <label class="wide">
+                <span>&#x7AE0;&#x8282;&#x63CF;&#x8FF0;</span>
+                <textarea id="dungeonChapterDescription" class="textarea-input" rows="3"></textarea>
+              </label>
+              <label class="wide">
+                <span>&#x7AE0;&#x8282;&#x80CC;&#x666F;</span>
+                <input id="dungeonChapterBackground" class="text-input">
+              </label>
+              <label class="wide">
+                <span>&#x5173;&#x5361;&#x63CF;&#x8FF0;</span>
+                <textarea id="dungeonDescription" class="textarea-input" rows="3"></textarea>
+              </label>
+              <label>
+                <span>&#x68CB;&#x76D8;&#x5217;&#x6570;</span>
+                <input id="dungeonCols" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>&#x68CB;&#x76D8;&#x884C;&#x6570;</span>
+                <input id="dungeonRows" class="text-input" type="number" min="1">
+              </label>
+              <label class="wide">
+                <span>&#x82F1;&#x96C4;&#x51FA;&#x751F;&#x70B9;</span>
+                <input id="dungeonHeroSpawn" class="text-input" placeholder="10,3;10,4">
+              </label>
+              <label class="wide">
+                <span>&#x969C;&#x788D;&#x5750;&#x6807;</span>
+                <input id="dungeonObstacles" class="text-input" placeholder="4,4;5,4">
+              </label>
+              <label>
+                <span>&#x91D1;&#x5E01;&#x6700;&#x5C0F;</span>
+                <input id="dungeonGoldMin" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>&#x91D1;&#x5E01;&#x6700;&#x5927;</span>
+                <input id="dungeonGoldMax" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>EXP &#x6700;&#x5C0F;</span>
+                <input id="dungeonExpMin" class="text-input" type="number" min="0">
+              </label>
+              <label>
+                <span>EXP &#x6700;&#x5927;</span>
+                <input id="dungeonExpMax" class="text-input" type="number" min="0">
+              </label>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>&#x7AE0;&#x8282;&#x901A;&#x5173;&#x5956;&#x52B1;</span>
+                  <button id="addChapterRewardBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x5956;&#x52B1;</button>
+                </div>
+                <div id="chapterRewardRows" class="editable-table"></div>
+              </div>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>&#x5173;&#x5361;&#x6389;&#x843D;&#x5956;&#x52B1;</span>
+                  <button id="addStageRewardBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x5956;&#x52B1;</button>
+                </div>
+                <div id="stageRewardRows" class="editable-table"></div>
+              </div>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>&#x5173;&#x5361;&#x654C;&#x4EBA;&#x6E05;&#x5355;</span>
+                  <div class="inline-tools">
+                    <button id="addDungeonEnemyBtn" class="ghost-button" type="button">&#x666E;&#x901A;&#x654C;&#x4EBA;</button>
+                    <button id="addDungeonEliteBtn" class="ghost-button" type="button">&#x7CBE;&#x82F1;&#x654C;&#x4EBA;</button>
+                    <button id="syncDungeonEnemyJsonBtn" class="ghost-button" type="button">JSON &#x540C;&#x6B65;</button>
+                    <button id="loadDungeonEnemyJsonBtn" class="ghost-button" type="button">&#x4ECE; JSON &#x8F7D;&#x5165;</button>
+                  </div>
+                </div>
+                <div id="dungeonEnemyRows" class="editable-table"></div>
+                <textarea id="dungeonEnemyJson" class="textarea-input code-input" rows="6"></textarea>
+              </div>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>BOSS &#x6CE2;&#x6B21;&#x8BBE;&#x7F6E;</span>
+                  <div class="inline-tools">
+                    <button id="addDungeonBossBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0; BOSS</button>
+                    <button id="syncDungeonBossJsonBtn" class="ghost-button" type="button">JSON &#x540C;&#x6B65;</button>
+                    <button id="loadDungeonBossJsonBtn" class="ghost-button" type="button">&#x4ECE; JSON &#x8F7D;&#x5165;</button>
+                  </div>
+                </div>
+                <div id="dungeonBossRows" class="editable-table"></div>
+                <textarea id="dungeonBossWaves" class="textarea-input code-input" rows="6"></textarea>
+              </div>
+
+              <label class="wide">
+                <span>&#x6279;&#x91CF; JSON</span>
+                <textarea id="dungeonBatchJson" class="textarea-input code-input" rows="10"></textarea>
+              </label>
+              <div class="form-actions wide">
+                <button id="loadDungeonBatchBtn" class="ghost-button" type="button">&#x8F7D;&#x5165;&#x5F53;&#x524D; JSON</button>
+                <button id="saveDungeonBatchBtn" class="ghost-button" type="button">&#x6279;&#x91CF;&#x4FDD;&#x5B58;</button>
+              </div>
+              <div class="form-actions wide">
+                <button id="saveDungeonBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;</button>
+                <button id="deleteDungeonBtn" class="danger-button" type="button">&#x5220;&#x9664; / &#x64A4;&#x9500;</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+<section id="mailView" class="view">
+        <div class="two-column">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>发送邮件</h2>
+                <p>支持玩家 ID 列表或全体玩家</p>
+              </div>
+            </div>
+            <form id="mailForm" class="form-grid">
+              <label>
+                <span>目标范围</span>
+                <select id="mailScope" class="select-input">
+                  <option value="players">指定玩家</option>
+                  <option value="all">全体玩家</option>
+                </select>
+              </label>
+              <label>
+                <span>发件人</span>
+                <input id="mailSender" class="text-input" value="GM">
+              </label>
+              <label class="wide">
+                <span>玩家 ID</span>
+                <textarea id="mailAccountIds" class="textarea-input" rows="4" placeholder="多个 ID 用换行、逗号或分号分隔"></textarea>
+              </label>
+              <label class="wide">
+                <span>标题</span>
+                <input id="mailTitle" class="text-input" placeholder="维护补偿">
+              </label>
+              <label class="wide">
+                <span>正文</span>
+                <textarea id="mailBody" class="textarea-input" rows="6"></textarea>
+              </label>
+              <label>
+                <span>过期时间</span>
+                <input id="mailExpireAt" class="text-input" type="datetime-local">
+              </label>
+              <div class="wide reward-block">
+                <div class="block-title">
+                  <span>附件道具</span>
+                  <button class="ghost-button" data-open-picker="mail" type="button">添加附件</button>
+                </div>
+                <div id="mailRewards" class="reward-list"></div>
+              </div>
+              <div class="form-actions wide">
+                <button class="primary-button" type="submit">发送邮件</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>玩家查询</h2>
+                <p>查找账号并填入邮件目标</p>
+              </div>
+            </div>
+            <div class="inline-tools">
+              <input id="playerSearchInput" class="text-input" placeholder="账号 / 昵称">
+              <button id="searchPlayersBtn" class="primary-button" type="button">查询</button>
+            </div>
+            <div id="playerList" class="table-list"></div>
+            <div class="panel-header compact">
+              <div>
+                <h2>最近邮件</h2>
+              </div>
+              <button id="loadMailsBtn" class="ghost-button" type="button">刷新</button>
+            </div>
+            <div id="mailHistory" class="table-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="cdkeyView" class="view">
+        <div class="two-column wide-left">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>批量创建</h2>
+                <p>手填或按前缀生成兑换码</p>
+              </div>
+            </div>
+            <form id="cdkeyCreateForm" class="form-grid">
+              <label>
+                <span>批次名</span>
+                <input id="cdkeyBatchId" class="text-input" placeholder="例如 MAY-DAY-2026">
+              </label>
+              <label>
+                <span>标题</span>
+                <input id="cdkeyTitle" class="text-input" placeholder="节日礼包">
+              </label>
+              <label>
+                <span>生成前缀</span>
+                <input id="cdkeyPrefix" class="text-input" placeholder="SVR">
+              </label>
+              <label>
+                <span>生成数量</span>
+                <input id="cdkeyCount" class="text-input" type="number" min="0" max="5000" value="0">
+              </label>
+              <label class="wide">
+                <span>手动兑换码</span>
+                <textarea id="cdkeyCodes" class="textarea-input code-input" rows="5" placeholder="每行一个，也可以逗号分隔"></textarea>
+              </label>
+              <label>
+                <span>过期时间</span>
+                <input id="cdkeyExpireAt" class="text-input" type="datetime-local">
+              </label>
+              <label>
+                <span>状态</span>
+                <select id="cdkeyEnabled" class="select-input">
+                  <option value="true">启用</option>
+                  <option value="false">停用</option>
+                </select>
+              </label>
+              <label class="wide">
+                <span>备注</span>
+                <input id="cdkeyRemark" class="text-input">
+              </label>
+              <div class="wide reward-block">
+                <div class="block-title">
+                  <span>兑换奖励</span>
+                  <button class="ghost-button" data-open-picker="cdkey" type="button">添加奖励</button>
+                </div>
+                <div id="cdkeyRewards" class="reward-list"></div>
+              </div>
+              <div class="form-actions wide">
+                <button class="primary-button" type="submit">创建 CDKEY</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>查询与批量修改</h2>
+                <p>按关键词、使用状态、启用状态筛选</p>
+              </div>
+            </div>
+            <div class="query-grid">
+              <input id="cdkeySearchInput" class="text-input" placeholder="兑换码 / 标题 / 批次">
+              <select id="cdkeyUsedFilter" class="select-input">
+                <option value="">全部使用状态</option>
+                <option value="false">未使用</option>
+                <option value="true">已使用</option>
+              </select>
+              <select id="cdkeyEnabledFilter" class="select-input">
+                <option value="">全部启用状态</option>
+                <option value="true">启用</option>
+                <option value="false">停用</option>
+              </select>
+              <button id="loadCdkeysBtn" class="primary-button" type="button">查询</button>
+            </div>
+            <div id="cdkeyList" class="cdkey-table"></div>
+            <div class="bulk-edit">
+              <select id="bulkEnabled" class="select-input">
+                <option value="">不改状态</option>
+                <option value="true">设为启用</option>
+                <option value="false">设为停用</option>
+              </select>
+              <input id="bulkTitle" class="text-input" placeholder="批量标题，可留空">
+              <input id="bulkExpireAt" class="text-input" type="datetime-local">
+              <button id="bulkUpdateCdkeysBtn" class="ghost-button" type="button">修改选中</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="packageView" class="view">
+        <section class="panel package-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Android 打包</h2>
+              <p>选择正式或测试版本，默认生成 APK，并在下方输出完整打包日志和结果路径</p>
+            </div>
+          </div>
+          <form id="packageForm" class="form-grid package-form">
+            <label>
+              <span>版本类型</span>
+              <select id="packageBuildChannel" class="select-input">
+                <option value="test" selected>测试版本 Debug</option>
+                <option value="formal">正式版本 Release</option>
+              </select>
+            </label>
+            <label>
+              <span>输出类型</span>
+              <select id="packageArtifact" class="select-input">
+                <option value="apk" selected>APK 安装包</option>
+                <option value="aab">AAB 商店包</option>
+              </select>
+            </label>
+            <label>
+              <span>版本号</span>
+              <input id="packageVersionName" class="text-input" value="1.0">
+            </label>
+            <label>
+              <span>版本编码</span>
+              <input id="packageVersionCode" class="text-input" type="number" min="1" value="1">
+            </label>
+            <label>
+              <span>应用包名</span>
+              <input id="packageApplicationId" class="text-input" value="com.survivor.game">
+            </label>
+            <label>
+              <span>应用名称</span>
+              <input id="packageAppName" class="text-input" value="云境">
+            </label>
+            <label>
+              <span>前端资源版本</span>
+              <input id="packageBuildVersion" class="text-input" placeholder="留空则自动使用当前时间">
+            </label>
+            <label>
+              <span>服务器地址备注</span>
+              <input id="packageServerUrl" class="text-input" placeholder="例如测试服或正式服 API 地址">
+            </label>
+            <label>
+              <span>输出目录</span>
+              <input id="packageOutputDir" class="text-input" value="dist/android">
+            </label>
+            <label>
+              <span>打包备注</span>
+              <input id="packageGmNote" class="text-input" placeholder="例如渠道、版本说明、临时配置">
+            </label>
+            <label>
+              <span>签名文件</span>
+              <input id="packageSigningStoreFile" class="text-input" placeholder="正式包可填 keystore 路径">
+            </label>
+            <label>
+              <span>签名别名</span>
+              <input id="packageSigningKeyAlias" class="text-input" placeholder="key alias">
+            </label>
+            <label>
+              <span>签名库密码</span>
+              <input id="packageSigningStorePassword" class="text-input" type="password" placeholder="store password">
+            </label>
+            <label>
+              <span>签名密钥密码</span>
+              <input id="packageSigningKeyPassword" class="text-input" type="password" placeholder="key password">
+            </label>
+            <label class="checkbox-field">
+              <input id="packageWebViewDebugging" type="checkbox" checked>
+              <span>允许 WebView 调试</span>
+            </label>
+            <label class="checkbox-field">
+              <input id="packageCleanBuild" type="checkbox">
+              <span>打包前执行 Gradle clean</span>
+            </label>
+            <label class="checkbox-field">
+              <input id="packageSkipDoctor" type="checkbox">
+              <span>跳过 Android 环境检查</span>
+            </label>
+            <div class="form-actions wide">
+              <button id="startPackageBtn" class="primary-button" type="submit">开始打包</button>
+              <button id="clearPackageLogBtn" class="ghost-button" type="button">清空日志</button>
+              <button id="openPackageOutputBtn" class="ghost-button" type="button" disabled>打开输出目录</button>
+            </div>
+          </form>
+          <label class="wide package-result-wrap">
+            <span>打包结果</span>
+            <textarea id="packageResultOutput" class="textarea-input package-result-output" readonly placeholder="打包日志、失败原因或成功后的 APK 路径会显示在这里"></textarea>
+          </label>
+        </section>
+      </section>
+
+      <section id="settingsView" class="view">
+        <section class="panel settings-panel">
+          <div class="panel-header">
+            <div>
+              <h2>连接设置</h2>
+              <p>GM 接口需要服务端配置相同的 GM_SECRET</p>
+            </div>
+          </div>
+          <form id="settingsForm" class="form-grid">
+            <label class="wide">
+              <span>API Base URL</span>
+              <input id="apiBaseUrlInput" class="text-input" placeholder="http://127.0.0.1:3000/api">
+            </label>
+            <label class="wide">
+              <span>GM Secret</span>
+              <input id="gmSecretInput" class="text-input" type="password">
+            </label>
+            <div class="form-actions wide">
+              <button class="primary-button" type="submit">保存设置</button>
+              <button id="resetSettingsBtn" class="ghost-button" type="button">恢复默认</button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="rewardDrawer" class="drawer" aria-hidden="true">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <section class="drawer-panel">
+      <div class="drawer-header">
+        <div>
+          <h2>选择道具</h2>
+          <p>资源和道具可作为邮件附件或 CDKEY 奖励</p>
+        </div>
+        <button class="icon-button" data-close-drawer type="button">×</button>
+      </div>
+      <div class="query-grid">
+        <input id="rewardSearchInput" class="text-input" placeholder="搜索道具 / 资源">
+        <select id="rewardCategoryFilter" class="select-input">
+          <option value="">全部</option>
+          <option value="resource">资源</option>
+          <option value="item">道具</option>
+        </select>
+        <input id="rewardAmountInput" class="text-input" type="number" min="1" value="1">
+      </div>
+      <div id="rewardCatalogList" class="drawer-list"></div>
+    </section>
+  </div>
+
+  <div id="toastRoot" class="toast-root"></div>
+  <datalist id="rewardTargetOptions"></datalist>
+  <datalist id="enemyIdOptions"></datalist>
+  <datalist id="enemySkillOptions"></datalist>
+  <script src="src/app.js"></script>
+</body>
+</html>

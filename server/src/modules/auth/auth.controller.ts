@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { TapTapLoginDto } from './dto/taptap-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -29,6 +30,11 @@ export class AuthController {
   @Post('wechat/login')
   wechatLogin() {
     throw new NotImplementedException('微信登录结构已预留，后续可对接 code2Session');
+  }
+
+  @Post('taptap/login')
+  tapTapLogin(@Body() dto: TapTapLoginDto) {
+    return this.authService.tapTapLogin(dto);
   }
 
   @Get('me')

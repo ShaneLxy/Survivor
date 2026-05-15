@@ -154,6 +154,7 @@ class TaskView {
             return {
                 label: itemConfig?.name || reward.id,
                 icon: itemConfig?.icon || 'ITEM',
+                iconSrc: itemConfig?.iconSrc || null,
                 className: 'is-item'
             };
         }
@@ -162,31 +163,25 @@ class TaskView {
         return {
             label: shelterManager.getResourceDisplayName(reward.id),
             icon: resourceInfo.icon || 'RES',
+            iconSrc: resourceInfo.iconSrc || null,
             className: `is-resource is-${reward.id}`
         };
     }
 
-    renderHeader(meta, summary) {
+    renderRewardIconMarkup(rewardMeta) {
+        if (rewardMeta?.iconSrc) {
+            return `<img class="task-reward-icon-image" src="${rewardMeta.iconSrc}" alt="${rewardMeta.label || '奖励'}">`;
+        }
+        return rewardMeta?.icon || 'RES';
+    }
+
+    renderHeader(meta) {
         return `
             <div class="task-stage-header">
                 <div class="task-stage-heading-group">
                     <div class="task-stage-kicker">${meta.kicker}</div>
                     <h2 class="task-title">${meta.title}</h2>
                     <div class="task-subtitle">${meta.subtitle}</div>
-                </div>
-                <div class="task-stage-stats" aria-label="${meta.summaryLabel}">
-                    <div class="task-stat">
-                        <span>完成</span>
-                        <strong>${summary.completed}/${summary.total}</strong>
-                    </div>
-                    <div class="task-stat">
-                        <span>待领</span>
-                        <strong>${meta.claimable}</strong>
-                    </div>
-                    <div class="task-stat">
-                        <span>已领</span>
-                        <strong>${summary.claimed}</strong>
-                    </div>
                 </div>
             </div>
         `;
@@ -235,7 +230,7 @@ class TaskView {
 
         this.element.innerHTML = `
             <div class="task-view">
-                ${this.renderHeader(meta, summary)}
+                ${this.renderHeader(meta)}
                 ${this.renderTabs()}
                 <div class="task-command-board">
                     ${this.renderBoardHeader(meta, tasks)}
@@ -254,7 +249,7 @@ class TaskView {
             const rewardMeta = this.getRewardMeta(reward);
             return `
                 <span class="task-reward-chip ${rewardMeta.className}">
-                    <span class="task-reward-icon">${rewardMeta.icon}</span>
+                    <span class="task-reward-icon">${this.renderRewardIconMarkup(rewardMeta)}</span>
                     <span>${rewardMeta.label} x${reward.count}</span>
                 </span>
             `;
@@ -272,13 +267,15 @@ class TaskView {
                         <div class="task-card-status">${stateMeta.label}</div>
                     </div>
                     <div class="task-card-desc">${task.description}</div>
-                    <div class="task-card-progress-line">
-                        <div class="task-card-progress-text">${Math.min(task.progress, task.target)}/${task.target}</div>
-                        <div class="task-card-progress-track" aria-hidden="true">
-                            <span style="--task-progress: ${progressPercent}%;"></span>
+                    <div class="task-card-detail-row">
+                        <div class="task-card-progress-line">
+                            <div class="task-card-progress-text">${Math.min(task.progress, task.target)}/${task.target}</div>
+                            <div class="task-card-progress-track" aria-hidden="true">
+                                <span style="--task-progress: ${progressPercent}%;"></span>
+                            </div>
                         </div>
+                        <div class="task-card-rewards">${rewards}</div>
                     </div>
-                    <div class="task-card-rewards">${rewards}</div>
                 </div>
                 <div class="task-card-action">
                     <button class="btn ${stateMeta.buttonClass} task-claim-btn" ${task.completed && !task.claimed ? '' : 'disabled'} onclick="${claimAction}">

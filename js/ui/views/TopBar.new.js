@@ -25,7 +25,6 @@ class TopBar {
             </div>
             <div class="status-item">
                 <span class="status-icon">⚡</span>
-                <span class="status-label">体力</span>
                 <span class="status-value" id="player-energy">100/100</span>
             </div>
             <div class="status-item">
@@ -93,6 +92,10 @@ class TopBar {
                         <input type="checkbox" id="mute-setting" ${window.game.settings.muted ? 'checked' : ''}>
                         <span>关闭游戏声音</span>
                     </label>
+                    <label style="display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;">
+                        <input type="checkbox" id="environment-effects-setting" ${window.game.settings.environmentEffectsDisabled ? 'checked' : ''}>
+                        <span>关闭游戏特效</span>
+                    </label>
                     <div style="padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;line-height:1.8;">
                         <p style="margin:0;">玩家等级：<span id="info-level">${window.game.player.level}</span></p>
                         <p style="margin:0;">玩家经验：<span id="info-exp">${window.game.player.exp}</span>/<span id="info-exp-required">${GameConfig.getExpRequired(window.game.player.level)}</span></p>
@@ -112,6 +115,7 @@ class TopBar {
         const nicknameInput = document.getElementById('player-nickname');
         const autoBattleCheckbox = document.getElementById('auto-battle-setting');
         const muteCheckbox = document.getElementById('mute-setting');
+        const environmentEffectsCheckbox = document.getElementById('environment-effects-setting');
 
         if (nicknameInput) {
             window.game.player.nickname = nicknameInput.value || '幸存者';
@@ -123,9 +127,13 @@ class TopBar {
             window.game.settings.muted = muteCheckbox.checked;
             audioManager.setMuted(window.game.settings.muted);
         }
+        if (environmentEffectsCheckbox) {
+            window.game.settings.environmentEffectsDisabled = environmentEffectsCheckbox.checked;
+        }
 
         if (window.game.currentView === 'battle') {
             window.game.ui.battleView.applyAutoBattleSettingChange();
+            window.game.ui.battleView.applyEnvironmentEffectSettingChange?.();
         }
 
         modal.close();

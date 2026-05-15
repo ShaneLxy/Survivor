@@ -48,6 +48,9 @@ class ItemCard {
             icon.textContent = item.icon;
             icon.style.color = rarityColor;
         }
+        if (item.type === 'equipment' && typeof item.getStarBadgeMarkup === 'function') {
+            icon.insertAdjacentHTML('beforeend', item.getStarBadgeMarkup());
+        }
         card.appendChild(icon);
 
         // 数量

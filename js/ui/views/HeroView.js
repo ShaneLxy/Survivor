@@ -8,6 +8,7 @@ class HeroView {
         this.teamModal = null;
         this.heroDetailModal = null;
         this.fragmentDetailModal = null;
+        this.equipmentSelectionModal = null;
         this.activeHeroId = null;
         this.statTooltip = null;
         this.boundOutsideClick = null;
@@ -102,7 +103,7 @@ class HeroView {
     }
 
     formatPower(value) {
-        return Math.max(0, Number(value) || 0).toLocaleString('zh-CN');
+        return GameConfig.formatCombatPower(value);
     }
 
     updateTeamPowerDisplay() {
@@ -184,8 +185,8 @@ class HeroView {
         const modal = new Modal({
             title: '英雄图鉴',
             className: 'hero-preview-modal hero-command-modal-shell hero-album-modal-shell',
-            content,
-            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }]
+            overlayClassName: 'hero-preview-modal-overlay',
+            content
         });
         modal.show();
     }
@@ -252,6 +253,7 @@ class HeroView {
 
     getHeroAlbumModalContent() {
         const allHeroConfigs = this.getSortedHeroAlbumConfigs();
+        this.preloadHeroPortraits(allHeroConfigs);
         const ownedConfigIds = new Set(heroManager.getAllHeroes().map(hero => hero.configId));
         const ownedCount = allHeroConfigs.filter(heroConfig => ownedConfigIds.has(heroConfig.id)).length;
         const ownedHeroes = heroManager.getAllHeroes();
@@ -338,9 +340,9 @@ class HeroView {
         }
 
         this.heroDetailModal = new Modal({
-            title: hero.name,
+            title: '英雄档案',
             content: this.getHeroDetailContent(hero),
-            className: 'hero-detail-modal',
+            className: 'hero-detail-modal hero-command-modal-shell',
             buttons: [
                 { text: '关闭', className: 'btn-secondary', onClick: () => this.closeHeroDetail() }
             ],
@@ -353,6 +355,7 @@ class HeroView {
     closeHeroDetail(closeModal = true) {
         this.cleanupStatTooltip();
         this.equipmentBubble = null;
+        this.closeEquipmentSelectionModal();
         if (closeModal && this.heroDetailModal) {
             this.heroDetailModal.close();
         }
@@ -385,36 +388,78 @@ class HeroView {
             ? 'hero-avatar hero-detail-avatar hero-avatar-portrait hero-avatar-portrait-large'
             : 'hero-avatar hero-avatar-portrait';
         if (portrait) {
-            return `<div class="${baseClass}"><img class="hero-avatar-image" src="${portrait}" alt="${entity?.name || 'hero'}"></div>`;
+            const src = this.resolveAssetUrl(portrait);
+            return `<div class="${baseClass}"><img class="hero-avatar-image" src="${src}" alt="${entity?.name || 'hero'}" loading="eager" decoding="async" draggable="false"></div>`;
         }
         const style = size === 'large' ? ' style="font-size:56px;"' : '';
         return `<div class="hero-avatar"${style}>${entity?.icon || '❓'}</div>`;
+    }
+
+    preloadHeroPortraits(heroes) {
+        if (!Array.isArray(heroes) || typeof Image === 'undefined') {
+            return;
+        }
+        heroes.forEach(hero => {
+            if (!hero?.portrait) {
+                return;
+            }
+            const image = new Image();
+            image.decoding = 'async';
+            image.src = this.resolveAssetUrl(hero.portrait);
+        });
+    }
+
+    getEquipmentIconMarkup(equipment, imageClass = 'hero-equipment-slot-icon-image') {
+        if (!equipment) {
+            return '';
+        }
+        const starBadge = typeof equipment.getStarBadgeMarkup === 'function'
+            ? equipment.getStarBadgeMarkup()
+            : '';
+        if (equipment.iconSrc) {
+            return `<span class="equipment-icon-with-star">${starBadge}<img class="${imageClass}" src="${equipment.iconSrc}" alt="${equipment.name || '装备'}"></span>`;
+        }
+        return `<span class="equipment-icon-with-star equipment-icon-text">${starBadge}${equipment.icon || ''}</span>`;
     }
 
     getEquipmentSlotMarkup(hero, slot) {
         const equipment = hero.equipment[slot];
         const slotName = EquipmentConfig.getSlotName(slot);
         const isBubbleShown = Boolean(equipment && this.equipmentBubble?.heroId === hero.id && this.equipmentBubble?.slot === slot);
-        const statText = equipment && equipment.getStatLines().length > 0 ? equipment.getStatLines().join('<br>') : '无额外属性';
 
         return `
             <div class="hero-equipment-slot">
-                <button type="button" class="hero-equipment-button ${equipment ? 'filled' : 'empty'}" onclick="window.game.ui.heroView.onHeroEquipmentSlotClick('${hero.id}', '${slot}')">
+                <button
+                    type="button"
+                    class="hero-equipment-button ${equipment ? 'filled' : 'empty'} ${isBubbleShown ? 'is-active' : ''}"
+                    data-hero-id="${hero.id}"
+                    data-hero-config-id="${hero.configId || ''}"
+                    data-equipment-slot="${slot}"
+                    onclick="window.game.ui.heroView.onHeroEquipmentSlotClick('${hero.id}', '${slot}')">
                     <span class="hero-equipment-slot-name">${slotName}</span>
-                    <span class="hero-equipment-slot-icon">${equipment ? equipment.icon : ''}</span>
+                    <span class="hero-equipment-slot-icon">${this.getEquipmentIconMarkup(equipment)}</span>
                 </button>
-                ${isBubbleShown ? `
-                    <div class="hero-equipment-popover">
-                        <div class="hero-equipment-popover-name" style="color:${this.getRarityColor(equipment.rarity)};">${equipment.icon} ${equipment.name}</div>
-                        <div class="hero-equipment-popover-stats">${statText}</div>
-                        <div class="hero-equipment-popover-actions">
-                            <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.showEquipSelection('${hero.id}', '${slot}')">更换</button>
-                            <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.enhanceHeroEquipment('${hero.id}', '${slot}')">强化</button>
-                            <button class="btn btn-danger btn-small" onclick="window.game.ui.heroView.unequipHeroSlot('${hero.id}', '${slot}')">卸下</button>
-                            <button class="btn btn-secondary btn-small" onclick="window.game.ui.heroView.closeEquipmentBubble('${hero.id}')">关闭</button>
-                        </div>
-                    </div>
-                ` : ''}
+            </div>
+        `;
+    }
+
+    getEquipmentInlinePanel(hero) {
+        const slot = this.equipmentBubble?.heroId === hero.id ? this.equipmentBubble?.slot : null;
+        const equipment = slot ? hero.equipment?.[slot] : null;
+        if (!slot || !equipment) {
+            return '';
+        }
+        const statText = equipment.getStatLines().length > 0 ? equipment.getStatLines().join(' / ') : '无额外属性';
+        return `
+            <div class="hero-equipment-popover hero-equipment-inline-panel">
+                <div class="hero-equipment-popover-name" style="color:${this.getRarityColor(equipment.rarity)};">${this.getEquipmentIconMarkup(equipment, 'hero-equipment-popover-icon-image')} ${equipment.name}</div>
+                <div class="hero-equipment-popover-stats">${statText}</div>
+                <div class="hero-equipment-popover-actions">
+                    <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.showEquipSelection('${hero.id}', '${slot}')">更换</button>
+                    <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.enhanceHeroEquipment('${hero.id}', '${slot}')">强化</button>
+                    <button class="btn btn-danger btn-small" onclick="window.game.ui.heroView.unequipHeroSlot('${hero.id}', '${slot}')">卸下</button>
+                    <button class="btn btn-secondary btn-small" onclick="window.game.ui.heroView.closeEquipmentBubble('${hero.id}')">关闭</button>
+                </div>
             </div>
         `;
     }
@@ -454,10 +499,6 @@ class HeroView {
                             <div class="hero-detail-visual-frame">
                                 ${this.getHeroAvatarMarkup(info, 'large')}
                                 ${this.getProfessionBadgeMarkup(info)}
-                                <div class="hero-detail-overlay hero-detail-power-overlay">
-                                    <span class="hero-detail-power-label">战力</span>
-                                    <strong class="hero-detail-power-value">${info.power}</strong>
-                                </div>
                                 <div class="hero-detail-overlay hero-detail-level-overlay">LV.${info.level}</div>
                                 ${this.getHeroStarMarkup(info.stars, 'hero-detail-stars')}
                             </div>
@@ -469,26 +510,30 @@ class HeroView {
                                     <span class="hero-detail-meta-item hero-detail-rarity-tag">${this.getRarityName(hero.rarity)}</span>
                                     <div class="hero-detail-profession">${HeroConfig.getProfessionName(info.profession)}</div>
                                 </div>
+                                <div class="hero-detail-overlay hero-detail-power-overlay hero-detail-info-power-chip">
+                                    <span class="hero-detail-power-label">战力</span>
+                                    <strong class="hero-detail-power-value">${info.power}</strong>
+                                </div>
+                            </div>
+                            <div class="hero-detail-growth-compact">
+                                <div class="hero-detail-section-head">
+                                    <span>成长</span>
+                                    <span>等级上限 Lv.${levelCap}</span>
+                                </div>
+                                <div class="hero-detail-exp-track">
+                                    <div class="hero-detail-exp-fill" style="width:${expPercent.toFixed(2)}%;"></div>
+                                </div>
+                                <div class="hero-detail-growth-meta">
+                                    <span class="hero-exp-progress">经验：${info.exp}/${expRequired}</span>
+                                    <span class="hero-star-cost">升星消耗：${starCostHtml}</span>
+                                </div>
+                            </div>
+                            <div class="hero-detail-actions">
+                                <button class="btn btn-primary" onclick="window.game.ui.heroView.levelUpHero('${hero.id}')">升级</button>
+                                <button class="btn btn-primary" onclick="window.game.ui.heroView.upgradeStars('${hero.id}')">升星</button>
+                                <button class="btn btn-secondary" onclick="window.game.ui.heroView.showSpecialTraits('${hero.id}')">特技</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="hero-detail-actions">
-                        <button class="btn btn-primary" onclick="window.game.ui.heroView.levelUpHero('${hero.id}')">升级</button>
-                        <button class="btn btn-primary" onclick="window.game.ui.heroView.upgradeStars('${hero.id}')">升星</button>
-                        <button class="btn btn-secondary" onclick="window.game.ui.heroView.showSpecialTraits('${hero.id}')">特技</button>
-                    </div>
-                </div>
-                <div class="hero-detail-growth-card">
-                    <div class="hero-detail-section-head">
-                        <span>成长</span>
-                        <span>等级上限 Lv.${levelCap}</span>
-                    </div>
-                    <div class="hero-detail-exp-track">
-                        <div class="hero-detail-exp-fill" style="width:${expPercent.toFixed(2)}%;"></div>
-                    </div>
-                    <div class="hero-detail-growth-meta">
-                        <span class="hero-exp-progress">经验：${info.exp}/${expRequired}</span>
-                        <span class="hero-star-cost">升星消耗：${starCostHtml}</span>
                     </div>
                 </div>
                 <div class="hero-detail-equipment-panel">
@@ -497,6 +542,7 @@ class HeroView {
                         <span>点击可查看或更换</span>
                     </div>
                     <div class="hero-detail-equipment-strip">${equipmentSlots}</div>
+                    ${this.getEquipmentInlinePanel(hero)}
                 </div>
                 <div class="hero-detail-stats-panel">
                     <div class="hero-detail-stats-section">
@@ -595,7 +641,7 @@ class HeroView {
         }
         const titleEl = this.heroDetailModal.element.querySelector('.modal-title');
         if (titleEl) {
-            titleEl.textContent = hero.name;
+            titleEl.textContent = '英雄档案';
         }
     }
 
@@ -655,19 +701,73 @@ class HeroView {
         const traitFramework = hero.getSpecialTraitFramework();
         const currentStageInfo = HeroConfig.getStarDisplayInfo(currentStage);
         const unlockedTraitCount = traitFramework.traits.filter(trait => currentStage >= trait.unlockStage).length;
+        const milestoneCount = traitFramework.milestones.length;
+        const currentMilestoneIndex = traitFramework.milestones.reduce((lastIndex, milestone, index) => (
+            currentStage >= milestone.stage ? index : lastIndex
+        ), -1);
+        const progressPercent = milestoneCount > 1 && currentMilestoneIndex >= 0
+            ? Math.min(100, Math.max(0, (currentMilestoneIndex / (milestoneCount - 1)) * 100))
+            : 0;
+        const getMilestoneState = milestone => {
+            if (currentStage === milestone.stage) {
+                return 'current';
+            }
+            return currentStage > milestone.stage ? 'unlocked' : 'locked';
+        };
+        const getStateText = state => {
+            if (state === 'current') {
+                return '当前';
+            }
+            return state === 'unlocked' ? '完成' : '未解锁';
+        };
         const content = `
             <div class="hero-trait-panel">
-                <div class="hero-trait-intro">
-                    <div class="hero-trait-meta">当前阶段：${currentStageInfo.label} · 已解锁 ${unlockedTraitCount}/${traitFramework.slotCount} 个特技位</div>
+                <div class="hero-trait-command-header">
+                    <div class="hero-trait-heading">
+                        <div class="hero-trait-kicker">SKILL DOSSIER</div>
+                        <div class="hero-trait-main-title">${traitFramework.name}</div>
+                        <div class="hero-trait-subtitle">${traitFramework.summary}</div>
+                    </div>
+                    <div class="hero-trait-metrics">
+                        <div class="hero-trait-metric is-stage">
+                            <strong>${currentStageInfo.label}</strong>
+                            <span>当前阶段</span>
+                        </div>
+                        <div class="hero-trait-metric">
+                            <strong>${unlockedTraitCount}/${traitFramework.slotCount}</strong>
+                            <span>特技位</span>
+                        </div>
+                        <div class="hero-trait-metric">
+                            <strong>${this.getRarityName(hero.rarity)}</strong>
+                            <span>品质轨道</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="hero-trait-section-title">特技位概览</div>
+                <div class="hero-trait-progress-rail" style="--hero-trait-progress:${progressPercent.toFixed(2)}%;">
+                    ${traitFramework.milestones.map(milestone => {
+                        const stateClass = getMilestoneState(milestone);
+                        return `
+                            <div class="hero-trait-progress-node ${stateClass}" title="${milestone.label}">
+                                <span>${milestone.text}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="hero-trait-section-title">
+                    <span>特技位概览</span>
+                    <strong>${unlockedTraitCount} ACTIVE</strong>
+                </div>
                 <div class="hero-trait-slots">
                     ${traitFramework.traits.map(trait => {
                         const unlocked = currentStage >= trait.unlockStage;
                         return `
                             <div class="hero-trait-slot ${unlocked ? 'unlocked' : 'locked'}">
+                                <div class="hero-trait-slot-index">0${trait.slot}</div>
                                 <div class="hero-trait-slot-header">
-                                    <div class="hero-trait-slot-title">特技${trait.slot} · ${trait.name}</div>
+                                    <div class="hero-trait-slot-title">
+                                        <span>特技${trait.slot}</span>
+                                        <strong>${trait.name}</strong>
+                                    </div>
                                     <div class="hero-trait-slot-badge">${unlocked ? '已解锁' : trait.unlockLabel}</div>
                                 </div>
                                 <div class="hero-trait-slot-desc">${trait.description}</div>
@@ -675,16 +775,22 @@ class HeroView {
                         `;
                     }).join('')}
                 </div>
-                <div class="hero-trait-section-title">成长节点</div>
+                <div class="hero-trait-section-title">
+                    <span>成长节点</span>
+                    <strong>${currentStageInfo.label}</strong>
+                </div>
                 <div class="hero-trait-list">
                     ${traitFramework.milestones.map(milestone => {
                         const relatedTrait = milestone.slot ? traitFramework.traits[milestone.slot - 1] : null;
-                        const stateClass = currentStage === milestone.stage ? 'current' : (currentStage > milestone.stage ? 'unlocked' : 'locked');
+                        const stateClass = getMilestoneState(milestone);
                         return `
                         <div class="hero-trait-row ${stateClass}">
                             <div class="hero-trait-stage ${milestone.className}">${milestone.text}</div>
                             <div class="hero-trait-content">
-                                <div class="hero-trait-title">${milestone.label}${relatedTrait ? ` · ${relatedTrait.name}` : ''}</div>
+                                <div class="hero-trait-title-row">
+                                    <div class="hero-trait-node-title">${milestone.label}${relatedTrait ? ` · ${relatedTrait.name}` : ''}</div>
+                                    <span class="hero-trait-row-state">${getStateText(stateClass)}</span>
+                                </div>
                                 <div class="hero-trait-desc">${milestone.description}</div>
                             </div>
                         </div>
@@ -695,6 +801,7 @@ class HeroView {
         const modal = new Modal({
             title: `${hero.name} · 特技`,
             content,
+            className: 'hero-trait-modal hero-command-modal-shell',
             buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }]
         });
         modal.show();
@@ -740,6 +847,21 @@ class HeroView {
         equipmentEnhanceModal.show(equipment.instanceId);
     }
 
+    upgradeHeroEquipmentStars(heroId, slot) {
+        const hero = heroManager.getHero(heroId);
+        const equipment = hero?.equipment?.[slot];
+        if (!equipment) {
+            Toast.info('该部位暂无装备');
+            return;
+        }
+        if (!equipment.canStarUpgrade()) {
+            Toast.info('当前装备不可升星');
+            return;
+        }
+        this.closeEquipmentBubble(heroId);
+        equipmentStarModal.show(equipment.instanceId);
+    }
+
     showEquipSelection(heroId, slot) {
         const hero = heroManager.getHero(heroId);
         if (!hero) {
@@ -749,16 +871,17 @@ class HeroView {
         const equipments = itemManager.getEquipmentBySlot(slot);
         const currentEquipment = hero.equipment[slot];
 
-        let content = `<div style="display:flex;flex-direction:column;gap:12px;max-height:420px;overflow-y:auto;">`;
+        let content = `<div class="hero-equipment-selection-panel">`;
         if (currentEquipment) {
             content += `
-                <div class="card" style="padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <div>
-                        <div style="font-weight:bold;color:${this.getRarityColor(currentEquipment.rarity)};">当前装备：${currentEquipment.icon} ${currentEquipment.name}</div>
-                        <div style="font-size:12px;color:#a0a0a0;">${currentEquipment.getStatLines().join(' / ') || '无额外属性'}</div>
+                <div class="card hero-equipment-selection-card hero-equipment-selection-current">
+                    <div class="hero-equipment-selection-copy">
+                        <div class="hero-equipment-selection-name" style="color:${this.getRarityColor(currentEquipment.rarity)};">当前装备：${this.getEquipmentIconMarkup(currentEquipment, 'hero-equipment-select-icon-image')} ${currentEquipment.name}</div>
+                        <div class="hero-equipment-selection-stats">${currentEquipment.getStatLines().join(' / ') || '无额外属性'}</div>
                     </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                    <div class="hero-equipment-selection-actions">
                         <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.enhanceHeroEquipment('${heroId}', '${slot}')">强化</button>
+                        <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.upgradeHeroEquipmentStars('${heroId}', '${slot}')">升星</button>
                         <button class="btn btn-danger btn-small" onclick="window.game.ui.heroView.unequipHeroSlot('${heroId}', '${slot}')">卸下</button>
                     </div>
                 </div>
@@ -766,28 +889,52 @@ class HeroView {
         }
 
         if (equipments.length === 0) {
-            content += '<div style="text-align:center;color:#a0a0a0;padding:20px 0;">背包中没有该部位装备</div>';
+            content += '<div class="hero-equipment-selection-empty">背包中没有该部位装备</div>';
         } else {
+            content += '<div class="hero-equipment-selection-list">';
             equipments.forEach(equipment => {
                 content += `
-                    <div class="card" style="padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                        <div>
-                            <div style="font-weight:bold;color:${this.getRarityColor(equipment.rarity)};">${equipment.icon} ${equipment.name}</div>
-                            <div style="font-size:12px;color:#a0a0a0;">${equipment.getStatLines().join(' / ') || '无额外属性'}</div>
+                    <div class="card hero-equipment-selection-card">
+                        <div class="hero-equipment-selection-copy">
+                            <div class="hero-equipment-selection-name" style="color:${this.getRarityColor(equipment.rarity)};">${this.getEquipmentIconMarkup(equipment, 'hero-equipment-select-icon-image')} ${equipment.name}</div>
+                            <div class="hero-equipment-selection-stats">${equipment.getStatLines().join(' / ') || '无额外属性'}</div>
                         </div>
-                        <button class="btn btn-primary btn-small" onclick="window.game.ui.heroView.equipHeroItem('${heroId}', '${equipment.instanceId}')">穿戴</button>
+                        <button
+                            class="btn btn-primary btn-small hero-equipment-equip-button"
+                            data-equipment-id="${equipment.instanceId}"
+                            data-equipment-template-id="${equipment.templateId || ''}"
+                            onclick="window.game.ui.heroView.equipHeroItem('${heroId}', '${equipment.instanceId}')">穿戴</button>
                     </div>
                 `;
             });
+            content += '</div>';
         }
         content += '</div>';
 
+        this.closeEquipmentSelectionModal();
         const modal = new Modal({
             title: `${hero.name} - ${EquipmentConfig.getSlotName(slot)}`,
             content,
-            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }]
+            className: 'hero-equipment-selection-modal hero-command-modal-shell',
+            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => this.closeEquipmentSelectionModal() }],
+            onClose: () => {
+                if (this.equipmentSelectionModal === modal) {
+                    this.equipmentSelectionModal = null;
+                }
+            }
         });
+        this.equipmentSelectionModal = modal;
         modal.show();
+    }
+
+    closeEquipmentSelectionModal() {
+        if (this.equipmentSelectionModal && this.equipmentSelectionModal.isShown()) {
+            const modal = this.equipmentSelectionModal;
+            this.equipmentSelectionModal = null;
+            modal.close();
+            return;
+        }
+        this.equipmentSelectionModal = null;
     }
 
     equipHeroItem(heroId, equipmentInstanceId) {
@@ -797,6 +944,7 @@ class HeroView {
             return;
         }
         this.equipmentBubble = null;
+        this.closeEquipmentSelectionModal();
         Toast.success(`已为${result.hero.name}装备 ${result.equipment.name}`);
         this.render();
         this.updateHeroDetailModal(result.hero);
@@ -823,14 +971,28 @@ class HeroView {
         this.teamModal = new Modal({
             title: '英雄编队',
             className: 'hero-preview-modal hero-command-modal-shell hero-team-modal-shell',
+            overlayClassName: 'hero-preview-modal-overlay',
             content: this.getTeamModalContent(),
-            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => { if (this.teamModal) { this.teamModal.close(); this.teamModal = null; } } }]
+            onClose: () => {
+                this.teamModal = null;
+            }
         });
         this.teamModal.show();
     }
 
+    closeTeamModal() {
+        if (this.teamModal && this.teamModal.isShown()) {
+            const modal = this.teamModal;
+            this.teamModal = null;
+            modal.close();
+            return;
+        }
+        this.teamModal = null;
+    }
+
     getTeamModalContent() {
         const heroes = heroManager.getAllHeroes();
+        this.preloadHeroPortraits(heroes);
         const maxTeamSize = Number(heroManager.maxTeamSize) || 4;
         const teamHeroes = typeof heroManager.getTeam === 'function'
             ? heroManager.getTeam()
@@ -862,13 +1024,21 @@ class HeroView {
             const rarityColor = this.getRarityColor(hero.rarity);
             const blocked = !inTeam && isTeamFull;
             return `
-                <div class="hero-card hero-card-compact hero-roster-card hero-team-roster-card card ${inTeam ? 'selected is-in-team' : ''} ${blocked ? 'is-team-blocked' : ''}" style="--hero-card-rarity:${rarityColor};" onclick="window.game.ui.heroView.toggleTeam('${hero.id}')" title="${inTeam ? '点击移出编队' : '点击加入编队'}">
-                    ${inTeam ? '<div class="hero-team-badge">已参战</div>' : ''}
+                <div
+                    class="hero-card hero-card-compact hero-roster-card hero-team-roster-card card ${inTeam ? 'selected is-in-team' : ''} ${blocked ? 'is-team-blocked' : ''}"
+                    data-hero-id="${hero.id}"
+                    data-hero-config-id="${hero.configId || ''}"
+                    style="--hero-card-rarity:${rarityColor};"
+                    onclick="window.game.ui.heroView.toggleTeam('${hero.id}')"
+                    title="${inTeam ? '点击移出编队' : '点击加入编队'}">
+                    ${inTeam ? '<div class="hero-team-badge">参战</div>' : ''}
                     ${this.getProfessionBadgeMarkup(hero)}
                     ${this.getHeroAvatarMarkup(hero)}
-                    <div class="hero-name">${hero.name}</div>
-                    ${this.getHeroStarMarkup(hero.stars, 'hero-team-stars')}
-                    <div class="hero-roster-power">${this.formatPower(hero.getPower?.() || 0)}</div>
+                    <div class="hero-level">Lv.${hero.level}</div>
+                    ${this.getHeroStarMarkup(hero.stars)}
+                    <div class="hero-card-meta-row">
+                        <div class="hero-power">战力 ${this.formatPower(hero.getPower?.() || 0)}</div>
+                    </div>
                 </div>
             `;
         }).join('');

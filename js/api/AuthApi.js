@@ -16,6 +16,10 @@ const AuthApi = {
 
     wechatLogin(payload) {
         return httpClient.post('/auth/wechat/login', payload);
+    },
+
+    tapTapLogin(payload) {
+        return httpClient.post('/auth/taptap/login', payload);
     }
 };
 

@@ -240,17 +240,20 @@ class Hero {
     }
 
     getPower() {
-        return Math.floor(
-            this.attack * this.attackCoefficient * 2 +
-            this.defense * 1.5 +
-            this.maxHp * 0.5 +
-            this.speed * 1.2 +
-            this.crit +
-            this.antiCrit +
-            this.defensePen +
-            this.attackRange * 8 +
-            this.moveRange * 6
-        );
+        return GameConfig.calculateCombatPower({
+            attack: this.attack,
+            attackCoefficient: this.attackCoefficient,
+            defense: this.defense,
+            hp: this.maxHp,
+            speed: this.speed,
+            crit: this.crit,
+            antiCrit: this.antiCrit,
+            defensePen: this.defensePen,
+            accuracy: this.accuracy,
+            dodge: this.dodge,
+            attackRange: this.attackRange,
+            moveRange: this.moveRange
+        });
     }
 
     getEquipmentInfo() {

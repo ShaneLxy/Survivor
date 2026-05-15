@@ -9,6 +9,7 @@ class DungeonView {
         this.codexCache = null;
         this.codexModal = null;
         this.activeCodexEnemyId = null;
+        this.codexPortraitCache = new Set();
     }
 
     show() {
@@ -90,23 +91,80 @@ class DungeonView {
         dungeons.forEach(dungeon => list.appendChild(this.createDungeonCard(dungeon)));
     }
 
+    getStageCodexEntries(dungeon) {
+        if (!dungeon || typeof dungeon.getAllEnemyEntries !== 'function') {
+            return [];
+        }
+
+        return dungeon.getAllEnemyEntries().map((entry, index) => {
+            const config = DungeonConfig.getEnemyConfig(entry.id) || {};
+            const rank = DungeonConfig.getEnemyEntryRank(entry, config);
+            const stats = DungeonConfig.resolveEnemyEntryStats(entry, dungeon.level) || {};
+            const skills = DungeonConfig.resolveEnemyEntrySkills(entry, config);
+            const codexKey = `${dungeon.id}:${rank}:${entry.id}:${entry.waveId || entry.sourceType || 'initial'}:${index}`;
+            return {
+                ...entry,
+                id: entry.id,
+                codexKey,
+                name: entry.name || config.name || entry.id,
+                icon: config.icon || entry.icon || '?',
+                portrait: entry.portrait || config.portrait || null,
+                rank,
+                rankLabel: DungeonConfig.getEnemyRankLabel(rank),
+                unlocked: true,
+                previewLevel: dungeon.level,
+                unlockLevel: dungeon.level,
+                stats,
+                skills,
+                skill: skills[0] || null,
+                description: entry.description || config.description || '该敌人暂无战术描述。',
+                count: Math.max(1, Number(entry.count) || 1),
+                dungeons: [{ id: dungeon.id, name: dungeon.name, level: dungeon.level }]
+            };
+        });
+    }
+
+    getStageCodexCache(dungeon) {
+        const entries = this.getStageCodexEntries(dungeon);
+        return this.getCodexTabConfigs().reduce((cache, tab) => {
+            cache[tab.key] = entries.filter((entry) => entry.rank === tab.key);
+            return cache;
+        }, { normal: [], elite: [], boss: [] });
+    }
+
+    setMonsterCodexContext(dungeonId = null) {
+        this.codexDungeonId = dungeonId || null;
+        const dungeon = dungeonId ? dungeonManager.getDungeon(dungeonId) : null;
+        this.codexCache = dungeon
+            ? this.getStageCodexCache(dungeon)
+            : dungeonManager.getMonsterCompendium(window.game.player.level);
+        this.codexStageName = dungeon?.name || '';
+        if (!this.getCurrentCodexEntries().length) {
+            const firstTabWithEntries = this.getCodexTabConfigs().find((tab) => (this.codexCache?.[tab.key] || []).length > 0);
+            this.activeCodexTab = firstTabWithEntries?.key || 'normal';
+        }
+        return dungeon;
+    }
+
     getCurrentCodexEntries() {
         return this.codexCache?.[this.activeCodexTab] || [];
     }
 
     ensureActiveCodexSelection(preferredEnemyId = null) {
         const entries = this.getCurrentCodexEntries();
-        const preferred = preferredEnemyId ? entries.find(entry => entry.id === preferredEnemyId && entry.unlocked) : null;
+        const preferred = preferredEnemyId
+            ? entries.find(entry => (entry.codexKey === preferredEnemyId || entry.id === preferredEnemyId) && entry.unlocked)
+            : null;
         if (preferred) {
-            this.activeCodexEnemyId = preferred.id;
+            this.activeCodexEnemyId = preferred.codexKey || preferred.id;
             return preferred;
         }
-        const active = entries.find(entry => entry.id === this.activeCodexEnemyId && entry.unlocked);
+        const active = entries.find(entry => (entry.codexKey || entry.id) === this.activeCodexEnemyId && entry.unlocked);
         if (active) {
             return active;
         }
         const firstUnlocked = entries.find(entry => entry.unlocked);
-        this.activeCodexEnemyId = firstUnlocked?.id || null;
+        this.activeCodexEnemyId = firstUnlocked ? (firstUnlocked.codexKey || firstUnlocked.id) : null;
         return firstUnlocked || null;
     }
 
@@ -114,8 +172,8 @@ class DungeonView {
         return this.ensureActiveCodexSelection();
     }
 
-    openMonsterCodexModal(initialEnemyId = null) {
-        this.codexCache = dungeonManager.getMonsterCompendium(window.game.player.level);
+    openMonsterCodexModal(initialEnemyId = null, dungeonId = null) {
+        this.setMonsterCodexContext(dungeonId || this.codexDungeonId || null);
         this.ensureActiveCodexSelection(initialEnemyId);
         if (this.codexModal?.isShown()) {
             this.refreshMonsterCodexModal();
@@ -198,12 +256,12 @@ class DungeonView {
         }
 
         return entries.map(entry => `
-            <button type="button" class="monster-codex-list-item ${entry.rank} ${entry.unlocked ? 'is-unlocked' : 'is-locked'} ${entry.id === this.activeCodexEnemyId ? 'is-active' : ''}"
-                ${entry.unlocked ? `onclick="window.game.ui.dungeonView.selectMonsterCodexEntry('${entry.id}')"` : 'disabled'}>
-                <span class="monster-codex-list-icon">${entry.unlocked ? entry.icon : '?'}</span>
+            <button type="button" class="monster-codex-list-item ${entry.rank} ${entry.unlocked ? 'is-unlocked' : 'is-locked'} ${(entry.codexKey || entry.id) === this.activeCodexEnemyId ? 'is-active' : ''}"
+                ${entry.unlocked ? `onclick="window.game.ui.dungeonView.selectMonsterCodexEntry('${entry.codexKey || entry.id}')"` : 'disabled'}>
+                ${this.getMonsterPortraitMarkup(entry, 'monster-codex-list-icon')}
                 <span class="monster-codex-list-main">
                     <span class="monster-codex-list-name">${entry.unlocked ? entry.name : '未知目标'}</span>
-                    <span class="monster-codex-list-meta">${entry.unlocked ? `Lv.${entry.previewLevel} · ${entry.rankLabel}` : `需要 Lv.${entry.unlockLevel}`}</span>
+                    <span class="monster-codex-list-meta">${entry.unlocked ? `Lv.${entry.previewLevel} · ${entry.rankLabel}${entry.count ? ` ×${entry.count}` : ''}` : `需要 Lv.${entry.unlockLevel}`}</span>
                 </span>
                 <span class="monster-codex-list-status">${entry.unlocked ? '已识别' : '封锁'}</span>
             </button>
@@ -216,6 +274,11 @@ class DungeonView {
         const tabConfigs = this.getCodexTabConfigs();
         const overview = this.getCodexOverview();
         const activeTabStats = this.getCodexTabStats(this.activeCodexTab);
+        this.preloadMonsterCodexPortraits();
+        const title = this.codexDungeonId ? '本关怪物图鉴' : '怪物图鉴';
+        const subtitle = this.codexDungeonId
+            ? `${this.codexStageName || '当前关卡'}的敌人属性与技能来自该关卡配置。`
+            : '记录副本敌方单位、威胁等级与专属技能，未开放内容将保持封锁状态。';
         return `
             <div class="monster-codex-modal-layout">
                 <div class="monster-codex-command-header">
@@ -224,8 +287,8 @@ class DungeonView {
                     </div>
                     <div class="monster-codex-heading">
                         <div class="monster-codex-kicker">MONSTER CODEX</div>
-                        <div class="monster-codex-title">怪物图鉴</div>
-                        <div class="monster-codex-subtitle">记录副本敌方单位、威胁等级与专属技能，未开放内容将保持封锁状态。</div>
+                        <div class="monster-codex-title">${title}</div>
+                        <div class="monster-codex-subtitle">${subtitle}</div>
                     </div>
                     <div class="monster-codex-header-metrics">
                         <div class="monster-codex-header-metric">
@@ -272,14 +335,17 @@ class DungeonView {
     getMonsterDetailContent(entry) {
         const stats = entry.stats || {};
         const dungeonText = entry.dungeons.map(item => `${item.name} Lv.${item.level}`).join('、');
-        const skillName = entry.skill?.name || '无';
-        const skillDescription = entry.skill?.description || '该怪物暂无专属技能。';
+        const skills = Array.isArray(entry.skills) && entry.skills.length ? entry.skills : (entry.skill ? [entry.skill] : []);
+        const skillName = skills.length ? skills.map((skill) => skill.name || skill.id || '未命名技能').join(' / ') : '无';
+        const skillDescription = skills.length
+            ? skills.map((skill) => `${skill.name || skill.id || '技能'}：${skill.description || '暂无描述'}`).join('<br>')
+            : '该怪物暂无专属技能。';
         const power = this.calculateMonsterPower(stats);
         return `
             <div class="monster-detail-panel monster-detail-panel-inline ${entry.rank}">
                 <div class="monster-detail-header">
                     <div class="monster-detail-icon-wrap">
-                        <div class="monster-detail-icon ${entry.rank}">${entry.icon}</div>
+                        ${this.getMonsterPortraitMarkup(entry, `monster-detail-icon ${entry.rank}`)}
                         <div class="monster-detail-threat">${this.getMonsterThreatLabel(entry.rank)}</div>
                     </div>
                     <div class="monster-detail-main">
@@ -333,8 +399,32 @@ class DungeonView {
         `;
     }
 
-    openMonsterDetail(enemyId) {
-        this.openMonsterCodexModal(enemyId);
+    openMonsterDetail(enemyId, dungeonId = null) {
+        this.openMonsterCodexModal(enemyId, dungeonId);
+    }
+
+    getMonsterPortraitMarkup(entry, className) {
+        if (!entry?.unlocked) {
+            return `<span class="${className}">?</span>`;
+        }
+        if (entry.portrait) {
+            return `<span class="${className} has-portrait"><img src="${entry.portrait}" alt="${entry.name || '怪物'}" loading="eager" decoding="async"></span>`;
+        }
+        return `<span class="${className}">${entry.icon || '?'}</span>`;
+    }
+
+    preloadMonsterCodexPortraits() {
+        if (typeof Image === 'undefined') {
+            return;
+        }
+        Object.values(this.codexCache || {}).flat().forEach((entry) => {
+            if (!entry?.portrait || this.codexPortraitCache.has(entry.portrait)) {
+                return;
+            }
+            const image = new Image();
+            image.src = entry.portrait;
+            this.codexPortraitCache.add(entry.portrait);
+        });
     }
 
     buildMonsterStatItem(label, value, className = '') {
@@ -347,17 +437,7 @@ class DungeonView {
     }
 
     calculateMonsterPower(stats) {
-        return Math.floor(
-            (Number(stats.attack) || 0) * 2 +
-            (Number(stats.defense) || 0) * 1.5 +
-            (Number(stats.hp) || 0) * 0.5 +
-            (Number(stats.speed) || 0) * 1.2 +
-            (Number(stats.crit) || 0) +
-            (Number(stats.antiCrit) || 0) +
-            (Number(stats.defensePen) || 0) +
-            (Number(stats.attackRange) || 0) * 8 +
-            (Number(stats.moveRange) || 0) * 6
-        );
+        return GameConfig.calculateCombatPower(stats);
     }
 
     createDungeonCard(dungeon) {

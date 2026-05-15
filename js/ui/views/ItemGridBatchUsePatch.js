@@ -4,10 +4,13 @@
     }
 
     ItemGrid.prototype.getItemDetailVisual = function(item) {
+        const starBadge = item?.type === 'equipment' && typeof item.getStarBadgeMarkup === 'function'
+            ? item.getStarBadgeMarkup()
+            : '';
         if (item.iconSrc) {
-            return `<img class="resource-icon-image item-icon-image" src="${item.iconSrc}" alt="${item.name}">`;
+            return `<span class="equipment-icon-with-star">${starBadge}<img class="resource-icon-image item-icon-image" src="${item.iconSrc}" alt="${item.name}"></span>`;
         }
-        return item.icon || '📦';
+        return `<span class="equipment-icon-with-star equipment-icon-text">${starBadge}${item.icon || '📦'}</span>`;
     };
 
     ItemGrid.prototype.getBatchFieldHtml = function(inputId, maxValue, label, tip) {
@@ -16,11 +19,10 @@
         }
 
         return `
-            <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;background:rgba(15,23,42,0.55);text-align:left;">
-                <label for="${inputId}" style="font-size:12px;color:#cbd5e1;">${label}</label>
-                <input id="${inputId}" type="number" min="1" max="${maxValue}" value="1"
-                    style="width:100%;height:36px;border-radius:8px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.9);color:#f8fafc;padding:0 10px;box-sizing:border-box;">
-                <div style="font-size:11px;color:#94a3b8;">${tip}</div>
+            <div class="inventory-detail-batch-field">
+                <label for="${inputId}">${label}</label>
+                <input id="${inputId}" type="number" min="1" max="${maxValue}" value="1">
+                <div>${tip}</div>
             </div>
         `;
     };
@@ -113,13 +115,28 @@
 
         const modal = new Modal({
             title: item.name,
+            className: 'inventory-detail-modal-shell hero-command-modal-shell',
             content: `
-                <div style="text-align:center;display:flex;flex-direction:column;gap:10px;">
-                    <div style="font-size:52px;">${this.getItemDetailVisual(item)}</div>
-                    <div style="color:${this.getRarityColor(item.rarity)};font-weight:bold;">${item.name}</div>
-                    <div style="font-size:13px;line-height:1.6;color:#e2e8f0;">${item.description || '暂无说明'}</div>
-                    <div style="font-size:12px;color:#cbd5e1;">数量: ${totalCount}</div>
-                    ${item.id === 'meat' ? '<div style="font-size:12px;color:#fbbf24;">使用效果: 1 个肉类恢复 1 点体力</div>' : ''}
+                <div class="inventory-detail-panel inventory-detail-rarity-${item.rarity || 'common'}">
+                    <div class="inventory-detail-visual-card">
+                        <div class="inventory-detail-icon">${this.getItemDetailVisual(item)}</div>
+                    </div>
+                    <div class="inventory-detail-info-card">
+                        <div class="inventory-detail-kicker">SUPPLY ITEM</div>
+                        <div class="inventory-detail-name" style="color:${this.getRarityColor(item.rarity)};">${item.name}</div>
+                        <div class="inventory-detail-tags">
+                            <span>${this.getRarityName(item.rarity)}</span>
+                            <span>资源</span>
+                        </div>
+                        <div class="inventory-detail-desc">${item.description || '暂无说明'}</div>
+                        <div class="inventory-detail-stats">
+                            <div class="inventory-detail-stat">
+                                <span>库存</span>
+                                <strong>${totalCount}</strong>
+                            </div>
+                            ${item.id === 'meat' ? '<div class="inventory-detail-stat inventory-detail-stat-accent"><span>使用效果</span><strong>体力 +1</strong></div>' : ''}
+                        </div>
+                    </div>
                     ${canUse ? this.getBatchFieldHtml(quantityInputId, maxUseCount, '使用数量', `最多可用 ${maxUseCount} 个`) : ''}
                 </div>
             `,
@@ -149,6 +166,7 @@
     ItemGrid.prototype.showItemDetail = function(item) {
         const isHeroExpPotion = item.effect?.type === 'hero_exp';
         const isEnergyItem = item.effect?.type === 'energy';
+        const isGachaTicket = item.effect?.type === 'gacha';
         const canUse = Boolean(item.effect);
         const missingEnergy = Math.max(0, window.game.player.maxEnergy - window.game.player.energy);
         const energyValue = Math.max(1, Number(item.effect?.value) || 1);
@@ -159,22 +177,43 @@
 
         const modal = new Modal({
             title: item.name,
+            className: 'inventory-detail-modal-shell hero-command-modal-shell',
             content: `
-                <div style="text-align:center;display:flex;flex-direction:column;gap:10px;">
-                    <div style="font-size:52px;">${this.getItemDetailVisual(item)}</div>
-                    <div style="color:${this.getRarityColor(item.rarity)};font-weight:bold;">${item.name}</div>
-                    <div style="font-size:13px;line-height:1.6;color:#e2e8f0;">${item.description || '暂无说明'}</div>
-                    <div style="font-size:12px;color:#cbd5e1;">数量: ${item.count}</div>
-                    ${item.stats ? `<div style="font-size:12px;color:#cbd5e1;">属性: ${this.formatStats(item.stats)}</div>` : ''}
-                    ${isEnergyItem ? `<div style="font-size:12px;color:#fbbf24;">使用效果: 每个恢复 ${energyValue} 点体力</div>` : ''}
-                    ${canUse && !isHeroExpPotion ? this.getBatchFieldHtml(quantityInputId, maxUseCount, '使用数量', `最多可用 ${maxUseCount} 个`) : ''}
+                <div class="inventory-detail-panel inventory-detail-rarity-${item.rarity || 'common'}">
+                    <div class="inventory-detail-visual-card">
+                        <div class="inventory-detail-icon">${this.getItemDetailVisual(item)}</div>
+                    </div>
+                    <div class="inventory-detail-info-card">
+                        <div class="inventory-detail-kicker">INVENTORY ITEM</div>
+                        <div class="inventory-detail-name" style="color:${this.getRarityColor(item.rarity)};">${item.name}</div>
+                        <div class="inventory-detail-tags">
+                            <span>${this.getRarityName(item.rarity)}</span>
+                            <span>${canUse ? '可使用' : '收藏品'}</span>
+                        </div>
+                        <div class="inventory-detail-desc">${item.description || '暂无说明'}</div>
+                        <div class="inventory-detail-stats">
+                            <div class="inventory-detail-stat">
+                                <span>库存</span>
+                                <strong>${item.count}</strong>
+                            </div>
+                            ${item.stats ? `<div class="inventory-detail-stat"><span>属性</span><strong>${this.formatStats(item.stats)}</strong></div>` : ''}
+                            ${isEnergyItem ? `<div class="inventory-detail-stat inventory-detail-stat-accent"><span>使用效果</span><strong>体力 +${energyValue}</strong></div>` : ''}
+                        </div>
+                    </div>
+                    ${canUse && !isHeroExpPotion && !isGachaTicket ? this.getBatchFieldHtml(quantityInputId, maxUseCount, '使用数量', `最多可用 ${maxUseCount} 个`) : ''}
                 </div>
             `,
             buttons: [
                 ...(canUse ? [{
-                    text: '使用',
+                    text: isGachaTicket ? '前往招募' : '使用',
                     className: 'btn-primary',
                     onClick: () => {
+                        if (isGachaTicket) {
+                            modal.close();
+                            eventManager.emit('viewChange', { view: 'recruit' });
+                            return;
+                        }
+
                         if (isHeroExpPotion) {
                             modal.close();
                             this.showHeroExpUseModal(item.id);

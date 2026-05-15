@@ -24,7 +24,8 @@
             { id: 'building_shelter', label: '避难所核心', top: '14%', left: '52%' },
             { id: 'building_farm', label: '农场', top: '56%', left: '18%' },
             { id: 'building_mine', label: '林矿', top: '46%', left: '76%' },
-            { id: 'building_well', label: '水井', top: '68%', left: '56%' }
+            { id: 'building_well', label: '\u6c34\u4e95', top: '68%', left: '56%' },
+            { id: 'building_training_ground', label: '\u8bad\u7ec3\u573a', top: '30%', left: '22%' }
         ];
     };
 

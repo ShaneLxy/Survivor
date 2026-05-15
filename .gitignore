@@ -219,3 +219,19 @@ mobile/web/
 android/app/build/
 android/build/
 android/.gradle/
+
+# Project build outputs
+/dist/
+/server/dist/
+/gm-desktop/dist/
+/gm-desktop/out/
+/gm-desktop/release/
+
+# Packaged artifacts
+*.apk
+*.aab
+/server/*.zip
+
+# Temporary build/cache directories
+/.tmp-*/
+*.tsbuildinfo

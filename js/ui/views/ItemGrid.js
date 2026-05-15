@@ -120,11 +120,11 @@ class ItemGrid {
                     });
                 });
             });
-            return displayItems;
+            return this.sortDisplayItems(displayItems);
         }
 
         if (this.inventoryCategory === 'equipment') {
-            return itemManager.getAllEquipment();
+            return this.sortDisplayItems(itemManager.getAllEquipment());
         }
 
         shelterManager.getDisplayResourceEntries().forEach(resource => {
@@ -154,7 +154,74 @@ class ItemGrid {
             });
         });
 
-        return displayItems;
+        return this.sortDisplayItems(displayItems);
+    }
+
+    getDisplayTypeRank(item) {
+        const rankMap = {
+            resource: 1,
+            item: 2,
+            equipment: 3,
+            fragment: 4
+        };
+        return rankMap[item?.type] || 99;
+    }
+
+    sortDisplayItems(items) {
+        return [...items].sort((left, right) => {
+            const typeDiff = this.getDisplayTypeRank(left) - this.getDisplayTypeRank(right);
+            if (typeDiff !== 0) {
+                return typeDiff;
+            }
+
+            const rarityDiff = itemManager.getItemRarityRank(right?.rarity) - itemManager.getItemRarityRank(left?.rarity);
+            if (rarityDiff !== 0) {
+                return rarityDiff;
+            }
+
+            const nameDiff = String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
+            if (nameDiff !== 0) {
+                return nameDiff;
+            }
+
+            const scoreDiff = (Number(right?.sortScore) || itemManager.getEquipmentSortScore?.(right) || 0)
+                - (Number(left?.sortScore) || itemManager.getEquipmentSortScore?.(left) || 0);
+            if (scoreDiff !== 0) {
+                return scoreDiff;
+            }
+
+            const starDiff = (Number(right?.starLevel) || 0) - (Number(left?.starLevel) || 0);
+            if (starDiff !== 0) {
+                return starDiff;
+            }
+
+            const enhanceDiff = (Number(right?.enhanceLevel) || 0) - (Number(left?.enhanceLevel) || 0);
+            if (enhanceDiff !== 0) {
+                return enhanceDiff;
+            }
+
+            const keyDiff = String(left?.templateId || left?.id || '').localeCompare(String(right?.templateId || right?.id || ''), 'en');
+            if (keyDiff !== 0) {
+                return keyDiff;
+            }
+
+            const slotDiff = String(left?.slot || '').localeCompare(String(right?.slot || ''), 'en');
+            if (slotDiff !== 0) {
+                return slotDiff;
+            }
+
+            const groupDiff = (Number(left?.groupIndex) || 0) - (Number(right?.groupIndex) || 0);
+            if (groupDiff !== 0) {
+                return groupDiff;
+            }
+
+            const countDiff = (Number(right?.count) || 0) - (Number(left?.count) || 0);
+            if (countDiff !== 0) {
+                return countDiff;
+            }
+
+            return String(left?.instanceId || '').localeCompare(String(right?.instanceId || ''), 'en');
+        });
     }
 
     splitIntoGroups(total, maxPerGroup) {
@@ -214,6 +281,16 @@ class ItemGrid {
         this.onItemClick(item);
     }
 
+    renderItemIconMarkup(item, imageClass = 'inventory-detail-icon-image') {
+        const starBadge = item?.type === 'equipment' && typeof item.getStarBadgeMarkup === 'function'
+            ? item.getStarBadgeMarkup()
+            : '';
+        if (item?.iconSrc) {
+            return `<span class="equipment-icon-with-star">${starBadge}<img class="${imageClass}" src="${item.iconSrc}" alt="${item.name || '物品'}"></span>`;
+        }
+        return `<span class="equipment-icon-with-star equipment-icon-text">${starBadge}${item?.icon || '📦'}</span>`;
+    }
+
     showHeroFragmentDetail(item) {
         const heroConfig = HeroConfig.getHeroConfig(item.id);
         if (!heroConfig) {
@@ -232,12 +309,34 @@ class ItemGrid {
 
         const modal = new Modal({
             title: '英雄碎片',
+            className: 'inventory-detail-modal-shell inventory-fragment-modal-shell hero-command-modal-shell',
             content: `
-                <div class="hero-fragment-detail">
-                    ${portraitMarkup}
-                    <div class="hero-fragment-detail-name" style="color:${rarityColor};">${heroConfig.name}</div>
-                    <div class="hero-fragment-detail-meta">${professionName} · ${rarityName}</div>
-                    <div class="hero-fragment-detail-count">碎片数量：${totalCount}</div>
+                <div class="hero-fragment-detail inventory-fragment-detail">
+                    <div class="inventory-detail-visual-card">
+                        ${portraitMarkup}
+                    </div>
+                    <div class="inventory-detail-info-card">
+                        <div class="inventory-detail-kicker">HERO FRAGMENT</div>
+                        <div class="hero-fragment-detail-name" style="color:${rarityColor};">${heroConfig.name}</div>
+                        <div class="inventory-detail-tags">
+                            <span>${professionName}</span>
+                            <span>${rarityName}</span>
+                        </div>
+                        <div class="inventory-detail-desc">收集 50 个同名碎片后，可合成为完整英雄。</div>
+                        <div class="inventory-detail-stats">
+                            <div class="inventory-detail-stat">
+                                <span>持有碎片</span>
+                                <strong>${totalCount}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>合成需求</span>
+                                <strong>50</strong>
+                            </div>
+                        </div>
+                        <div class="inventory-detail-progress">
+                            <div class="inventory-detail-progress-fill" style="width:${Math.min(100, (totalCount / 50) * 100).toFixed(2)}%;"></div>
+                        </div>
+                    </div>
                 </div>
             `,
             buttons: [
@@ -301,6 +400,7 @@ class ItemGrid {
 
         const modal = new Modal({
             title: '使用经验药水',
+            className: 'inventory-detail-modal-shell hero-command-modal-shell',
             content,
             buttons: [
                 {
@@ -333,7 +433,7 @@ class ItemGrid {
             title: item.name,
             content: `
                 <div style="text-align:center;">
-                    <div style="font-size:48px;margin-bottom:15px;">${item.icon}</div>
+                    <div class="inventory-detail-icon" style="margin-bottom:15px;">${this.renderItemIconMarkup(item)}</div>
                     <p style="margin-bottom:10px;">${item.description}</p>
                     <p style="color:${this.getRarityColor(item.rarity)}">${this.getRarityName(item.rarity)}</p>
                     <p>数量: ${item.count}</p>
@@ -388,7 +488,7 @@ class ItemGrid {
             title: equipment.name,
             content: `
                 <div style="text-align:center;display:flex;flex-direction:column;gap:10px;">
-                    <div style="font-size:52px;">${equipment.icon}</div>
+                    <div class="inventory-detail-icon">${this.renderItemIconMarkup(equipment)}</div>
                     <div style="color:${this.getRarityColor(equipment.rarity)};font-weight:bold;">${equipment.name}</div>
                     <div>${equipment.description}</div>
                     <div>部位：${EquipmentConfig.getSlotName(equipment.slot)}</div>
@@ -397,7 +497,34 @@ class ItemGrid {
             `,
             buttons: [
                 { text: '强化', className: 'btn-primary', onClick: () => { modal.close(); equipmentEnhanceModal.show(equipment.instanceId); } },
-                { text: '前往英雄页', className: 'btn-primary', onClick: () => { modal.close(); eventManager.emit('viewChange', { view: 'hero' }); } },
+                {
+                    text: '升星',
+                    className: 'btn-primary',
+                    onClick: () => {
+                        if (!equipment.canStarUpgrade()) {
+                            Toast.info('当前装备不可升星');
+                            return;
+                        }
+                        modal.close();
+                        equipmentStarModal.show(equipment.instanceId);
+                    }
+                },
+                {
+                    text: '分解',
+                    className: 'btn-secondary',
+                    onClick: () => {
+                        const result = itemManager.dismantleEquipment(equipment.instanceId);
+                        if (result.success) {
+                            Toast.success(result.message);
+                            this.refresh();
+                            window.game.ui.heroView.refresh();
+                            window.game.save();
+                            modal.close();
+                        } else {
+                            Toast.error(result.message);
+                        }
+                    }
+                },
                 {
                     text: '出售',
                     className: 'btn-secondary',
@@ -413,7 +540,6 @@ class ItemGrid {
                         }
                     }
                 },
-                { text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }
             ]
         });
         modal.show();

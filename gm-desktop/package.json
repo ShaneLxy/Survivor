@@ -1,0 +1,14 @@
+{
+  "name": "survivor-gm-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows desktop GM tool for Survivor",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^30.5.1"
+  }
+}

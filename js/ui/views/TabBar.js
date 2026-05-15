@@ -8,11 +8,11 @@ class TabBar {
         this.disabled = false;
         this.tabs = [
             { id: 'shelter', name: '避难所', icon: '⌂' },
-            { id: 'hero', name: '英雄', icon: '⚔' },
-            { id: 'recruit', name: '招募', icon: '✦' },
-            { id: 'dungeon', name: '副本', icon: '⌖' },
-            { id: 'shop', name: '商城', icon: '◆' },
-            { id: 'checkin', name: '签到', icon: '▣' }
+            { id: 'hero', name: '英雄', icon: '⚿' },
+            { id: 'recruit', name: '招募', icon: '✧' },
+            { id: 'dungeon', name: '副本', icon: '▱' },
+            { id: 'shop', name: '商城', icon: '◼' },
+            { id: 'checkin', name: '福利', icon: '▣' }
         ];
         this.init();
     }

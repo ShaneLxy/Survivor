@@ -17,10 +17,12 @@
             this.selectedChapterId = null;
             return null;
         }
+
         const current = chapters.find((chapter) => chapter.id === this.selectedChapterId);
         if (current) {
             return current;
         }
+
         this.selectedChapterId = chapters[0].id;
         return chapters[0];
     };
@@ -71,6 +73,12 @@
         this.render();
     };
 
+    DungeonView.prototype.getSelectedChapterIndex = function(chapters) {
+        const safeChapters = Array.isArray(chapters) ? chapters : [];
+        const currentIndex = safeChapters.findIndex((chapter) => chapter.id === this.selectedChapterId);
+        return currentIndex < 0 ? 0 : currentIndex;
+    };
+
     DungeonView.prototype.getAdjacentChapter = function(offset) {
         const chapters = this.getChapters();
         const currentIndex = chapters.findIndex((chapter) => chapter.id === this.selectedChapterId);
@@ -83,11 +91,12 @@
         if (chapterIndex <= 0) {
             return { accessible: true, message: '' };
         }
+
         const previousChapter = chapters[chapterIndex - 1];
         const unlocked = previousChapter.dungeons.every((dungeon) => dungeonManager.isCompleted(dungeon.id));
         return {
             accessible: unlocked,
-            message: unlocked ? '' : '前一个章节存在关卡未挑战成功'
+            message: unlocked ? '' : '前一章节存在未完成关卡'
         };
     };
 
@@ -120,7 +129,7 @@
         if (rewardLine.startsWith('经验')) {
             return 'XP';
         }
-        return '◇';
+        return '•';
     };
 
     DungeonView.prototype.getRewardChipMarkup = function(rewardLine) {
@@ -164,28 +173,15 @@
         const summary = this.getChapterTacticalSummary(chapter);
 
         if (!statusAccessibility.accessible) {
-            return { key: 'locked', className: 'is-locked', label: '封锁中', action: '前置未完成' };
+            return { key: 'locked', className: 'is-locked', label: '未解锁', action: '前置章节未完成' };
         }
         if (summary.stageCount > 0 && summary.clearedStageCount >= summary.stageCount) {
-            return { key: 'cleared', className: 'is-cleared', label: '已清剿', action: '复盘档案' };
+            return { key: 'cleared', className: 'is-cleared', label: '已清剿', action: '复盘作战档案' };
         }
         if (summary.clearedStageCount > 0) {
             return { key: 'progress', className: 'is-progress', label: '推进中', action: '继续推进' };
         }
         return { key: 'ready', className: 'is-ready', label: '可探索', action: '打开作战档案' };
-    };
-
-    DungeonView.prototype.getChapterRouteMarkup = function(chapters, selectedChapterId) {
-        return `
-            <div class="dungeon-chapter-route" aria-hidden="true">
-                ${chapters.map((chapter) => {
-                    const accessibility = this.getChapterAccessibility(chapter.id);
-                    const status = this.getChapterStatus(chapter, accessibility);
-                    const activeClass = chapter.id === selectedChapterId ? 'is-active' : '';
-                    return `<span class="dungeon-chapter-route-node ${status.className} ${activeClass}"></span>`;
-                }).join('')}
-            </div>
-        `;
     };
 
     DungeonView.prototype.openChapterStageModal = function(chapterId) {
@@ -194,11 +190,13 @@
             Toast.error('章节不存在');
             return;
         }
+
         const accessibility = this.getChapterAccessibility(chapterId);
         if (!accessibility.accessible) {
             Toast.error(accessibility.message);
             return;
         }
+
         this.selectedStageId = chapter.dungeons[0]?.id || null;
         const modal = new Modal({
             className: 'chapter-stage-modal-shell',
@@ -227,7 +225,21 @@
 
     DungeonView.prototype.bindChapterCarouselInteractions = function() {
         const carousel = this.element.querySelector('.dungeon-chapter-carousel');
-        if (!carousel) {
+        const viewport = carousel?.querySelector('.dungeon-chapter-viewport');
+        const track = carousel?.querySelector('.dungeon-chapter-track');
+        if (!carousel || !viewport || !track) {
+            return;
+        }
+
+        const chapters = this.getChapters();
+        const currentIndex = this.getSelectedChapterIndex(chapters);
+        const activeSlide = track.querySelector('.dungeon-chapter-slide.is-active');
+        const trackStyles = window.getComputedStyle(track);
+        const gap = Number.parseFloat(trackStyles.columnGap || trackStyles.gap || '0') || 0;
+        const slideWidth = activeSlide?.getBoundingClientRect().width || viewport.clientWidth;
+        const slideSpan = slideWidth + gap;
+
+        if (!chapters.length || !slideSpan) {
             return;
         }
 
@@ -236,20 +248,53 @@
         let deltaX = 0;
         let deltaY = 0;
         let tracking = false;
+        let suppressClick = false;
 
+        const getBaseTranslate = (selectedIndex) => ((viewport.clientWidth - slideWidth) / 2) - (selectedIndex * slideSpan);
+        const clampDragOffset = (offset) => {
+            if ((currentIndex <= 0 && offset > 0) || (currentIndex >= chapters.length - 1 && offset < 0)) {
+                return offset * 0.24;
+            }
+            return offset;
+        };
+        const setTrackPosition = (selectedIndex, dragOffset = 0, animate = false) => {
+            track.classList.toggle('is-animating', animate);
+            track.style.transform = `translate3d(${getBaseTranslate(selectedIndex) + dragOffset}px, 0, 0)`;
+        };
+        const clearAnimatingState = () => window.setTimeout(() => track.classList.remove('is-animating'), 320);
         const reset = () => {
             startX = 0;
             startY = 0;
             deltaX = 0;
             deltaY = 0;
             tracking = false;
+            carousel.classList.remove('is-dragging');
         };
-
         const getTouchPoint = (event) => {
             const point = event.changedTouches?.[0] || event.touches?.[0];
             return point ? { x: point.clientX, y: point.clientY } : null;
         };
+        const commitSwipe = (steps) => {
+            if (!steps) {
+                setTrackPosition(currentIndex, 0, true);
+                clearAnimatingState();
+                return;
+            }
 
+            const nextIndex = Math.max(0, Math.min(chapters.length - 1, currentIndex + steps));
+            if (nextIndex === currentIndex) {
+                setTrackPosition(currentIndex, 0, true);
+                clearAnimatingState();
+                return;
+            }
+
+            setTrackPosition(nextIndex, 0, true);
+            window.setTimeout(() => {
+                track.classList.remove('is-animating');
+                this.selectedChapterId = chapters[nextIndex]?.id || this.selectedChapterId;
+                this.render();
+            }, 320);
+        };
         const handleSwipe = () => {
             if (!tracking) {
                 return;
@@ -261,34 +306,26 @@
             reset();
 
             if (absX < 36 || absX <= absY) {
+                setTrackPosition(currentIndex, 0, true);
+                clearAnimatingState();
                 return;
             }
 
-            const chapters = this.getChapters();
-            if (chapters.length <= 1) {
-                return;
-            }
-
-            const currentIndex = this.getChapterIndex(this.selectedChapterId);
-            const safeIndex = currentIndex < 0 ? 0 : currentIndex;
-            const stepWidth = Math.max(48, carousel.clientWidth * 0.22);
+            const stepWidth = Math.max(72, slideSpan * 0.58);
             const rawSteps = Math.max(1, Math.round(absX / stepWidth));
 
             if (swipeX < 0) {
-                const availableNext = chapters.length - 1 - safeIndex;
-                const steps = Math.min(rawSteps, availableNext);
-                if (steps > 0) {
-                    this.switchChapterByOffset(steps);
-                }
+                const availableNext = chapters.length - 1 - currentIndex;
+                commitSwipe(Math.min(rawSteps, availableNext));
                 return;
             }
 
-            const availablePrev = safeIndex;
+            const availablePrev = currentIndex;
             const steps = Math.min(rawSteps, availablePrev);
-            if (steps > 0) {
-                this.switchChapterByOffset(-steps);
-            }
+            commitSwipe(steps > 0 ? -steps : 0);
         };
+
+        setTrackPosition(currentIndex, 0, false);
 
         carousel.addEventListener('touchstart', (event) => {
             const point = getTouchPoint(event);
@@ -300,6 +337,8 @@
             deltaX = 0;
             deltaY = 0;
             tracking = true;
+            suppressClick = false;
+            track.classList.remove('is-animating');
         }, { passive: true });
 
         carousel.addEventListener('touchmove', (event) => {
@@ -310,8 +349,15 @@
             if (!point) {
                 return;
             }
+
             deltaX = point.x - startX;
             deltaY = point.y - startY;
+
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 8) {
+                suppressClick = true;
+                carousel.classList.add('is-dragging');
+                setTrackPosition(currentIndex, clampDragOffset(deltaX), false);
+            }
         }, { passive: true });
 
         carousel.addEventListener('touchend', () => {
@@ -319,8 +365,69 @@
         }, { passive: true });
 
         carousel.addEventListener('touchcancel', () => {
+            setTrackPosition(currentIndex, 0, true);
+            clearAnimatingState();
             reset();
         }, { passive: true });
+
+        carousel.addEventListener('click', (event) => {
+            if (!suppressClick) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            suppressClick = false;
+        }, true);
+    };
+
+    DungeonView.prototype.getChapterSlideMarkup = function(chapter, isActive) {
+        const chapterAccessibility = this.getChapterAccessibility(chapter.id);
+        const chapterSummary = this.getChapterTacticalSummary(chapter);
+        const chapterStatus = this.getChapterStatus(chapter, chapterAccessibility);
+        const chapterStageCount = chapter?.dungeons?.length || 0;
+        const clickHandler = chapterAccessibility.accessible && isActive
+            ? `window.game.ui.dungeonView.openChapterStageModal('${chapter.id}')`
+            : `window.game.ui.dungeonView.switchChapterTo('${chapter.id}')`;
+        const chapterBackground = chapter?.background || '';
+
+        return `
+            <button type="button" class="dungeon-chapter-slide ${isActive ? 'is-active' : ''}" data-chapter-id="${chapter.id}" onclick="${clickHandler}">
+                <div class="dungeon-chapter-card card ${chapterStatus.className}" style="--chapter-card-bg:url('${chapterBackground}')">
+                    <div class="dungeon-chapter-card-head">
+                        <div class="dungeon-chapter-card-kicker-row">
+                            <div class="dungeon-chapter-card-kicker">第${chapter.index}章 · 作战档案</div>
+                            <div class="dungeon-chapter-status-badge">${chapterStatus.label}</div>
+                        </div>
+                        <div class="dungeon-chapter-card-title">${chapter.name}</div>
+                    </div>
+                    <div class="dungeon-chapter-card-desc">${chapter.description}</div>
+                    <div class="dungeon-chapter-progress">
+                        <div class="dungeon-chapter-progress-copy">
+                            <span>清剿进度</span>
+                            <strong>${chapterSummary.clearedStageCount}/${chapterSummary.stageCount}</strong>
+                        </div>
+                        <div class="dungeon-chapter-progress-track">
+                            <i style="width:${chapterSummary.completionRatio}%"></i>
+                        </div>
+                    </div>
+                    <div class="dungeon-chapter-dossier">
+                        <div>
+                            <span>关卡</span>
+                            <strong>${chapterStageCount}</strong>
+                        </div>
+                        <div>
+                            <span>推荐</span>
+                            <strong>${chapterSummary.levelLabel}</strong>
+                        </div>
+                    </div>
+                    <div class="dungeon-chapter-action-row">
+                        <span>${chapterStatus.action}</span>
+                        <strong>${chapterAccessibility.accessible ? '查看关卡' : '需要清剿前章'}</strong>
+                    </div>
+                    ${chapterAccessibility.accessible ? '' : `<div class="dungeon-chapter-lock-overlay"><span>${chapterAccessibility.message}</span></div>`}
+                </div>
+            </button>
+        `;
     };
 
     DungeonView.prototype.getChapterStageModalContent = function(chapter) {
@@ -351,10 +458,11 @@
                 </div>
                 <div class="chapter-stage-detail">
                     <div class="chapter-stage-detail-heading">
-                        <div>
+                        <div class="chapter-stage-heading-main">
                             <div class="chapter-stage-detail-kicker">OPERATION FILE</div>
                             <div class="chapter-stage-detail-title">${activeStage.name}</div>
                         </div>
+                        <button type="button" class="btn btn-secondary dungeon-stage-codex-btn" onclick="window.game.ui.dungeonView.openMonsterCodexModal(null, '${activeStage.id}')">本关图鉴</button>
                         <div class="chapter-stage-status ${stageCompleted ? 'is-completed' : 'is-pending'}">
                             <span>${stageCompleted ? '已清剿' : '待挑战'}</span>
                             <strong>${stageCompleted ? `${stars}星` : `Lv.${activeStage.level}`}</strong>
@@ -375,18 +483,18 @@
                             <strong>Lv.${activeStage.level}</strong>
                         </div>
                     </div>
-                    <div class="chapter-stage-detail-section">
+                    <div class="chapter-stage-preview-block">
                         <div class="chapter-stage-detail-label">敌人预览</div>
                         <div class="dungeon-enemy-preview-row">
                             ${enemyPreview.map((enemy) => `
-                                <button type="button" class="dungeon-enemy-chip" onclick="window.game.ui.dungeonView.openMonsterDetail('${enemy.id}')">
+                                <button type="button" class="dungeon-enemy-chip" onclick="window.game.ui.dungeonView.openMonsterDetail('${enemy.id}', '${activeStage.id}')">
                                     <span>${enemy.icon}</span>
                                     <strong>${enemy.name}</strong>
                                 </button>
                             `).join('')}
                         </div>
                     </div>
-                    <div class="chapter-stage-detail-section">
+                    <div class="chapter-stage-preview-block">
                         <div class="chapter-stage-detail-label">掉落预览</div>
                         <div class="dungeon-reward-preview-row">
                             ${rewardPreview.map((reward) => this.getRewardChipMarkup(reward)).join('')}
@@ -405,19 +513,15 @@
         this.codexCache = dungeonManager.getMonsterCompendium(window.game.player.level);
         const chapters = this.getChapters();
         const selectedChapter = this.ensureSelectedChapter(chapters);
+        const selectedIndex = this.getSelectedChapterIndex(chapters);
         const prevChapter = this.getAdjacentChapter(-1);
         const nextChapter = this.getAdjacentChapter(1);
-        const stageCount = selectedChapter?.dungeons?.length || 0;
         const background = selectedChapter?.background || window.GameSceneBackgrounds?.dungeon?.src || '';
-        const chapterAccessibility = selectedChapter ? this.getChapterAccessibility(selectedChapter.id) : { accessible: true, message: '' };
         const chapterSummary = selectedChapter ? this.getChapterTacticalSummary(selectedChapter) : null;
-        const chapterStatus = selectedChapter ? this.getChapterStatus(selectedChapter, chapterAccessibility) : null;
-        const prevChapterStatus = prevChapter ? this.getChapterStatus(prevChapter) : null;
-        const nextChapterStatus = nextChapter ? this.getChapterStatus(nextChapter) : null;
         const progressSummary = this.getChapterProgressSummary(chapters);
         const headerSubtitle = selectedChapter && chapterSummary
             ? `第${selectedChapter.index}章 · ${selectedChapter.name} · ${chapterSummary.clearedStageCount}/${chapterSummary.stageCount} 已清剿`
-            : '左右切换章节，查看本章节关卡详情。';
+            : '左右滑动章节卡片，拖得越远可一次跨越更多章节。';
 
         this.element.innerHTML = `
             <div class="scene-view dungeon-view dungeon-view-chapter" style="--chapter-bg:url('${background}')">
@@ -450,64 +554,16 @@
                                 </div>
                             ` : ''}
                         </div>
-                        <button class="btn btn-secondary dungeon-codex-btn" onclick="window.game.ui.dungeonView.openMonsterCodexModal()" title="怪物图鉴" aria-label="怪物图鉴">图鉴</button>
                     </div>
                     <div class="dungeon-chapter-carousel">
-                        ${this.getChapterRouteMarkup(chapters, selectedChapter?.id)}
                         <button class="dungeon-chapter-arrow ${prevChapter ? '' : 'is-hidden'}" ${prevChapter ? `onclick="window.game.ui.dungeonView.switchChapterByOffset(-1)"` : ''}>&lsaquo;</button>
-                        <button type="button" class="dungeon-chapter-peek left ${prevChapter ? '' : 'is-hidden'} ${prevChapterStatus?.className || ''}" ${prevChapter ? `onclick="window.game.ui.dungeonView.switchChapterTo('${prevChapter.id}')"` : 'disabled'}>
-                            ${prevChapter ? `<span>第${prevChapter.index}章 · ${prevChapterStatus.label}</span><strong>${prevChapter.name}</strong>` : ''}
-                        </button>
                         ${selectedChapter ? `
-                            <button type="button" class="dungeon-chapter-card card ${chapterStatus.className}" onclick="window.game.ui.dungeonView.openChapterStageModal('${selectedChapter.id}')">
-                                <div class="dungeon-chapter-status-badge">${chapterStatus.label}</div>
-                                <div class="dungeon-chapter-card-head">
-                                    <div>
-                                        <div class="dungeon-chapter-card-kicker">第${selectedChapter.index}章 · 作战档案</div>
-                                        <div class="dungeon-chapter-card-title">${selectedChapter.name}</div>
-                                    </div>
-                                    <div class="dungeon-chapter-threat">
-                                        <span>威胁</span>
-                                        <strong>${chapterSummary.levelLabel}</strong>
-                                    </div>
+                            <div class="dungeon-chapter-viewport">
+                                <div class="dungeon-chapter-track" data-selected-index="${selectedIndex}">
+                                    ${chapters.map((chapter) => this.getChapterSlideMarkup(chapter, chapter.id === selectedChapter.id)).join('')}
                                 </div>
-                                <div class="dungeon-chapter-card-desc">${selectedChapter.description}</div>
-                                <div class="dungeon-chapter-progress">
-                                    <div class="dungeon-chapter-progress-copy">
-                                        <span>清剿进度</span>
-                                        <strong>${chapterSummary.clearedStageCount}/${chapterSummary.stageCount}</strong>
-                                    </div>
-                                    <div class="dungeon-chapter-progress-track">
-                                        <i style="width:${chapterSummary.completionRatio}%"></i>
-                                    </div>
-                                </div>
-                                <div class="dungeon-chapter-dossier">
-                                    <div>
-                                        <span>关卡</span>
-                                        <strong>${stageCount}</strong>
-                                    </div>
-                                    <div>
-                                        <span>敌方</span>
-                                        <strong>${chapterSummary.enemyCount}</strong>
-                                    </div>
-                                    <div>
-                                        <span>推荐</span>
-                                        <strong>${chapterSummary.levelLabel}</strong>
-                                    </div>
-                                </div>
-                                <div class="dungeon-chapter-reward-strip">
-                                    ${chapterSummary.rewards.map((reward) => this.getRewardChipMarkup(reward)).join('')}
-                                </div>
-                                <div class="dungeon-chapter-action-row">
-                                    <span>${chapterStatus.action}</span>
-                                    <strong>${chapterAccessibility.accessible ? '查看关卡' : '需要清剿前章'}</strong>
-                                </div>
-                                ${chapterAccessibility.accessible ? '' : `<div class="dungeon-chapter-lock-overlay"><span>${chapterAccessibility.message}</span></div>`}
-                            </button>
+                            </div>
                         ` : '<div class="shelter-empty">暂无章节</div>'}
-                        <button type="button" class="dungeon-chapter-peek right ${nextChapter ? '' : 'is-hidden'} ${nextChapterStatus?.className || ''}" ${nextChapter ? `onclick="window.game.ui.dungeonView.switchChapterTo('${nextChapter.id}')"` : 'disabled'}>
-                            ${nextChapter ? `<span>第${nextChapter.index}章 · ${nextChapterStatus.label}</span><strong>${nextChapter.name}</strong>` : ''}
-                        </button>
                         <button class="dungeon-chapter-arrow ${nextChapter ? '' : 'is-hidden'}" ${nextChapter ? `onclick="window.game.ui.dungeonView.switchChapterByOffset(1)"` : ''}>&rsaquo;</button>
                     </div>
                 </div>

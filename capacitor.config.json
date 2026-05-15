@@ -1,6 +1,6 @@
-{
+﻿{
   "appId": "com.survivor.game",
-  "appName": "末日生存",
+  "appName": "\u4e91\u5883",
   "webDir": "mobile/web",
   "bundledWebRuntime": false,
   "server": {
@@ -13,8 +13,8 @@
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 1200,
-      "backgroundColor": "#0b1220",
+      "launchShowDuration": 0,
+      "backgroundColor": "#05070b",
       "showSpinner": false
     },
     "StatusBar": {

@@ -7,6 +7,9 @@ export interface UserAccountDocument {
   nickname: string | null;
   wechatOpenId: string | null;
   wechatUnionId: string | null;
+  taptapOpenId?: string | null;
+  taptapUnionId?: string | null;
+  taptapAvatar?: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -23,7 +26,7 @@ export interface PlayerSaveDocument {
 }
 
 export interface MailAttachment {
-  type: 'resource' | 'item';
+  type: 'resource' | 'item' | 'fragment';
   id: string;
   amount: number;
 }
@@ -51,6 +54,9 @@ export interface CdkeyDocument {
   usedByAccountId: string | null;
   usedAt: string | null;
   expireAt: string | null;
+  enabled?: boolean | null;
+  batchId?: string | null;
+  remark?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -19,12 +19,14 @@ class HeroCard {
         if (!hero) {
             const empty = document.createElement('div');
             empty.className = 'hero-card card';
-            empty.innerHTML = '<div class="hero-avatar">📦</div><div class="hero-name">空</div>';
+            empty.innerHTML = '<div class="hero-avatar">📦</div>';
             return empty;
         }
 
         const card = document.createElement('div');
         card.className = 'hero-card card';
+        card.dataset.heroId = hero.id || '';
+        card.dataset.heroConfigId = hero.configId || '';
 
         const isInTeam = typeof heroManager !== 'undefined'
             && heroManager
@@ -38,11 +40,12 @@ class HeroCard {
         const rarityColor = this.getRarityColor(hero.rarity);
         const starInfo = HeroConfig.getStarDisplayInfo(hero.stars);
         card.style.borderColor = rarityColor;
+        card.style.setProperty('--hero-card-rarity', rarityColor);
 
         if (isInTeam) {
             const badge = document.createElement('div');
             badge.className = 'hero-team-badge';
-            badge.textContent = '已参战';
+            badge.textContent = '参战';
             card.appendChild(badge);
         }
 
@@ -65,12 +68,6 @@ class HeroCard {
         }
         card.appendChild(avatar);
 
-        const name = document.createElement('div');
-        name.className = 'hero-name';
-        name.textContent = hero.name;
-        name.style.color = rarityColor;
-        card.appendChild(name);
-
         const level = document.createElement('div');
         level.className = 'hero-level';
         level.textContent = `Lv.${hero.level}`;
@@ -82,10 +79,14 @@ class HeroCard {
         stars.title = starInfo.label;
         card.appendChild(stars);
 
+        const metaRow = document.createElement('div');
+        metaRow.className = 'hero-card-meta-row';
+
         const power = document.createElement('div');
         power.className = 'hero-power';
-        power.textContent = `战力 ${hero.getPower()}`;
-        card.appendChild(power);
+        power.textContent = `战力 ${GameConfig.formatCombatPower(hero.getPower())}`;
+        metaRow.appendChild(power);
+        card.appendChild(metaRow);
 
         return card;
     }

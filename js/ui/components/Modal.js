@@ -9,6 +9,7 @@ class Modal {
             buttons: [],
             showClose: true,
             className: '',
+            overlayClassName: '',
             onClose: null,
             ...config
         };
@@ -21,6 +22,9 @@ class Modal {
         try {
             this.overlay = document.createElement('div');
             this.overlay.className = 'modal-overlay';
+            if (this.config.overlayClassName) {
+                this.overlay.classList.add(...String(this.config.overlayClassName).split(/\s+/).filter(Boolean));
+            }
 
             const content = document.createElement('div');
             content.className = 'modal-content';

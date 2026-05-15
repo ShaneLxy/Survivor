@@ -8,6 +8,7 @@ $appBuildGradlePath = Join-Path $androidRoot 'app\build.gradle'
 $mainActivityJavaPath = Get-ChildItem -Path (Join-Path $androidRoot 'app\src\main') -Recurse -Filter MainActivity.java -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 $mainActivityKotlinPath = Get-ChildItem -Path (Join-Path $androidRoot 'app\src\main') -Recurse -Filter MainActivity.kt -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 $packageName = 'com.survivor.game'
+$appName = [string]([char]0x4e91) + [string]([char]0x5883)
 
 if (-not (Test-Path $manifestPath)) {
     Write-Host 'Android project not found yet. Run "npx cap add android" first.'
@@ -49,7 +50,8 @@ if ($activityNode) {
 }
 
 $usesPermissionNames = @(
-    'android.permission.INTERNET'
+    'android.permission.INTERNET',
+    'android.permission.ACCESS_NETWORK_STATE'
 )
 
 foreach ($permissionName in $usesPermissionNames) {
@@ -79,7 +81,7 @@ if (Test-Path $stringsPath) {
     [xml]$stringsXml = Get-Content -LiteralPath $stringsPath
     $appNameNode = $stringsXml.resources.string | Where-Object { $_.name -eq 'app_name' } | Select-Object -First 1
     if ($appNameNode) {
-        $appNameNode.InnerText = '末日生存'
+        $appNameNode.InnerText = $appName
         $stringsXml.Save($stringsPath)
         Write-Host "Android app name configured: $stringsPath"
     }

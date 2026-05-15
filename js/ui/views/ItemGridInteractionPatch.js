@@ -25,10 +25,13 @@
     };
 
     ItemGrid.prototype.getItemDetailVisual = function(item) {
+        const starBadge = item?.type === 'equipment' && typeof item.getStarBadgeMarkup === 'function'
+            ? item.getStarBadgeMarkup()
+            : '';
         if (item.iconSrc) {
-            return `<img class="resource-icon-image item-icon-image" src="${item.iconSrc}" alt="${item.name}">`;
+            return `<span class="equipment-icon-with-star">${starBadge}<img class="resource-icon-image item-icon-image" src="${item.iconSrc}" alt="${item.name}"></span>`;
         }
-        return item.icon || '📦';
+        return `<span class="equipment-icon-with-star equipment-icon-text">${starBadge}${item.icon || '📦'}</span>`;
     };
 
     ItemGrid.prototype.showResourceDetail = function(item) {

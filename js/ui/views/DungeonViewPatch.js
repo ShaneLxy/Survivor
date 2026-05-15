@@ -92,10 +92,13 @@
                     </div>
                     <div class="dungeon-spotlight-desc">${dungeon.description || '危险仍在蔓延，谨慎推进。'}</div>
                     <div class="dungeon-spotlight-section">
-                        <div class="dungeon-spotlight-section-title">敌方预览</div>
+                        <div class="chapter-stage-detail-label-row">
+                            <div class="dungeon-spotlight-section-title">敌方预览</div>
+                            <button type="button" class="btn btn-secondary dungeon-stage-codex-btn" onclick="window.game.ui.dungeonView.openMonsterCodexModal(null, '${dungeon.id}')">本关图鉴</button>
+                        </div>
                         <div class="dungeon-enemy-preview-row">
                             ${enemies.map((enemy) => `
-                                <button type="button" class="dungeon-enemy-chip" onclick="window.game.ui.dungeonView.openMonsterDetail('${enemy.id}')">
+                                <button type="button" class="dungeon-enemy-chip" onclick="window.game.ui.dungeonView.openMonsterDetail('${enemy.id}', '${dungeon.id}')">
                                     <span>${enemy.icon}</span>
                                     <strong>${enemy.name}</strong>
                                 </button>

@@ -16,10 +16,12 @@ class LoginView {
 
     show() {
         Modal.closeAll();
+        document.body?.classList.remove('app-boot-hidden');
         this._ensureContainer();
         this.mode = 'login';
         this.render();
         this._fadeIn();
+        window.audioManager?.playSceneBgm?.('login');
 
         const appEl = document.getElementById('app');
         if (appEl) appEl.style.display = 'none';
@@ -54,6 +56,7 @@ class LoginView {
 
         const appEl = document.getElementById('app');
         if (appEl) appEl.style.display = '';
+        document.body?.classList.remove('app-boot-hidden');
         this._setGameChromeVisible(true);
 
         const modalContainer = document.getElementById('modal-container');
@@ -145,6 +148,14 @@ class LoginView {
     }
 
     _renderLogin(savedAccount, savedPwd, rememberChecked) {
+        const tapTapLoginButton = this._canUseTapTapLogin() ? `
+                    <div class="login-divider"><span>TapTap</span></div>
+                    <button class="login-btn login-btn-taptap" id="btn-taptap-login" onclick="window.loginView.handleTapTapLogin()">
+                        <span class="btn-text">TapTap &#30331;&#24405;</span>
+                        <span class="btn-loading" style="display:none;">TapTap &#25480;&#26435;&#20013;...</span>
+                    </button>
+        ` : '';
+
         this.element.innerHTML = `
             <div class="login-backdrop">
                 <div class="login-particles"></div>
@@ -155,47 +166,51 @@ class LoginView {
                 ${this._renderNotice()}
                 ${this._renderVersionPolicyNotice()}
                 <div class="login-logo">
-                    <div class="login-logo-icon">☠️</div>
-                    <h1 class="login-title">末日生存</h1>
-                    <p class="login-subtitle">SURVIVOR</p>
+                    <div class="login-logo-icon" aria-hidden="true">
+                        <span class="login-logo-core"></span>
+                    </div>
+                    <h1 class="login-title">&#20113;&#22659;</h1>
+                    <p class="login-subtitle">YUNJING</p>
                 </div>
 
                 <div class="login-form-panel" id="login-form-panel">
+                    <div class="login-panel-accent" aria-hidden="true"></div>
                     <div class="login-error-tip" id="login-error" style="display:none;"></div>
 
                     <div class="login-field">
                         <label class="login-label" for="login-account">
-                            <span class="field-icon">👤</span>账号
+                            <span class="field-icon field-icon-account" aria-hidden="true"></span>&#36134;&#21495;
                         </label>
                         <input type="text" id="login-account" class="login-input"
                                value="${this._escapeAttr(savedAccount)}"
-                               placeholder="请输入账号" autocomplete="username" />
+                               placeholder="&#35831;&#36755;&#20837;&#36134;&#21495;" autocomplete="username" />
                     </div>
 
                     <div class="login-field">
                         <label class="login-label" for="login-password">
-                            <span class="field-icon">🔒</span>密码
+                            <span class="field-icon field-icon-password" aria-hidden="true"></span>&#23494;&#30721;
                         </label>
                         <input type="password" id="login-password" class="login-input"
                                value="${rememberChecked ? this._escapeAttr(savedPwd) : ''}"
-                               placeholder="请输入密码" autocomplete="current-password" />
+                               placeholder="&#35831;&#36755;&#20837;&#23494;&#30721;" autocomplete="current-password" />
                     </div>
 
                     <div class="login-options">
                         <label class="login-remember">
                             <input type="checkbox" id="login-remember" ${rememberChecked ? 'checked' : ''} />
                             <span class="checkmark"></span>
-                            记住密码
+                            &#35760;&#20303;&#23494;&#30721;
                         </label>
                     </div>
 
                     <button class="login-btn login-btn-primary" id="btn-login" onclick="window.loginView.handleLogin()">
-                        <span class="btn-text">登录</span>
-                        <span class="btn-loading" style="display:none;">登录中...</span>
+                        <span class="btn-text">&#30331;&#24405;</span>
+                        <span class="btn-loading" style="display:none;">&#30331;&#24405;&#20013;...</span>
                     </button>
+                    ${tapTapLoginButton}
 
                     <div class="login-switch">
-                        没有账号？<a href="javascript:void(0)" id="link-to-register" onclick="window.loginView.switchToRegister()">立即注册</a>
+                        &#27809;&#26377;&#36134;&#21495;&#65311;<a href="javascript:void(0)" id="link-to-register" onclick="window.loginView.switchToRegister()">&#31435;&#21363;&#27880;&#20876;</a>
                     </div>
                 </div>
             </div>
@@ -243,54 +258,57 @@ class LoginView {
             <div class="login-container">
                 ${this._renderVersionPolicyNotice()}
                 <div class="login-logo">
-                    <div class="login-logo-icon">☠️</div>
-                    <h1 class="login-title">末日生存</h1>
-                    <p class="login-subtitle">SURVIVOR</p>
+                    <div class="login-logo-icon" aria-hidden="true">
+                        <span class="login-logo-core"></span>
+                    </div>
+                    <h1 class="login-title">&#20113;&#22659;</h1>
+                    <p class="login-subtitle">YUNJING</p>
                 </div>
 
                 <div class="login-form-panel" id="register-form-panel">
+                    <div class="login-panel-accent" aria-hidden="true"></div>
                     <div class="login-error-tip" id="register-error" style="display:none;"></div>
 
                     <div class="login-field">
                         <label class="login-label" for="reg-account">
-                            <span class="field-icon">👤</span>账号
+                            <span class="field-icon field-icon-account" aria-hidden="true"></span>&#36134;&#21495;
                         </label>
                         <input type="text" id="reg-account" class="login-input"
                                value="${this._escapeAttr(savedAccount)}"
-                               placeholder="请输入账号（3-20位字母或数字）" autocomplete="username" />
+                               placeholder="&#35831;&#36755;&#20837;&#36134;&#21495;&#65288;3-20&#20301;&#23383;&#27597;&#25110;&#25968;&#23383;&#65289;" autocomplete="username" />
                     </div>
 
                     <div class="login-field">
                         <label class="login-label" for="reg-nickname">
-                            <span class="field-icon">⭐</span>昵称
+                            <span class="field-icon field-icon-nickname" aria-hidden="true"></span>&#26165;&#31216;
                         </label>
                         <input type="text" id="reg-nickname" class="login-input"
-                               placeholder="请输入昵称" autocomplete="nickname" />
+                               placeholder="&#35831;&#36755;&#20837;&#26165;&#31216;" autocomplete="nickname" />
                     </div>
 
                     <div class="login-field">
                         <label class="login-label" for="reg-password">
-                            <span class="field-icon">🔒</span>密码
+                            <span class="field-icon field-icon-password" aria-hidden="true"></span>&#23494;&#30721;
                         </label>
                         <input type="password" id="reg-password" class="login-input"
-                               placeholder="请输入密码（至少6位）" autocomplete="new-password" />
+                               placeholder="&#35831;&#36755;&#20837;&#23494;&#30721;&#65288;&#33267;&#23569;6&#20301;&#65289;" autocomplete="new-password" />
                     </div>
 
                     <div class="login-field">
                         <label class="login-label" for="reg-password-confirm">
-                            <span class="field-icon">🔒</span>确认密码
+                            <span class="field-icon field-icon-password" aria-hidden="true"></span>&#30830;&#35748;&#23494;&#30721;
                         </label>
                         <input type="password" id="reg-password-confirm" class="login-input"
-                               placeholder="再次输入密码" autocomplete="new-password" />
+                               placeholder="&#20877;&#27425;&#36755;&#20837;&#23494;&#30721;" autocomplete="new-password" />
                     </div>
 
                     <button class="login-btn login-btn-primary" id="btn-register" onclick="window.loginView.handleRegister()">
-                        <span class="btn-text">注册</span>
-                        <span class="btn-loading" style="display:none;">注册中...</span>
+                        <span class="btn-text">&#27880;&#20876;</span>
+                        <span class="btn-loading" style="display:none;">&#27880;&#20876;&#20013;...</span>
                     </button>
 
                     <div class="login-switch">
-                        已有账号？<a href="javascript:void(0)" id="link-to-login" onclick="window.loginView.switchToLogin()">返回登录</a>
+                        &#24050;&#26377;&#36134;&#21495;&#65311;<a href="javascript:void(0)" id="link-to-login" onclick="window.loginView.switchToLogin()">&#36820;&#22238;&#30331;&#24405;</a>
                     </div>
                 </div>
             </div>
@@ -320,6 +338,14 @@ class LoginView {
     switchToLogin() {
         this.mode = 'login';
         this.render();
+    }
+
+    _getTapTapPlugin() {
+        return window.Capacitor?.Plugins?.TapTapAuth || null;
+    }
+
+    _canUseTapTapLogin() {
+        return Boolean(this._getTapTapPlugin()?.login);
     }
 
     async handleLogin() {
@@ -357,6 +383,11 @@ class LoginView {
                 localStorage.removeItem(this.KEY_REMEMBER_PWD);
             }
 
+            window.game?.showGameLoadingOverlay?.({
+                title: '\u6b63\u5728\u8fdb\u5165\u4e91\u5883',
+                message: '\u9a8c\u8bc1\u6210\u529f\uff0c\u6b63\u5728\u51c6\u5907\u6570\u636e',
+                progress: 8
+            });
             this.hide();
             eventManager.emit('loginSuccess');
         } catch (err) {
@@ -365,6 +396,47 @@ class LoginView {
             this._shakePanel();
         } finally {
             this._setLoading('btn-login', false);
+            this.isSubmitting = false;
+        }
+    }
+
+    async handleTapTapLogin() {
+        if (this.isSubmitting) return;
+        if (window.versionCheckService?.isBlocked?.()) {
+            this._showError('login-error', '\u5f53\u524d\u7248\u672c\u5df2\u505c\u6b62\u652f\u6301\uff0c\u8bf7\u5148\u66f4\u65b0\u5ba2\u6237\u7aef');
+            this._shakePanel();
+            return;
+        }
+
+        const tapTapPlugin = this._getTapTapPlugin();
+        if (!tapTapPlugin?.login) {
+            this._showError('login-error', '\u8bf7\u5728 TapTap \u5b89\u5353\u5ba2\u6237\u7aef\u5185\u4f7f\u7528 TapTap \u767b\u5f55');
+            this._shakePanel();
+            return;
+        }
+
+        this._hideError('login-error');
+        this._setLoading('btn-taptap-login', true);
+        this.isSubmitting = true;
+
+        try {
+            const tapTapResult = await tapTapPlugin.login();
+            await authService.tapTapLogin(tapTapResult || {});
+            localStorage.removeItem(this.KEY_PASSWORD);
+            localStorage.removeItem(this.KEY_REMEMBER_PWD);
+            window.game?.showGameLoadingOverlay?.({
+                title: '\u6b63\u5728\u8fdb\u5165\u4e91\u5883',
+                message: 'TapTap \u6388\u6743\u6210\u529f\uff0c\u6b63\u5728\u51c6\u5907\u6570\u636e',
+                progress: 8
+            });
+            this.hide();
+            eventManager.emit('loginSuccess');
+        } catch (err) {
+            const msg = err?.message || '\u0054\u0061\u0070\u0054\u0061\u0070 \u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5';
+            this._showError('login-error', msg);
+            this._shakePanel();
+        } finally {
+            this._setLoading('btn-taptap-login', false);
             this.isSubmitting = false;
         }
     }
@@ -396,6 +468,11 @@ class LoginView {
         try {
             await authService.register({ account, password, nickname });
             localStorage.setItem(this.KEY_ACCOUNT, account);
+            window.game?.showGameLoadingOverlay?.({
+                title: '\u6b63\u5728\u8fdb\u5165\u4e91\u5883',
+                message: '\u6ce8\u518c\u6210\u529f\uff0c\u6b63\u5728\u521d\u59cb\u5316\u6570\u636e',
+                progress: 8
+            });
             this.hide();
             eventManager.emit('loginSuccess');
         } catch (err) {

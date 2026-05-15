@@ -149,11 +149,21 @@ export class MailService {
   private normalizeAttachments(attachments: MailAttachment[] | null | undefined): MailAttachment[] {
     return (Array.isArray(attachments) ? attachments : [])
       .map((entry) => ({
-        type: (entry?.type === 'resource' ? 'resource' : 'item') as 'resource' | 'item',
+        type: this.normalizeRewardType(entry?.type),
         id: String(entry?.id || ''),
         amount: Math.max(0, Number(entry?.amount) || 0),
       }))
       .filter((entry) => entry.id && entry.amount > 0);
+  }
+
+  private normalizeRewardType(type: any): MailAttachment['type'] {
+    if (type === 'resource') {
+      return 'resource';
+    }
+    if (type === 'fragment') {
+      return 'fragment';
+    }
+    return 'item';
   }
 
   private serializeMail(mail: PlayerMailDocument) {

@@ -148,6 +148,8 @@ class BattleUnit {
             damageRatioCurrentHp: Number(effect.damageRatioCurrentHp) || 0,
             damageMultiplier: Number(effect.damageMultiplier) || 0,
             healTakenMultiplier: Utils.clamp(Number(effect.healTakenMultiplier ?? 1) || 1, 0, 10),
+            attackPercentBonus: Number(effect.attackPercentBonus) || 0,
+            defensePercentBonus: Number(effect.defensePercentBonus) || 0,
             damageReduction: Math.max(0, Number(effect.damageReduction ?? 0) || 0),
             maxStacks: Math.max(1, Number(effect.maxStacks) || 1),
             ignoreDefense: effect.ignoreDefense !== false,
@@ -161,6 +163,7 @@ class BattleUnit {
             sourceOnly: effect.sourceOnly === true,
             sourceUnitId: effect.sourceUnitId || source?.id || null,
             sourceName: effect.sourceName || source?.name || null,
+            skipNextTurnEndDecay: effect.skipNextTurnEndDecay === true,
             appliedAt: Date.now()
         };
     }
@@ -351,6 +354,7 @@ class BattleUnit {
                                 durationTurns: effect.durationTurns,
                                 sourceUnitId: effect.sourceUnitId,
                                 sourceName: effect.sourceName,
+                                skipNextTurnEndDecay: effect.skipNextTurnEndDecay === true,
                                 appliedAt: effect.appliedAt
                             };
                         });
@@ -370,6 +374,7 @@ class BattleUnit {
                     durationTurns: effect.durationTurns,
                     sourceUnitId: effect.sourceUnitId,
                     sourceName: effect.sourceName,
+                    skipNextTurnEndDecay: effect.skipNextTurnEndDecay === true,
                     appliedAt: effect.appliedAt
                 };
                 this.statusEffects[refreshTarget.index] = refreshedEffect;
@@ -381,6 +386,7 @@ class BattleUnit {
                             durationTurns: effect.durationTurns,
                             sourceUnitId: effect.sourceUnitId,
                             sourceName: effect.sourceName,
+                            skipNextTurnEndDecay: effect.skipNextTurnEndDecay === true,
                             appliedAt: effect.appliedAt
                         };
                     });
@@ -553,6 +559,10 @@ class BattleUnit {
     processTurnEndEffects() {
         const expired = [];
         this.statusEffects.forEach((effect) => {
+            if (effect.skipNextTurnEndDecay) {
+                effect.skipNextTurnEndDecay = false;
+                return;
+            }
             effect.remainingTurns = Math.max(0, (Number(effect.remainingTurns) || 0) - 1);
             if (effect.remainingTurns <= 0) {
                 expired.push({ ...effect });
@@ -664,6 +674,17 @@ class BattleUnit {
         );
         this.hp += actualHeal;
         return actualHeal;
+    }
+
+    increaseMaxHpByRatio(ratio = 0) {
+        const safeRatio = Utils.clamp(Number(ratio) || 0, 0, 5);
+        const increased = Math.max(0, Math.floor(this.maxHp * safeRatio));
+        if (increased <= 0) {
+            return 0;
+        }
+        this.maxHp += increased;
+        this.hp = Math.min(this.maxHp, this.hp + increased);
+        return increased;
     }
 
     revive(reviveRatio = 0.3) {
@@ -857,17 +878,20 @@ class BattleUnit {
     }
 
     getPower() {
-        return Math.floor(
-            this._attack * this.attackCoefficient * 2 +
-            this.defense * 1.5 +
-            this.maxHp * 0.5 +
-            this.speed * 1.2 +
-            this.crit +
-            this.antiCrit +
-            this.defensePen +
-            this.attackRange * 8 +
-            this.moveRange * 6
-        );
+        return GameConfig.calculateCombatPower({
+            attack: this._attack,
+            attackCoefficient: this.attackCoefficient,
+            defense: this.defense,
+            hp: this.maxHp,
+            speed: this.speed,
+            crit: this.crit,
+            antiCrit: this.antiCrit,
+            defensePen: this.defensePen,
+            accuracy: this.accuracy,
+            dodge: this.dodge,
+            attackRange: this.attackRange,
+            moveRange: this.moveRange
+        });
     }
 
     isAlive() {

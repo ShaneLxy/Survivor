@@ -34,12 +34,13 @@ const GachaConfig = {
                 diamond: { single: 120, ten: 1100 }
             },
             entries: [
-                { id: 'equip_gold', type: 'resource', resourceId: 'gold', min: 150, max: 650, weight: 30, label: '金币 150-650', rateText: '30%' },
+                { id: 'equip_gold', type: 'resource', resourceId: 'gold', min: 150, max: 650, weight: 29, label: '金币 150-650', rateText: '29%' },
                 { id: 'equip_iron_ore', type: 'resource', resourceId: 'iron_ore', min: 5, max: 15, weight: 20, label: '铁矿石 5-15', rateText: '20%' },
                 { id: 'equip_wood', type: 'resource', resourceId: 'wood', min: 5, max: 15, weight: 15, label: '木材 5-15', rateText: '15%' },
                 { id: 'equip_common', type: 'equipment', rarity: 'common', weight: 15, label: '随机普通装备', rateText: '15%' },
                 { id: 'equip_rare', type: 'equipment', rarity: 'rare', weight: 10, label: '随机稀有装备', rateText: '10%' },
-                { id: 'equip_epic', type: 'equipment', rarity: 'epic', weight: 7.5, label: '随机史诗装备', rateText: '7.5%' },
+                { id: 'equip_epic', type: 'equipment', rarity: 'epic', weight: 7, label: '随机史诗装备', rateText: '7%' },
+                { id: 'equip_legendary', type: 'equipment', rarity: 'legendary', weight: 1.5, label: '随机传说装备', rateText: '1.5%' },
                 { id: 'equip_diamond', type: 'resource', resourceId: 'diamond', min: 20, max: 60, weight: 2.5, label: '钻石 20-60', rateText: '2.5%' }
             ]
         }

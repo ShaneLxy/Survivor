@@ -13,13 +13,30 @@ class DungeonManager {
     }
 
     init(saveData) {
-        this.dungeons = DungeonConfig.getAllDungeons().map(config => new Dungeon(config));
+        this.reloadFromConfig();
         this.completedDungeons = saveData?.completedDungeons || {};
         this.stars = saveData?.stars || {};
     }
 
+    reloadFromConfig() {
+        this.dungeons = DungeonConfig.getAllDungeons().map(config => new Dungeon(config));
+        return this.getAllDungeons();
+    }
+
     getDungeon(dungeonId) {
-        return this.dungeons.find(dungeon => dungeon.id === dungeonId) || null;
+        const currentDungeon = this.dungeons.find(dungeon => dungeon.id === dungeonId);
+        if (currentDungeon) {
+            return currentDungeon;
+        }
+
+        const config = DungeonConfig.getDungeonConfig(dungeonId);
+        if (!config) {
+            return null;
+        }
+
+        const nextDungeon = new Dungeon(config);
+        this.dungeons.push(nextDungeon);
+        return nextDungeon;
     }
 
     getAllDungeons() {
@@ -45,11 +62,13 @@ class DungeonManager {
                 if (!enemyConfig) {
                     return;
                 }
+                const entryRank = DungeonConfig.getEnemyEntryRank(enemyEntry, enemyConfig);
                 const existing = entryMap.get(enemyEntry.id) || {
                     id: enemyEntry.id,
                     name: enemyConfig.name,
                     icon: enemyConfig.icon,
-                    rank: enemyConfig.rank || 'normal',
+                    portrait: enemyConfig.portrait || null,
+                    rank: entryRank,
                     description: enemyConfig.description || '',
                     skills: enemyConfig.skills ? enemyConfig.skills.map(skill => ({ ...skill })) : [],
                     skill: enemyConfig.skill ? { ...enemyConfig.skill } : null,
@@ -63,7 +82,9 @@ class DungeonManager {
                     level: dungeon.level,
                     unlocked: dungeonUnlocked,
                     count: Number(enemyEntry.count) || 0,
-                    sourceType: enemyEntry.sourceType || 'initial'
+                    sourceType: enemyEntry.sourceType || 'initial',
+                    rank: entryRank,
+                    stats: DungeonConfig.resolveEnemyEntryStats(enemyEntry, dungeon.level)
                 });
                 entryMap.set(enemyEntry.id, existing);
             });
@@ -78,12 +99,17 @@ class DungeonManager {
                     : entry.dungeons;
                 const previewLevel = availableDungeons.reduce((minLevel, item) => Math.min(minLevel, item.level), Infinity);
                 const normalizedPreviewLevel = Number.isFinite(previewLevel) ? previewLevel : entry.unlockLevel;
+                const previewDungeon = availableDungeons
+                    .slice()
+                    .sort((a, b) => a.level - b.level)[0] || null;
+                const previewRank = previewDungeon?.rank || entry.rank || 'normal';
                 const fullEntry = {
                     ...entry,
                     unlocked,
                     previewLevel: normalizedPreviewLevel,
-                    stats: DungeonConfig.calculateEnemyStats(entry.id, normalizedPreviewLevel),
-                    rankLabel: DungeonConfig.getEnemyRankLabel(entry.rank),
+                    stats: previewDungeon?.stats || DungeonConfig.calculateEnemyStats(entry.id, normalizedPreviewLevel),
+                    rank: previewRank,
+                    rankLabel: DungeonConfig.getEnemyRankLabel(previewRank),
                     dungeons: availableDungeons.sort((a, b) => a.level - b.level)
                 };
                 const bucket = grouped[fullEntry.rank] || grouped.normal;

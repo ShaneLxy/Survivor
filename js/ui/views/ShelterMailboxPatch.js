@@ -266,6 +266,10 @@
             if (entry.type === 'resource') {
                 return RewardModal.createResourceReward(entry.id, entry.amount);
             }
+            if (entry.type === 'fragment' || ItemConfig.getItemConfig(entry.id)?.type === 'fragment') {
+                const heroConfigId = ItemConfig.getItemConfig(entry.id)?.fragmentHeroId || String(entry.id || '').replace(/_fragment$/, '');
+                return RewardModal.createFragmentReward(heroConfigId, entry.amount);
+            }
             return RewardModal.createItemReward(entry.id, entry.amount);
         }).filter(Boolean);
 

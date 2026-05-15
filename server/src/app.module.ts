@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CdkeyModule } from './modules/cdkey/cdkey.module';
+import { GmModule } from './modules/gm/gm.module';
 import { HealthController } from './modules/health/health.controller';
 import { MailModule } from './modules/mail/mail.module';
 import { SaveModule } from './modules/save/save.module';
@@ -18,6 +19,7 @@ const selectedEnvFile = process.env.ENV_FILE || '.env.local';
     MongoModule,
     AuthModule,
     CdkeyModule,
+    GmModule,
     SaveModule,
     MailModule,
   ],

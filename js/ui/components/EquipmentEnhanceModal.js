@@ -19,6 +19,7 @@ class EquipmentEnhanceModal {
             content: this.buildContent(),
             buttons: [
                 { text: '强化', className: 'btn-primary', onClick: () => this.handleEnhance() },
+                { text: '升星', className: 'btn-primary', onClick: () => this.handleOpenStarModal() },
                 { text: '关闭', className: 'btn-secondary', onClick: () => this.close() }
             ],
             onClose: () => {
@@ -40,10 +41,17 @@ class EquipmentEnhanceModal {
         const rows = Object.entries(preview).map(([statKey, value]) => `
             <div class="equipment-enhance-stat-row">
                 <span>${Equipment.getStatName(statKey)}</span>
-                <strong>+${value.current} → +${value.next}</strong>
+                <strong>+${value.current} -> +${value.next}</strong>
             </div>
         `).join('');
         return rows || '<div class="equipment-enhance-empty">当前装备没有可通过强化提升的基础属性</div>';
+    }
+
+    renderEquipmentIcon(equipment) {
+        if (equipment?.iconSrc) {
+            return `<img class="equipment-enhance-icon-image" src="${equipment.iconSrc}" alt="${equipment.name || '装备'}">`;
+        }
+        return equipment?.icon || '📦';
     }
 
     buildContent() {
@@ -60,10 +68,11 @@ class EquipmentEnhanceModal {
         return `
             <div class="equipment-enhance-panel">
                 <div class="equipment-enhance-header">
-                    <div class="equipment-enhance-icon">${equipment.icon}</div>
+                    <div class="equipment-enhance-icon">${this.renderEquipmentIcon(equipment)}</div>
                     <div class="equipment-enhance-main">
                         <div class="equipment-enhance-name" style="color:${GameConfig.getRarityConfig(equipment.rarity).color};">${equipment.name}</div>
                         <div class="equipment-enhance-meta">${EquipmentConfig.getRarityName(equipment.rarity)} · ${EquipmentConfig.getSlotName(equipment.slot)} · ${holderText}</div>
+                        <div class="equipment-enhance-meta">星级：${equipment.starLevel} / ${EquipmentConfig.getStarMaxLevel(equipment.slot)}</div>
                         <div class="equipment-enhance-meta">强化等级：+${equipment.enhanceLevel} / +${maxLevel}</div>
                         <div class="equipment-enhance-meta">当前成功率：${info.successRateText}</div>
                     </div>
@@ -78,7 +87,7 @@ class EquipmentEnhanceModal {
                         <span>铁矿石</span>
                         <strong class="${shelterManager.getResource('iron_ore') >= cost.iron_ore ? 'ok' : 'warn'}">${shelterManager.getResource('iron_ore')} / ${cost.iron_ore}</strong>
                     </div>
-                    <div class="equipment-enhance-tip">失败仅扣金币和铁矿石，不会掉级。</div>
+                    <div class="equipment-enhance-tip">强化失败仅扣除金币和铁矿石，不会掉级。</div>
                     ${info.message ? `<div class="equipment-enhance-tip warn-text">${info.message}</div>` : ''}
                 </div>
                 <div class="equipment-enhance-preview card">
@@ -119,6 +128,20 @@ class EquipmentEnhanceModal {
         window.game.ui.heroView.refresh();
         window.game.save();
         this.refresh();
+    }
+
+    handleOpenStarModal() {
+        const equipment = itemManager.resolveEquipmentTarget(this.currentInstanceId)?.equipment;
+        if (!equipment) {
+            Toast.error('装备不存在');
+            return;
+        }
+        if (!equipment.canStarUpgrade()) {
+            Toast.info('当前装备不可升星');
+            return;
+        }
+        this.close();
+        window.equipmentStarModal?.show?.(equipment.instanceId);
     }
 }
 

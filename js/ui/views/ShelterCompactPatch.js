@@ -9,8 +9,142 @@
             { id: 'building_farm', label: '农场', icon: '🌾' },
             { id: 'building_mine', label: '林矿', icon: '🌲' },
             { id: 'building_well', label: '水井', icon: '🧪' },
+            { id: 'building_training_ground', label: '\u8bad\u7ec3\u573a', icon: '\ud83c\udfd8\ufe0f' },
             { id: 'collect_all', label: '一键收获', icon: '🎁' }
         ];
+    };
+
+    ShelterView.prototype.isCompactBuildingButton = function(button) {
+        return button?.id?.startsWith('building_');
+    };
+
+    ShelterView.prototype.getCompactMainButtons = function(buttons) {
+        const list = Array.isArray(buttons) ? buttons : this.getCompactButtonList();
+        const collectButton = list.find((button) => button.id === 'collect_all');
+        const mailboxButton = list.find((button) => button.id === 'mailbox');
+        return [
+            ...(mailboxButton ? [mailboxButton] : []),
+            { id: 'building_menu', label: '\u5efa\u7b51', icon: '\ud83c\udfd7\ufe0f' },
+            ...(collectButton ? [collectButton] : []),
+            { id: 'reward_ad_test', label: '\u5e7f\u544a\u6d4b\u8bd5', icon: 'AD' }
+        ];
+    };
+
+    ShelterView.prototype.getCompactBuildingButtons = function(buttons) {
+        const list = Array.isArray(buttons) ? buttons : this.getCompactButtonList();
+        return list.filter((button) => this.isCompactBuildingButton(button));
+    };
+
+    ShelterView.prototype.getCompactSideButtonMarkup = function(button) {
+        const isCollect = button.id === 'collect_all';
+        const isMenu = button.id === 'building_menu';
+        const isAdTest = button.id === 'reward_ad_test';
+        const action = isAdTest
+            ? 'window.game.ui.shelterView.watchRewardAdTest(event)'
+            : isMenu
+            ? 'window.game.ui.shelterView.toggleCompactBuildingMenu(event)'
+            : `window.game.ui.shelterView.openBuildingDetail('${button.id}')`;
+
+        return `
+            <button type="button"
+                class="shelter-side-button shelter-side-button-${button.id} ${isCollect ? 'collect-all' : ''} ${isMenu ? 'building-menu' : ''} ${isAdTest ? 'reward-ad-test' : ''}"
+                data-shelter-action="${button.id}"
+                onclick="${action}">
+                <span class="shelter-side-button-icon">${button.icon}</span>
+                <span class="shelter-side-button-label">${button.label}</span>
+            </button>
+        `;
+    };
+
+    ShelterView.prototype.getDirichletRewardAdPlugin = function() {
+        return window.Capacitor?.Plugins?.DirichletRewardAd || null;
+    };
+
+    ShelterView.prototype.getRewardAdTestUserId = function() {
+        const player = window.game?.player;
+        return String(player?.id || player?.accountId || player?.username || player?.name || 'guest');
+    };
+
+    ShelterView.prototype.watchRewardAdTest = async function(event) {
+        event?.stopPropagation?.();
+
+        const itemCheck = itemManager.canAddItemBundle([{ id: 'hero_summon', count: 1 }]);
+        if (!itemCheck.success) {
+            Toast.error(itemCheck.message || '\u80cc\u5305\u5bb9\u91cf\u8fbe\u5230\u4e0a\u9650');
+            return;
+        }
+
+        const button = this.element?.querySelector('[data-shelter-action="reward_ad_test"]');
+        button?.setAttribute('disabled', 'disabled');
+        button?.classList.add('is-loading');
+
+        try {
+            let skippedAd = false;
+            if (itemManager.hasAdSkipCard?.()) {
+                const consumeResult = itemManager.consumeAdSkipCard?.(1);
+                if (!consumeResult?.success) {
+                    Toast.error(consumeResult?.message || '\u514d\u5e7f\u544a\u5361\u6d88\u8017\u5931\u8d25');
+                    return;
+                }
+                skippedAd = true;
+                Toast.success(`\u5df2\u6d88\u80171\u5f20\u514d\u5e7f\u544a\u5361\uff0c\u5269\u4f59${consumeResult.remaining}\u5f20`);
+            } else {
+                const plugin = this.getDirichletRewardAdPlugin();
+                if (!plugin?.showRewardVideo) {
+                    Toast.error('\u5f53\u524d\u73af\u5883\u672a\u63a5\u5165\u6fc0\u52b1\u89c6\u9891\u5e7f\u544a');
+                    return;
+                }
+                Toast.info('\u6b63\u5728\u52a0\u8f7d\u6fc0\u52b1\u89c6\u9891...');
+                const result = await plugin.showRewardVideo({
+                    spaceId: 1056294,
+                    userId: this.getRewardAdTestUserId(),
+                    rewardName: '\u907f\u96be\u6240\u6d4b\u8bd5\u5956\u52b1',
+                    rewardAmount: 1,
+                    extra: 'shelter_reward_ad_test'
+                });
+
+                const rewardGranted = Boolean(result?.rewardGranted || result?.rewardVerify || result?.videoComplete);
+                if (!rewardGranted) {
+                    Toast.error(result?.message || '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u53d1\u653e\u5956\u52b1');
+                    return;
+                }
+            }
+
+            checkinManager?.recordRewardVideoWatch?.();
+            const itemAdded = itemManager.addItem('hero_summon', 1);
+            if (!itemAdded) {
+                Toast.error('\u80cc\u5305\u5bb9\u91cf\u8fbe\u5230\u4e0a\u9650');
+                return;
+            }
+            shelterManager.addResource('diamond', 100);
+
+            window.game.save();
+            window.game.refreshRuntimeUI();
+            await RewardModal.show({
+                title: '\u5e7f\u544a\u6d4b\u8bd5\u5956\u52b1',
+                rewards: [
+                    RewardModal.createResourceReward('diamond', 100),
+                    RewardModal.createItemReward('hero_summon', 1)
+                ],
+                summaryText: skippedAd ? '\u5df2\u4f7f\u7528\u514d\u5e7f\u544a\u5361\u8df3\u8fc7\u5e7f\u544a' : '\u6fc0\u52b1\u89c6\u9891\u5df2\u5b8c\u6210'
+            });
+            window.game.save();
+        } catch (error) {
+            const message = error?.message || error || '\u6fc0\u52b1\u89c6\u9891\u64ad\u653e\u5931\u8d25';
+            Toast.error(String(message));
+        } finally {
+            button?.removeAttribute('disabled');
+            button?.classList.remove('is-loading');
+        }
+    };
+
+    ShelterView.prototype.toggleCompactBuildingMenu = function(event) {
+        event?.stopPropagation?.();
+        const column = this.element?.querySelector('.shelter-side-button-column');
+        if (!column) {
+            return;
+        }
+        column.classList.toggle('is-buildings-open');
     };
 
     ShelterView.prototype.getCompactTopStatus = function() {
@@ -36,7 +170,6 @@
                     </div>
                 </div>
                 <div class="shelter-top-status-subtitle">管理营地建筑、统一收取产出，并规划下一次升级。</div>
-                <div class="shelter-top-status-preview">${rewardText}</div>
             </div>
         `;
     };
@@ -113,6 +246,10 @@
     };
 
     ShelterView.prototype.render = function() {
+        const compactButtons = this.getCompactButtonList();
+        const mainButtons = this.getCompactMainButtons(compactButtons);
+        const buildingButtons = this.getCompactBuildingButtons(compactButtons);
+
         this.element.innerHTML = `
             <div class="scene-view shelter-view shelter-view-compact">
                 <div class="scene-view-backdrop shelter-scene-backdrop">
@@ -125,15 +262,10 @@
                 <div class="scene-view-content shelter-compact-content">
                     ${this.getCompactTopStatus()}
                     <div class="shelter-side-button-column">
-                        ${this.getCompactButtonList().map((button) => `
-                            <button type="button"
-                                class="shelter-side-button shelter-side-button-${button.id} ${button.id === 'collect_all' ? 'collect-all' : ''}"
-                                data-shelter-action="${button.id}"
-                                onclick="window.game.ui.shelterView.openBuildingDetail('${button.id}')">
-                                <span class="shelter-side-button-icon">${button.icon}</span>
-                                <span class="shelter-side-button-label">${button.label}</span>
-                            </button>
-                        `).join('')}
+                        ${mainButtons.map((button) => this.getCompactSideButtonMarkup(button)).join('')}
+                        <div class="shelter-building-button-popover">
+                            ${buildingButtons.map((button) => this.getCompactSideButtonMarkup(button)).join('')}
+                        </div>
                     </div>
                 </div>
             </div>

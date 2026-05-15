@@ -30,7 +30,11 @@ class PlayerPowerTicker {
     }
 
     formatValue(value) {
-        return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('zh-CN');
+        return GameConfig.formatCombatPower(value);
+    }
+
+    resolveAssetUrl(path) {
+        return window.VersionManager?.getVersionedAssetUrl?.(path) || path;
     }
 
     ensureRoot() {
@@ -42,9 +46,19 @@ class PlayerPowerTicker {
         this.root.className = 'player-power-ticker';
         this.root.innerHTML = `
             <div class="player-power-ticker-card">
-                <div class="player-power-ticker-label">战力提升</div>
-                <div class="player-power-ticker-value">0</div>
-                <div class="player-power-ticker-delta">+0</div>
+                <div class="player-power-ticker-emblem" aria-hidden="true">
+                    <img src="${this.resolveAssetUrl('assets/images/ui/power-surge-emblem.png')}" alt="">
+                </div>
+                <div class="player-power-ticker-content">
+                    <div class="player-power-ticker-label">
+                        <span>战力提升</span>
+                        <span class="player-power-ticker-signal">COMBAT POWER</span>
+                    </div>
+                    <div class="player-power-ticker-values">
+                        <div class="player-power-ticker-value">0</div>
+                        <div class="player-power-ticker-delta">+0</div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -117,8 +131,9 @@ class PlayerPowerTicker {
         this.animationStart = performance.now();
         this.isAnimating = true;
 
-        this.root.classList.remove('is-leaving');
-        this.root.classList.add('is-visible');
+        this.root.classList.remove('is-leaving', 'is-counting');
+        void this.root.offsetWidth;
+        this.root.classList.add('is-visible', 'is-counting');
         this.deltaElement.textContent = `+${this.formatValue(this.animationTo - this.animationFrom)}`;
 
         if (this.animationFrame) {
@@ -162,6 +177,7 @@ class PlayerPowerTicker {
         }
 
         this.valueElement.textContent = this.formatValue(this.animationTo);
+        this.root.classList.remove('is-counting');
         this.root.classList.add('is-leaving');
         this.isAnimating = false;
         this.hideTimeout = window.setTimeout(() => {

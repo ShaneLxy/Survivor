@@ -209,6 +209,13 @@
         return rewardEntries;
     }
 
+    canClaimRewards(rewards) {
+        const itemEntries = (Array.isArray(rewards) ? rewards : [])
+            .filter(reward => reward?.type === 'item')
+            .map(reward => ({ id: reward.id, count: reward.count || 1 }));
+        return itemManager.canAddItemBundle(itemEntries);
+    }
+
     claimDaily(taskId) {
         this.resetDailyIfNeeded();
         const definition = TaskManager.DAILY_TASKS.find(task => task.id === taskId);
@@ -221,6 +228,11 @@
         }
         if (task.claimed) {
             return { success: false, message: '奖励已领取' };
+        }
+
+        const inventoryCheck = this.canClaimRewards(definition.reward);
+        if (!inventoryCheck.success) {
+            return { success: false, message: inventoryCheck.message || '背包容量达到上限' };
         }
 
         this.dailyClaimed[taskId] = true;
@@ -241,6 +253,11 @@
         }
         if (task.claimed) {
             return { success: false, message: '奖励已领取' };
+        }
+
+        const inventoryCheck = this.canClaimRewards(definition.reward);
+        if (!inventoryCheck.success) {
+            return { success: false, message: inventoryCheck.message || '背包容量达到上限' };
         }
 
         this.achievementClaimed[taskId] = true;

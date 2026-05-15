@@ -75,17 +75,34 @@
         };
 
         const modal = new Modal({
-            title: '战斗失败',
+            title: '作战失败',
             showClose: false,
+            className: 'battle-defeat-modal-shell',
             content: `
-                <div style="text-align:center;">
-                    <div style="font-size:64px;margin-bottom:15px;">💥</div>
-                    <p>本次作战失败，返回副本后可以继续调整阵容。</p>
+                <div class="battle-defeat-modal">
+                    <div class="battle-defeat-emblem" aria-hidden="true">
+                        <span class="battle-defeat-emblem-core">!</span>
+                    </div>
+                    <div class="battle-defeat-copy">
+                        <div class="battle-defeat-kicker">MISSION FAILED</div>
+                        <h3>防线已被突破</h3>
+                        <p>本次作战未能完成，返回副本页后可以重新调整阵容、站位和装备，再次发起挑战。</p>
+                    </div>
+                    <div class="battle-defeat-advice">
+                        <div>
+                            <span>战况</span>
+                            <strong>未通关</strong>
+                        </div>
+                        <div>
+                            <span>下一步</span>
+                            <strong>整备阵容</strong>
+                        </div>
+                    </div>
                 </div>
             `,
             buttons: [{
-                text: '确定',
-                className: 'btn-primary',
+                text: '返回副本',
+                className: 'btn-primary battle-defeat-modal-action',
                 onClick: () => {
                     modal.close();
                     exitToDungeon();

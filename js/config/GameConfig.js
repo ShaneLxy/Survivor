@@ -45,6 +45,22 @@ const GameConfig = {
         normalModeDelay: 1000
     },
 
+    combatPower: {
+        weights: {
+            attack: 20,
+            defense: 12,
+            hp: 3,
+            speed: 10,
+            crit: 8,
+            antiCrit: 6,
+            defensePen: 8,
+            accuracy: 6,
+            dodge: 6,
+            attackRange: 40,
+            moveRange: 30
+        }
+    },
+
     gacha: {
         rates: {
             legendary: 0.005,
@@ -92,6 +108,40 @@ GameConfig.getExpRequired = function(level) {
 
 GameConfig.getRarityConfig = function(rarity) {
     return this.rarity[rarity] || this.rarity.common;
+};
+
+GameConfig.calculateCombatPower = function(stats = {}) {
+    const weights = this.combatPower?.weights || {};
+    const attack = Math.max(0, Number(stats.attack) || 0);
+    const attackCoefficient = Math.max(0.05, Number(stats.attackCoefficient) || 1);
+    const defense = Math.max(0, Number(stats.defense) || 0);
+    const hp = Math.max(0, Number(stats.hp ?? stats.maxHp) || 0);
+    const speed = Math.max(0, Number(stats.speed) || 0);
+    const crit = Math.max(0, Number(stats.crit) || 0);
+    const antiCrit = Math.max(0, Number(stats.antiCrit) || 0);
+    const defensePen = Math.max(0, Number(stats.defensePen) || 0);
+    const accuracy = Math.max(0, Number(stats.accuracy) || 0);
+    const dodge = Math.max(0, Number(stats.dodge) || 0);
+    const attackRange = Math.max(0, Number(stats.attackRange) || 0);
+    const moveRange = Math.max(0, Number(stats.moveRange) || 0);
+
+    return Math.floor(
+        attack * attackCoefficient * (weights.attack || 0) +
+        defense * (weights.defense || 0) +
+        hp * (weights.hp || 0) +
+        speed * (weights.speed || 0) +
+        crit * (weights.crit || 0) +
+        antiCrit * (weights.antiCrit || 0) +
+        defensePen * (weights.defensePen || 0) +
+        accuracy * (weights.accuracy || 0) +
+        dodge * (weights.dodge || 0) +
+        attackRange * (weights.attackRange || 0) +
+        moveRange * (weights.moveRange || 0)
+    );
+};
+
+GameConfig.formatCombatPower = function(value) {
+    return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('zh-CN');
 };
 
 window.GameConfig = GameConfig;

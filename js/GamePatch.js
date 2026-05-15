@@ -80,6 +80,9 @@
     const originalOnLoginSuccess = Game.prototype.onLoginSuccess;
     Game.prototype.onLoginSuccess = async function() {
         await originalOnLoginSuccess.call(this);
+        if (!this.gameReady) {
+            return;
+        }
         syncUiRefs(this);
         taskManager.record('login');
         this.ui.taskView?.refresh?.();

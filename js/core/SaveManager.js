@@ -123,7 +123,8 @@ class SaveManager {
             },
             settings: {
                 autoBattle: window.game?.settings?.autoBattle || false,
-                muted: window.game?.settings?.muted || false
+                muted: window.game?.settings?.muted || false,
+                environmentEffectsDisabled: window.game?.settings?.environmentEffectsDisabled || false
             },
             heroData: window.heroManager?.getSaveData?.() || null,
             shelterData: window.shelterManager?.getSaveData?.() || null,

@@ -21,12 +21,18 @@ const DungeonConfig = {
             battlefield: {
                 cols: 7,
                 rows: 10,
+                heroSpawn: {
+                    positions: [[10, 3], [10, 4], [10, 5], [9, 2], [9, 6]]
+                },
+                enemySpawn: {
+                    positions: [[1, 3], [1, 4], [1, 5], [2, 2], [2, 6]]
+                },
                 obstacles: [[3, 3], [3, 5], [5, 4]]
             },
             initialEnemies: [
-                { id: 'enemy_zombie', count: 2 },
-                { id: 'enemy_rat', count: 2 },
-                { id: 'enemy_factory_guard', count: 1 }
+                { id: 'enemy_wanderer', count: 2, rank: 'normal', stats: { hp: 56, attack: 12, defense: 5, speed: 8, crit: 3, antiCrit: 0, defensePen: 0, accuracy: 1, dodge: 0, attackRange: 1, moveRange: 2 } },
+                { id: 'enemy_refugee', count: 2, rank: 'normal', stats: { hp: 48, attack: 10, defense: 4, speed: 12, crit: 4, antiCrit: 0, defensePen: 1, accuracy: 2, dodge: 3, attackRange: 1, moveRange: 3 } },
+                { id: 'enemy_raider', count: 1, rank: 'elite', stats: { hp: 128, attack: 20, defense: 13, speed: 10, crit: 6, antiCrit: 4, defensePen: 3, accuracy: 2, dodge: 1, attackRange: 1, moveRange: 2 } }
             ],
             bossWaves: [
                 {
@@ -34,7 +40,7 @@ const DungeonConfig = {
                     spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
-                        { id: 'enemy_factory_overseer', count: 1 }
+                        { id: 'enemy_slaughterer', count: 1, rank: 'boss', stats: { hp: 220, attack: 34, defense: 16, speed: 11, crit: 10, antiCrit: 6, defensePen: 6, accuracy: 5, dodge: 2, attackRange: 2, moveRange: 2 } }
                     ]
                 }
             ],
@@ -58,12 +64,18 @@ const DungeonConfig = {
             battlefield: {
                 cols: 8,
                 rows: 10,
+                heroSpawn: {
+                    positions: [[10, 3], [10, 4], [10, 5], [10, 6], [9, 4], [9, 5]]
+                },
+                enemySpawn: {
+                    positions: [[1, 2], [1, 4], [1, 6], [1, 7], [2, 3], [2, 6]]
+                },
                 obstacles: [[2, 4], [4, 2], [4, 7], [6, 5]]
             },
             initialEnemies: [
-                { id: 'enemy_wolf', count: 2 },
-                { id: 'enemy_bear', count: 1 },
-                { id: 'enemy_forest_spider', count: 1 }
+                { id: 'enemy_wolf', count: 2, rank: 'normal', stats: { hp: 64, attack: 16, defense: 5, speed: 20, crit: 6, antiCrit: 2, defensePen: 2, accuracy: 4, dodge: 4, attackRange: 1, moveRange: 3 } },
+                { id: 'enemy_blood_wolf', count: 1, rank: 'elite', stats: { hp: 118, attack: 24, defense: 8, speed: 18, crit: 8, antiCrit: 3, defensePen: 4, accuracy: 5, dodge: 5, attackRange: 1, moveRange: 3 } },
+                { id: 'enemy_hunter', count: 1, rank: 'normal', stats: { hp: 82, attack: 18, defense: 6, speed: 15, crit: 5, antiCrit: 2, defensePen: 2, accuracy: 6, dodge: 4, attackRange: 2, moveRange: 3 } }
             ],
             bossWaves: [
                 {
@@ -71,7 +83,7 @@ const DungeonConfig = {
                     spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
-                        { id: 'enemy_forest_alpha', count: 1 }
+                        { id: 'enemy_aberrant_wolf', count: 1, rank: 'boss', stats: { hp: 238, attack: 38, defense: 12, speed: 17, crit: 12, antiCrit: 6, defensePen: 7, accuracy: 7, dodge: 4, attackRange: 1, moveRange: 3 } }
                     ]
                 }
             ],
@@ -95,12 +107,18 @@ const DungeonConfig = {
             battlefield: {
                 cols: 7,
                 rows: 11,
+                heroSpawn: {
+                    positions: [[11, 2], [11, 4], [11, 6], [10, 3], [10, 5]]
+                },
+                enemySpawn: {
+                    positions: [[1, 2], [1, 4], [1, 6], [2, 3], [2, 5]]
+                },
                 obstacles: [[3, 2], [3, 6], [5, 4], [7, 3], [7, 5]]
             },
             initialEnemies: [
-                { id: 'enemy_skeleton', count: 2 },
-                { id: 'enemy_ghost', count: 1 },
-                { id: 'enemy_grave_keeper', count: 1 }
+                { id: 'enemy_shelterer', count: 2, rank: 'normal', stats: { hp: 96, attack: 18, defense: 10, speed: 11, crit: 4, antiCrit: 2, defensePen: 1, accuracy: 3, dodge: 2, attackRange: 1, moveRange: 2 } },
+                { id: 'enemy_raider', count: 1, rank: 'elite', stats: { hp: 132, attack: 27, defense: 11, speed: 15, crit: 8, antiCrit: 3, defensePen: 5, accuracy: 6, dodge: 3, attackRange: 1, moveRange: 3 } },
+                { id: 'enemy_hunter', count: 1, rank: 'elite', stats: { hp: 122, attack: 29, defense: 10, speed: 14, crit: 7, antiCrit: 4, defensePen: 7, accuracy: 5, dodge: 2, attackRange: 2, moveRange: 2 } }
             ],
             bossWaves: [
                 {
@@ -108,7 +126,7 @@ const DungeonConfig = {
                     spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
-                        { id: 'enemy_crypt_lord', count: 1 }
+                        { id: 'enemy_infected_hunter', count: 1, rank: 'boss', stats: { hp: 248, attack: 40, defense: 15, speed: 13, crit: 11, antiCrit: 7, defensePen: 8, accuracy: 7, dodge: 3, attackRange: 2, moveRange: 2 } }
                     ]
                 }
             ],
@@ -132,11 +150,17 @@ const DungeonConfig = {
             battlefield: {
                 cols: 8,
                 rows: 11,
+                heroSpawn: {
+                    positions: [[11, 3], [11, 4], [11, 5], [11, 6], [10, 2], [10, 7]]
+                },
+                enemySpawn: {
+                    positions: [[1, 3], [1, 4], [1, 5], [1, 6], [2, 2], [2, 7]]
+                },
                 obstacles: [[2, 3], [2, 6], [4, 4], [4, 5], [7, 2], [7, 7]]
             },
             initialEnemies: [
-                { id: 'enemy_zombie_nurse', count: 2 },
-                { id: 'enemy_plague_brute', count: 1 }
+                { id: 'enemy_refugee', count: 2, rank: 'normal', stats: { hp: 112, attack: 22, defense: 7, speed: 12, crit: 5, antiCrit: 2, defensePen: 1, accuracy: 4, dodge: 2, attackRange: 1, moveRange: 2 } },
+                { id: 'enemy_slaughterer', count: 1, rank: 'elite', stats: { hp: 168, attack: 30, defense: 12, speed: 11, crit: 8, antiCrit: 5, defensePen: 5, accuracy: 4, dodge: 1, attackRange: 1, moveRange: 2 } }
             ],
             bossWaves: [
                 {
@@ -144,8 +168,8 @@ const DungeonConfig = {
                     spawnRound: 12,
                     spawnOnClearBeforeRound: true,
                     bosses: [
-                        { id: 'enemy_mutant', count: 1 },
-                        { id: 'enemy_plague_doctor', count: 1 }
+                        { id: 'enemy_mutant', count: 1, rank: 'boss', stats: { hp: 280, attack: 42, defense: 14, speed: 9, crit: 10, antiCrit: 6, defensePen: 8, accuracy: 6, dodge: 2, attackRange: 2, moveRange: 2 } },
+                        { id: 'enemy_infected_hunter', count: 1, rank: 'boss', stats: { hp: 232, attack: 39, defense: 12, speed: 15, crit: 12, antiCrit: 7, defensePen: 7, accuracy: 8, dodge: 4, attackRange: 2, moveRange: 2 } }
                     ]
                 }
             ],
@@ -161,176 +185,193 @@ const DungeonConfig = {
         }
     ],
 
-    enemies: {
-        enemy_zombie: {
-            name: '丧尸',
-            icon: '🧟',
-            rank: 'normal',
-            description: '行动迟缓的感染者，擅长用数量压制闯入者。',
-            skill: null,
-            baseStats: { hp: 56, attack: 12, defense: 5, speed: 8, crit: 3, antiCrit: 0, defensePen: 0, accuracy: 1, dodge: 0, attackRange: 1, moveRange: 2 }
+    enemyTemplates: {
+        enemy_raider: {
+            name: '掠夺者',
+            icon: '掠',
+            portrait: 'assets/media/enemys/bingtuanA.png',
+            description: '兵团体系中的前线突击单位，擅长快速压迫与近身缠斗。',
+            skills: []
         },
-        enemy_rat: {
-            name: '变异鼠',
-            icon: '🐀',
-            rank: 'normal',
-            description: '速度极快的小型怪物，喜欢绕后袭扰。',
-            skill: null,
-            baseStats: { hp: 24, attack: 7, defense: 2, speed: 16, crit: 6, antiCrit: 0, defensePen: 0, accuracy: 4, dodge: 6, attackRange: 1, moveRange: 3 }
+        enemy_slaughterer: {
+            name: '屠戮者',
+            icon: '屠',
+            portrait: 'assets/media/enemys/bingtuanB.png',
+            description: '重型兵团单位，拥有更强的正面压制和斩杀威胁。',
+            skills: []
         },
-        enemy_factory_guard: {
-            name: '重装看守',
-            icon: '🦾',
-            rank: 'elite',
-            description: '被改造成战斗兵器的工厂看守，正面承伤能力很强。',
-            skill: {
-                name: '重锤粉碎',
-                multiplier: 1.6,
-                description: '蓄力重击前方目标，造成 160% 攻击伤害。'
-            },
-            baseStats: { hp: 128, attack: 20, defense: 13, speed: 10, crit: 6, antiCrit: 4, defensePen: 3, accuracy: 2, dodge: 1, attackRange: 1, moveRange: 2 }
-        },
-        enemy_factory_overseer: {
-            name: '工厂监工',
-            icon: '🤖',
-            rank: 'boss',
-            description: '废弃工厂真正的支配者，会在杂兵倒下后亲自清场。',
-            skill: {
-                name: '过载轰击',
-                multiplier: 2.05,
-                description: '启动过载核心，对目标造成 205% 攻击伤害。'
-            },
-            baseStats: { hp: 220, attack: 34, defense: 16, speed: 11, crit: 10, antiCrit: 6, defensePen: 6, accuracy: 5, dodge: 2, attackRange: 2, moveRange: 2 }
+        enemy_hunter: {
+            name: '狩猎者',
+            icon: '猎',
+            portrait: 'assets/media/enemys/bingtuanC.png',
+            description: '擅长追踪与集火的战斗单位，会优先寻找薄弱目标。',
+            skills: []
         },
         enemy_wolf: {
-            name: '狼',
-            icon: '🐺',
-            rank: 'normal',
-            description: '敏捷的捕食者，善于快速逼近脆弱目标。',
-            skill: null,
-            baseStats: { hp: 64, attack: 16, defense: 5, speed: 20, crit: 6, antiCrit: 2, defensePen: 2, accuracy: 4, dodge: 4, attackRange: 1, moveRange: 3 }
+            name: '饿狼',
+            icon: '狼',
+            portrait: 'assets/media/enemys/langA.png',
+            description: '荒野中成群游荡的捕食者，速度快，容易形成包围。',
+            skills: []
         },
-        enemy_bear: {
-            name: '狂暴巨熊',
-            icon: '🐻',
-            rank: 'elite',
-            description: '凶悍的森林霸主，拍击能直接撕裂前排防线。',
-            skill: {
-                name: '裂地猛击',
-                multiplier: 1.65,
-                description: '挥动巨掌砸向目标，造成 165% 攻击伤害。'
-            },
-            baseStats: { hp: 158, attack: 27, defense: 15, speed: 10, crit: 8, antiCrit: 5, defensePen: 4, accuracy: 2, dodge: 1, attackRange: 1, moveRange: 2 }
+        enemy_blood_wolf: {
+            name: '嗜狼',
+            icon: '嗜',
+            portrait: 'assets/media/enemys/langB.png',
+            description: '更加凶残的狼类变种，攻击欲望与爆发力都更强。',
+            skills: []
         },
-        enemy_forest_spider: {
-            name: '毒纹巨蛛',
-            icon: '🕷️',
-            rank: 'normal',
-            description: '从阴影中扑出的剧毒蜘蛛，命中与闪避都不低。',
-            skill: null,
-            baseStats: { hp: 52, attack: 14, defense: 4, speed: 17, crit: 5, antiCrit: 2, defensePen: 2, accuracy: 6, dodge: 5, attackRange: 1, moveRange: 3 }
+        enemy_aberrant_wolf: {
+            name: '异狼',
+            icon: '异',
+            portrait: 'assets/media/enemys/langC.png',
+            description: '被异常力量扭曲的狼类，行动模式更难预测。',
+            skills: []
         },
-        enemy_forest_alpha: {
-            name: '森嚎狼王',
-            icon: '🐺',
-            rank: 'boss',
-            description: '统御整片森林的狼王，会在猎场最混乱时现身。',
-            skill: {
-                name: '王者撕咬',
-                multiplier: 2.1,
-                description: '发起残暴扑杀，造成 210% 攻击伤害。'
-            },
-            baseStats: { hp: 238, attack: 38, defense: 12, speed: 17, crit: 12, antiCrit: 6, defensePen: 7, accuracy: 7, dodge: 4, attackRange: 1, moveRange: 3 }
+        enemy_wanderer: {
+            name: '流浪者',
+            icon: '流',
+            portrait: 'assets/media/enemys/ganranA.png',
+            description: '长期暴露在污染区的失序者，仍保留部分战斗本能。',
+            skills: []
         },
-        enemy_skeleton: {
-            name: '骷髅兵',
-            icon: '💀',
-            rank: 'normal',
-            description: '被死气驱动的残破骸骨，数量众多但并不坚固。',
-            skill: null,
-            baseStats: { hp: 74, attack: 18, defense: 8, speed: 12, crit: 4, antiCrit: 2, defensePen: 1, accuracy: 3, dodge: 2, attackRange: 1, moveRange: 2 }
+        enemy_refugee: {
+            name: '逃难者',
+            icon: '逃',
+            portrait: 'assets/media/enemys/ganranB.png',
+            description: '在灾变中失控的逃难人群，行动混乱但数量危险。',
+            skills: []
         },
-        enemy_ghost: {
-            name: '幽灵',
-            icon: '👻',
-            rank: 'elite',
-            description: '游离于实体与虚无之间的亡灵，极难被准确命中。',
-            skill: {
-                name: '幽冥撕扯',
-                multiplier: 1.7,
-                description: '释放阴寒利爪，造成 170% 攻击伤害。'
-            },
-            baseStats: { hp: 86, attack: 23, defense: 3, speed: 18, crit: 8, antiCrit: 3, defensePen: 5, accuracy: 6, dodge: 8, attackRange: 2, moveRange: 3 }
+        enemy_shelterer: {
+            name: '避难者',
+            icon: '避',
+            portrait: 'assets/media/enemys/ganranC.png',
+            description: '被污染吞噬的避难者，防御姿态更加顽固。',
+            skills: []
         },
-        enemy_grave_keeper: {
-            name: '守墓武士',
-            icon: '⚔️',
-            rank: 'elite',
-            description: '常年守卫墓穴的亡者战士，能精准斩开护甲。',
-            skill: {
-                name: '墓卫斩',
-                multiplier: 1.75,
-                description: '以墓穴怨气附着武器，造成 175% 攻击伤害。'
-            },
-            baseStats: { hp: 122, attack: 29, defense: 10, speed: 14, crit: 7, antiCrit: 4, defensePen: 7, accuracy: 5, dodge: 2, attackRange: 1, moveRange: 2 }
-        },
-        enemy_crypt_lord: {
-            name: '墓穴领主',
-            icon: '🧛',
-            rank: 'boss',
-            description: '统御整片地下墓穴的领主，擅长以死亡之力压迫敌人。',
-            skill: {
-                name: '冥府宣告',
-                multiplier: 2.2,
-                description: '汇聚死气爆发一击，造成 220% 攻击伤害。'
-            },
-            baseStats: { hp: 248, attack: 40, defense: 15, speed: 13, crit: 11, antiCrit: 7, defensePen: 8, accuracy: 7, dodge: 3, attackRange: 2, moveRange: 2 }
-        },
-        enemy_zombie_nurse: {
-            name: '丧尸护士',
-            icon: '🧟‍♀️',
-            rank: 'normal',
-            description: '医院内被感染的护理人员，攻击稳定且难以摆脱。',
-            skill: null,
-            baseStats: { hp: 96, attack: 21, defense: 6, speed: 10, crit: 4, antiCrit: 2, defensePen: 0, accuracy: 3, dodge: 0, attackRange: 1, moveRange: 2 }
-        },
-        enemy_plague_brute: {
-            name: '疫病屠夫',
-            icon: '🔪',
-            rank: 'elite',
-            description: '身躯畸变的医院执行者，近身爆发极强。',
-            skill: {
-                name: '病灶切开',
-                multiplier: 1.8,
-                description: '挥动手术巨刃，造成 180% 攻击伤害。'
-            },
-            baseStats: { hp: 168, attack: 30, defense: 12, speed: 11, crit: 8, antiCrit: 5, defensePen: 5, accuracy: 4, dodge: 1, attackRange: 1, moveRange: 2 }
+        enemy_infected_hunter: {
+            name: '被感染的狩猎者',
+            icon: '染',
+            portrait: 'assets/media/enemys/ganranD.png',
+            description: '感染后的狩猎者，仍保留追击技巧，并变得更加危险。',
+            skills: []
         },
         enemy_mutant: {
-            name: '变异体',
-            icon: '👾',
-            rank: 'boss',
-            description: '由病毒彻底扭曲的怪物，拥有极高的生命力与破坏力。',
-            skill: {
-                name: '畸变撕裂',
-                multiplier: 2.18,
-                description: '撕裂血肉的一击，造成 218% 攻击伤害。'
-            },
-            baseStats: { hp: 280, attack: 42, defense: 14, speed: 9, crit: 10, antiCrit: 6, defensePen: 8, accuracy: 6, dodge: 2, attackRange: 2, moveRange: 2 }
-        },
-        enemy_plague_doctor: {
-            name: '疫病主宰',
-            icon: '🩺',
-            rank: 'boss',
-            description: '医院深处的领主之一，会与变异体一同镇守禁区。',
-            skill: {
-                name: '绝症审判',
-                multiplier: 2.12,
-                description: '释放高浓度病原冲击，造成 212% 攻击伤害。'
-            },
-            baseStats: { hp: 232, attack: 39, defense: 12, speed: 15, crit: 12, antiCrit: 7, defensePen: 7, accuracy: 8, dodge: 4, attackRange: 2, moveRange: 2 }
+            name: '异变者',
+            icon: '变',
+            portrait: 'assets/media/enemys/ganranE.png',
+            description: '污染深处诞生的异变体，可根据关卡配置承担不同威胁定位。',
+            skills: []
         }
     },
+
+    enemySkillTemplates: {
+        enemy_skill_rending_strike: {
+            name: '撕裂打击',
+            description: '对单个敌方单位造成120%攻击伤害，并附加2回合流血。',
+            multiplier: 1.2,
+            cooldownTurns: 2,
+            range: 1,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true,
+            statusEffects: [
+                { type: 'bleed', name: '流血', durationTurns: 2, damageMultiplier: 0.2, stackMode: 'stack', maxStacks: 3 }
+            ]
+        },
+        enemy_skill_heavy_cleave: {
+            name: '重劈',
+            description: '对单个敌方单位造成170%攻击伤害，冷却较长。',
+            multiplier: 1.7,
+            cooldownTurns: 3,
+            range: 1,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true
+        },
+        enemy_skill_pack_pounce: {
+            name: '扑袭',
+            description: '对单个敌方单位造成110%攻击伤害，并降低目标速度。',
+            multiplier: 1.1,
+            cooldownTurns: 2,
+            range: 2,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true,
+            statusEffects: [
+                { type: 'slow', name: '迟缓', stat: 'speed', value: -0.15, durationTurns: 2, modifierType: 'percent', stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_corrosive_bite: {
+            name: '腐蚀啃咬',
+            description: '对单个敌方单位造成100%攻击伤害，并降低防御。',
+            multiplier: 1,
+            cooldownTurns: 2,
+            range: 1,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true,
+            statusEffects: [
+                { type: 'defense_down', name: '破甲', stat: 'defense', value: -0.2, durationTurns: 2, modifierType: 'percent', stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_frenzy: {
+            name: '狂暴',
+            description: '强化自身攻击力，持续2回合。',
+            multiplier: 1,
+            cooldownTurns: 4,
+            range: 0,
+            targetType: 'self',
+            targetCount: 1,
+            effectType: 'utility',
+            statusEffects: [
+                { type: 'attack_up', name: '狂暴', stat: 'attack', value: 0.25, durationTurns: 2, modifierType: 'percent', stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_toxic_spit: {
+            name: '毒性喷吐',
+            description: '远程攻击单个敌方单位，造成90%攻击伤害并附加中毒。',
+            multiplier: 0.9,
+            cooldownTurns: 2,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: false,
+            statusEffects: [
+                { type: 'poison', name: '中毒', durationTurns: 2, damageMultiplier: 0.18, stackMode: 'stack', maxStacks: 3 }
+            ]
+        },
+        enemy_skill_intimidating_roar: {
+            name: '威吓咆哮',
+            description: '压制多个敌方单位，降低攻击力。',
+            multiplier: 1,
+            cooldownTurns: 4,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 2,
+            effectType: 'utility',
+            statusEffects: [
+                { type: 'attack_down', name: '威吓', stat: 'attack', value: -0.18, durationTurns: 2, modifierType: 'percent', stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_mutant_regen: {
+            name: '异变再生',
+            description: '恢复自身生命。',
+            multiplier: 1.2,
+            cooldownTurns: 4,
+            range: 0,
+            targetType: 'self',
+            targetCount: 1,
+            effectType: 'heal'
+        }
+    },
+
+    enemies: {},
 
     getDungeonConfig(id) {
         return this.dungeons.find(dungeon => dungeon.id === id) || null;
@@ -349,10 +390,25 @@ const DungeonConfig = {
     },
 
     getEnemyCatalog() {
-        const source = this.getUnitCatalog()?.enemies || this.enemies;
+        const source = this.getUnitCatalog()?.enemies || this.enemyTemplates || this.enemies;
         return Object.fromEntries(
             Object.entries(source).map(([id, config]) => [id, this.normalizeEnemyConfig(config)])
         );
+    },
+
+    getEnemySkillCatalog() {
+        const source = this.getUnitCatalog()?.enemySkills || this.enemySkillTemplates || {};
+        return Object.fromEntries(
+            Object.entries(source).map(([id, skill]) => [id, { id, ...skill }])
+        );
+    },
+
+    getEnemySkillConfig(id) {
+        return this.getEnemySkillCatalog()[id] || null;
+    },
+
+    getAllEnemySkillConfigs() {
+        return Object.entries(this.getEnemySkillCatalog()).map(([id, skill]) => ({ id, ...skill }));
     },
 
     normalizeSkillCollection(skills, skill = null) {
@@ -365,13 +421,108 @@ const DungeonConfig = {
         return [];
     },
 
+    normalizeSkillReferenceCollection(skillRefs, skillIds) {
+        const refs = [];
+        if (Array.isArray(skillRefs)) {
+            refs.push(...skillRefs);
+        }
+        if (Array.isArray(skillIds)) {
+            refs.push(...skillIds);
+        }
+        return refs.filter(Boolean);
+    },
+
+    resolveSkillReferences(skillRefs, skillIds) {
+        return this.normalizeSkillReferenceCollection(skillRefs, skillIds)
+            .map((ref) => {
+                const skillId = typeof ref === 'string'
+                    ? ref
+                    : (ref.skillId || ref.id || ref.refId || '');
+                if (!skillId) {
+                    return null;
+                }
+                const baseSkill = this.getEnemySkillConfig(skillId);
+                if (!baseSkill) {
+                    return null;
+                }
+                const overrides = typeof ref === 'object'
+                    ? { ...ref.overrides, ...ref }
+                    : {};
+                delete overrides.id;
+                delete overrides.skillId;
+                delete overrides.refId;
+                delete overrides.overrides;
+                return {
+                    ...baseSkill,
+                    ...overrides,
+                    id: skillId,
+                    skillId
+                };
+            })
+            .filter(Boolean);
+    },
+
+    normalizeStats(stats = {}) {
+        return {
+            hp: Math.max(1, Math.floor(Number(stats.hp) || 1)),
+            attack: Math.max(1, Math.floor(Number(stats.attack) || 1)),
+            attackCoefficient: Math.max(0.05, Number(stats.attackCoefficient) || 1),
+            defense: Math.max(0, Math.floor(Number(stats.defense) || 0)),
+            speed: Math.max(1, Math.floor(Number(stats.speed) || 1)),
+            crit: Math.max(0, Number(stats.crit) || 0),
+            antiCrit: Math.max(0, Number(stats.antiCrit) || 0),
+            defensePen: Math.max(0, Number(stats.defensePen) || 0),
+            accuracy: Math.max(0, Number(stats.accuracy) || 0),
+            dodge: Math.max(0, Number(stats.dodge) || 0),
+            attackRange: Math.max(1, Math.floor(Number(stats.attackRange) || 1)),
+            moveRange: Math.max(1, Math.floor(Number(stats.moveRange) || 1))
+        };
+    },
+
     normalizeEnemyConfig(config = {}) {
-        const skills = this.normalizeSkillCollection(config.skills, config.skill);
+        const directSkills = this.normalizeSkillCollection(config.skills, config.skill);
+        const refSkills = this.resolveSkillReferences(config.skillRefs, config.skillIds);
+        const skills = directSkills.length > 0 ? directSkills : refSkills;
         return {
             ...config,
             skills,
             skill: skills[0] || null
         };
+    },
+
+    getEnemyEntryRank(entry = {}, config = {}) {
+        if (entry.rank) {
+            return entry.rank;
+        }
+        if (entry.sourceType === 'boss' || entry.isBoss === true) {
+            return 'boss';
+        }
+        return config.rank || 'normal';
+    },
+
+    resolveEnemyEntrySkills(entry = {}, config = {}) {
+        const skills = this.normalizeSkillCollection(entry.skills, entry.skill);
+        if (skills.length > 0) {
+            return skills;
+        }
+        const entryRefSkills = this.resolveSkillReferences(entry.skillRefs, entry.skillIds);
+        if (entryRefSkills.length > 0) {
+            return entryRefSkills;
+        }
+        return config.skills ? config.skills.map(skill => ({ ...skill })) : [];
+    },
+
+    resolveEnemyEntryStats(entry = {}, stageLevel = 1) {
+        const configuredStats = entry.stats || entry.baseStats || null;
+        const calculatedStats = configuredStats
+            ? this.normalizeStats(configuredStats)
+            : this.calculateEnemyStats(entry.id, stageLevel, entry.multiplier);
+        if (!calculatedStats) {
+            return null;
+        }
+        return entry.overrideStats
+            ? this.normalizeStats({ ...calculatedStats, ...entry.overrideStats })
+            : calculatedStats;
     },
 
     getEnemyConfig(id) {
@@ -409,7 +560,7 @@ const DungeonConfig = {
 
     calculateEnemyStats(enemyId, stageLevel = 1, multiplier = 1) {
         const enemyConfig = this.getEnemyConfig(enemyId);
-        const base = enemyConfig?.baseStats;
+        const base = enemyConfig?.baseStats || enemyConfig?.defaultStats;
         if (!base) {
             return null;
         }

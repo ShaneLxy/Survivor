@@ -581,6 +581,9 @@ const HeroConfig = {
                 });
             });
             return evolvedEffect;
+        }).filter((effect) => {
+            const unlockStage = Math.max(1, Number(effect?.unlockStage) || 1);
+            return normalizedStar >= unlockStage;
         });
     },
 

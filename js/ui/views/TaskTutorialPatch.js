@@ -39,7 +39,8 @@
     };
 
     TaskView.prototype.restartTutorial = function() {
+        const replay = tutorialManager.hasSeen?.() || Boolean(taskManager.achievementClaimed?.achievement_finish_tutorial);
         tutorialManager.stop(false);
-        tutorialManager.start();
+        tutorialManager.start({ replay });
     };
 })();

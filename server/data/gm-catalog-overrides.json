@@ -1,0 +1,1791 @@
+{
+  "resources": {
+    "meat": {
+      "id": "meat",
+      "type": "resource",
+      "name": "食物",
+      "icon": "M",
+      "iconSrc": "assets/images/items/resource-meat.png",
+      "fallback": "M",
+      "rarity": "common",
+      "description": "重要食物资源，可维持生存",
+      "src": "assets/images/items/resource-meat.png",
+      "updatedAt": "2026-05-13T05:34:05.767Z"
+    }
+  },
+  "items": {
+    "weapon_forge_ticket": {
+      "id": "weapon_forge_ticket",
+      "name": "装备打造券",
+      "icon": "🎟️",
+      "type": "special",
+      "rarity": "epic",
+      "description": "可在招募中心进行1次装备打造",
+      "effect": {
+        "type": "gacha",
+        "poolId": "equipment_pool",
+        "count": 1
+      },
+      "stackLimit": 9999,
+      "iconSrc": "assets/images/items/hero-summon.png",
+      "stats": null,
+      "updatedAt": "2026-05-14T01:57:18.292Z"
+    },
+    "weapon_forge_ten_ticket": {
+      "id": "weapon_forge_ten_ticket",
+      "name": "装备打造10连券",
+      "icon": "🎟️",
+      "type": "special",
+      "rarity": "legendary",
+      "description": "可在招募中心进行1次装备10连打造",
+      "effect": {
+        "type": "gacha",
+        "poolId": "equipment_pool",
+        "count": 10
+      },
+      "stackLimit": 9999,
+      "iconSrc": "assets/images/items/hero-summon.png",
+      "stats": null,
+      "updatedAt": "2026-05-14T01:57:34.821Z"
+    }
+  },
+  "equipment": {},
+  "gachaPools": {},
+  "shelterBuildings": {},
+  "dungeonChapters": {
+    "chapter_01": {
+      "id": "chapter_01",
+      "index": 1,
+      "name": "锈蚀的呼吸",
+      "dungeonIds": [
+        "dungeon_001",
+        "dungeon_005",
+        "dungeon_006"
+      ],
+      "background": "assets/media/chapters/chapter_01_01.png",
+      "description": "从漫长的休眠中醒来，72号避难所的空气过滤系统即将停转。",
+      "chapterNumber": 1,
+      "icon": "",
+      "recommendedLevel": 1,
+      "updatedAt": "2026-05-15T01:10:19.539Z",
+      "source": "gm"
+    },
+    "chapter_02": {
+      "id": "chapter_02",
+      "index": 2,
+      "name": "饥饿的遗产",
+      "dungeonIds": [
+        "dungeon_002",
+        "dungeon_007",
+        "dungeon_008"
+      ],
+      "background": "assets/media/chapters/chapter_02.png",
+      "description": "旧世界留下的遗产有两个——物资，和守着物资的怪物。",
+      "chapterNumber": 2,
+      "icon": "",
+      "recommendedLevel": 1,
+      "updatedAt": "2026-05-15T00:29:59.484Z",
+      "source": "gm"
+    },
+    "chapter_03": {
+      "id": "chapter_03",
+      "index": 3,
+      "name": "力量的代价",
+      "dungeonIds": [
+        "dungeon_003",
+        "dungeon_009",
+        "dungeon_010"
+      ],
+      "background": "assets/media/chapters/chapter_03.png",
+      "description": "污染杀死了弱者。但在极少数人身上，它唤醒了别的东西。",
+      "chapterNumber": 3,
+      "icon": "",
+      "recommendedLevel": 2,
+      "updatedAt": "2026-05-11T13:47:46.219Z",
+      "source": "gm"
+    },
+    "chapter_04": {
+      "id": "chapter_04",
+      "index": 4,
+      "name": "铁锈花园",
+      "dungeonIds": [
+        "dungeon_004"
+      ],
+      "background": "assets/media/chapters/chapter_04.png",
+      "description": "探索一个被污染彻底改造的旧世界植物园，见证“污染”如何将生命扭曲为既美丽又致命的形态。",
+      "chapterNumber": 4,
+      "icon": "",
+      "recommendedLevel": 1,
+      "updatedAt": "2026-05-11T13:48:31.003Z",
+      "source": "gm"
+    }
+  },
+  "dungeons": {
+    "dungeon_001": {
+      "id": "dungeon_001",
+      "name": "苏醒",
+      "icon": "🏭",
+      "level": 1,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              9,
+              2
+            ],
+            [
+              9,
+              6
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": [
+            [
+              1,
+              3
+            ],
+            [
+              1,
+              4
+            ],
+            [
+              1,
+              5
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              2,
+              6
+            ]
+          ]
+        },
+        "obstacles": [
+          [
+            3,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            4
+          ]
+        ]
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_wanderer",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 10,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 7,
+            "speed": 7
+          }
+        },
+        {
+          "id": "enemy_refugee",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 10,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 7,
+            "speed": 7
+          }
+        },
+        {
+          "id": "enemy_raider",
+          "rank": "elite",
+          "count": 1,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_toxic_spit",
+            "enemy_skill_pack_pounce"
+          ],
+          "stats": {
+            "hp": 150,
+            "attack": 10,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 7,
+            "speed": 7
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "dungeon_001_boss_wave_1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": false,
+          "bosses": [
+            {
+              "id": "enemy_raider",
+              "rank": "boss",
+              "count": 1,
+              "positions": [
+                [
+                  2,
+                  3
+                ]
+              ],
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 200,
+                "attack": 20,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 7,
+                "speed": 7,
+                "crit": 5,
+                "antiCrit": 5,
+                "defensePen": 5
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "description": "踏出地表，重启维持生命的第一道防线。但外面的世界，已经不再是你记忆中那个锈带。",
+      "chapterId": "chapter_01",
+      "chapterNumber": 1,
+      "stageNumber": 1,
+      "recommendedLevel": 1,
+      "environmentEffect": "smoke",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "updatedAt": "2026-05-15T00:07:18.850Z",
+      "source": "gm"
+    },
+    "dungeon_005": {
+      "id": "dungeon_005",
+      "name": "收集物资",
+      "icon": "▦",
+      "level": 1,
+      "recommendedLevel": 1,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "chapterId": "chapter_01",
+      "chapterNumber": 1,
+      "stageNumber": 2,
+      "description": "黑暗中有什么东西在呼吸，在等待。在这里，每一次呼吸都需要用命去换。",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              9,
+              4
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": []
+        },
+        "obstacles": []
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_hunter",
+          "rank": "normal",
+          "count": 1,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 12,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 10,
+            "speed": 7
+          }
+        },
+        {
+          "id": "enemy_slaughterer",
+          "rank": "normal",
+          "count": 1,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 12,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 10,
+            "speed": 7
+          }
+        },
+        {
+          "id": "enemy_slaughterer",
+          "rank": "elite",
+          "count": 1,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_frenzy"
+          ],
+          "stats": {
+            "hp": 150,
+            "attack": 17,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 10,
+            "speed": 7
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_raider",
+              "rank": "boss",
+              "count": 1,
+              "positions": [
+                [
+                  2,
+                  3
+                ]
+              ],
+              "skillIds": [
+                "enemy_skill_heavy_cleave",
+                "enemy_skill_frenzy"
+              ],
+              "stats": {
+                "hp": 250,
+                "attack": 20,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 10,
+                "speed": 7
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 1,
+            "max": 1,
+            "chance": 0.1
+          }
+        ]
+      },
+      "updatedAt": "2026-05-15T00:07:24.346Z",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "source": "gm",
+      "environmentEffect": "rain"
+    },
+    "dungeon_006": {
+      "id": "dungeon_006",
+      "name": "搭建避难所",
+      "icon": "▦",
+      "level": 1,
+      "recommendedLevel": 1,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "chapterId": "chapter_01",
+      "chapterNumber": 1,
+      "stageNumber": 3,
+      "description": "黑暗中有什么东西在呼吸，在等待。在这里，每一次呼吸都需要用命去换。",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              10,
+              6
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": []
+        },
+        "obstacles": [
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_hunter",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 15,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 10,
+            "speed": 7,
+            "antiCrit": 0
+          }
+        },
+        {
+          "id": "enemy_slaughterer",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 15,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 10,
+            "speed": 7
+          }
+        },
+        {
+          "id": "enemy_slaughterer",
+          "rank": "elite",
+          "count": 2,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_heavy_cleave"
+          ],
+          "stats": {
+            "hp": 200,
+            "attack": 18,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 12,
+            "speed": 8
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_raider",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 350,
+                "attack": 22,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 15,
+                "speed": 9,
+                "crit": 5,
+                "antiCrit": 5,
+                "defensePen": 2,
+                "accuracy": 5,
+                "dodge": 5
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "updatedAt": "2026-05-15T00:07:30.615Z",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "source": "gm",
+      "environmentEffect": "snow"
+    },
+    "dungeon_002": {
+      "id": "dungeon_002",
+      "name": "黑暗森林",
+      "icon": "🌲",
+      "level": 1,
+      "energyCost": 8,
+      "sceneId": "standard_9x9",
+      "battlefield": {
+        "cols": 8,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              10,
+              6
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              9,
+              5
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": [
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              4
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              1,
+              7
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              2,
+              6
+            ]
+          ]
+        },
+        "obstacles": [
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            6,
+            5
+          ]
+        ]
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_wolf",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 120,
+            "attack": 16,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 10,
+            "speed": 8
+          }
+        },
+        {
+          "id": "enemy_blood_wolf",
+          "rank": "elite",
+          "count": 1,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_heavy_cleave"
+          ],
+          "stats": {
+            "hp": 140,
+            "attack": 20,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 10,
+            "speed": 8
+          }
+        },
+        {
+          "id": "enemy_hunter",
+          "rank": "normal",
+          "count": 1,
+          "positions": [],
+          "stats": {
+            "hp": 120,
+            "attack": 18,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 10,
+            "speed": 8
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_aberrant_wolf",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "skillIds": [
+                "enemy_skill_pack_pounce",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 300,
+                "attack": 25,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 15,
+                "speed": 10,
+                "crit": 5,
+                "antiCrit": 5,
+                "defensePen": 7,
+                "accuracy": 2,
+                "dodge": 3
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "power_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "description": "水源恢复了，但食物即将耗尽。",
+      "chapterId": "chapter_02",
+      "chapterNumber": 2,
+      "stageNumber": 1,
+      "recommendedLevel": 1,
+      "environmentEffect": "poison_fog",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "updatedAt": "2026-05-15T00:29:42.662Z",
+      "source": "gm"
+    },
+    "dungeon_007": {
+      "id": "dungeon_007",
+      "name": "污染侵蚀",
+      "icon": "▦",
+      "level": 1,
+      "recommendedLevel": 1,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "chapterId": "chapter_02",
+      "chapterNumber": 2,
+      "stageNumber": 2,
+      "description": "一份破旧的物资地图指向一座废弃的地下冷链仓库，那里据说封存着足够吃一个月的应急口粮。",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              9,
+              4
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": []
+        },
+        "obstacles": []
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_raider",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 120,
+            "attack": 15,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 12,
+            "speed": 7
+          }
+        },
+        {
+          "id": "enemy_wolf",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_pack_pounce"
+          ],
+          "stats": {
+            "hp": 150,
+            "attack": 22,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 13,
+            "speed": 9
+          }
+        },
+        {
+          "id": "enemy_slaughterer",
+          "rank": "elite",
+          "count": 2,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_heavy_cleave"
+          ],
+          "stats": {
+            "hp": 120,
+            "attack": 16,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 14,
+            "speed": 8
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_blood_wolf",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "skillIds": [
+                "enemy_skill_rending_strike",
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 260,
+                "attack": 25,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 18,
+                "speed": 10,
+                "crit": 7,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 3,
+                "dodge": 3
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "updatedAt": "2026-05-15T00:29:51.665Z",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "source": "gm",
+      "environmentEffect": "dust_smoke"
+    },
+    "dungeon_008": {
+      "id": "dungeon_008",
+      "name": "治愈痛楚",
+      "icon": "▦",
+      "level": 1,
+      "recommendedLevel": 1,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "chapterId": "chapter_02",
+      "chapterNumber": 2,
+      "stageNumber": 3,
+      "description": "她能用觉醒的灵能治愈伤口，但代价是承受同样的痛苦。",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              9,
+              4
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": []
+        },
+        "obstacles": []
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_wolf",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 150,
+            "attack": 17,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 10,
+            "speed": 9
+          }
+        },
+        {
+          "id": "enemy_blood_wolf",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 160,
+            "attack": 18,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 11,
+            "speed": 9
+          }
+        },
+        {
+          "id": "enemy_blood_wolf",
+          "rank": "elite",
+          "count": 2,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_pack_pounce"
+          ],
+          "stats": {
+            "hp": 180,
+            "attack": 19,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 12,
+            "speed": 9
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_aberrant_wolf",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "skillIds": [
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 260,
+                "attack": 22,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 15,
+                "speed": 10,
+                "crit": 5,
+                "antiCrit": 5,
+                "defensePen": 6,
+                "accuracy": 3,
+                "dodge": 3
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 2,
+            "max": 4,
+            "chance": 0.3
+          },
+          {
+            "id": "health_potion_medium",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "updatedAt": "2026-05-15T00:29:59.444Z",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "source": "gm",
+      "environmentEffect": "storm_night"
+    },
+    "dungeon_003": {
+      "id": "dungeon_003",
+      "name": "能源入口",
+      "icon": "⚰️",
+      "level": 2,
+      "energyCost": 10,
+      "sceneId": "standard_9x9",
+      "battlefield": {
+        "cols": 7,
+        "rows": 11,
+        "heroSpawn": {
+          "positions": [
+            [
+              11,
+              2
+            ],
+            [
+              11,
+              4
+            ],
+            [
+              11,
+              6
+            ],
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              5
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": [
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              4
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              2,
+              5
+            ]
+          ]
+        },
+        "obstacles": [
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            5
+          ]
+        ]
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_shelterer",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 160,
+            "attack": 16,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 13,
+            "speed": 8
+          }
+        },
+        {
+          "id": "enemy_raider",
+          "rank": "elite",
+          "count": 1,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_heavy_cleave"
+          ],
+          "stats": {
+            "hp": 190,
+            "attack": 18,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 15,
+            "speed": 9
+          }
+        },
+        {
+          "id": "enemy_hunter",
+          "rank": "elite",
+          "count": 1,
+          "positions": [],
+          "skillIds": [
+            "enemy_skill_frenzy"
+          ],
+          "stats": {
+            "hp": 190,
+            "attack": 18,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 15,
+            "speed": 9
+          }
+        },
+        {
+          "id": "enemy_wolf",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 160,
+            "attack": 16,
+            "attackRange": 2,
+            "moveRange": 3,
+            "defense": 13,
+            "speed": 9
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_infected_hunter",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "skillIds": [
+                "enemy_skill_corrosive_bite"
+              ],
+              "stats": {
+                "hp": 300,
+                "attack": 28,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 18,
+                "speed": 9,
+                "crit": 8,
+                "antiCrit": 8,
+                "defensePen": 8,
+                "accuracy": 3,
+                "dodge": 3
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          },
+          {
+            "id": "health_potion_medium",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          },
+          {
+            "id": "power_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "description": "避难所通讯设备截获了一段求救信号，信号源头是一座高纯度晶矿富集的废弃通信塔。",
+      "chapterId": "chapter_03",
+      "chapterNumber": 3,
+      "stageNumber": 1,
+      "recommendedLevel": 2,
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "updatedAt": "2026-05-11T13:43:13.226Z",
+      "source": "gm"
+    },
+    "dungeon_009": {
+      "id": "dungeon_009",
+      "name": "百目洞穴",
+      "icon": "▦",
+      "level": 2,
+      "recommendedLevel": 2,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "chapterId": "chapter_03",
+      "chapterNumber": 3,
+      "stageNumber": 2,
+      "description": "在辐射超标的矿区内，变异的并非只有人类...",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              9,
+              4
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": []
+        },
+        "obstacles": []
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_refugee",
+          "rank": "normal",
+          "count": 1,
+          "positions": [],
+          "stats": {
+            "hp": 160,
+            "attack": 16,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 15,
+            "speed": 8
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_aberrant_wolf",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "stats": {
+                "hp": 300,
+                "attack": 28,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 20,
+                "speed": 10,
+                "crit": 8,
+                "antiCrit": 8,
+                "defensePen": 8,
+                "accuracy": 5,
+                "dodge": 5
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "iron_ore",
+            "min": 5,
+            "max": 10,
+            "chance": 0.3
+          },
+          {
+            "id": "health_potion_small",
+            "min": 2,
+            "max": 4,
+            "chance": 0.3
+          },
+          {
+            "id": "power_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "updatedAt": "2026-05-11T13:32:47.040Z",
+      "chapterDescription": "",
+      "chapterBackground": ""
+    },
+    "dungeon_010": {
+      "id": "dungeon_010",
+      "name": "命悬一线",
+      "icon": "▦",
+      "level": 1,
+      "recommendedLevel": 1,
+      "energyCost": 5,
+      "sceneId": "standard_9x9",
+      "chapterId": "chapter_03",
+      "chapterNumber": 3,
+      "stageNumber": 3,
+      "description": "污染不只带来痛苦，它偶尔也带来力量，只是这份力量的代价，从来不会提前告知。",
+      "battlefield": {
+        "cols": 7,
+        "rows": 10,
+        "heroSpawn": {
+          "positions": [
+            [
+              10,
+              3
+            ],
+            [
+              10,
+              4
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              9,
+              4
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": []
+        },
+        "obstacles": []
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_refugee",
+          "rank": "normal",
+          "count": 1,
+          "positions": [],
+          "stats": {
+            "hp": 180,
+            "attack": 18,
+            "attackRange": 2,
+            "moveRange": 2,
+            "defense": 15,
+            "speed": 9
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_aberrant_wolf",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "skillIds": [
+                "enemy_skill_corrosive_bite",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 350,
+                "attack": 25,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 20,
+                "speed": 10,
+                "crit": 8,
+                "antiCrit": 8,
+                "defensePen": 8,
+                "accuracy": 3,
+                "dodge": 3
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 10,
+          "max": 20
+        },
+        "exp": {
+          "min": 10,
+          "max": 20
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "health_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          },
+          {
+            "id": "iron_ore",
+            "min": 10,
+            "max": 20,
+            "chance": 0.3
+          },
+          {
+            "id": "power_potion_small",
+            "min": 1,
+            "max": 2,
+            "chance": 0.3
+          }
+        ]
+      },
+      "updatedAt": "2026-05-11T13:47:46.182Z",
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "source": "gm"
+    },
+    "dungeon_004": {
+      "id": "dungeon_004",
+      "name": "温室之门",
+      "icon": "🏥",
+      "level": 8,
+      "energyCost": 12,
+      "sceneId": "standard_9x9",
+      "battlefield": {
+        "cols": 8,
+        "rows": 11,
+        "heroSpawn": {
+          "positions": [
+            [
+              11,
+              3
+            ],
+            [
+              11,
+              4
+            ],
+            [
+              11,
+              5
+            ],
+            [
+              11,
+              6
+            ],
+            [
+              10,
+              2
+            ],
+            [
+              10,
+              7
+            ]
+          ]
+        },
+        "enemySpawn": {
+          "positions": [
+            [
+              1,
+              3
+            ],
+            [
+              1,
+              4
+            ],
+            [
+              1,
+              5
+            ],
+            [
+              1,
+              6
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              2,
+              7
+            ]
+          ]
+        },
+        "obstacles": [
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            7
+          ]
+        ]
+      },
+      "initialEnemies": [
+        {
+          "id": "enemy_refugee",
+          "rank": "normal",
+          "count": 2,
+          "positions": [],
+          "stats": {
+            "hp": 112,
+            "attack": 22,
+            "attackRange": 1,
+            "moveRange": 2,
+            "defense": 7,
+            "speed": 12,
+            "crit": 5,
+            "antiCrit": 2,
+            "defensePen": 1,
+            "accuracy": 4,
+            "dodge": 2
+          }
+        },
+        {
+          "id": "enemy_slaughterer",
+          "rank": "elite",
+          "count": 1,
+          "positions": [],
+          "stats": {
+            "hp": 168,
+            "attack": 30,
+            "attackRange": 1,
+            "moveRange": 2,
+            "defense": 12,
+            "speed": 11,
+            "crit": 8,
+            "antiCrit": 5,
+            "defensePen": 5,
+            "accuracy": 4,
+            "dodge": 1
+          }
+        }
+      ],
+      "bossWaves": [
+        {
+          "id": "dungeon_004_boss_wave_1",
+          "spawnRound": 12,
+          "spawnOnClearBeforeRound": true,
+          "bosses": [
+            {
+              "id": "enemy_mutant",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "stats": {
+                "hp": 280,
+                "attack": 42,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 14,
+                "speed": 9,
+                "crit": 10,
+                "antiCrit": 6,
+                "defensePen": 8,
+                "accuracy": 6,
+                "dodge": 2
+              }
+            },
+            {
+              "id": "enemy_infected_hunter",
+              "rank": "boss",
+              "count": 1,
+              "positions": [],
+              "stats": {
+                "hp": 232,
+                "attack": 39,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 12,
+                "speed": 15,
+                "crit": 12,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 8,
+                "dodge": 4
+              }
+            }
+          ]
+        }
+      ],
+      "rewards": {
+        "gold": {
+          "min": 150,
+          "max": 250
+        },
+        "exp": {
+          "min": 80,
+          "max": 100
+        },
+        "chapter": [],
+        "items": [
+          {
+            "id": "exp_potion",
+            "min": 1,
+            "max": 1,
+            "chance": 0.4
+          },
+          {
+            "id": "medicine",
+            "min": 1,
+            "max": 1,
+            "chance": 0.2
+          }
+        ]
+      },
+      "description": "避难所的侦察报告显示，东北方有一片异常的“绿洲”",
+      "chapterId": "chapter_04",
+      "chapterNumber": 4,
+      "stageNumber": 1,
+      "recommendedLevel": 8,
+      "chapterDescription": "",
+      "chapterBackground": "",
+      "updatedAt": "2026-05-11T13:48:30.975Z"
+    }
+  },
+  "enemySkills": {},
+  "shopItems": {
+    "shop_003": {
+      "id": "shop_003",
+      "name": "食物",
+      "icon": "🍖",
+      "type": "resource",
+      "rarity": "common",
+      "price": 50,
+      "currency": "gold",
+      "maxBuy": 10,
+      "giveItem": "meat",
+      "giveCount": 1,
+      "iconSrc": "assets/images/items/resource-meat.png",
+      "sortOrder": 3,
+      "description": "",
+      "updatedAt": "2026-05-13T00:16:57.838Z"
+    }
+  },
+  "welfareGifts": {}
+}

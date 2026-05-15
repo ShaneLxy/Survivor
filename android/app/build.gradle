@@ -1,14 +1,41 @@
 apply plugin: 'com.android.application'
 
+def survivorApplicationId = project.findProperty('survivorApplicationId') ?: 'com.survivor.game'
+def survivorVersionCode = (project.findProperty('survivorVersionCode') ?: '1') as Integer
+def survivorVersionName = project.findProperty('survivorVersionName') ?: '1.0'
+def survivorStoreFilePath = project.findProperty('survivorStoreFile') ?: ''
+def survivorStorePassword = project.findProperty('survivorStorePassword') ?: ''
+def survivorKeyAlias = project.findProperty('survivorKeyAlias') ?: ''
+def survivorKeyPassword = project.findProperty('survivorKeyPassword') ?: ''
+def survivorHasReleaseSigning = survivorStoreFilePath && survivorStorePassword && survivorKeyAlias && survivorKeyPassword
+
 android {
     namespace "com.survivor.game"
     compileSdkVersion rootProject.ext.compileSdkVersion
+    buildFeatures {
+        buildConfig true
+    }
+    signingConfigs {
+        survivorRelease {
+            if (survivorHasReleaseSigning) {
+                storeFile file(survivorStoreFilePath)
+                storePassword survivorStorePassword
+                keyAlias survivorKeyAlias
+                keyPassword survivorKeyPassword
+            }
+        }
+    }
     defaultConfig {
-        applicationId "com.survivor.game"
+        applicationId survivorApplicationId
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode survivorVersionCode
+        versionName survivorVersionName
+        buildConfigField "String", "TAPTAP_CLIENT_ID", "\"zsts6wkx1swukgrsoj\""
+        buildConfigField "String", "TAPTAP_CLIENT_TOKEN", "\"ds7egEapJ7WMDj6dsS4xSZj91fY5cyVt9KWHYUac\""
+        buildConfigField "long", "DIRICHLET_MEDIA_ID", "1102429L"
+        buildConfigField "String", "DIRICHLET_MEDIA_NAME", "\"云境\""
+        buildConfigField "String", "DIRICHLET_MEDIA_KEY", "\"WUyMVg71xN8MDnfTH9BKaNIqCSasQIAKbmitsH7ZO8DhyhRqSgWXrRZihCEdCde4\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,6 +45,9 @@ android {
     }
     buildTypes {
         release {
+            if (survivorHasReleaseSigning) {
+                signingConfig signingConfigs.survivorRelease
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -40,6 +70,12 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    implementation 'com.taptap.sdk:tap-core:4.10.1'
+    implementation 'com.taptap.sdk:tap-login:4.10.1'
+    implementation(name: 'dirichlet_ad_4.2.4.8', ext: 'aar')
+    implementation 'com.squareup.okhttp3:okhttp:3.12.13'
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
 }
 
 apply from: 'capacitor.build.gradle'

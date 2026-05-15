@@ -38,6 +38,7 @@ class ShelterManager {
                 diamond: 0,
                 ...rawResources
             };
+            this.ensureDefaultBuildings();
             this.offlineTime = saveData.offlineTime || Date.now();
             return;
         }
@@ -48,7 +49,7 @@ class ShelterManager {
     }
 
     createInitialBuildings() {
-        const initialBuildingIds = ['building_shelter', 'building_farm', 'building_mine', 'building_well'];
+        const initialBuildingIds = ['building_shelter', 'building_farm', 'building_mine', 'building_well', 'building_training_ground'];
         this.buildings = [];
         initialBuildingIds.forEach(id => {
             const config = BuildingConfig.getBuildingConfig(id);
@@ -94,13 +95,14 @@ class ShelterManager {
 
     getResourceInfo(type) {
         const resourceType = this.normalizeResourceType(type);
+        const getIconSrc = (resourceId) => ResourceVisualConfig.get(resourceId)?.src || '';
         const resourceMap = {
-            gold: { name: '金币', icon: '🪙', rarity: 'common', description: '通用货币，可用于招募、商城购买和建筑发展' },
-            wood: { name: '木材', icon: '🪵', rarity: 'common', description: '升级避难所建筑的基础材料之一' },
-            stone: { name: '石材', icon: '🪨', rarity: 'common', description: '升级避难所建筑的基础材料之一' },
-            meat: { name: '肉类', icon: '🍖', rarity: 'common', description: '重要食物资源，可维持生存' },
-            iron_ore: { name: '铁矿石', icon: '⛏️', rarity: 'rare', description: '装备强化的重要材料' },
-            diamond: { name: '钻石', icon: '💎', rarity: 'epic', description: '高价值稀有货币' },
+            gold: { name: '金币', icon: 'G', iconSrc: getIconSrc('gold'), rarity: 'common', description: '通用货币，可用于招募、商城购买和建筑发展' },
+            wood: { name: '木材', icon: 'W', iconSrc: getIconSrc('wood'), rarity: 'common', description: '升级避难所建筑的基础材料之一' },
+            stone: { name: '石材', icon: 'S', iconSrc: getIconSrc('stone'), rarity: 'common', description: '升级避难所建筑的基础材料之一' },
+            meat: { name: '肉类', icon: 'M', iconSrc: getIconSrc('meat'), rarity: 'common', description: '重要食物资源，可维持生存' },
+            iron_ore: { name: '铁矿石', icon: 'I', iconSrc: getIconSrc('iron_ore'), rarity: 'rare', description: '装备强化的重要材料' },
+            diamond: { name: '钻石', icon: 'D', iconSrc: getIconSrc('diamond'), rarity: 'epic', description: '高价值稀有货币' },
             water: { name: '水源', icon: '💧', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' }
         };
 
@@ -118,6 +120,20 @@ class ShelterManager {
 
     getBuilding(buildingId) {
         return this.buildings.find(b => b.id === buildingId);
+    }
+
+    ensureDefaultBuildings() {
+        const requiredBuildingIds = ['building_shelter', 'building_farm', 'building_mine', 'building_well', 'building_training_ground'];
+        const existingIds = new Set(this.buildings.map((building) => building.id));
+        requiredBuildingIds.forEach((id) => {
+            if (existingIds.has(id)) {
+                return;
+            }
+            const config = BuildingConfig.getBuildingConfig(id);
+            if (config) {
+                this.buildings.push(new Building(config, 1));
+            }
+        });
     }
 
     getAllBuildings() {
@@ -259,31 +275,32 @@ ShelterManager.MAX_PRODUCTION_SECONDS = 12 * 3600;
 
 ShelterManager.prototype.getResourceInfo = function(type) {
     const resourceType = this.normalizeResourceType(type);
+    const getIconSrc = (resourceId) => ResourceVisualConfig.get(resourceId)?.src || '';
     const resourceMap = {
         gold: {
             name: '金币',
             icon: 'G',
-            iconSrc: ResourceVisualConfig.get('gold')?.src || '',
+            iconSrc: getIconSrc('gold'),
             rarity: 'common',
             description: '通用货币，可用于招募、商城购买和建筑发展'
         },
         wood: {
             name: '木材',
             icon: 'W',
-            iconSrc: ResourceVisualConfig.get('wood')?.src || '',
+            iconSrc: getIconSrc('wood'),
             rarity: 'common',
             description: '升级避难所建筑的基础材料之一'
         },
         stone: {
             name: '石材',
             icon: 'S',
-            iconSrc: ResourceVisualConfig.get('stone')?.src || '',
+            iconSrc: getIconSrc('stone'),
             rarity: 'common',
             description: '升级避难所建筑的基础材料之一'
         },
-        meat: { name: '肉类', icon: '🍖', rarity: 'common', description: '重要食物资源，可维持生存' },
-        iron_ore: { name: '铁矿石', icon: '⛏️', rarity: 'rare', description: '装备强化的重要材料' },
-        diamond: { name: '钻石', icon: '💎', rarity: 'epic', description: '高价值稀有货币' },
+        meat: { name: '肉类', icon: 'M', iconSrc: getIconSrc('meat'), rarity: 'common', description: '重要食物资源，可维持生存' },
+        iron_ore: { name: '铁矿石', icon: 'I', iconSrc: getIconSrc('iron_ore'), rarity: 'rare', description: '装备强化的重要材料' },
+        diamond: { name: '钻石', icon: 'D', iconSrc: getIconSrc('diamond'), rarity: 'epic', description: '高价值稀有货币' },
         water: { name: '水源', icon: '💧', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' }
     };
 
@@ -374,6 +391,14 @@ ShelterManager.prototype.collectProduction = function(buildingId) {
     }
     if (!status.rewards.length) {
         return { success: false, message: '当前暂无可收获资源' };
+    }
+
+    const itemRewards = status.rewards
+        .filter(reward => reward.type === 'item')
+        .map(reward => ({ id: reward.id, count: reward.amount || 1 }));
+    const inventoryCheck = itemManager.canAddItemBundle(itemRewards);
+    if (!inventoryCheck.success) {
+        return { success: false, message: inventoryCheck.message || '背包容量达到上限' };
     }
 
     status.rewards.forEach((reward) => {

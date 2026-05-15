@@ -20,6 +20,9 @@ export class CdkeyService {
     if (entity.used) {
       return { success: false, message: '兑换码已被使用', rewards: [] };
     }
+    if (entity.enabled === false) {
+      return { success: false, message: '兑换码已停用', rewards: [] };
+    }
     if (this.isExpired(entity.expireAt)) {
       return { success: false, message: '兑换码已过期', rewards: [] };
     }
@@ -54,10 +57,20 @@ export class CdkeyService {
   private normalizeRewards(rewards: MailAttachment[] | null | undefined): MailAttachment[] {
     return (Array.isArray(rewards) ? rewards : [])
       .map((entry) => ({
-        type: (entry?.type === 'resource' ? 'resource' : 'item') as 'resource' | 'item',
+        type: this.normalizeRewardType(entry?.type),
         id: String(entry?.id || ''),
         amount: Math.max(0, Number(entry?.amount) || 0),
       }))
       .filter((entry) => entry.id && entry.amount > 0);
+  }
+
+  private normalizeRewardType(type: any): MailAttachment['type'] {
+    if (type === 'resource') {
+      return 'resource';
+    }
+    if (type === 'fragment') {
+      return 'fragment';
+    }
+    return 'item';
   }
 }

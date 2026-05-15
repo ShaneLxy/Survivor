@@ -109,6 +109,15 @@ class ShopView {
         return shelterManager.getResource('gold') || 0;
     }
 
+    renderIconMarkup(item, imageClass = 'shop-icon-image') {
+        const src = item?.iconSrc || item?.actualItemIconSrc || '';
+        if (src) {
+            const alt = item?.name || item?.actualItemName || '商品';
+            return `<img class="${imageClass}" src="${src}" alt="${alt}">`;
+        }
+        return item?.actualItemIcon || item?.icon || '◆';
+    }
+
     getFilteredShopItems() {
         if (this.activeType === 'all') {
             return this.shopItems;
@@ -241,7 +250,7 @@ class ShopView {
                 </div>
                 <div class="shop-item-main">
                     <div class="shop-icon-frame">
-                        <span class="shop-icon">${item.icon}</span>
+                        <span class="shop-icon">${this.renderIconMarkup(item)}</span>
                     </div>
                     <div class="shop-item-copy">
                         <div class="shop-name">${item.name}</div>
@@ -295,7 +304,7 @@ class ShopView {
         const content = `
             <div class="shop-confirm-card shop-rarity-${rarityMeta.className}">
                 <div class="shop-confirm-hero">
-                    <div class="shop-confirm-icon">${resolvedItem.actualItemIcon}</div>
+                    <div class="shop-confirm-icon">${this.renderIconMarkup(resolvedItem, 'shop-confirm-icon-image')}</div>
                     <div class="shop-confirm-copy">
                         <div class="shop-stage-kicker">TRADE CONFIRM</div>
                         <h3>${resolvedItem.actualItemName}</h3>
@@ -406,6 +415,15 @@ class ShopView {
                 fragmentRewards = ShopConfig.resolveFragmentRewards(item, quantity);
                 if (!fragmentRewards || fragmentRewards.length === 0) {
                     Toast.error('商品数据异常，请稍后重试');
+                    return false;
+                }
+            }
+
+            if (item.type === 'consumable') {
+                const totalCount = quantity * (resolvedItem.giveCount || 1);
+                const inventoryCheck = itemManager.canAddItem(item.giveItem, totalCount);
+                if (!inventoryCheck.success) {
+                    Toast.error(inventoryCheck.message || '背包容量达到上限');
                     return false;
                 }
             }

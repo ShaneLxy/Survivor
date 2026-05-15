@@ -16,7 +16,8 @@ class Game {
 
         this.settings = {
             autoBattle: false,
-            muted: false
+            muted: false,
+            environmentEffectsDisabled: false
         };
 
         this.ui = {
@@ -34,7 +35,14 @@ class Game {
             loginView
         };
         this.currentView = null;
+        this.initialMailData = null;
         this.gameReady = false; // 游戏是否已经完成初始化
+        this.loadingOverlay = null;
+        this.loadingOverlayHideTimer = null;
+    }
+
+    resolveAssetUrl(path) {
+        return window.VersionManager?.getVersionedAssetUrl?.(path) || path;
     }
 
     async init() {
@@ -45,9 +53,11 @@ class Game {
         loginView.render?.();
 
         audioManager.init();
+        audioManager.playSceneBgm('login');
         if (window.UnitCatalogLoader?.load) {
             await window.UnitCatalogLoader.load();
         }
+        await window.GmCatalogSync?.load?.();
 
         // 强制每次打开都重新登录：清除本地登录状态
         authService.logout();
@@ -67,25 +77,112 @@ class Game {
     async onLoginSuccess() {
         if (this.gameReady) return; // 防止重复初始化
 
-        const localSave = saveManager.load();
-        const resolvedSave = await saveSyncService.resolveInitialSave(localSave);
-        if (resolvedSave?.data) {
-            this.loadFromSave(resolvedSave);
-        } else {
-            this.initNewGame();
+        this.showGameLoadingOverlay({
+            title: '\u6b63\u5728\u8fdb\u5165\u4e91\u5883',
+            message: '\u540c\u6b65\u8d26\u53f7\u5b58\u6863',
+            progress: 12
+        });
+
+        try {
+            const localSave = saveManager.load();
+            this.updateGameLoadingOverlay('\u62c9\u53d6\u4e91\u7aef\u5b58\u6863', 26);
+            const resolvedSave = await saveSyncService.resolveInitialSave(localSave);
+
+            this.updateGameLoadingOverlay('\u521d\u59cb\u5316\u73a9\u5bb6\u6570\u636e', 48);
+            if (resolvedSave?.data) {
+                this.loadFromSave(resolvedSave);
+            } else {
+                this.initNewGame();
+            }
+
+            audioManager.setMuted(this.settings.muted);
+            this.updateGameLoadingOverlay('\u6574\u7406\u79bb\u7ebf\u6536\u76ca', 64);
+            await this.collectOfflineRewards();
+
+            this.updateGameLoadingOverlay('\u6e32\u67d3\u907f\u96be\u6240\u754c\u9762', 78);
+            this.initUI();
+            mailManager.init(this.initialMailData || null);
+
+            this.updateGameLoadingOverlay('\u66f4\u65b0\u90ae\u4ef6\u4e0e\u4efb\u52a1', 90);
+            await mailManager.refresh({ silent: true });
+            mailManager.startAutoRefresh();
+            saveManager.init();
+            this.bindEvents();
+            eventManager.emit('authChange', { loggedIn: authService.isLoggedIn(), user: authService.getCurrentUser() });
+
+            this.gameReady = true;
+            this.updateGameLoadingOverlay('\u51c6\u5907\u5b8c\u6210', 100);
+            this.hideGameLoadingOverlay(360);
+        } catch (error) {
+            console.error('[Game] login initialization failed:', error);
+            Toast.error('\u8fdb\u5165\u6e38\u620f\u5931\u8d25\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55');
+            this.hideGameLoadingOverlay(0);
+            loginView.show();
         }
+    }
 
-        audioManager.setMuted(this.settings.muted);
-        await this.collectOfflineRewards();
-        this.initUI();
-        mailManager.init(null);
-        await mailManager.refresh({ silent: true });
-        mailManager.startAutoRefresh();
-        saveManager.init();
-        this.bindEvents();
-        eventManager.emit('authChange', { loggedIn: authService.isLoggedIn(), user: authService.getCurrentUser() });
+    showGameLoadingOverlay(options = {}) {
+        clearTimeout(this.loadingOverlayHideTimer);
+        let overlay = document.getElementById('game-loading-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'game-loading-overlay';
+            overlay.innerHTML = `
+                <div class="game-loading-backdrop">
+                    <div class="game-loading-grid"></div>
+                    <div class="game-loading-glow game-loading-glow-a"></div>
+                    <div class="game-loading-glow game-loading-glow-b"></div>
+                </div>
+                <div class="game-loading-panel">
+                    <div class="game-loading-mark">&#20113;&#22659;</div>
+                    <div class="game-loading-copy">
+                        <div class="game-loading-title"></div>
+                        <div class="game-loading-message"></div>
+                    </div>
+                    <div class="game-loading-progress">
+                        <div class="game-loading-fill"></div>
+                    </div>
+                    <div class="game-loading-percent">0%</div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+        this.loadingOverlay = overlay;
+        overlay.classList.remove('is-leaving');
+        overlay.classList.add('is-visible');
+        this.updateGameLoadingOverlay(options.message || '\u52a0\u8f7d\u4e2d', options.progress || 0, options.title || '\u6b63\u5728\u8fdb\u5165\u4e91\u5883');
+    }
 
-        this.gameReady = true;
+    updateGameLoadingOverlay(message, progress = 0, title = null) {
+        const overlay = this.loadingOverlay || document.getElementById('game-loading-overlay');
+        if (!overlay) return;
+        const nextProgress = Math.max(0, Math.min(100, Number(progress) || 0));
+        const titleEl = overlay.querySelector('.game-loading-title');
+        const messageEl = overlay.querySelector('.game-loading-message');
+        const fillEl = overlay.querySelector('.game-loading-fill');
+        const percentEl = overlay.querySelector('.game-loading-percent');
+        if (title && titleEl) titleEl.textContent = title;
+        if (messageEl) messageEl.textContent = message || '\u52a0\u8f7d\u4e2d';
+        if (fillEl) fillEl.style.width = `${nextProgress}%`;
+        if (percentEl) percentEl.textContent = `${Math.round(nextProgress)}%`;
+    }
+
+    hideGameLoadingOverlay(delay = 260) {
+        const overlay = this.loadingOverlay || document.getElementById('game-loading-overlay');
+        if (!overlay) return;
+        clearTimeout(this.loadingOverlayHideTimer);
+        this.loadingOverlayHideTimer = setTimeout(() => {
+            overlay.classList.add('is-leaving');
+            overlay.classList.remove('is-visible');
+            setTimeout(() => {
+                if (overlay.parentNode && overlay.classList.contains('is-leaving')) {
+                    overlay.remove();
+                    if (this.loadingOverlay === overlay) {
+                        this.loadingOverlay = null;
+                    }
+                }
+            }, 360);
+        }, Math.max(0, Number(delay) || 0));
     }
 
     applyLegacyMigrations() {
@@ -125,7 +222,8 @@ class Game {
             this.settings = {
                 ...this.settings,
                 autoBattle: Boolean(data.settings.autoBattle),
-                muted: Boolean(data.settings.muted)
+                muted: Boolean(data.settings.muted),
+                environmentEffectsDisabled: Boolean(data.settings.environmentEffectsDisabled)
             };
         }
 
@@ -135,6 +233,8 @@ class Game {
         itemManager.init(data.itemData);
         gachaManager.init(data.gachaData);
         checkinManager.init(data.checkinData);
+        this.initialMailData = data.mailData || null;
+        mailManager.init(this.initialMailData);
         this.applyLegacyMigrations();
         this.recalculatePlayerMaxEnergy();
     }
@@ -150,7 +250,7 @@ class Game {
             nickname: '幸存者',
             avatarHeroConfigId: null
         };
-        this.settings = { autoBattle: false, muted: false };
+        this.settings = { autoBattle: false, muted: false, environmentEffectsDisabled: false };
 
         heroManager.init(null);
         shelterManager.init(null);
@@ -158,6 +258,8 @@ class Game {
         itemManager.init(null);
         gachaManager.init(null);
         checkinManager.init(null);
+        this.initialMailData = null;
+        mailManager.init(null);
         this.applyLegacyMigrations();
         this.recalculatePlayerMaxEnergy({ fillToMax: true });
     }
@@ -271,6 +373,7 @@ class Game {
         }
         this.currentView = viewId;
         this.applyViewMode(viewId);
+        audioManager.playSceneBgm(viewId);
     }
 
     applyViewMode(viewId) {
@@ -280,6 +383,7 @@ class Game {
         const itemSectionElement = document.getElementById('item-section');
         const isBattleMode = viewId === 'battle';
         const isRecruitMode = viewId === 'recruit';
+        const hideItemSection = isBattleMode || isRecruitMode || viewId === 'task' || viewId === 'checkin';
         const isHeroMode = viewId === 'hero';
         if (appElement) {
             appElement.classList.toggle('battle-mode', isBattleMode);
@@ -293,7 +397,7 @@ class Game {
             tabBarElement.style.display = isBattleMode ? 'none' : '';
         }
         if (itemSectionElement) {
-            itemSectionElement.style.display = (isBattleMode || isRecruitMode) ? 'none' : '';
+            itemSectionElement.style.display = hideItemSection ? 'none' : '';
         }
         if (this.ui?.tabBar?.setDisabled) {
             this.ui.tabBar.setDisabled(isBattleMode);
@@ -388,6 +492,7 @@ class Game {
                 id: 'player_exp',
                 name: '玩家经验',
                 icon: '✨',
+                iconSrc: this.resolveAssetUrl('assets/images/rewards/player-exp.png'),
                 count: rewards.exp,
                 rarity: 'rare',
                 detailTypeLabel: '成长奖励',
@@ -400,6 +505,7 @@ class Game {
                 id: 'hero_exp',
                 name: '英雄经验',
                 icon: '📘',
+                iconSrc: this.resolveAssetUrl('assets/images/rewards/hero-exp.png'),
                 count: heroExpSummary.expPerHero,
                 rarity: 'rare',
                 detailTypeLabel: '成长奖励',
@@ -415,6 +521,9 @@ class Game {
         (rewards?.items || []).forEach(item => {
             if (shelterManager.isResourceType(item.id)) {
                 rewardEntries.push(RewardModal.createResourceReward(item.id, item.count || 1));
+            } else if (ItemConfig.getItemConfig(item.id)?.type === 'fragment') {
+                const heroConfigId = ItemConfig.getItemConfig(item.id)?.fragmentHeroId || String(item.id || '').replace(/_fragment$/, '');
+                rewardEntries.push(RewardModal.createFragmentReward(heroConfigId, item.count || 1));
             } else {
                 rewardEntries.push(RewardModal.createItemReward(item.id, item.count || 1));
             }
@@ -424,6 +533,7 @@ class Game {
 
     grantDungeonVictoryRewards(dungeon, participantHeroIds) {
         const rewards = dungeon.calculateRewards(this.player.level);
+        const overflowAttachments = [];
         if (rewards?.gold) {
             shelterManager.addResource('gold', Number(rewards.gold) || 0);
         }
@@ -442,10 +552,32 @@ class Game {
             }
             if (shelterManager.isResourceType(item.id)) {
                 shelterManager.addResource(item.id, item.count || 1);
+            } else if (ItemConfig.getItemConfig(item.id)?.type === 'fragment') {
+                const heroConfigId = ItemConfig.getItemConfig(item.id)?.fragmentHeroId || String(item.id || '').replace(/_fragment$/, '');
+                heroManager.addFragments(heroConfigId, item.count || 1);
             } else {
-                itemManager.addItem(item.id, item.count || 1);
+                const count = Math.max(1, Number(item.count) || 1);
+                const addableCount = itemManager.getAddableItemCount(item.id, count);
+                if (addableCount > 0) {
+                    itemManager.addItem(item.id, addableCount);
+                }
+                if (addableCount < count) {
+                    overflowAttachments.push({
+                        type: 'item',
+                        id: item.id,
+                        amount: count - addableCount
+                    });
+                }
             }
         });
+
+        if (overflowAttachments.length > 0) {
+            mailManager.createSystemMail?.({
+                title: '副本奖励补发',
+                body: '背包容量达到上限，未能直接放入背包的副本奖励已转入邮件。',
+                attachments: overflowAttachments
+            });
+        }
 
         dungeonManager.completeDungeon(dungeon.id, 3);
         this.refreshRuntimeUI();
@@ -468,6 +600,7 @@ class Game {
             itemData: itemManager.getSaveData(),
             gachaData: gachaManager.getSaveData(),
             checkinData: checkinManager.getSaveData(),
+            mailData: mailManager.getSaveData?.() || null,
             lastSaveTime: Date.now()
         };
     }

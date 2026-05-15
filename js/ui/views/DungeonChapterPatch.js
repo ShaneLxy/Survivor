@@ -91,7 +91,7 @@
                 <div class="chapter-stage-detail">
                     <div class="chapter-stage-detail-title">${activeStage.name}</div>
                     <div class="chapter-stage-detail-desc">${activeStage.description || '危险正在蔓延，准备好后再深入。'}</div>
-                    <div class="chapter-stage-detail-section">
+                    <div class="chapter-stage-preview-block">
                         <div class="chapter-stage-detail-label">怪物信息</div>
                         <div class="dungeon-enemy-preview-row">
                             ${enemyPreview.map((enemy) => `
@@ -102,7 +102,7 @@
                             `).join('')}
                         </div>
                     </div>
-                    <div class="chapter-stage-detail-section">
+                    <div class="chapter-stage-preview-block">
                         <div class="chapter-stage-detail-label">掉落梗概</div>
                         <div class="dungeon-reward-preview-row">
                             ${rewardPreview.map((reward) => `<span class="dungeon-reward-chip">${reward}</span>`).join('')}

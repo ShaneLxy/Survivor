@@ -31,7 +31,6 @@ class TopBar {
             <div class="topbar-resource-strip">
                 <div class="status-item status-item-energy">
                     <span class="status-icon status-icon-energy">⚡</span>
-                    <span class="status-label">体力</span>
                     <span class="status-value" id="player-energy">100/100</span>
                 </div>
                 <div class="status-item status-item-gold">
@@ -251,6 +250,10 @@ class TopBar {
                             <input type="checkbox" id="mute-setting" ${window.game.settings.muted ? 'checked' : ''}>
                             <span>关闭游戏声音</span>
                         </label>
+                        <label class="player-info-toggle">
+                            <input type="checkbox" id="environment-effects-setting" ${window.game.settings.environmentEffectsDisabled ? 'checked' : ''}>
+                            <span>关闭游戏特效</span>
+                        </label>
                     </div>
                     ${this.getPlayerInfoToolsMarkup()}
                 </div>
@@ -336,6 +339,7 @@ class TopBar {
     savePlayerInfo(modal) {
         const autoBattleCheckbox = document.getElementById('auto-battle-setting');
         const muteCheckbox = document.getElementById('mute-setting');
+        const environmentEffectsCheckbox = document.getElementById('environment-effects-setting');
 
         window.game.player.avatarHeroConfigId = this.pendingAvatarHeroConfigId || this.getCurrentAvatarHeroConfigId();
         if (autoBattleCheckbox) {
@@ -345,9 +349,13 @@ class TopBar {
             window.game.settings.muted = muteCheckbox.checked;
             audioManager.setMuted(window.game.settings.muted);
         }
+        if (environmentEffectsCheckbox) {
+            window.game.settings.environmentEffectsDisabled = environmentEffectsCheckbox.checked;
+        }
 
         if (window.game.currentView === 'battle') {
             window.game.ui.battleView.applyAutoBattleSettingChange();
+            window.game.ui.battleView.applyEnvironmentEffectSettingChange?.();
         }
 
         modal.close();
@@ -386,6 +394,10 @@ class TopBar {
             const rewardEntries = (Array.isArray(result.rewards) ? result.rewards : []).map((entry) => {
                 if (entry.type === 'resource') {
                     return RewardModal.createResourceReward(entry.id, entry.amount);
+                }
+                if (entry.type === 'fragment' || ItemConfig.getItemConfig(entry.id)?.type === 'fragment') {
+                    const heroConfigId = ItemConfig.getItemConfig(entry.id)?.fragmentHeroId || String(entry.id || '').replace(/_fragment$/, '');
+                    return RewardModal.createFragmentReward(heroConfigId, entry.amount);
                 }
                 return RewardModal.createItemReward(entry.id, entry.amount);
             }).filter(Boolean);

@@ -11,6 +11,7 @@ import { MongoService } from '../../shared/mongo/mongo.service';
 import { UserAccountDocument } from '../../shared/mongo/mongo.types';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { TapTapLoginDto } from './dto/taptap-login.dto';
 
 @Injectable()
 export class AuthService {
@@ -92,6 +93,59 @@ export class AuthService {
       console.error('[AuthService.login] failed:', { account, error });
       throw error;
     }
+  }
+
+  async tapTapLogin(dto: TapTapLoginDto) {
+    const openId = String(dto.openId || '').trim();
+    const unionId = String(dto.unionId || '').trim();
+    if (!openId && !unionId) {
+      throw new BadRequestException('TapTap login missing account identity');
+    }
+
+    const collection = this.mongoService.userAccounts();
+    const identityFilter = unionId
+      ? { $or: [{ taptapUnionId: unionId }, { taptapOpenId: openId }] }
+      : { taptapOpenId: openId };
+    const entity = (await this.mongoService.findOne(collection, identityFilter as any)) as
+      | UserAccountDocument
+      | null;
+
+    const now = this.mongoService.nowIso();
+    if (entity) {
+      const sessionVersion = (Number(entity.sessionVersion) || 0) + 1;
+      await this.mongoService.updateById(collection, entity._id, {
+        nickname: dto.nickname?.trim() || entity.nickname || 'TapTap玩家',
+        taptapOpenId: openId || (entity as any).taptapOpenId || null,
+        taptapUnionId: unionId || (entity as any).taptapUnionId || null,
+        taptapAvatar: dto.avatar || (entity as any).taptapAvatar || null,
+        lastLoginAt: now,
+        sessionVersion,
+        updatedAt: now,
+      } as any);
+      const saved = await this.mongoService.getById(collection, entity._id);
+      return this.buildAuthResponse(saved as UserAccountDocument);
+    }
+
+    const suffix = unionId || openId;
+    const account = `taptap_${suffix}`;
+    const sessionVersion = 1;
+    const id = await this.mongoService.insert(collection, {
+      account,
+      passwordHash: null,
+      nickname: dto.nickname?.trim() || 'TapTap玩家',
+      loginType: 'taptap',
+      sessionVersion,
+      wechatOpenId: null,
+      wechatUnionId: null,
+      taptapOpenId: openId || null,
+      taptapUnionId: unionId || null,
+      taptapAvatar: dto.avatar || null,
+      lastLoginAt: now,
+      createdAt: now,
+      updatedAt: now,
+    } as any);
+    const saved = await this.mongoService.getById(collection, id);
+    return this.buildAuthResponse(saved as UserAccountDocument);
   }
 
   async validateJwtUser(userId: string, sessionVersion?: number) {

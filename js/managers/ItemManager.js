@@ -8,7 +8,9 @@ class ItemManager {
         }
         this.items = [];
         this.equipmentItems = [];
-        this.maxSlots = 120;
+        this.maxItemSlots = 1024;
+        this.maxEquipmentSlots = 1024;
+        this.maxSlots = this.maxItemSlots + this.maxEquipmentSlots;
         ItemManager.instance = this;
     }
 
@@ -156,6 +158,133 @@ class ItemManager {
         return this.getItemsById(itemId).reduce((total, item) => total + (Number(item.count) || 0), 0);
     }
 
+    getUsedItemSlots() {
+        return this.items.length;
+    }
+
+    getUsedEquipmentSlots() {
+        return this.equipmentItems.length;
+    }
+
+    getRemainingItemSlots() {
+        return Math.max(0, this.maxItemSlots - this.getUsedItemSlots());
+    }
+
+    getRemainingEquipmentSlots() {
+        return Math.max(0, this.maxEquipmentSlots - this.getUsedEquipmentSlots());
+    }
+
+    getCapacityLimitMessage() {
+        return '背包容量达到上限';
+    }
+
+    getRequiredItemSlots(itemId, count = 1) {
+        const config = ItemConfig.getItemConfig(itemId);
+        if (!config || this.isLegacyEquipmentConfig(config)) {
+            return Infinity;
+        }
+
+        let remaining = Math.max(0, Number(count) || 0);
+        if (remaining <= 0) {
+            return 0;
+        }
+
+        const stackLimit = Math.max(1, Number(config.stackLimit) || 1);
+        if (stackLimit > 1) {
+            this.items
+                .filter(item => item.id === itemId && item.count < item.stackLimit)
+                .forEach(item => {
+                    if (remaining <= 0) {
+                        return;
+                    }
+                    remaining -= Math.min(remaining, Math.max(0, item.stackLimit - item.count));
+                });
+        }
+
+        return Math.ceil(Math.max(0, remaining) / stackLimit);
+    }
+
+    canAddItem(itemId, count = 1) {
+        const config = ItemConfig.getItemConfig(itemId);
+        if (!config || this.isLegacyEquipmentConfig(config)) {
+            return { success: false, message: '道具不存在' };
+        }
+
+        const amount = Math.max(0, Number(count) || 0);
+        if (amount <= 0) {
+            return { success: false, message: '道具数量无效' };
+        }
+
+        const requiredSlots = this.getRequiredItemSlots(itemId, amount);
+        const availableSlots = this.getRemainingItemSlots();
+        if (requiredSlots > availableSlots) {
+            return { success: false, message: this.getCapacityLimitMessage(), requiredSlots, availableSlots };
+        }
+
+        return { success: true, requiredSlots, availableSlots };
+    }
+
+    canAddItemBundle(entries = []) {
+        const aggregated = new Map();
+        (Array.isArray(entries) ? entries : []).forEach(entry => {
+            const itemId = entry?.id || entry?.itemId;
+            const count = Math.max(0, Number(entry?.count ?? entry?.amount) || 0);
+            if (!itemId || count <= 0) {
+                return;
+            }
+            const config = ItemConfig.getItemConfig(itemId);
+            if (!config || this.isLegacyEquipmentConfig(config)) {
+                return;
+            }
+            aggregated.set(itemId, (aggregated.get(itemId) || 0) + count);
+        });
+
+        let requiredSlots = 0;
+        aggregated.forEach((count, itemId) => {
+            requiredSlots += this.getRequiredItemSlots(itemId, count);
+        });
+
+        const availableSlots = this.getRemainingItemSlots();
+        if (requiredSlots > availableSlots) {
+            return { success: false, message: this.getCapacityLimitMessage(), requiredSlots, availableSlots };
+        }
+
+        return { success: true, requiredSlots, availableSlots };
+    }
+
+    canAddEquipment(count = 1) {
+        const amount = Math.max(0, Number(count) || 0);
+        if (amount <= 0) {
+            return { success: false, message: '装备数量无效' };
+        }
+
+        const availableSlots = this.getRemainingEquipmentSlots();
+        if (amount > availableSlots) {
+            return { success: false, message: this.getCapacityLimitMessage(), requiredSlots: amount, availableSlots };
+        }
+
+        return { success: true, requiredSlots: amount, availableSlots };
+    }
+
+    getAddableItemCount(itemId, count = 1) {
+        const config = ItemConfig.getItemConfig(itemId);
+        if (!config || this.isLegacyEquipmentConfig(config)) {
+            return 0;
+        }
+
+        let capacity = 0;
+        const stackLimit = Math.max(1, Number(config.stackLimit) || 1);
+        if (stackLimit > 1) {
+            this.items
+                .filter(item => item.id === itemId && item.count < item.stackLimit)
+                .forEach(item => {
+                    capacity += Math.max(0, item.stackLimit - item.count);
+                });
+        }
+        capacity += this.getRemainingItemSlots() * stackLimit;
+        return Math.min(Math.max(0, Number(count) || 0), capacity);
+    }
+
     addItem(itemId, count = 1) {
         const config = ItemConfig.getItemConfig(itemId);
         if (!config || this.isLegacyEquipmentConfig(config)) {
@@ -164,6 +293,10 @@ class ItemManager {
 
         let remaining = Math.max(0, Number(count) || 0);
         if (remaining <= 0) {
+            return false;
+        }
+
+        if (!this.canAddItem(itemId, remaining).success) {
             return false;
         }
 
@@ -182,7 +315,7 @@ class ItemManager {
         }
 
         while (remaining > 0) {
-            if (this.getUsedSlots() >= this.maxSlots) {
+            if (this.getUsedItemSlots() >= this.maxItemSlots) {
                 break;
             }
             const stackCount = Math.min(config.stackLimit || 1, remaining);
@@ -203,7 +336,7 @@ class ItemManager {
         if (!(equipment instanceof Equipment)) {
             equipment = Equipment.fromSaveData(equipment);
         }
-        if (!equipment || this.getUsedSlots() >= this.maxSlots) {
+        if (!equipment || !this.canAddEquipment(1).success) {
             return false;
         }
         this.equipmentItems.push(equipment);
@@ -303,7 +436,7 @@ class ItemManager {
     }
 
     getAllEquipment() {
-        return [...this.equipmentItems];
+        return [...this.equipmentItems].sort((left, right) => this.compareEquipment(left, right));
     }
 
     getItemsByType(type) {
@@ -344,20 +477,27 @@ class ItemManager {
         return typeOrder[String(type || '').toLowerCase()] || 0;
     }
 
+    getEquipmentSortScore(equipment) {
+        const stats = equipment?.stats || {};
+        const score =
+            (Number(stats.hp) || 0) +
+            (Number(stats.attack) || 0) * 12 +
+            (Number(stats.defense) || 0) * 10 +
+            (Number(stats.speed) || 0) * 15 +
+            (Number(stats.crit) || 0) * 18 +
+            (Number(stats.antiCrit) || 0) * 14 +
+            (Number(stats.defensePen) || 0) * 16 +
+            (Number(stats.accuracy) || 0) * 12 +
+            (Number(stats.dodge) || 0) * 12 +
+            (Number(stats.attackRange) || 0) * 20 +
+            (Number(stats.moveRange) || 0) * 18;
+        return Math.round(score);
+    }
+
     compareItems(left, right) {
         const rarityDiff = this.getItemRarityRank(right?.rarity) - this.getItemRarityRank(left?.rarity);
         if (rarityDiff !== 0) {
             return rarityDiff;
-        }
-
-        const countDiff = (Number(right?.count) || 0) - (Number(left?.count) || 0);
-        if (countDiff !== 0) {
-            return countDiff;
-        }
-
-        const typeDiff = this.getItemTypeRank(right?.type) - this.getItemTypeRank(left?.type);
-        if (typeDiff !== 0) {
-            return typeDiff;
         }
 
         const nameCompare = String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
@@ -365,7 +505,51 @@ class ItemManager {
             return nameCompare;
         }
 
+        const typeDiff = this.getItemTypeRank(right?.type) - this.getItemTypeRank(left?.type);
+        if (typeDiff !== 0) {
+            return typeDiff;
+        }
+
+        const countDiff = (Number(right?.count) || 0) - (Number(left?.count) || 0);
+        if (countDiff !== 0) {
+            return countDiff;
+        }
+
         return String(left?.id || '').localeCompare(String(right?.id || ''), 'en');
+    }
+
+    compareEquipment(left, right) {
+        const rarityDiff = this.getItemRarityRank(right?.rarity) - this.getItemRarityRank(left?.rarity);
+        if (rarityDiff !== 0) {
+            return rarityDiff;
+        }
+
+        const nameCompare = String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
+        if (nameCompare !== 0) {
+            return nameCompare;
+        }
+
+        const scoreDiff = this.getEquipmentSortScore(right) - this.getEquipmentSortScore(left);
+        if (scoreDiff !== 0) {
+            return scoreDiff;
+        }
+
+        const starDiff = (Number(right?.starLevel) || 0) - (Number(left?.starLevel) || 0);
+        if (starDiff !== 0) {
+            return starDiff;
+        }
+
+        const enhanceDiff = (Number(right?.enhanceLevel) || 0) - (Number(left?.enhanceLevel) || 0);
+        if (enhanceDiff !== 0) {
+            return enhanceDiff;
+        }
+
+        const slotDiff = String(left?.slot || '').localeCompare(String(right?.slot || ''), 'en');
+        if (slotDiff !== 0) {
+            return slotDiff;
+        }
+
+        return String(left?.instanceId || '').localeCompare(String(right?.instanceId || ''), 'en');
     }
 
     useItem(itemId, target, options = {}) {
@@ -507,6 +691,204 @@ class ItemManager {
         };
     }
 
+    getStarConsumableCandidates(target) {
+        const resolved = this.resolveEquipmentTarget(target);
+        const equipment = resolved?.equipment;
+        if (!equipment?.canStarUpgrade?.()) {
+            return [];
+        }
+
+        return this.equipmentItems.filter(item => (
+            item.instanceId !== equipment.instanceId &&
+            item.templateId === equipment.templateId &&
+            item.slot === equipment.slot &&
+            item.starLevel === 0 &&
+            item.enhanceLevel === 0 &&
+            !item.locked
+        )).sort((left, right) => this.compareEquipment(left, right));
+    }
+
+    getEquipmentStarInfo(target) {
+        const resolved = this.resolveEquipmentTarget(target);
+        if (!resolved?.equipment) {
+            return { success: false, message: '装备不存在' };
+        }
+
+        const equipment = resolved.equipment;
+        if (!equipment.canStarUpgrade()) {
+            return { success: false, message: '当前装备不可升星' };
+        }
+
+        const maxStarLevel = EquipmentConfig.getStarMaxLevel(equipment.slot);
+        const requiredCount = EquipmentConfig.getStarMaterialCount();
+        const candidates = this.getStarConsumableCandidates(target);
+        const selectedMaterials = candidates.slice(0, requiredCount);
+        const preview = equipment.getStarUpgradePreview();
+        const missingCount = Math.max(0, requiredCount - selectedMaterials.length);
+        const canUpgrade = equipment.starLevel < maxStarLevel && missingCount === 0;
+
+        let message = '';
+        if (equipment.starLevel >= maxStarLevel) {
+            message = `当前已升至 ${maxStarLevel} 星`;
+        } else if (missingCount > 0) {
+            message = `还需要 ${missingCount} 件同名 0 星装备`;
+        }
+
+        return {
+            success: true,
+            equipment,
+            holder: resolved,
+            maxStarLevel,
+            requiredCount,
+            candidates,
+            selectedMaterials,
+            preview,
+            missingCount,
+            canUpgrade,
+            message
+        };
+    }
+
+    upgradeEquipmentStar(target, materialInstanceIds = null) {
+        const info = this.getEquipmentStarInfo(target);
+        if (!info.success) {
+            return info;
+        }
+        if (info.equipment.starLevel >= info.maxStarLevel) {
+            return { success: false, message: `当前已达到 ${info.maxStarLevel} 星上限`, equipment: info.equipment };
+        }
+
+        const requestedIds = Array.isArray(materialInstanceIds) && materialInstanceIds.length > 0
+            ? materialInstanceIds
+            : info.selectedMaterials.map(item => item.instanceId);
+        const requiredCount = info.requiredCount;
+        const materialMap = new Map();
+
+        requestedIds.forEach(instanceId => {
+            const material = this.getEquipment(instanceId);
+            if (!material) {
+                return;
+            }
+            if (
+                material.instanceId === info.equipment.instanceId ||
+                material.templateId !== info.equipment.templateId ||
+                material.slot !== info.equipment.slot ||
+                material.starLevel !== 0 ||
+                material.enhanceLevel !== 0 ||
+                material.locked
+            ) {
+                return;
+            }
+            materialMap.set(material.instanceId, material);
+        });
+
+        const materials = Array.from(materialMap.values()).slice(0, requiredCount);
+        if (materials.length < requiredCount) {
+            return { success: false, message: `升星材料不足，还需要 ${requiredCount - materials.length} 件同名 0 星装备`, equipment: info.equipment };
+        }
+
+        materials.forEach(material => this.removeEquipment(material.instanceId));
+        info.equipment.increaseStarLevel(1);
+
+        if (info.holder?.hero) {
+            info.holder.hero.refreshStats(false);
+            eventManager.emit('heroEquipmentChange', {
+                heroId: info.holder.hero.id,
+                slot: info.holder.slot,
+                equipment: info.equipment
+            });
+            eventManager.emit('heroUpdate', info.holder.hero);
+        }
+
+        eventManager.emit('equipmentUpdate', {
+            equipment: info.equipment,
+            starLevel: info.equipment.starLevel,
+            consumedMaterials: materials.map(item => item.instanceId)
+        });
+
+        return {
+            success: true,
+            equipment: info.equipment,
+            materials,
+            message: `${info.equipment.name} 升星成功，当前 ${info.equipment.starLevel} 星`
+        };
+    }
+
+    getEquipmentDismantleInfo(target) {
+        const resolved = this.resolveEquipmentTarget(target);
+        if (!resolved?.equipment) {
+            return { success: false, message: '装备不存在' };
+        }
+
+        const equipment = resolved.equipment;
+        if (equipment.locked) {
+            return { success: false, message: '装备已锁定，无法分解' };
+        }
+
+        const baseIronOre = EquipmentConfig.getDismantleBaseReward(equipment.rarity);
+        let refundedEnhanceIronOre = 0;
+        for (let level = 1; level <= equipment.enhanceLevel; level++) {
+            const cost = EquipmentConfig.getEnhanceCost(equipment.rarity, level);
+            refundedEnhanceIronOre += Math.round((Number(cost.iron_ore) || 0) * 0.8);
+        }
+        const refundedStarIronOre = Math.round(baseIronOre * equipment.starLevel * EquipmentConfig.getStarMaterialCount() * 0.6);
+        const totalIronOre = baseIronOre + refundedEnhanceIronOre + refundedStarIronOre;
+
+        return {
+            success: true,
+            equipment,
+            holder: resolved,
+            rewards: {
+                iron_ore: totalIronOre
+            },
+            detail: {
+                baseIronOre,
+                refundedEnhanceIronOre,
+                refundedStarIronOre
+            }
+        };
+    }
+
+    dismantleEquipment(target) {
+        const info = this.getEquipmentDismantleInfo(target);
+        if (!info.success) {
+            return info;
+        }
+
+        const { equipment, holder, rewards } = info;
+        if (holder?.hero) {
+            holder.hero.unequip(holder.slot);
+            holder.hero.refreshStats(false);
+            eventManager.emit('heroEquipmentChange', {
+                heroId: holder.hero.id,
+                slot: holder.slot,
+                equipment: null
+            });
+            eventManager.emit('heroUpdate', holder.hero);
+        }
+
+        this.removeEquipment(equipment.instanceId);
+
+        Object.entries(rewards || {}).forEach(([resourceId, amount]) => {
+            if ((Number(amount) || 0) > 0) {
+                shelterManager.addResource(resourceId, amount);
+            }
+        });
+
+        eventManager.emit('equipmentDismantle', {
+            instanceId: equipment.instanceId,
+            templateId: equipment.templateId,
+            rewards
+        });
+
+        return {
+            success: true,
+            equipment,
+            rewards,
+            message: `${equipment.name} 已分解，获得 ${rewards.iron_ore} 铁矿石`
+        };
+    }
+
     sellItem(itemId, count = 1) {
         const item = this.getItem(itemId);
         const totalCount = this.getItemCount(itemId);
@@ -545,6 +927,35 @@ class ItemManager {
         const finalRarity = rarity || itemConfig?.rarity || 'common';
         const basePrice = isEquipment ? 30 : 10;
         return basePrice * (rarityMap[finalRarity] || 1) * Math.max(1, Number(count) || 1);
+    }
+
+    getAdSkipCardId() {
+        return 'ad_skip_card';
+    }
+
+    getAdSkipCardCount() {
+        return this.getItemCount(this.getAdSkipCardId());
+    }
+
+    hasAdSkipCard() {
+        return this.getAdSkipCardCount() > 0;
+    }
+
+    consumeAdSkipCard(count = 1) {
+        const amount = Math.max(1, Number(count) || 1);
+        const itemId = this.getAdSkipCardId();
+        if (this.getItemCount(itemId) < amount) {
+            return { success: false, message: '免广告卡数量不足' };
+        }
+        if (!this.removeItem(itemId, amount)) {
+            return { success: false, message: '免广告卡消耗失败' };
+        }
+        return {
+            success: true,
+            itemId,
+            count: amount,
+            remaining: this.getItemCount(itemId)
+        };
     }
 
     getItemsByPage(page, pageSize, category = 'item') {
