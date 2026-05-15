@@ -235,3 +235,8 @@ android/.gradle/
 # Temporary build/cache directories
 /.tmp-*/
 *.tsbuildinfo
+
+# Local environment files
+.env
+.env.local
+server/.env.local
