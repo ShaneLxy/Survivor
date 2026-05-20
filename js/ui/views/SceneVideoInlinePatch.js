@@ -59,6 +59,9 @@
         const onError = () => {
             video.dataset.retryBindingReady = '0';
             cleanup();
+            if (isAndroidAppMode()) {
+                return;
+            }
             replaceSceneVideoWithImage(video.parentElement);
         };
 
@@ -95,6 +98,23 @@
         video.setAttribute('x5-video-player-type', 'h5-page');
         video.setAttribute('x5-video-player-fullscreen', 'false');
 
+        try {
+            video.load?.();
+        } catch (error) {}
+
+        const tryPlay = () => {
+            const playPromise = video.play?.();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    if (isAndroidAppMode()) {
+                        bindOneShotPlaybackRetries(video);
+                        return;
+                    }
+                    replaceSceneVideoWithImage(video.parentElement);
+                });
+            }
+        };
+
         const playPromise = video.play?.();
         if (playPromise && typeof playPromise.catch === 'function') {
             playPromise.catch(() => {
@@ -105,6 +125,9 @@
                 replaceSceneVideoWithImage(video.parentElement);
             });
         }
+
+        video.addEventListener('loadedmetadata', tryPlay, { passive: true });
+        video.addEventListener('canplay', tryPlay, { passive: true });
 
         video.addEventListener('pause', () => {
             if (!video.ended && document.visibilityState === 'visible') {

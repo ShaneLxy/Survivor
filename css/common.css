@@ -1,14 +1,33 @@
 /* 全局通用样式 */
 #app {
     width: 100%;
-    height: 100%;
+    height: var(--app-viewport-height, 100vh);
+    min-height: 0;
     display: flex;
     flex-direction: column;
     position: relative;
+    overflow: hidden;
+    overscroll-behavior: none;
     --device-safe-top: max(env(safe-area-inset-top), 16px);
     --inventory-section-height: clamp(150px, 24vh, 188px);
     --inventory-grid-height: calc(var(--inventory-section-height) - 42px);
     --inventory-shell-extra-height: 105px;
+}
+
+@supports (height: 100dvh) {
+    #app {
+        height: var(--app-viewport-height, 100dvh);
+    }
+}
+
+html.is-compact-height #app {
+    --inventory-section-height: clamp(138px, 22vh, 166px);
+    --inventory-shell-extra-height: 94px;
+}
+
+html.is-short-height #app {
+    --inventory-section-height: clamp(124px, 21vh, 150px);
+    --inventory-shell-extra-height: 86px;
 }
 
 /* 顶部状态栏 - 5vh */
@@ -27,8 +46,8 @@
 
 /* 上半屏主展示区 - 55vh */
 .main-display {
-    height: calc(55vh - var(--device-safe-top));
-    flex: 1;
+    height: auto;
+    flex: 1 1 auto;
     min-height: 0;
     background: linear-gradient(180deg, #1f1f1f 0%, #181818 100%);
     position: relative;
@@ -121,8 +140,11 @@
 }
 
 #app.battle-mode .main-display {
-    height: 100%;
-    flex: 1;
+    height: var(--app-viewport-height, 100vh);
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 #app.battle-mode .item-section {
@@ -206,16 +228,31 @@
     height: 24px;
 }
 
+#app.hero-mode.hero-subpage-mode .main-display {
+    flex: 1 1 auto;
+}
+
+#app.hero-mode.hero-subpage-mode .item-section {
+    display: none;
+}
+
 
 /* 全局弹窗容器 */
 #modal-container {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
+    inset: 0;
+    width: 100vw;
+    height: var(--app-viewport-height, 100vh);
+    z-index: 20000;
     pointer-events: none;
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+@supports (height: 100dvh) {
+    #modal-container {
+        height: var(--app-viewport-height, 100dvh);
+    }
 }
 
 #modal-container > * {

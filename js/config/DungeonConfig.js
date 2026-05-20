@@ -368,6 +368,39 @@ const DungeonConfig = {
             targetType: 'self',
             targetCount: 1,
             effectType: 'heal'
+        },
+        enemy_skill_charge_quake: {
+            name: '\u84c4\u529b\u9707\u8361',
+            description: '\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u5bf9\u81ea\u8eab\u5468\u56f41\u683c\u9020\u6210115%\u653b\u51fb\u4f24\u5bb3\u3002',
+            multiplier: 1,
+            cooldownTurns: 4,
+            range: 4,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'warning_area_damage',
+            customEffect: { type: 'warning_area_damage', shape: 'around_self', radius: 1, delayTurns: 2, multiplier: 1.15 }
+        },
+        enemy_skill_line_crack: {
+            name: '\u76f4\u7ebf\u88c2\u51fb',
+            description: '\u84c4\u529b1\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u6cbf\u76ee\u6807\u65b9\u5411\u76f4\u7ebf\u9020\u6210130%\u653b\u51fb\u4f24\u5bb3\u3002',
+            multiplier: 1,
+            cooldownTurns: 3,
+            range: 5,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'warning_area_damage',
+            customEffect: { type: 'warning_area_damage', shape: 'line_to_target', length: 8, delayTurns: 1, multiplier: 1.3 }
+        },
+        enemy_skill_random_fall: {
+            name: '\u968f\u673a\u5760\u51fb',
+            description: '\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u968f\u673a4\u4e2a\u683c\u5b50\u9020\u621090%-130%\u653b\u51fb\u4f24\u5bb3\u3002',
+            multiplier: 1,
+            cooldownTurns: 4,
+            range: 6,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'warning_area_damage',
+            customEffect: { type: 'warning_area_damage', shape: 'random_cells', count: 4, delayTurns: 2, multiplier: 1.1, randomDamageRatio: 0.2 }
         }
     },
 
@@ -397,7 +430,10 @@ const DungeonConfig = {
     },
 
     getEnemySkillCatalog() {
-        const source = this.getUnitCatalog()?.enemySkills || this.enemySkillTemplates || {};
+        const source = {
+            ...(this.enemySkillTemplates || {}),
+            ...(this.getUnitCatalog()?.enemySkills || {})
+        };
         return Object.fromEntries(
             Object.entries(source).map(([id, skill]) => [id, { id, ...skill }])
         );

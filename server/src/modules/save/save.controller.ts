@@ -18,6 +18,26 @@ export class SaveController {
     return this.saveService.upsertSave(req.user, dto);
   }
 
+  @Put('shop/purchase')
+  purchaseShopItem(@Req() req: any, @Body() body: any) {
+    return this.saveService.buyShopItem(req.user.id, body);
+  }
+
+  @Put('checkin/claim')
+  claimCheckin(@Req() req: any) {
+    return this.saveService.claimDailyCheckin(req.user.id);
+  }
+
+  @Put('welfare/claim')
+  claimWelfareGift(@Req() req: any, @Body() body: any) {
+    return this.saveService.claimWelfareGift(req.user.id, body);
+  }
+
+  @Put('month-card/claim')
+  claimMonthCard(@Req() req: any, @Body() body: any) {
+    return this.saveService.claimMonthCard(req.user.id, body);
+  }
+
   @Delete()
   deleteSave(@Req() req: any) {
     return this.saveService.deleteSave(req.user.id);

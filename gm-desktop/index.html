@@ -275,7 +275,7 @@
               </label>
               <label>
                 <span>&#x6D88;&#x8017;&#x8D44;&#x6E90;</span>
-                <input id="poolCostResource" class="text-input" list="rewardTargetOptions" placeholder="diamond">
+                <select id="poolCostResource" class="select-input"></select>
               </label>
               <label>
                 <span>&#x5355;&#x62BD;&#x6D88;&#x8017;</span>
@@ -433,7 +433,7 @@
               </label>
               <label>
                 <span>&#x8D27;&#x5E01;&#x7C7B;&#x578B;</span>
-                <input id="shopItemCurrency" class="text-input" list="rewardTargetOptions" placeholder="gold">
+                <select id="shopItemCurrency" class="select-input"></select>
               </label>
               <label>
                 <span>&#x9650;&#x8D2D;&#x6B21;&#x6570;</span>
@@ -445,7 +445,7 @@
               </label>
               <label>
                 <span>&#x53D1;&#x653E;&#x9053;&#x5177;</span>
-                <input id="shopItemGiveItem" class="text-input" list="rewardTargetOptions" placeholder="meat">
+                <select id="shopItemGiveItem" class="select-input"></select>
               </label>
               <label>
                 <span>&#x53D1;&#x653E;&#x6570;&#x91CF;</span>
@@ -641,6 +641,10 @@
               <label class="wide">
                 <span>&#x969C;&#x788D;&#x5750;&#x6807;</span>
                 <input id="dungeonObstacles" class="text-input" placeholder="4,4;5,4">
+              </label>
+              <label class="wide">
+                <span>&#x7279;&#x6B8A;&#x5730;&#x683C;</span>
+                <textarea id="dungeonSpecialTiles" class="textarea-input" rows="5" placeholder='[{"type":"heal","positions":[[4,4],[4,5]]},{"type":"fire","positions":[[5,4]]},{"type":"swamp","positions":[[6,3]]},{"type":"miasma","positions":[[7,5]]}]'></textarea>
               </label>
               <label>
                 <span>&#x91D1;&#x5E01;&#x6700;&#x5C0F;</span>
@@ -915,7 +919,7 @@
             </label>
             <label>
               <span>版本编码</span>
-              <input id="packageVersionCode" class="text-input" type="number" min="1" value="1">
+              <input id="packageVersionCode" class="text-input" value="">
             </label>
             <label>
               <span>应用包名</span>
@@ -923,7 +927,7 @@
             </label>
             <label>
               <span>应用名称</span>
-              <input id="packageAppName" class="text-input" value="云境">
+              <input id="packageAppName" class="text-input" value="云境Paradise">
             </label>
             <label>
               <span>前端资源版本</span>
@@ -935,7 +939,7 @@
             </label>
             <label>
               <span>输出目录</span>
-              <input id="packageOutputDir" class="text-input" value="dist/android">
+              <input id="packageOutputDir" class="text-input" value="E:\AIGame\Survivor\android\app\build\outputs\apk\debug">
             </label>
             <label>
               <span>打包备注</span>
@@ -972,7 +976,7 @@
             <div class="form-actions wide">
               <button id="startPackageBtn" class="primary-button" type="submit">开始打包</button>
               <button id="clearPackageLogBtn" class="ghost-button" type="button">清空日志</button>
-              <button id="openPackageOutputBtn" class="ghost-button" type="button" disabled>打开输出目录</button>
+              <button id="openPackageOutputBtn" class="ghost-button" type="button">打开输出目录</button>
             </div>
           </form>
           <label class="wide package-result-wrap">

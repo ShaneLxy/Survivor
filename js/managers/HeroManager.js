@@ -361,7 +361,7 @@ class HeroManager {
             passiveEffects: hero.passiveEffects,
             reactiveEffects: hero.reactiveEffects,
             skill: hero.skill,
-            portrait: hero.portrait,
+            portrait: hero.cardPortrait || hero.portrait,
             professionIcon: hero.professionIcon,
             rank: 'player'
         }));

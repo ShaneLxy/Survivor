@@ -98,7 +98,7 @@ class TopBar {
                             autocomplete="off"
                             spellcheck="false"
                         >
-                        <button class="btn btn-primary btn-small player-cdkey-btn" onclick="window.game.ui.topBar.redeemCdkey()">兑换</button>
+                        <button class="btn btn-primary btn-small player-cdkey-btn" onclick="window.game.ui.topBar.redeemCdkey()">获取</button>
                     </div>
                     ${this.getPlayerInfoActionMarkup()}
                 </div>
@@ -141,8 +141,9 @@ class TopBar {
     getAvatarMarkup(heroConfig, options = {}) {
         const sizeClass = options.sizeClass || '';
         const fallbackClass = options.fallbackClass || '';
-        if (heroConfig?.portrait) {
-            return `<div class="player-hero-avatar ${sizeClass}"><img class="player-hero-avatar-image" src="${heroConfig.portrait}" alt="${heroConfig.name || '玩家头像'}"></div>`;
+        const portrait = heroConfig?.cardPortrait || heroConfig?.portrait || null;
+        if (portrait) {
+            return `<div class="player-hero-avatar ${sizeClass}"><img class="player-hero-avatar-image" src="${portrait}" alt="${heroConfig.name || '玩家头像'}" loading="lazy" decoding="async"></div>`;
         }
         return `<div class="player-hero-avatar player-hero-avatar-fallback ${sizeClass} ${fallbackClass}">${heroConfig?.icon || '👤'}</div>`;
     }
@@ -380,7 +381,7 @@ class TopBar {
         try {
             const result = await CdkeyApi.redeem(code);
             if (!result?.success) {
-                Toast.info(result?.message || '兑换失败');
+                Toast.info(result?.message || '获取失败');
                 return;
             }
 
@@ -404,15 +405,15 @@ class TopBar {
 
             if (rewardEntries.length > 0) {
                 await RewardModal.show({
-                    title: '兑换成功',
+                    title: '获取成功',
                     rewards: rewardEntries,
-                    summaryText: result?.cdkey?.title || result?.message || 'CDKEY 已兑换'
+                    summaryText: result?.cdkey?.title || result?.message || 'CDKEY 已获取'
                 });
             } else {
-                Toast.success(result?.message || '兑换成功');
+                Toast.success(result?.message || '获取成功');
             }
         } catch (error) {
-            Toast.error(error?.message || '兑换失败');
+            Toast.error(error?.message || '获取失败');
         }
     }
 

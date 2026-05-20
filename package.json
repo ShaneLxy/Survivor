@@ -4,6 +4,7 @@
   "private": true,
   "description": "Capacitor wrapper for \u4e91\u5883",
   "scripts": {
+    "lint:encoding": "node scripts/scan-mojibake.js",
     "release:version": "powershell -ExecutionPolicy Bypass -File scripts/bump-release-version.ps1",
     "android:doctor": "powershell -ExecutionPolicy Bypass -File scripts/doctor-android.ps1",
     "cap:prepare": "powershell -ExecutionPolicy Bypass -File scripts/prepare-capacitor-web.ps1",

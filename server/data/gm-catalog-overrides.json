@@ -47,11 +47,721 @@
       "iconSrc": "assets/images/items/hero-summon.png",
       "stats": null,
       "updatedAt": "2026-05-14T01:57:34.821Z"
+    },
+    "medicine": {
+      "id": "medicine",
+      "name": "治疗药水-小",
+      "icon": "💊",
+      "type": "consumable",
+      "rarity": "rare",
+      "description": "恢复30点生命值",
+      "effect": {
+        "type": "heal",
+        "value": 30
+      },
+      "stackLimit": 99,
+      "iconSrc": "assets/images/items/medicine.png",
+      "stats": null,
+      "updatedAt": "2026-05-17T09:20:08.360Z"
+    },
+    "medicine_medium": {
+      "id": "medicine_medium",
+      "name": "治疗药水-中",
+      "icon": "",
+      "iconSrc": "assets/images/items/medicine.png",
+      "rarity": "epic",
+      "description": "恢复50点生命值",
+      "type": "consumable",
+      "stackLimit": 99,
+      "effect": {
+        "type": "heal",
+        "value": 50
+      },
+      "stats": null,
+      "updatedAt": "2026-05-17T10:57:01.734Z",
+      "source": "gm"
+    },
+    "medicine_large": {
+      "id": "medicine_large",
+      "name": "治疗药水-大",
+      "icon": "",
+      "iconSrc": "assets/images/items/medicine.png",
+      "rarity": "legendary",
+      "description": "恢复100点生命值",
+      "type": "consumable",
+      "stackLimit": 99,
+      "effect": {
+        "type": "heal",
+        "value": 100
+      },
+      "stats": null,
+      "updatedAt": "2026-05-17T10:57:44.940Z"
     }
   },
   "equipment": {},
-  "gachaPools": {},
-  "shelterBuildings": {},
+  "gachaPools": {
+    "hero_pool": {
+      "id": "hero_pool",
+      "type": "mixed",
+      "name": "英雄招募",
+      "description": "奖励将从招募奖池中随机抽取，重复英雄会自动转化为碎片。",
+      "icon": "🎯",
+      "costs": {
+        "diamond": {
+          "single": 100,
+          "ten": 950
+        }
+      },
+      "entries": [
+        {
+          "id": "1",
+          "type": "resource",
+          "min": 10,
+          "max": 150,
+          "weight": 17,
+          "label": "钻石 10-150个",
+          "rateText": "17%",
+          "resourceId": "diamond"
+        },
+        {
+          "id": "2",
+          "type": "resource",
+          "min": 10,
+          "max": 50,
+          "weight": 17,
+          "label": "铁矿石 10-50个",
+          "rateText": "17%",
+          "resourceId": "iron_ore"
+        },
+        {
+          "id": "4",
+          "type": "item",
+          "min": 1,
+          "max": 2,
+          "weight": 11,
+          "label": "防御药水-中 1-2个",
+          "rateText": "11%",
+          "itemId": "defense_potion_medium"
+        },
+        {
+          "id": "5",
+          "type": "item",
+          "min": 1,
+          "max": 2,
+          "weight": 11,
+          "label": "力量药水-中 1-2个",
+          "rateText": "11%",
+          "itemId": "power_potion_medium"
+        },
+        {
+          "id": "6",
+          "type": "item",
+          "min": 1,
+          "max": 2,
+          "weight": 11,
+          "label": "敏捷药水-中 1-2个",
+          "rateText": "11%",
+          "itemId": "agility_potion_medium"
+        },
+        {
+          "id": "7",
+          "type": "item",
+          "min": 1,
+          "max": 2,
+          "weight": 11,
+          "label": "生命药水-中 1-2个",
+          "rateText": "11%",
+          "itemId": "health_potion_medium"
+        },
+        {
+          "id": "8",
+          "type": "item",
+          "min": 1,
+          "max": 1,
+          "weight": 2,
+          "label": "免广告卡 1个",
+          "rateText": "2%",
+          "itemId": "ad_skip_card"
+        },
+        {
+          "id": "9",
+          "type": "fragment",
+          "min": 1,
+          "max": 5,
+          "weight": 2,
+          "label": "普通品质英雄碎片 1-5个",
+          "rateText": "2%",
+          "heroRarity": "common"
+        },
+        {
+          "id": "10",
+          "type": "fragment",
+          "min": 1,
+          "max": 5,
+          "weight": 2,
+          "label": "稀有品质英雄碎片 1-5个",
+          "rateText": "2%",
+          "heroRarity": "rare"
+        },
+        {
+          "id": "11",
+          "type": "fragment",
+          "min": 1,
+          "max": 5,
+          "weight": 1,
+          "label": "史诗品质英雄碎片 1-5个",
+          "rateText": "1%",
+          "heroRarity": "epic"
+        },
+        {
+          "id": "12",
+          "type": "hero",
+          "min": 1,
+          "max": 1,
+          "weight": 2,
+          "label": "随机普通英雄 1个",
+          "rateText": "2%",
+          "heroRarity": "common"
+        },
+        {
+          "id": "13",
+          "type": "hero",
+          "min": 1,
+          "max": 1,
+          "weight": 2,
+          "label": "随机稀有英雄 1个",
+          "rateText": "2%",
+          "heroRarity": "rare"
+        },
+        {
+          "id": "14",
+          "type": "hero",
+          "min": 1,
+          "max": 1,
+          "weight": 0.5,
+          "label": "随机史诗英雄 1个",
+          "rateText": "0.5%",
+          "heroRarity": "epic"
+        },
+        {
+          "id": "3",
+          "type": "item",
+          "min": 1,
+          "max": 1,
+          "weight": 10.5,
+          "label": "强心剂 1个",
+          "rateText": "10.5%",
+          "itemId": "stimulant"
+        }
+      ],
+      "updatedAt": "2026-05-19T07:38:30.276Z",
+      "source": "gm"
+    },
+    "equipment_pool": {
+      "id": "equipment_pool",
+      "type": "mixed",
+      "name": "装备打造",
+      "description": "打造并不一定直接获得装备，也可能获得建设和强化材料。",
+      "icon": "⚒️",
+      "costs": {
+        "diamond": {
+          "single": 120,
+          "ten": 1100
+        }
+      },
+      "entries": [
+        {
+          "id": "10",
+          "type": "resource",
+          "min": 30,
+          "max": 50,
+          "weight": 17,
+          "label": "木材 30-50个",
+          "rateText": "17%",
+          "resourceId": "wood"
+        },
+        {
+          "id": "20",
+          "type": "resource",
+          "min": 30,
+          "max": 50,
+          "weight": 17,
+          "label": "石材 30-50个",
+          "rateText": "17%",
+          "resourceId": "stone"
+        },
+        {
+          "id": "30",
+          "type": "resource",
+          "min": 10,
+          "max": 50,
+          "weight": 17,
+          "label": "铁矿石 10-50个",
+          "rateText": "17%",
+          "resourceId": "iron_ore"
+        },
+        {
+          "id": "40",
+          "type": "item",
+          "min": 1,
+          "max": 1,
+          "weight": 5,
+          "label": "防御药水-大 1个",
+          "rateText": "5%",
+          "itemId": "defense_potion_large"
+        },
+        {
+          "id": "50",
+          "type": "item",
+          "min": 1,
+          "max": 1,
+          "weight": 5,
+          "label": "力量药水-大 1个",
+          "rateText": "5%",
+          "itemId": "power_potion_large"
+        },
+        {
+          "id": "60",
+          "type": "item",
+          "min": 1,
+          "max": 1,
+          "weight": 5,
+          "label": "敏捷药水-大 1个",
+          "rateText": "5%",
+          "itemId": "agility_potion_large"
+        },
+        {
+          "id": "70",
+          "type": "item",
+          "min": 1,
+          "max": 1,
+          "weight": 5,
+          "label": "生命药水-大 1个",
+          "rateText": "5%",
+          "itemId": "health_potion_large"
+        },
+        {
+          "id": "80",
+          "type": "equipment",
+          "min": 1,
+          "max": 1,
+          "weight": 5,
+          "label": "随机普通装备 1个",
+          "rateText": "5%",
+          "rarity": "common"
+        },
+        {
+          "id": "90",
+          "type": "equipment",
+          "min": 1,
+          "max": 1,
+          "weight": 2,
+          "label": "随机稀有装备 1个",
+          "rateText": "2%",
+          "rarity": "rare"
+        },
+        {
+          "id": "100",
+          "type": "equipment",
+          "min": 1,
+          "max": 1,
+          "weight": 1,
+          "label": "随机史诗装备 1个",
+          "rateText": "1%",
+          "rarity": "epic"
+        },
+        {
+          "id": "110",
+          "type": "equipment",
+          "min": 1,
+          "max": 1,
+          "weight": 0.5,
+          "label": "随机传说装备 1个",
+          "rateText": "0.5%",
+          "rarity": "legendary"
+        },
+        {
+          "id": "39",
+          "type": "resource",
+          "min": 1,
+          "max": 1,
+          "weight": 5,
+          "label": "治疗药水-大 1个",
+          "rateText": "5%",
+          "resourceId": "medicine_large"
+        },
+        {
+          "id": "9",
+          "type": "resource",
+          "min": 20,
+          "max": 170,
+          "weight": 15.5,
+          "label": "钻石 20-170个",
+          "rateText": "15.5%",
+          "resourceId": "diamond"
+        }
+      ],
+      "updatedAt": "2026-05-19T07:38:56.979Z",
+      "source": "gm"
+    }
+  },
+  "shelterBuildings": {
+    "building_shelter": {
+      "id": "building_shelter",
+      "name": "避难所",
+      "icon": "🏠",
+      "description": "玩家的核心建筑，提升体力上限",
+      "maxLevel": 10,
+      "levels": [
+        {
+          "level": 1,
+          "upgradeCost": {
+            "gold": 1000,
+            "wood": 100,
+            "stone": 80
+          },
+          "energyBonus": 0,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 2,
+          "upgradeCost": {
+            "gold": 2000,
+            "wood": 200,
+            "stone": 160
+          },
+          "energyBonus": 20,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 3,
+          "upgradeCost": {
+            "gold": 4000,
+            "wood": 400,
+            "stone": 320
+          },
+          "energyBonus": 40,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 4,
+          "upgradeCost": {
+            "gold": 8000,
+            "wood": 800,
+            "stone": 640
+          },
+          "energyBonus": 60,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 5,
+          "upgradeCost": {
+            "gold": 16000,
+            "wood": 1600,
+            "stone": 1280
+          },
+          "energyBonus": 80,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 6,
+          "upgradeCost": {
+            "gold": 32000,
+            "wood": 3200,
+            "stone": 2560
+          },
+          "energyBonus": 100,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 7,
+          "upgradeCost": {
+            "gold": 64000,
+            "wood": 6400,
+            "stone": 5120
+          },
+          "energyBonus": 120,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 8,
+          "upgradeCost": {
+            "gold": 100000,
+            "wood": 10000,
+            "stone": 9000
+          },
+          "energyBonus": 150,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 9,
+          "upgradeCost": {
+            "gold": 150000,
+            "wood": 15000,
+            "stone": 14000
+          },
+          "energyBonus": 180,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        },
+        {
+          "level": 10,
+          "upgradeCost": {
+            "gold": 200000,
+            "wood": 20000,
+            "stone": 20000
+          },
+          "energyBonus": 220,
+          "backgroundVideo": "assets/media/house1.mp4",
+          "backgroundImage": "assets/media/house_poster.png"
+        }
+      ],
+      "iconSrc": "",
+      "src": "",
+      "updatedAt": "2026-05-19T05:30:57.845Z",
+      "source": "gm"
+    },
+    "building_mine": {
+      "id": "building_mine",
+      "name": "林矿",
+      "icon": "🌲",
+      "description": "林地与矿脉共存，可同时产出石材、铁矿石与木材",
+      "maxLevel": 10,
+      "levels": [
+        {
+          "level": 1,
+          "upgradeCost": {
+            "gold": 1000,
+            "wood": 150,
+            "stone": 120
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 3
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "upgradeCost": {
+            "gold": 1500,
+            "wood": 200,
+            "stone": 170
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 5
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "upgradeCost": {
+            "gold": 2200,
+            "wood": 270,
+            "stone": 240
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 3
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 7
+            }
+          ]
+        },
+        {
+          "level": 4,
+          "upgradeCost": {
+            "gold": 3100,
+            "wood": 360,
+            "stone": 330
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 6
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 10
+            }
+          ]
+        },
+        {
+          "level": 5,
+          "upgradeCost": {
+            "gold": 4200,
+            "wood": 470,
+            "stone": 440
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 10
+            },
+            {
+              "type": "resource",
+              "id": "iron_ore",
+              "amountPerHour": 5
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 15
+            }
+          ]
+        },
+        {
+          "level": 6,
+          "upgradeCost": {
+            "gold": 5500,
+            "wood": 600,
+            "stone": 570
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 15
+            },
+            {
+              "type": "resource",
+              "id": "iron_ore",
+              "amountPerHour": 10
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 20
+            }
+          ]
+        },
+        {
+          "level": 7,
+          "upgradeCost": {
+            "gold": 7000,
+            "wood": 750,
+            "stone": 720
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 20
+            },
+            {
+              "type": "resource",
+              "id": "iron_ore",
+              "amountPerHour": 15
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 25
+            }
+          ]
+        },
+        {
+          "level": 8,
+          "upgradeCost": {
+            "gold": 8700,
+            "wood": 920,
+            "stone": 890
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 27
+            },
+            {
+              "type": "resource",
+              "id": "iron_ore",
+              "amountPerHour": 22
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 32
+            }
+          ]
+        },
+        {
+          "level": 9,
+          "upgradeCost": {
+            "gold": 10600,
+            "wood": 1110,
+            "stone": 1000
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 35
+            },
+            {
+              "type": "resource",
+              "id": "iron_ore",
+              "amountPerHour": 30
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 40
+            }
+          ]
+        },
+        {
+          "level": 10,
+          "upgradeCost": {
+            "gold": 12700,
+            "wood": 1320,
+            "stone": 1210
+          },
+          "outputs": [
+            {
+              "type": "resource",
+              "id": "stone",
+              "amountPerHour": 50
+            },
+            {
+              "type": "resource",
+              "id": "iron_ore",
+              "amountPerHour": 40
+            },
+            {
+              "type": "resource",
+              "id": "wood",
+              "amountPerHour": 60
+            }
+          ]
+        }
+      ],
+      "iconSrc": "",
+      "src": "",
+      "updatedAt": "2026-05-19T08:47:28.577Z"
+    }
+  },
   "dungeonChapters": {
     "chapter_01": {
       "id": "chapter_01",
@@ -67,7 +777,7 @@
       "chapterNumber": 1,
       "icon": "",
       "recommendedLevel": 1,
-      "updatedAt": "2026-05-15T01:10:19.539Z",
+      "updatedAt": "2026-05-19T13:04:07.718Z",
       "source": "gm"
     },
     "chapter_02": {
@@ -192,48 +902,38 @@
             5,
             4
           ]
+        ],
+        "specialTiles": [
+          {
+            "type": "heal",
+            "row": 6,
+            "col": 2
+          },
+          {
+            "type": "fire",
+            "row": 4,
+            "col": 4
+          },
+          {
+            "type": "swamp",
+            "row": 3,
+            "col": 4
+          },
+          {
+            "type": "miasma",
+            "row": 6,
+            "col": 6
+          }
         ]
       },
       "initialEnemies": [
         {
           "id": "enemy_wanderer",
           "rank": "normal",
-          "count": 2,
-          "positions": [],
-          "stats": {
-            "hp": 150,
-            "attack": 10,
-            "attackRange": 2,
-            "moveRange": 2,
-            "defense": 7,
-            "speed": 7
-          }
-        },
-        {
-          "id": "enemy_refugee",
-          "rank": "normal",
-          "count": 2,
-          "positions": [],
-          "stats": {
-            "hp": 150,
-            "attack": 10,
-            "attackRange": 2,
-            "moveRange": 2,
-            "defense": 7,
-            "speed": 7
-          }
-        },
-        {
-          "id": "enemy_raider",
-          "rank": "elite",
           "count": 1,
           "positions": [],
-          "skillIds": [
-            "enemy_skill_toxic_spit",
-            "enemy_skill_pack_pounce"
-          ],
           "stats": {
-            "hp": 150,
+            "hp": 50,
             "attack": 10,
             "attackRange": 2,
             "moveRange": 2,
@@ -262,8 +962,8 @@
                 "enemy_skill_heavy_cleave"
               ],
               "stats": {
-                "hp": 200,
-                "attack": 20,
+                "hp": 80,
+                "attack": 15,
                 "attackRange": 2,
                 "moveRange": 2,
                 "defense": 7,
@@ -288,9 +988,9 @@
         "chapter": [],
         "items": [
           {
-            "id": "health_potion_small",
+            "id": "medicine",
             "min": 1,
-            "max": 2,
+            "max": 1,
             "chance": 0.3
           }
         ]
@@ -300,10 +1000,10 @@
       "chapterNumber": 1,
       "stageNumber": 1,
       "recommendedLevel": 1,
-      "environmentEffect": "smoke",
+      "environmentEffect": "rain",
       "chapterDescription": "",
       "chapterBackground": "",
-      "updatedAt": "2026-05-15T00:07:18.850Z",
+      "updatedAt": "2026-05-19T13:04:07.255Z",
       "source": "gm"
     },
     "dungeon_005": {
@@ -437,18 +1137,18 @@
         "chapter": [],
         "items": [
           {
-            "id": "health_potion_small",
+            "id": "medicine",
             "min": 1,
             "max": 1,
             "chance": 0.1
           }
         ]
       },
-      "updatedAt": "2026-05-15T00:07:24.346Z",
+      "updatedAt": "2026-05-18T08:05:36.800Z",
       "chapterDescription": "",
       "chapterBackground": "",
       "source": "gm",
-      "environmentEffect": "rain"
+      "environmentEffect": "smoke"
     },
     "dungeon_006": {
       "id": "dungeon_006",
@@ -1772,20 +2472,406 @@
   "shopItems": {
     "shop_003": {
       "id": "shop_003",
-      "name": "食物",
-      "icon": "🍖",
-      "type": "resource",
+      "deleted": true,
+      "updatedAt": "2026-05-16T10:46:44.363Z"
+    },
+    "shop_001": {
+      "id": "shop_001",
+      "deleted": true,
+      "updatedAt": "2026-05-16T10:46:15.098Z"
+    },
+    "shop_009": {
+      "id": "shop_009",
+      "name": "力量药水-小",
+      "icon": "",
+      "iconSrc": "assets/images/items/power-potion.png",
+      "type": "consumable",
       "rarity": "common",
-      "price": 50,
-      "currency": "gold",
-      "maxBuy": 10,
-      "giveItem": "meat",
+      "price": 80,
+      "currency": "diamond",
+      "maxBuy": 3,
+      "giveItem": "power_potion_small",
       "giveCount": 1,
-      "iconSrc": "assets/images/items/resource-meat.png",
+      "description": "",
+      "sortOrder": 9,
+      "updatedAt": "2026-05-17T09:27:01.622Z"
+    },
+    "shop_008": {
+      "id": "shop_008",
+      "name": "治疗药水-中",
+      "icon": "",
+      "type": "consumable",
+      "rarity": "rare",
+      "price": 100,
+      "currency": "diamond",
+      "maxBuy": 3,
+      "giveItem": "medicine_medium",
+      "giveCount": 1,
+      "iconSrc": "assets/images/items/medicine.png",
+      "sortOrder": 8,
+      "description": "",
+      "updatedAt": "2026-05-17T10:58:41.260Z",
+      "source": "gm"
+    },
+    "shop_007": {
+      "id": "shop_007",
+      "name": "治疗药水-小",
+      "icon": "",
+      "type": "consumable",
+      "rarity": "common",
+      "price": 800,
+      "currency": "gold",
+      "maxBuy": 5,
+      "giveItem": "medicine",
+      "giveCount": 1,
+      "iconSrc": "assets/images/items/medicine.png",
+      "sortOrder": 7,
+      "description": "",
+      "updatedAt": "2026-05-17T09:24:58.519Z",
+      "source": "gm"
+    },
+    "shop_005": {
+      "id": "shop_005",
+      "deleted": true,
+      "updatedAt": "2026-05-16T10:49:24.875Z"
+    },
+    "shop_011": {
+      "id": "shop_011",
+      "name": "强心剂",
+      "icon": "💉",
+      "type": "consumable",
+      "rarity": "epic",
+      "price": 1500,
+      "currency": "gold",
+      "maxBuy": 3,
+      "giveItem": "stimulant",
+      "giveCount": 1,
+      "iconSrc": "assets/images/items/stimulant.png",
+      "sortOrder": 1,
+      "description": "",
+      "updatedAt": "2026-05-16T10:52:01.383Z"
+    },
+    "shop_002": {
+      "id": "shop_002",
+      "deleted": true,
+      "updatedAt": "2026-05-18T06:33:56.605Z"
+    },
+    "shop_004": {
+      "id": "shop_004",
+      "name": "经验药水x50",
+      "icon": "📌",
+      "type": "consumable",
+      "rarity": "rare",
+      "price": 800,
+      "currency": "gold",
+      "maxBuy": 5,
+      "giveItem": "exp_potion",
+      "giveCount": 50,
+      "iconSrc": "assets/images/items/exp-potion.png",
       "sortOrder": 3,
       "description": "",
-      "updatedAt": "2026-05-13T00:16:57.838Z"
+      "updatedAt": "2026-05-16T10:52:36.557Z"
+    },
+    "shop_006": {
+      "id": "shop_006",
+      "name": "强心剂x2",
+      "icon": "",
+      "type": "consumable",
+      "rarity": "rare",
+      "price": 200,
+      "currency": "diamond",
+      "maxBuy": 3,
+      "giveItem": "stimulant",
+      "giveCount": 2,
+      "iconSrc": "assets/images/items/stimulant.png",
+      "sortOrder": 6,
+      "description": "",
+      "updatedAt": "2026-05-16T21:23:38.619Z",
+      "source": "gm"
+    },
+    "shop_010": {
+      "id": "shop_010",
+      "name": "铁矿石x5",
+      "icon": "⛏️",
+      "type": "resource",
+      "rarity": "rare",
+      "price": 1500,
+      "currency": "gold",
+      "maxBuy": 5,
+      "giveItem": "iron_ore",
+      "giveCount": 5,
+      "iconSrc": "assets/images/items/resource-iron-ore.png",
+      "sortOrder": 5,
+      "description": "",
+      "updatedAt": "2026-05-16T10:53:47.163Z",
+      "source": "gm"
+    },
+    "shop_012": {
+      "id": "shop_012",
+      "name": "石材x50",
+      "icon": "",
+      "iconSrc": "assets/images/items/resource-stone.png",
+      "type": "consumable",
+      "rarity": "common",
+      "price": 2000,
+      "currency": "gold",
+      "maxBuy": 3,
+      "giveItem": "stone",
+      "giveCount": 50,
+      "description": "",
+      "sortOrder": 12,
+      "updatedAt": "2026-05-19T07:57:17.172Z"
+    },
+    "shop_013": {
+      "id": "shop_013",
+      "name": "木材x50",
+      "icon": "",
+      "iconSrc": "assets/images/items/resource-wood.png",
+      "type": "consumable",
+      "rarity": "common",
+      "price": 1500,
+      "currency": "gold",
+      "maxBuy": 3,
+      "giveItem": "wood",
+      "giveCount": 50,
+      "description": "",
+      "sortOrder": 13,
+      "updatedAt": "2026-05-19T07:57:54.254Z"
     }
   },
-  "welfareGifts": {}
+  "welfareGifts": {
+    "gift_diamond": {
+      "id": "gift_diamond",
+      "kind": "gift",
+      "name": "钻石补给袋",
+      "description": "补充少量钻石。",
+      "sortOrder": 2,
+      "rewards": [
+        {
+          "type": "resource",
+          "id": "diamond",
+          "count": 20
+        }
+      ],
+      "adLimits": {
+        "normal": 1,
+        "welfare": 3,
+        "supreme": 5
+      },
+      "title": "钻石补给袋",
+      "subtitle": "",
+      "badge": "",
+      "requiredViews": 1,
+      "activationViews": 1,
+      "durationDays": 30,
+      "dailyRewards": [],
+      "updatedAt": "2026-05-19T07:51:28.788Z",
+      "source": "gm"
+    },
+    "welfare_gift_06": {
+      "id": "welfare_gift_06",
+      "kind": "gift",
+      "name": "钻石补给包",
+      "title": "钻石补给包",
+      "description": "补充一些钻石",
+      "sortOrder": 6,
+      "adLimits": {
+        "normal": 1,
+        "welfare": 3,
+        "supreme": 5
+      },
+      "rewards": [
+        {
+          "type": "resource",
+          "id": "diamond",
+          "count": 50
+        }
+      ],
+      "updatedAt": "2026-05-19T07:51:14.195Z",
+      "subtitle": "",
+      "badge": "",
+      "requiredViews": 1,
+      "activationViews": 1,
+      "durationDays": 30,
+      "dailyRewards": [],
+      "source": "gm"
+    },
+    "welfare_month_card": {
+      "id": "welfare_month_card",
+      "kind": "monthCard",
+      "name": "卓越特权x30天",
+      "title": "卓越特权x30天",
+      "subtitle": "每日基础资源补给",
+      "badge": "特权",
+      "description": "通过观看激励视频激活，激活后每日可领取一组额外资源。",
+      "sortOrder": 101,
+      "requiredViews": 30,
+      "activationViews": 30,
+      "durationDays": 30,
+      "dailyRewards": [
+        {
+          "type": "resource",
+          "id": "gold",
+          "count": 300
+        },
+        {
+          "type": "resource",
+          "id": "diamond",
+          "count": 50
+        },
+        {
+          "type": "resource",
+          "id": "wood",
+          "count": 20
+        }
+      ],
+      "adLimits": {
+        "normal": 3,
+        "welfare": 4,
+        "supreme": 5
+      },
+      "rewards": [],
+      "updatedAt": "2026-05-17T11:29:57.702Z"
+    },
+    "supreme_month_card": {
+      "id": "supreme_month_card",
+      "kind": "monthCard",
+      "name": "至尊特权x30天",
+      "title": "至尊特权x30天",
+      "subtitle": "更高阶的日常福利",
+      "badge": "至尊",
+      "description": "激活门槛更高，但每日补给更丰厚，同时提升福利礼包观看上限。",
+      "sortOrder": 102,
+      "requiredViews": 55,
+      "activationViews": 55,
+      "durationDays": 30,
+      "dailyRewards": [
+        {
+          "type": "resource",
+          "id": "gold",
+          "count": 500
+        },
+        {
+          "type": "resource",
+          "id": "diamond",
+          "count": 100
+        },
+        {
+          "type": "item",
+          "id": "ad_skip_card",
+          "count": 1
+        },
+        {
+          "type": "resource",
+          "id": "stone",
+          "count": 30
+        }
+      ],
+      "adLimits": {
+        "normal": 3,
+        "welfare": 4,
+        "supreme": 5
+      },
+      "rewards": [],
+      "updatedAt": "2026-05-17T11:32:55.087Z",
+      "source": "gm"
+    },
+    "gift_energy": {
+      "id": "gift_energy",
+      "kind": "gift",
+      "name": "作战体力包",
+      "description": "补充体力与经验。",
+      "sortOrder": 3,
+      "rewards": [
+        {
+          "type": "item",
+          "id": "exp_potion",
+          "count": 20
+        },
+        {
+          "type": "resource",
+          "id": "meat",
+          "count": 30
+        }
+      ],
+      "adLimits": {
+        "normal": 3,
+        "welfare": 4,
+        "supreme": 5
+      },
+      "title": "作战体力包",
+      "subtitle": "",
+      "badge": "",
+      "requiredViews": 1,
+      "activationViews": 1,
+      "durationDays": 30,
+      "dailyRewards": [],
+      "updatedAt": "2026-05-18T06:34:35.272Z",
+      "source": "gm"
+    },
+    "gift_gold": {
+      "id": "gift_gold",
+      "kind": "gift",
+      "name": "补给金币箱",
+      "description": "领取一批基础金币补给。",
+      "sortOrder": 1,
+      "rewards": [
+        {
+          "type": "resource",
+          "id": "gold",
+          "count": 666
+        }
+      ],
+      "adLimits": {
+        "normal": 3,
+        "welfare": 4,
+        "supreme": 5
+      },
+      "title": "补给金币箱",
+      "subtitle": "",
+      "badge": "",
+      "requiredViews": 1,
+      "activationViews": 1,
+      "durationDays": 30,
+      "dailyRewards": [],
+      "updatedAt": "2026-05-19T07:39:27.802Z"
+    },
+    "welfare_gift_07": {
+      "id": "welfare_gift_07",
+      "kind": "gift",
+      "name": "资源补给包",
+      "title": "资源补给包",
+      "description": "",
+      "sortOrder": 7,
+      "adLimits": {
+        "normal": 1,
+        "welfare": 3,
+        "supreme": 5
+      },
+      "rewards": [
+        {
+          "type": "resource",
+          "id": "wood",
+          "count": 30
+        },
+        {
+          "type": "resource",
+          "id": "stone",
+          "count": 15
+        },
+        {
+          "type": "resource",
+          "id": "iron_ore",
+          "count": 10
+        }
+      ],
+      "updatedAt": "2026-05-19T07:52:39.762Z",
+      "subtitle": "",
+      "badge": "",
+      "requiredViews": 1,
+      "activationViews": 1,
+      "durationDays": 30,
+      "dailyRewards": []
+    }
+  }
 }

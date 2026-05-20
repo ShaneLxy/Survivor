@@ -198,7 +198,7 @@ class TutorialManager {
                 view: 'checkin',
                 target: '.checkin-welfare-card:not(:disabled)',
                 title: '领取一个福利礼包',
-                description: '第一个福利礼包会优先消耗免广告卡，直接获得奖励并累计月卡进度。',
+                description: '第一个福利礼包会优先消耗免广告卡，直接获得奖励并累计特权进度。',
                 waitEvent: 'tutorial:welfareGiftClaimed',
                 closeRewardModalAfterComplete: true,
                 skipWhen: () => !document.querySelector('.checkin-welfare-card:not(:disabled)')

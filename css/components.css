@@ -27,15 +27,19 @@
 /* 弹窗 */
 .modal-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     z-index: 1000;
     width: 100%;
     height: 100%;
+    min-height: 0;
+    padding: max(env(safe-area-inset-top), 10px) 10px max(env(safe-area-inset-bottom), 10px);
+    box-sizing: border-box;
     background: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    overscroll-behavior: contain;
 }
 
 .modal-overlay.hero-preview-modal-overlay {
@@ -43,6 +47,8 @@
     box-sizing: border-box;
     align-items: center;
     background: rgba(0, 0, 0, 0.86);
+    overflow: hidden;
+    isolation: isolate;
 }
 
 .modal-content {
@@ -50,10 +56,20 @@
     border-radius: 12px;
     border: 2px solid #4a4a4a;
     padding: 20px;
-    max-width: 80%;
-    max-height: 80%;
-    overflow: auto;
+    max-width: min(80%, calc(100vw - 20px));
+    max-height: calc(var(--app-viewport-height, 100vh) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
     animation: slideUp 0.3s ease;
+}
+
+@supports (height: 100dvh) {
+    .modal-content {
+        max-height: calc(var(--app-viewport-height, 100dvh) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
 }
 
 .monster-codex-modal-shell {
@@ -64,6 +80,7 @@
 }
 
 .modal-header {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -95,13 +112,52 @@
 }
 
 .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
     margin-bottom: 15px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .modal-footer {
+    flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+}
+
+@media (max-width: 520px), (max-height: 700px) {
+    .modal-overlay {
+        padding: max(env(safe-area-inset-top), 8px) 7px max(env(safe-area-inset-bottom), 8px);
+        align-items: center;
+    }
+
+    .modal-content {
+        width: auto;
+        max-width: calc(var(--app-viewport-width, 100vw) - 18px);
+        max-height: calc(var(--app-viewport-height, 100vh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        padding: 12px;
+        border-radius: 10px;
+    }
+
+    .hero-preview-modal.hero-command-modal-shell,
+    .hero-team-modal-shell,
+    .hero-album-modal-shell,
+    .mailbox-modal-shell,
+    .monster-codex-modal-shell {
+        width: calc(var(--app-viewport-width, 100vw) - 18px);
+        max-width: calc(var(--app-viewport-width, 100vw) - 18px);
+    }
+}
+
+@supports (height: 100dvh) {
+    @media (max-width: 520px), (max-height: 700px) {
+        .modal-content {
+            max-height: calc(var(--app-viewport-height, 100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        }
+    }
 }
 
 /* Toast提示 */
@@ -1954,10 +2010,10 @@
 }
 
 .hero-preview-modal.hero-command-modal-shell {
-    width: min(430px, calc(100vw - 18px));
-    max-width: min(430px, calc(100vw - 18px));
-    height: min(86vh, 760px);
-    max-height: min(86vh, 760px);
+    width: min(430px, calc(var(--app-viewport-width, 100vw) - 18px));
+    max-width: min(430px, calc(var(--app-viewport-width, 100vw) - 18px));
+    height: min(760px, calc(var(--app-viewport-height, 100vh) - 18px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    max-height: min(760px, calc(var(--app-viewport-height, 100vh) - 18px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -1970,8 +2026,8 @@
 
 @supports (height: 100dvh) {
     .hero-preview-modal.hero-command-modal-shell {
-        height: min(86dvh, 760px);
-        max-height: min(86dvh, 760px);
+        height: min(760px, calc(var(--app-viewport-height, 100dvh) - 18px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+        max-height: min(760px, calc(var(--app-viewport-height, 100dvh) - 18px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
     }
 }
 
@@ -2082,7 +2138,7 @@
 
 .hero-roster-modal {
     width: 100%;
-    height: min(68vh, 560px);
+    height: min(560px, calc(var(--app-viewport-height, 100vh) - 124px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
     min-height: 0;
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
@@ -2092,6 +2148,7 @@
 
 .hero-preview-modal .hero-roster-modal {
     height: 100%;
+    max-height: 100%;
     min-height: 0;
     position: relative;
     z-index: 1;
@@ -2184,9 +2241,9 @@
 
 .hero-roster-metrics {
     display: grid;
-    grid-template-columns: repeat(2, minmax(43px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 5px;
-    width: 98px;
+    width: 112px;
     min-width: 0;
 }
 
@@ -2343,7 +2400,7 @@
 }
 
 .hero-preview-modal.hero-command-modal-shell .hero-modal-grid {
-    height: 100%;
+    height: auto;
     min-height: 0;
     align-self: stretch;
     position: relative;
@@ -2360,6 +2417,7 @@
     transform: none;
     backface-visibility: visible;
     isolation: isolate;
+    touch-action: pan-y;
 }
 
 .hero-command-modal-shell .hero-card-compact {
@@ -2531,18 +2589,27 @@
     background: rgba(21, 128, 61, 0.42);
 }
 
-@media (max-width: 420px) {
+@media (max-width: 520px), (max-height: 820px) {
     .modal-overlay.hero-preview-modal-overlay {
-        padding: 8px 7px;
+        align-items: stretch;
+        justify-content: center;
+        padding: max(env(safe-area-inset-top), 8px) 7px max(env(safe-area-inset-bottom), 8px);
+        background: rgba(0, 0, 0, 0.94);
     }
 
     .hero-preview-modal.hero-command-modal-shell {
-        width: calc(100vw - 14px);
-        max-width: calc(100vw - 14px);
+        width: calc(var(--app-viewport-width, 100vw) - 14px);
+        max-width: calc(var(--app-viewport-width, 100vw) - 14px);
+        height: calc(var(--app-viewport-height, 100vh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        max-height: calc(var(--app-viewport-height, 100vh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        flex: 1 1 auto;
+        min-height: 0;
         padding: 9px;
     }
 
     .hero-preview-modal .hero-roster-modal {
+        height: 100%;
+        max-height: 100%;
         gap: 6px;
     }
 
@@ -2590,6 +2657,14 @@
         gap: 6px;
         padding: 6px;
     }
+
+    .hero-preview-modal.hero-command-modal-shell .hero-album-grid {
+        --hero-roster-card-height: clamp(108px, 30vw, 136px);
+    }
+
+    .hero-preview-modal.hero-command-modal-shell .hero-team-grid {
+        --hero-roster-card-height: clamp(126px, 36vw, 154px);
+    }
 }
 
 @media (max-width: 380px) {
@@ -2599,7 +2674,8 @@
     }
 
     .hero-roster-modal {
-        height: min(66vh, 520px);
+        height: 100%;
+        max-height: 100%;
         gap: 6px;
     }
 
@@ -2635,13 +2711,13 @@
     }
 
     .hero-command-modal-shell .hero-modal-grid {
-        --hero-roster-card-height: 132px;
+        --hero-roster-card-height: 118px;
         gap: 5px;
         padding-bottom: 6px;
     }
 
     .hero-team-grid {
-        --hero-roster-card-height: 144px;
+        --hero-roster-card-height: 128px;
         gap: 6px;
     }
 
@@ -2650,6 +2726,39 @@
     .hero-team-grid .hero-stars {
         font-size: 9px;
     }
+}
+
+html.is-short-height .hero-preview-modal .hero-roster-command-header {
+    min-height: 52px;
+    padding: 6px;
+}
+
+html.is-short-height .hero-preview-modal .hero-roster-logo {
+    width: 34px;
+    height: 34px;
+}
+
+html.is-short-height .hero-preview-modal .hero-roster-title {
+    font-size: 14px;
+}
+
+html.is-short-height .hero-preview-modal .hero-roster-subtitle,
+html.is-short-height .hero-preview-modal .hero-roster-kicker {
+    font-size: 8px;
+}
+
+html.is-short-height .hero-preview-modal .hero-roster-rarity-chip,
+html.is-short-height .hero-preview-modal .hero-team-slot {
+    min-height: 28px;
+    padding: 4px;
+}
+
+html.is-short-height .hero-preview-modal.hero-command-modal-shell .hero-album-grid {
+    --hero-roster-card-height: clamp(96px, 27vw, 122px);
+}
+
+html.is-short-height .hero-preview-modal.hero-command-modal-shell .hero-team-grid {
+    --hero-roster-card-height: clamp(112px, 32vw, 138px);
 }
 
 @keyframes rewardReveal {

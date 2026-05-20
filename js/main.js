@@ -232,6 +232,7 @@ class Game {
         dungeonManager.init(data.dungeonData);
         itemManager.init(data.itemData);
         gachaManager.init(data.gachaData);
+        shopView.init(data.shopData);
         checkinManager.init(data.checkinData);
         this.initialMailData = data.mailData || null;
         mailManager.init(this.initialMailData);
@@ -257,6 +258,7 @@ class Game {
         dungeonManager.init(null);
         itemManager.init(null);
         gachaManager.init(null);
+        shopView.init(null);
         checkinManager.init(null);
         this.initialMailData = null;
         mailManager.init(null);
@@ -599,6 +601,7 @@ class Game {
             dungeonData: dungeonManager.getSaveData(),
             itemData: itemManager.getSaveData(),
             gachaData: gachaManager.getSaveData(),
+            shopData: shopView.getSaveData(),
             checkinData: checkinManager.getSaveData(),
             mailData: mailManager.getSaveData?.() || null,
             lastSaveTime: Date.now()

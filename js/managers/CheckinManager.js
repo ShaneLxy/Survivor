@@ -51,12 +51,16 @@ class CheckinManager {
 
     isCheckedInToday() {
         if (!this.lastCheckinDate) return false;
-        const today = new Date().toDateString();
+        const today = this.getTodayKey();
         return this.lastCheckinDate === today;
     }
 
+    getNow() {
+        return window.serverClock?.now?.() || new Date();
+    }
+
     getTodayKey() {
-        return new Date().toDateString();
+        return window.serverClock?.todayKey?.() || new Date().toDateString();
     }
 
     checkin() {
@@ -241,7 +245,7 @@ class CheckinManager {
         return Boolean(state.active);
     }
 
-    getMonthKey(date = new Date()) {
+    getMonthKey(date = this.getNow()) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     }
 
@@ -249,7 +253,7 @@ class CheckinManager {
         return Math.max(1, Number(cardConfig?.durationDays ?? 30) || 30);
     }
 
-    refreshMonthCardActiveState(state, now = new Date()) {
+    refreshMonthCardActiveState(state, now = this.getNow()) {
         if (!state?.active || !state.expiresAt) {
             return;
         }
@@ -286,7 +290,7 @@ class CheckinManager {
         if (!state || state.active) {
             return;
         }
-        const now = new Date();
+        const now = this.getNow();
         const expiresAt = new Date(now.getTime() + this.getMonthCardDurationDays(cardConfig) * 24 * 60 * 60 * 1000);
         state.active = true;
         state.activatedAt = now.toISOString();
@@ -407,10 +411,10 @@ class CheckinManager {
         const cardId = String(cardConfig?.id || '').trim();
         const status = this.getMonthCardStatus(cardConfig);
         if (!status.active) {
-            return { success: false, message: '月卡尚未激活' };
+            return { success: false, message: '特权尚未激活' };
         }
         if (!status.canClaim) {
-            return { success: false, message: '今日已领取该月卡奖励' };
+            return { success: false, message: '今日已领取该特权奖励' };
         }
         const rewards = Array.isArray(cardConfig?.dailyRewards) ? cardConfig.dailyRewards : [];
         const inventoryCheck = this.canGrantRewards(rewards);

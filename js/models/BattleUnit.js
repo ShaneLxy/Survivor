@@ -147,6 +147,7 @@ class BattleUnit {
             damageRatioMaxHp: Number(effect.damageRatioMaxHp) || 0,
             damageRatioCurrentHp: Number(effect.damageRatioCurrentHp) || 0,
             damageMultiplier: Number(effect.damageMultiplier) || 0,
+            healMissingHpRatio: Math.max(0, Number(effect.healMissingHpRatio) || 0),
             healTakenMultiplier: Utils.clamp(Number(effect.healTakenMultiplier ?? 1) || 1, 0, 10),
             attackPercentBonus: Number(effect.attackPercentBonus) || 0,
             defensePercentBonus: Number(effect.defensePercentBonus) || 0,
@@ -477,6 +478,10 @@ class BattleUnit {
             }
         });
 
+        if (this.battleContext && typeof this.battleContext.getUnitStatPercentBonus === 'function') {
+            percentMultiplier += Number(this.battleContext.getUnitStatPercentBonus(this, statKey)) || 0;
+        }
+
         return Math.max(0, Math.floor((baseValue + flatBonus) * Math.max(0, percentMultiplier)));
     }
 
@@ -526,6 +531,24 @@ class BattleUnit {
 
         this.statusEffects.forEach((effect) => {
             const tickTiming = effect.tickTiming || 'turnStart';
+            if (effect.effectType === 'heal_over_time' && tickTiming === 'turnStart') {
+                const missingHp = Math.max(0, this.maxHp - this.hp);
+                const healAmount = Math.max(0, Math.floor(missingHp * (Number(effect.healMissingHpRatio) || 0)));
+                if (healAmount > 0) {
+                    const actualHeal = this.heal(Math.max(1, healAmount));
+                    if (actualHeal > 0) {
+                        events.push({
+                            type: 'status_heal',
+                            statusType: effect.type,
+                            statusName: effect.name,
+                            heal: actualHeal,
+                            sourceUnitId: effect.sourceUnitId,
+                            sourceName: effect.sourceName
+                        });
+                    }
+                }
+            }
+
             if (effect.effectType === 'damage_over_time' && tickTiming === 'turnStart') {
                 const damage = this.calculateStatusDamage(effect);
                 if (damage > 0) {
@@ -923,7 +946,7 @@ class BattleUnit {
             accuracy: this.accuracy,
             dodge: this.dodge,
             attackRange: this.attackRange,
-            moveRange: this.moveRange,
+            moveRange: Math.max(1, Math.floor(this.getEffectiveStat('moveRange') || this.moveRange || 1)),
             statuses: this.getStatusEffects(),
             hpPercent: (this.hp / this.maxHp * 100).toFixed(1)
         };

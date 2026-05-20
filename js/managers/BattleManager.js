@@ -10,6 +10,7 @@ class BattleManager {
         this.enemies = [];
         this.pendingBossWaves = [];
         this.scene = this.resolveSceneConfig('standard_9x9');
+        this.specialTileWarnings = [];
         this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = false;
@@ -37,6 +38,7 @@ class BattleManager {
         }));
         this.scene = this.resolveSceneConfig(sceneId, battlefield);
         this.environmentEffect = this.normalizeEnvironmentEffect(environmentEffect || battlefield?.environmentEffect);
+        this.specialTileWarnings = [];
         this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = true;
@@ -90,6 +92,7 @@ class BattleManager {
         const enemySpawn = battlefield?.enemySpawn || {};
         const baseHeroSpawn = baseScene?.heroSpawn || {};
         const baseEnemySpawn = baseScene?.enemySpawn || {};
+        const obstacles = this.normalizeObstacles(battlefield?.obstacles, width, height);
         return {
             ...baseScene,
             width,
@@ -107,7 +110,9 @@ class BattleManager {
                 startRow: enemySpawn.startRow ?? (battlefield ? 0 : (baseEnemySpawn.startRow ?? 0)),
                 direction: enemySpawn.direction ?? baseEnemySpawn.direction ?? 1
             }, width, height, 0, 1),
-            obstacles: this.normalizeObstacles(battlefield?.obstacles, width, height)
+            obstacles,
+            specialTiles: this.normalizeSpecialTiles(battlefield?.specialTiles, width, height)
+                .filter(tile => !obstacles.some(obstacle => obstacle.x === tile.x && obstacle.y === tile.y))
         };
     }
 
@@ -197,6 +202,148 @@ class BattleManager {
             result.push(normalized);
             return result;
         }, []);
+    }
+
+    normalizeSpecialTiles(tiles = [], width = this.scene?.width || 0, height = this.scene?.height || 0) {
+        const entries = this.expandSpecialTileEntries(tiles);
+        if (!Array.isArray(entries)) {
+            return [];
+        }
+        const occupiedKeys = new Set();
+        return entries.reduce((result, entry, index) => {
+            const normalized = this.normalizeSpecialTileEntry(entry, width, height, index);
+            if (!normalized) {
+                return result;
+            }
+            const key = `${normalized.x},${normalized.y}`;
+            if (occupiedKeys.has(key)) {
+                return result;
+            }
+            occupiedKeys.add(key);
+            result.push(normalized);
+            return result;
+        }, []);
+    }
+
+    expandSpecialTileEntries(tiles) {
+        if (Array.isArray(tiles)) {
+            return tiles.flatMap(entry => this.expandSpecialTileEntry(entry));
+        }
+        if (tiles && typeof tiles === 'object') {
+            if (tiles.type && Array.isArray(tiles.positions || tiles.coords || tiles.cells || tiles.points || tiles.list)) {
+                return this.expandSpecialTileEntry(tiles);
+            }
+            return Object.entries(tiles).flatMap(([type, positions]) => {
+                const group = Array.isArray(positions) ? positions : positions?.positions;
+                if (!Array.isArray(group)) {
+                    return [];
+                }
+                return group.map((position, index) => this.createSpecialTileEntryFromPosition({ type }, position, index));
+            });
+        }
+        return [];
+    }
+
+    expandSpecialTileEntry(entry) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            return [entry];
+        }
+        const positions = entry.positions || entry.coords || entry.cells || entry.points || entry.list;
+        if (!Array.isArray(positions)) {
+            return [entry];
+        }
+        return positions.map((position, index) => this.createSpecialTileEntryFromPosition(entry, position, index));
+    }
+
+    createSpecialTileEntryFromPosition(source, position, index = 0) {
+        const base = { ...(source || {}) };
+        const baseId = base.id;
+        delete base.id;
+        delete base.positions;
+        delete base.coords;
+        delete base.cells;
+        delete base.points;
+        delete base.list;
+        const normalizedPosition = Array.isArray(position)
+            ? { row: position[0], col: position[1] }
+            : (position && typeof position === 'object' ? { ...position } : {});
+        const entry = { ...base, ...normalizedPosition };
+        if (!entry.id && baseId) {
+            entry.id = `${baseId}_${index + 1}`;
+        }
+        return entry;
+    }
+
+    normalizeSpecialTileEntry(entry, width, height, index = 0) {
+        const tile = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+        let row = null;
+        let col = null;
+        if (Array.isArray(entry)) {
+            row = Number(entry[0]);
+            col = Number(entry[1]);
+            if (entry[2] !== undefined) {
+                tile.type = entry[2];
+            }
+        } else if (entry && typeof entry === 'object') {
+            row = entry.row !== undefined ? Number(entry.row) : Number(entry.y) + 1;
+            col = entry.col !== undefined ? Number(entry.col) : Number(entry.x) + 1;
+        }
+        if (!Number.isFinite(row) || !Number.isFinite(col)) {
+            return null;
+        }
+        const position = { x: Math.floor(col) - 1, y: Math.floor(row) - 1 };
+        if (position.x < 0 || position.y < 0 || position.x >= width || position.y >= height) {
+            return null;
+        }
+        const type = this.normalizeSpecialTileType(tile.type || tile.kind || tile.effect || tile.id);
+        if (type === 'none') {
+            return null;
+        }
+        return {
+            id: tile.id || `special_tile_${index + 1}`,
+            type,
+            name: tile.name || this.getSpecialTileTypeLabel(type),
+            icon: tile.icon || this.getSpecialTileIcon(type),
+            x: position.x,
+            y: position.y,
+            value: Number(tile.value) || 0
+        };
+    }
+
+    normalizeSpecialTileType(type) {
+        const raw = String(type || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+        const aliases = {
+            heal: 'heal',
+            recovery: 'heal',
+            recover: 'heal',
+            fire: 'fire',
+            flame: 'fire',
+            swamp: 'swamp',
+            bog: 'swamp',
+            miasma: 'miasma',
+            gas: 'miasma'
+        };
+        return aliases[raw] || raw || 'none';
+    }
+
+    getSpecialTileTypeLabel(type) {
+        const labels = {
+            heal: '恢复地格',
+            fire: '火焰地格',
+            swamp: '沼泽地格',
+            miasma: '瘴气地格'
+        };
+        return labels[type] || '特殊地格';
+    }
+
+    getSpecialTileIcon(type) {
+        const icons = {
+            heal: '+',
+            fire: '火',
+            swamp: '沼',
+            miasma: '雾'
+        };
+        return icons[type] || '·';
     }
 
     normalizeObstacleEntry(entry, width, height, index = 0) {
@@ -432,6 +579,10 @@ class BattleManager {
             heroes: this.heroes,
             enemies: this.enemies,
             fallenHeroes: this.getFallenHeroes(),
+            specialTileWarnings: this.specialTileWarnings.map(warning => ({
+                ...warning,
+                cells: (warning.cells || []).map(cell => ({ ...cell }))
+            })),
             battleItemUsage: { ...this.battleItemUsage },
             logs: this.getBattleLog()
         };
@@ -452,6 +603,13 @@ class BattleManager {
         return (this.scene?.obstacles || []).find(obstacle => obstacle.x === position.x && obstacle.y === position.y) || null;
     }
 
+    getSpecialTileAt(position) {
+        if (!position) {
+            return null;
+        }
+        return (this.scene?.specialTiles || []).find(tile => tile.x === position.x && tile.y === position.y) || null;
+    }
+
     isObstacleAt(position) {
         return Boolean(this.getObstacleAt(position));
     }
@@ -462,6 +620,47 @@ class BattleManager {
 
     isCellBlocked(position, ignoreUnitId = null) {
         return this.isObstacleAt(position) || Boolean(this.getUnitAt(position, ignoreUnitId));
+    }
+
+    getUnitStatPercentBonus(unit, statKey) {
+        const tile = this.getSpecialTileAt(unit?.position);
+        if (!tile || !unit || !statKey) {
+            return 0;
+        }
+        if (tile.type === 'swamp') {
+            if (statKey === 'speed' || statKey === 'moveRange') {
+                return -0.3;
+            }
+        }
+        if (tile.type === 'miasma' && statKey === 'defense') {
+            return -0.5;
+        }
+        return 0;
+    }
+
+    getSpecialTileMoveRangeMultiplier(unit) {
+        const tile = this.getSpecialTileAt(unit?.position);
+        if (!tile || tile.type !== 'swamp') {
+            return 1;
+        }
+        return 0.7;
+    }
+
+    getSpecialTileTriggerEffects(unit) {
+        const tile = this.getSpecialTileAt(unit?.position);
+        if (!tile) {
+            return [];
+        }
+        if (tile.type === 'heal') {
+            const missingHp = Math.max(0, unit.maxHp - unit.hp);
+            const heal = Math.max(1, Math.floor(missingHp * 0.05));
+            return heal > 0 ? [{ type: 'heal', heal }] : [];
+        }
+        if (tile.type === 'fire') {
+            const damage = Math.max(1, Math.floor(unit.hp * 0.1));
+            return [{ type: 'damage', damage }];
+        }
+        return [];
     }
 
     isCellBlockedForMovement(position, actor, destination = null) {
@@ -600,6 +799,7 @@ class BattleManager {
     }
 
     getReachableCells(actor) {
+        const moveRange = Math.max(1, Math.floor((Number(actor.moveRange) || 1) * this.getSpecialTileMoveRangeMultiplier(actor)));
         const cells = [];
         for (let x = 0; x < this.scene.width; x++) {
             for (let y = 0; y < this.scene.height; y++) {
@@ -607,7 +807,7 @@ class BattleManager {
                 if (this.distanceBetween(actor.position, position) === 0) {
                     continue;
                 }
-                if (this.getPathDistance(actor.position, position, actor) <= actor.moveRange) {
+                if (this.getPathDistance(actor.position, position, actor) <= moveRange) {
                     cells.push(position);
                 }
             }
@@ -1103,6 +1303,7 @@ class BattleManager {
         }
         this.addLog('death', `${unit.name} 倒下了！`);
         eventManager.emit('battleUnitDie', { unit });
+        this.specialTileWarnings = this.specialTileWarnings.filter(warning => warning.sourceUnitId !== unit.id);
         this.clearTauntsFromSource(unit);
         if (context?.attacker?.isAlive?.() && context.attacker.isAlive()) {
             this.triggerKillPassives(context.attacker, unit, context);
@@ -1432,6 +1633,13 @@ class BattleManager {
             return tauntedAction;
         }
 
+        if (actor.camp === 'enemy') {
+            const warningAction = this.chooseEnemyWarningSkillAction(actor);
+            if (warningAction) {
+                return warningAction;
+            }
+        }
+
         const healItems = this.getUsableBattleItems(actor).filter(item => item.effect?.type === 'heal');
         if (actor.camp === 'hero' && actor.hp / actor.maxHp <= 0.4 && healItems.length > 0) {
             return { type: 'item', itemId: healItems[0].id, targetId: actor.id };
@@ -1579,6 +1787,50 @@ class BattleManager {
         return appliedEffects;
     }
 
+    applyMissingHpRegenEffect(actor, targetUnit, customEffect = {}) {
+        const ratio = Math.max(0, Number(customEffect?.healMissingHpRatio) || 0);
+        const durationTurns = Math.max(1, Number(customEffect?.durationTurns) || 1);
+        if (ratio <= 0 || durationTurns <= 0) {
+            return { type: 'apply_missing_hp_regen', appliedEffects: [] };
+        }
+
+        const targets = [];
+        if (customEffect.includeTarget !== false && targetUnit?.isAlive?.()) {
+            targets.push(targetUnit);
+        }
+        if (customEffect.includeCaster === true && actor?.isAlive?.() && !targets.some(unit => unit.id === actor.id)) {
+            targets.push(actor);
+        }
+
+        const statusEffect = {
+            type: customEffect.statusType || 'missing_hp_regen',
+            name: customEffect.name || '持续恢复',
+            effectType: 'heal_over_time',
+            tickTiming: customEffect.tickTiming || 'turnStart',
+            durationTurns,
+            remainingTurns: durationTurns,
+            healMissingHpRatio: ratio,
+            stackMode: customEffect.stackMode || 'replace',
+            countsAsDebuff: false
+        };
+
+        const appliedEffects = [];
+        targets.forEach(unit => {
+            const applied = unit.applyStatusEffects([{
+                ...statusEffect,
+                skipNextTurnEndDecay: Boolean(unit.id === actor?.id)
+            }], actor);
+            applied.forEach(effect => {
+                appliedEffects.push({ target: unit, effect });
+            });
+        });
+
+        return {
+            type: 'apply_missing_hp_regen',
+            appliedEffects
+        };
+    }
+
     applyBasicAttackEffects(actor, targetUnit, attackResult = {}) {
         if (!attackResult?.hit || !targetUnit?.isAlive()) {
             return [];
@@ -1616,6 +1868,203 @@ class BattleManager {
             appliedEffects.push(...targetUnit.applyStatusEffects(selectedStatuses, actor));
         });
         return appliedEffects;
+    }
+
+    isWarningSkill(skill = {}) {
+        return skill?.customEffect?.type === 'warning_area_damage'
+            || skill?.effectType === 'warning_area_damage'
+            || skill?.warningArea;
+    }
+
+    chooseEnemyWarningSkillAction(actor) {
+        const skills = this.getUsableSkills(actor).filter(skill => skill.canUse && this.isWarningSkill(skill));
+        for (const skill of skills) {
+            const target = this.chooseTargetForWarningSkill(actor, skill.index);
+            if (target) {
+                return { type: 'skill', targetId: target.id, skillIndex: skill.index };
+            }
+        }
+        return null;
+    }
+
+    chooseTargetForWarningSkill(actor, skillIndex = 0) {
+        const targets = this.getSkillTargetCandidates(actor, skillIndex);
+        if (!targets.length) {
+            return null;
+        }
+        return [...targets].sort((a, b) => a.hp - b.hp || actor.distanceTo(a) - actor.distanceTo(b))[0] || null;
+    }
+
+    createWarningSkill(actor, targetUnit, skillIndex = 0, skill = actor?.getSkill?.(skillIndex) || {}) {
+        const customEffect = skill?.customEffect || {};
+        const shape = customEffect.shape || skill?.warningShape || 'around_self';
+        const delayTurns = Math.max(1, Number(customEffect.delayTurns ?? skill?.chargeTurns ?? 2) || 2);
+        const cells = this.getWarningSkillCells(actor, targetUnit, { ...customEffect, shape });
+        if (!cells.length) {
+            return null;
+        }
+        const warning = {
+            id: Utils.generateId(),
+            sourceUnitId: actor.id,
+            sourceName: actor.name,
+            skillName: skill?.name || '蓄力技能',
+            skillIndex,
+            remainingTurns: delayTurns,
+            delayTurns,
+            shape,
+            multiplier: Number(customEffect.multiplier ?? skill?.multiplier ?? 1.15) || 1.15,
+            fixedDamage: Math.max(0, Number(customEffect.fixedDamage ?? skill?.fixedDamage ?? 0) || 0),
+            randomDamageRatio: Math.max(0, Number(customEffect.randomDamageRatio ?? 0) || 0),
+            canCrit: customEffect.canCrit === true,
+            cells
+        };
+        this.specialTileWarnings.push(warning);
+        actor.consumeSkillCost(skillIndex);
+        this.addLog('control', `${actor.name} 开始蓄力 ${warning.skillName}，${delayTurns}次行动后爆发`);
+        this.emitStateChange();
+        return warning;
+    }
+
+    getWarningSkillCells(actor, targetUnit, config = {}) {
+        const shape = config.shape || 'around_self';
+        const radius = Math.max(1, Number(config.radius ?? 1) || 1);
+        if (shape === 'line_to_target') {
+            return this.getLineWarningCells(actor.position, targetUnit?.position, Number(config.length) || this.scene.height);
+        }
+        if (shape === 'random_cells') {
+            return this.getRandomWarningCells(Number(config.count) || 4);
+        }
+        if (shape === 'target_cross') {
+            return this.getCrossWarningCells(targetUnit?.position || actor.position, radius);
+        }
+        return this.getAreaWarningCells(actor.position, radius, true);
+    }
+
+    getAreaWarningCells(center, radius, excludeCenter = false) {
+        if (!center) {
+            return [];
+        }
+        const cells = [];
+        for (let y = center.y - radius; y <= center.y + radius; y++) {
+            for (let x = center.x - radius; x <= center.x + radius; x++) {
+                const position = { x, y };
+                if (!this.isInsideBoard(position) || this.isObstacleAt(position)) {
+                    continue;
+                }
+                if (excludeCenter && x === center.x && y === center.y) {
+                    continue;
+                }
+                if (this.distanceBetween(center, position) <= radius) {
+                    cells.push(position);
+                }
+            }
+        }
+        return cells;
+    }
+
+    getCrossWarningCells(center, radius = 1) {
+        if (!center) {
+            return [];
+        }
+        const cells = [];
+        for (let offset = -radius; offset <= radius; offset++) {
+            [{ x: center.x + offset, y: center.y }, { x: center.x, y: center.y + offset }]
+                .forEach(position => {
+                    const key = `${position.x},${position.y}`;
+                    if (this.isInsideBoard(position) && !this.isObstacleAt(position) && !cells.some(cell => `${cell.x},${cell.y}` === key)) {
+                        cells.push(position);
+                    }
+                });
+        }
+        return cells;
+    }
+
+    getLineWarningCells(start, target, maxLength = 8) {
+        if (!start || !target) {
+            return [];
+        }
+        const dx = Math.abs(target.x - start.x) >= Math.abs(target.y - start.y)
+            ? Math.sign(target.x - start.x)
+            : 0;
+        const dy = dx === 0 ? Math.sign(target.y - start.y) : 0;
+        const cells = [];
+        for (let step = 1; step <= maxLength; step++) {
+            const position = { x: start.x + dx * step, y: start.y + dy * step };
+            if (!this.isInsideBoard(position) || this.isObstacleAt(position)) {
+                break;
+            }
+            cells.push(position);
+        }
+        return cells;
+    }
+
+    getRandomWarningCells(count = 4) {
+        const candidates = [];
+        for (let y = 0; y < this.scene.height; y++) {
+            for (let x = 0; x < this.scene.width; x++) {
+                const position = { x, y };
+                if (!this.isObstacleAt(position)) {
+                    candidates.push(position);
+                }
+            }
+        }
+        const cells = [];
+        while (candidates.length && cells.length < count) {
+            const index = Math.floor(Math.random() * candidates.length);
+            cells.push(candidates.splice(index, 1)[0]);
+        }
+        return cells;
+    }
+
+    getWarningAt(position) {
+        if (!position) {
+            return null;
+        }
+        return [...this.specialTileWarnings]
+            .filter(warning => warning.cells.some(cell => cell.x === position.x && cell.y === position.y))
+            .sort((a, b) => a.remainingTurns - b.remainingTurns)[0] || null;
+    }
+
+    processWarningSkillTurnStart(actor) {
+        const events = [];
+        this.specialTileWarnings.forEach((warning) => {
+            if (warning.sourceUnitId !== actor.id) {
+                return;
+            }
+            warning.remainingTurns = Math.max(0, Number(warning.remainingTurns) - 1);
+            if (warning.remainingTurns > 0) {
+                events.push({ type: 'warning_tick', warning });
+                return;
+            }
+            events.push(...this.resolveWarningSkill(warning, actor));
+        });
+        this.specialTileWarnings = this.specialTileWarnings.filter(warning => warning.remainingTurns > 0);
+        return events;
+    }
+
+    resolveWarningSkill(warning, actor) {
+        const cellSet = new Set((warning.cells || []).map(cell => `${cell.x},${cell.y}`));
+        const events = [];
+        const targets = this.getAllUnits().filter(unit => unit.isAlive() && cellSet.has(`${unit.position.x},${unit.position.y}`));
+        targets.forEach((target) => {
+            const rawDamage = warning.fixedDamage > 0
+                ? warning.fixedDamage
+                : Math.floor((actor?.getEffectiveAttack?.() || actor?._attack || 1) * warning.multiplier * (warning.randomDamageRatio > 0 ? Utils.randomFloat(1 - warning.randomDamageRatio, 1 + warning.randomDamageRatio) : 1));
+            const damage = target.takeDamage(Math.max(1, rawDamage), { defensePen: actor?.defensePen || 0, sourceUnitId: actor?.id });
+            events.push({
+                type: 'warning_damage',
+                warning,
+                target,
+                damage,
+                sourceUnitId: actor?.id || warning.sourceUnitId,
+                sourceName: actor?.name || warning.sourceName,
+                skillName: warning.skillName
+            });
+        });
+        if (!targets.length) {
+            events.push({ type: 'warning_empty', warning });
+        }
+        return events;
     }
 
     resolveCustomSkillEffect(actor, targetUnit, skillIndex = 0, attackResult = {}) {
@@ -1662,6 +2111,10 @@ class BattleManager {
                 effectName: customEffect.name || skill?.name || '阵地',
                 pendingOwnerTurns: Math.max(0, Number(customEffect.pendingOwnerTurns) || 0)
             };
+        }
+
+        if (customEffect.type === 'apply_missing_hp_regen') {
+            return this.applyMissingHpRegenEffect(actor, targetUnit, customEffect);
         }
 
         if (customEffect.type !== 'consume_status_damage') {
@@ -1748,6 +2201,93 @@ class BattleManager {
                 return;
             }
 
+            if (event.type === 'special_tile_damage' && event.damage > 0) {
+                this.addLog('damage', `${actor.name} 受到${event.tileName || '地格'}影响，损失 ${event.damage} 点生命`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: actor,
+                    damage: event.damage,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        damage: event.damage,
+                        statusName: event.tileName || '地格伤害'
+                    }
+                });
+                if (!actor.isAlive()) {
+                    this.processDefeatedUnit(actor, { reason: 'special_tile' });
+                }
+                return;
+            }
+
+            if (event.type === 'special_tile_heal' && event.heal > 0) {
+                this.addLog('heal', `${actor.name} 受到${event.tileName || '地格'}影响，恢复 ${event.heal} 点生命`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: actor,
+                    damage: 0,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        heal: event.heal,
+                        statusName: event.tileName || '地格恢复'
+                    }
+                });
+                return;
+            }
+
+            if (event.type === 'warning_tick') {
+                this.addLog('control', `${event.warning.sourceName} 的 ${event.warning.skillName} 正在蓄力，还剩 ${event.warning.remainingTurns} 次行动`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: actor,
+                    damage: 0,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        statusName: `${event.warning.skillName} ${event.warning.remainingTurns}`
+                    }
+                });
+                return;
+            }
+
+            if (event.type === 'warning_empty') {
+                this.addLog('control', `${event.warning.sourceName} 的 ${event.warning.skillName} 爆发，但没有命中任何单位`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: actor,
+                    damage: 0,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        statusName: event.warning.skillName
+                    }
+                });
+                return;
+            }
+
+            if (event.type === 'warning_damage' && event.target && event.damage > 0) {
+                this.addLog('damage', `${event.sourceName || actor.name} 的 ${event.skillName || '蓄力技能'} 命中 ${event.target.name}，造成 ${event.damage} 点伤害`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: event.target,
+                    damage: event.damage,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        damage: event.damage,
+                        statusName: event.skillName || '蓄力技能'
+                    }
+                });
+                if (!event.target.isAlive()) {
+                    this.processDefeatedUnit(event.target, {
+                        attacker: actor,
+                        reason: 'warning_skill'
+                    });
+                }
+                return;
+            }
+
             if (event.type === 'status_damage' && event.damage > 0) {
                 this.addLog('damage', `${actor.name} 受到${event.statusName || '持续伤害'}影响，损失 ${event.damage} 点生命`);
                 eventManager.emit('battleUnitAction', {
@@ -1778,6 +2318,23 @@ class BattleManager {
                     eventManager.emit('battleUnitDie', { unit: actor });
                     this.clearTauntsFromSource(actor);
                 }
+            }
+
+            if (event.type === 'status_heal' && event.heal > 0) {
+                this.addLog('heal', `${actor.name} 受到${event.statusName || '持续恢复'}影响，恢复 ${event.heal} 点生命`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: this.findUnitById(event.sourceUnitId) || actor,
+                    target: actor,
+                    damage: 0,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        heal: event.heal,
+                        statusType: event.statusType,
+                        statusName: event.statusName,
+                        sourceName: event.sourceName
+                    }
+                });
             }
 
             if (event.type === 'skip_action') {
@@ -1811,6 +2368,7 @@ class BattleManager {
                 position: finalAction.position,
                 toPosition: finalAction.position
             });
+            await this.waitForActionPresentation();
             this.emitStateChange();
 
             if (source.isAlive() && this.isCellTargetable(actor, source.position, actor.attackRange)) {
@@ -1843,6 +2401,7 @@ class BattleManager {
                 position: finalAction.position,
                 toPosition: finalAction.position
             });
+            await this.waitForActionPresentation();
             this.triggerMoveEndPassives(actor);
             this.emitStateChange();
             return;
@@ -1883,6 +2442,7 @@ class BattleManager {
                 message: result.message,
                 result
             });
+            await this.waitForActionPresentation();
             this.emitStateChange();
             return;
         }
@@ -1908,6 +2468,26 @@ class BattleManager {
 
             if (isSkill) {
                 const skill = actor.getSkill(skillIndex);
+                if (this.isWarningSkill(skill)) {
+                    const warning = this.createWarningSkill(actor, target, skillIndex, skill);
+                    if (!warning) {
+                        return this.executeAction(actor, { type: 'defend' });
+                    }
+                    eventManager.emit('battleUnitAction', {
+                        attacker: actor,
+                        target: actor,
+                        damage: 0,
+                        actionType: 'status',
+                        result: {
+                            hit: true,
+                            statusName: `${warning.skillName} ${warning.remainingTurns}`,
+                            skillName: warning.skillName
+                        }
+                    });
+                    await this.waitForActionPresentation();
+                    this.emitStateChange();
+                    return;
+                }
                 const targets = this.getSelectedSkillTargets(actor, target, skillIndex);
                 const hpCost = actor.consumeSkillCost(skillIndex);
                 const skillLogs = [];
@@ -1920,10 +2500,19 @@ class BattleManager {
                         return;
                     }
                     if (effectType === 'heal') {
-                        const healValue = Math.max(1, Math.floor(actor._attack * actor.attackCoefficient * (Number(skill?.multiplier) || 1)));
+                        const healValue = Math.max(1, Math.floor(actor.getEffectiveAttack() * actor.attackCoefficient * (Number(skill?.multiplier) || 1)));
                         const actualHeal = targetUnit.heal(healValue);
+                        const healResult = { hit: true, heal: actualHeal, useSkill: true, skillName: skill?.name || null };
+                        const customEffectResult = this.resolveCustomSkillEffect(actor, targetUnit, skillIndex, healResult);
+                        healResult.customEffectResult = customEffectResult;
                         skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，恢复 ${actualHeal} 点生命`);
-                        actionTargets.push({ target: targetUnit, result: { hit: true, heal: actualHeal, useSkill: true, skillName: skill?.name || null } });
+                        if (customEffectResult?.type === 'apply_missing_hp_regen' && customEffectResult.appliedEffects?.length > 0) {
+                            const statusText = customEffectResult.appliedEffects
+                                .map(entry => `${entry.target.name}获得${entry.effect?.name || '持续恢复'}`)
+                                .join('、');
+                            skillLogs.push(`${actor.name} 施放 ${skill?.name || '特技'}，${statusText}`);
+                        }
+                        actionTargets.push({ target: targetUnit, result: healResult });
                     } else if (effectType === 'utility') {
                         const utilityResult = actor.buildSkillResultBase?.(targetUnit, skillIndex) || {
                             hit: true,
@@ -2012,6 +2601,7 @@ class BattleManager {
                         targets: actionTargets.map(entry => ({ id: entry.target.id, name: entry.target.name, ...entry.result }))
                     }
                 });
+                await this.waitForActionPresentation();
                 defeatedTargets.forEach((targetUnit) => {
                     this.processDefeatedUnit(targetUnit, {
                         attacker: actor,
@@ -2052,6 +2642,7 @@ class BattleManager {
                 this.addLog('damage', logText);
             }
             eventManager.emit('battleUnitAction', { attacker: actor, target, damage: attackResult.damage, actionType: finalAction.type, result: attackResult });
+            await this.waitForActionPresentation();
             if (!target.isAlive()) {
                 this.processDefeatedUnit(target, {
                     attacker: actor,
@@ -2201,9 +2792,28 @@ class BattleManager {
                 this.currentActor = actor;
                 this.emitStateChange();
                 const formationEvents = this.processFormationTurnStart(actor);
+                const warningEvents = this.processWarningSkillTurnStart(actor);
+                const specialTileEvents = this.getSpecialTileTriggerEffects(actor).map((effect) => {
+                    const tile = this.getSpecialTileAt(actor.position);
+                    if (effect.type === 'damage') {
+                        const damage = actor.takeStatusDamage(effect.damage, true);
+                        return { type: 'special_tile_damage', damage, tileName: tile?.name || '火焰地格' };
+                    }
+                    if (effect.type === 'heal') {
+                        const heal = actor.heal(effect.heal);
+                        return { type: 'special_tile_heal', heal, tileName: tile?.name || '恢复地格' };
+                    }
+                    return null;
+                }).filter(Boolean);
                 const turnStartResult = actor.processTurnStartEffects?.() || { preventedAction: false, events: [] };
-                if (formationEvents.length > 0) {
-                    turnStartResult.events = [...formationEvents, ...(Array.isArray(turnStartResult.events) ? turnStartResult.events : [])];
+                if (formationEvents.length > 0 || warningEvents.length > 0 || specialTileEvents.length > 0) {
+                    turnStartResult.events = [
+                        ...formationEvents,
+                        ...warningEvents,
+                        ...specialTileEvents,
+                        ...(Array.isArray(turnStartResult.events) ? turnStartResult.events : [])
+                    ];
+                    turnStartResult.preventedAction = turnStartResult.preventedAction || warningEvents.length > 0;
                 }
                 if (turnStartResult.events?.length) {
                     this.handleTurnStartEffects(actor, turnStartResult);

@@ -58,10 +58,11 @@ class HeroCard {
             card.appendChild(professionBadge);
         }
 
+        const portrait = hero.cardPortrait || hero.portrait || null;
         const avatar = document.createElement('div');
-        avatar.className = `hero-avatar ${hero.portrait ? 'hero-avatar-portrait' : ''}`;
-        if (hero.portrait) {
-            avatar.innerHTML = `<img class="hero-avatar-image" src="${hero.portrait}" alt="${hero.name}">`;
+        avatar.className = `hero-avatar ${portrait ? 'hero-avatar-portrait' : ''}`;
+        if (portrait) {
+            avatar.innerHTML = `<img class="hero-avatar-image" src="${portrait}" alt="${hero.name}" loading="lazy" decoding="async" draggable="false">`;
         } else {
             avatar.textContent = hero.icon || '❓';
             avatar.style.color = rarityColor;

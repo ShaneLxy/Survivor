@@ -1,5 +1,5 @@
-(function() {
-    const currentBuildVersion = window.__SURVIVOR_BUILD_VERSION__ || '2026.05.06.1';
+﻿(function() {
+    const currentBuildVersion = window.__SURVIVOR_BUILD_VERSION__ || '2026.05.16.11';
     const manager = {
         buildVersion: currentBuildVersion,
         assetVersion: currentBuildVersion,
@@ -113,7 +113,5 @@
 
     window.VersionManager = manager;
 })();
-
-
 
 

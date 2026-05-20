@@ -4,6 +4,19 @@ const fs = require('fs');
 const path = require('path');
 
 const projectRoot = path.resolve(__dirname, '..');
+const defaultPackageOutputDir = path.join(projectRoot, 'android', 'app', 'build', 'outputs', 'apk', 'debug');
+
+function getDefaultPackageVersionCode(date = new Date()) {
+  const parts = [
+    String(date.getFullYear()),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0')
+  ];
+  return parts.join('');
+}
 
 function asCleanString(value, fallback = '') {
   const text = String(value ?? '').trim();
@@ -13,11 +26,11 @@ function asCleanString(value, fallback = '') {
 function normalizePackageOptions(rawOptions = {}) {
   const buildChannel = rawOptions.buildChannel === 'formal' ? 'formal' : 'test';
   const artifact = rawOptions.artifact === 'aab' ? 'aab' : 'apk';
-  const versionCode = Math.max(1, Number.parseInt(rawOptions.versionCode, 10) || 1);
+  const versionCode = asCleanString(rawOptions.versionCode, getDefaultPackageVersionCode());
   const webViewDebugging = typeof rawOptions.webViewDebugging === 'boolean'
     ? rawOptions.webViewDebugging
     : buildChannel === 'test';
-  const rawOutputDir = asCleanString(rawOptions.outputDir, path.join(projectRoot, 'dist', 'android'));
+  const rawOutputDir = asCleanString(rawOptions.outputDir, defaultPackageOutputDir);
 
   return {
     buildChannel,
@@ -25,7 +38,7 @@ function normalizePackageOptions(rawOptions = {}) {
     versionName: asCleanString(rawOptions.versionName, '1.0'),
     versionCode,
     applicationId: asCleanString(rawOptions.applicationId, 'com.survivor.game'),
-    appName: asCleanString(rawOptions.appName, '云境'),
+    appName: asCleanString(rawOptions.appName, '云境Paradise'),
     buildVersion: asCleanString(rawOptions.buildVersion, ''),
     outputDir: path.isAbsolute(rawOutputDir) ? rawOutputDir : path.resolve(projectRoot, rawOutputDir),
     webViewDebugging,
@@ -105,6 +118,7 @@ function runAndroidPackage(event, rawOptions) {
     const child = spawn('powershell.exe', args, {
       cwd: projectRoot,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         FORCE_COLOR: '0'

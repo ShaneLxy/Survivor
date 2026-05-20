@@ -102,15 +102,25 @@ class SaveSyncService {
         return this.syncNow(currentSave);
     }
 
+    applyAuthoritativeSave(saveWrapper, options = {}) {
+        if (!saveWrapper?.data) {
+            return false;
+        }
+        localStorage.setItem(saveManager.getSaveKey(), JSON.stringify(saveWrapper));
+        window.game.loadFromSave(saveWrapper);
+        if (options.refresh !== false) {
+            window.game.refreshRuntimeUI();
+        }
+        return true;
+    }
+
     async downloadRemoteSaveToGame() {
         const remoteResponse = await SaveApi.getSave();
         const remoteSave = remoteResponse?.saveData || null;
         if (!remoteSave?.data) {
             throw new Error('云端暂无存档');
         }
-        localStorage.setItem(saveManager.getSaveKey(), JSON.stringify(remoteSave));
-        window.game.loadFromSave(remoteSave);
-        window.game.refreshRuntimeUI();
+        this.applyAuthoritativeSave(remoteSave);
         return remoteSave;
     }
 
@@ -118,8 +128,7 @@ class SaveSyncService {
         const localSave = saveManager.load();
         const resolvedSave = await this.resolveInitialSave(localSave);
         if (resolvedSave?.data && this.getSaveTimestamp(resolvedSave) > this.getSaveTimestamp(localSave)) {
-            window.game.loadFromSave(resolvedSave);
-            window.game.refreshRuntimeUI();
+            this.applyAuthoritativeSave(resolvedSave);
             return { source: 'remote', saveData: resolvedSave };
         }
         if (!resolvedSave?.data) {

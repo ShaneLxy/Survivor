@@ -60,14 +60,14 @@ class CheckinView {
             {
                 id: 'welfare_month_card',
                 kind: 'monthCard',
-                name: '福利月卡',
-                title: '福利月卡',
+                name: '卓越特权x30天',
+                title: '卓越特权x30天',
                 subtitle: '每日基础资源补给',
                 description: '通过观看激励视频激活，激活后每日可领取一组额外资源。',
                 requiredViews: 30,
                 activationViews: 30,
                 durationDays: 30,
-                badge: '月卡',
+                badge: '特权',
                 sortOrder: 101,
                 dailyRewards: [
                     { type: 'resource', id: 'gold', count: 3000 },
@@ -77,8 +77,8 @@ class CheckinView {
             {
                 id: 'supreme_month_card',
                 kind: 'monthCard',
-                name: '至尊月卡',
-                title: '至尊月卡',
+                name: '至尊特权x30天',
+                title: '至尊特权x30天',
                 subtitle: '更高阶的日常福利',
                 description: '激活门槛更高，但每日补给更丰厚，同时提升福利礼包观看上限。',
                 requiredViews: 55,
@@ -115,11 +115,11 @@ class CheckinView {
         if (!text) {
             return true;
         }
-        if (/^\?+$/.test(text) || text.includes('�')) {
+        if (/^\?+$/.test(text) || text.includes('\uFFFD')) {
             return true;
         }
-        return /[Ã¥Ã¦Ã§Ã¨Ã©ÃªÃ«Ã¬Ã­Ã®Ã¯Ã°Ã±Ã²Ã³Ã´ÃµÃ¶Ã·Ã¸Ã¹ÃºÃ»Ã¼]/.test(text) ||
-            /[锟斤拷鈥]/.test(text);
+        return /[\u00C0-\u00FF]{2,}/.test(text) ||
+            /\u951F\u65A4\u62F7|\u9225/.test(text);
     }
 
     getEntryFallbackMap() {
@@ -143,17 +143,17 @@ class CheckinView {
                 description: '补充体力药水与经验药水。'
             },
             welfare_month_card: {
-                name: '福利月卡',
-                title: '福利月卡',
+                name: '卓越特权x30天',
+                title: '卓越特权x30天',
                 subtitle: '每日基础资源补给',
-                description: '观看 30 次激励视频激活，月卡有效期 30 天。',
-                badge: '月卡'
+                description: '观看 30 次激励视频激活，特权有效期 30 天。',
+                badge: '特权'
             },
             supreme_month_card: {
-                name: '至尊月卡',
-                title: '至尊月卡',
+                name: '至尊特权x30天',
+                title: '至尊特权x30天',
                 subtitle: '更高阶的日常福利',
-                description: '观看 55 次激励视频激活，月卡有效期 30 天。',
+                description: '观看 55 次激励视频激活，特权有效期 30 天。',
                 badge: '至尊'
             }
         };
@@ -179,7 +179,7 @@ class CheckinView {
             subtitle: pick('subtitle', ''),
             caption: pick('caption', '观看激励视频'),
             description: pick('description', ''),
-            badge: pick('badge', '月卡')
+            badge: pick('badge', '特权')
         };
     }
 
@@ -288,17 +288,6 @@ class CheckinView {
                         </div>
                     </div>
                 </div>
-                <div class="checkin-supply-board">
-                    <div class="checkin-cycle-meter" style="--checkin-progress: ${cycleProgress}%">
-                        <span></span>
-                    </div>
-                    <div class="checkin-supply-layout">
-                        <div class="checkin-days">
-                            ${regularDayCards}
-                        </div>
-                        ${premiumDayCard}
-                    </div>
-                </div>
                 <div class="checkin-action-panel ${status.isTodayCheckedIn ? 'is-complete' : 'is-ready'}">
                     <div class="checkin-action-copy">
                         <span>${status.isTodayCheckedIn ? 'TODAY LOGGED' : 'READY TO CLAIM'}</span>
@@ -327,8 +316,8 @@ class CheckinView {
             <div class="checkin-month-card-board">
                 <div class="checkin-welfare-header">
                     <div>
-                        <div class="checkin-welfare-kicker">MONTH PASS</div>
-                        <div class="checkin-welfare-title">月卡福利</div>
+                        <div class="checkin-welfare-kicker">PRIVILEGE</div>
+                        <div class="checkin-welfare-title">特权福利</div>
                     </div>
                     <div class="checkin-welfare-tip">本月看视频解锁 30 天权益</div>
                 </div>
@@ -345,14 +334,18 @@ class CheckinView {
             ? (status.canClaim ? '领取今日奖励' : '今日已领取')
             : '未解锁';
         const actionDisabled = !status.active || !status.canClaim;
+        const cardAction = actionDisabled
+            ? ''
+            : `onclick="window.game.ui.checkinView.handleMonthCardAction('${card.id}')"`
+        ;
         return `
-            <div class="checkin-month-card ${status.active ? 'is-active' : ''}">
+            <div class="checkin-month-card ${status.active ? 'is-active' : ''} ${actionDisabled ? '' : 'is-clickable'}" ${cardAction}>
                 <div class="checkin-month-card-top">
                     <div class="checkin-month-card-copy">
                         <strong>${this.escapeHtml(card.name)}</strong>
                         <span>${this.escapeHtml(card.subtitle || '')}</span>
                     </div>
-                    <div class="checkin-month-card-badge">${this.escapeHtml(card.badge || '月卡')}</div>
+                    <div class="checkin-month-card-badge">${this.escapeHtml(card.badge || '特权')}</div>
                 </div>
                 <div class="checkin-month-card-progress">
                     <span>${status.active ? `有效期 ${status.durationDays} 天` : `本月进度 ${status.watchedMonth}/${status.requiredViews}`}</span>
@@ -361,13 +354,6 @@ class CheckinView {
                 <div class="checkin-month-card-action-row">
                     <div class="checkin-month-card-rewards">
                         ${(card.dailyRewards || []).map((reward) => this.renderWelfareRewardChip(reward)).join('')}
-                    </div>
-                    <div class="checkin-month-card-footer">
-                        <button
-                            type="button"
-                            class="checkin-month-card-button"
-                            ${actionDisabled ? 'disabled' : ''}
-                            onclick="window.game.ui.checkinView.handleMonthCardAction('${card.id}')">${this.escapeHtml(actionText)}</button>
                     </div>
                 </div>
             </div>
@@ -404,9 +390,11 @@ class CheckinView {
                                     <div class="checkin-welfare-badge">${adBadgeText}</div>
                                 </div>
                                 <div class="checkin-welfare-desc">${this.escapeHtml(gift.description || '领取一组额外福利奖励。')}</div>
-                                <div class="checkin-welfare-limit">今日 ${usage.used}/${usage.limit} 次</div>
-                                <div class="checkin-welfare-rewards">
-                                    ${(gift.rewards || []).map((reward) => this.renderWelfareRewardChip(reward)).join('')}
+                                <div class="checkin-welfare-meta">
+                                    <div class="checkin-welfare-limit">今日 ${usage.used}/${usage.limit} 次</div>
+                                    <div class="checkin-welfare-rewards">
+                                        ${(gift.rewards || []).map((reward) => this.renderWelfareRewardChip(reward)).join('')}
+                                    </div>
                                 </div>
                             </button>
                         `;
@@ -537,17 +525,26 @@ class CheckinView {
     }
 
     async doCheckin() {
-        const result = checkinManager.checkin();
-        if (result.success) {
+        try {
+            if (!authService.isLoggedIn()) {
+                Toast.error('请先登录账号');
+                return;
+            }
+            const result = await SaveApi.claimDailyCheckin();
+            const saveData = result?.saveData || null;
+            if (!saveData?.data) {
+                Toast.error(result?.message || '签到领取失败');
+                return;
+            }
+            saveSyncService.applyAuthoritativeSave(saveData);
             this.render();
             await RewardModal.show({
-                title: `签到成功 - DAY ${result.claimedDay}`,
-                rewards: result.rewards,
-                summaryText: '每日固定补给与签到额外奖励已入账'
+                title: `每日签到 - DAY ${result.claimedDay}`,
+                rewards: this.createRewardModalEntries(result.rewards),
+                summaryText: '今日签到奖励已发放，请查收。'
             });
-            window.game.save();
-        } else {
-            Toast.error(result.message);
+        } catch (error) {
+            Toast.error(error?.message || '签到领取失败');
         }
     }
 
@@ -611,21 +608,15 @@ class CheckinView {
     }
 
     async playRewardVideo(extraKey, rewardName) {
-        if (itemManager.hasAdSkipCard?.()) {
-            const consumeResult = itemManager.consumeAdSkipCard?.(1);
-            if (!consumeResult?.success) {
-                Toast.error(consumeResult?.message || '免广告卡消耗失败');
-                return { success: false };
-            }
-            checkinManager.recordRewardVideoWatch?.();
-            Toast.success(`已消耗1张免广告卡，剩余${consumeResult.remaining}张`);
-            return { success: true, skippedAd: true, consumeResult };
+        const useAdSkipCard = itemManager.hasAdSkipCard?.();
+        if (useAdSkipCard) {
+            return { success: true, skippedAd: true };
         }
 
         const plugin = this.getDirichletRewardAdPlugin();
         if (!plugin?.showRewardVideo) {
             Toast.error('当前环境未接入激励视频广告');
-            return { success: false };
+            return { success: false, useAdSkipCard: false };
         }
 
         Toast.info('正在加载激励视频...');
@@ -639,28 +630,20 @@ class CheckinView {
         const rewardGranted = Boolean(result?.rewardGranted || result?.rewardVerify || result?.videoComplete);
         if (!rewardGranted) {
             Toast.error(result?.message || '广告未完整播放，未发放奖励');
-            return { success: false, result };
+            return { success: false, result, useAdSkipCard: false };
         }
-        checkinManager.recordRewardVideoWatch?.();
-        return { success: true, result };
+        return { success: true, result, useAdSkipCard: false };
     }
 
     async watchWelfareGift(giftId) {
         const gift = this.getWelfareGiftConfigs().find(entry => entry.id === giftId);
         if (!gift) {
-            Toast.error('礼包配置不存在');
+            Toast.error('福利礼包不存在');
             return;
         }
 
-        const giftWatchCheck = checkinManager.canWatchWelfareGift(gift.id, gift.adLimits);
-        if (!giftWatchCheck.success) {
-            Toast.error(giftWatchCheck.message);
-            return;
-        }
-
-        const inventoryCheck = this.canGrantWelfareRewards(gift.rewards);
-        if (!inventoryCheck.success) {
-            Toast.error(inventoryCheck.message || '背包容量不足');
+        if (!authService.isLoggedIn()) {
+            Toast.error('请先登录账号');
             return;
         }
 
@@ -674,19 +657,30 @@ class CheckinView {
                 return;
             }
 
-            checkinManager.recordWelfareGiftWatch(gift.id);
-            this.grantWelfareRewards(gift.rewards);
-            window.game.save();
-            window.game.refreshRuntimeUI();
+            const result = await SaveApi.claimWelfareGift(gift.id, {
+                useAdSkipCard: Boolean(videoResult.skippedAd)
+            });
+            const saveData = result?.saveData || null;
+            if (!saveData?.data) {
+                Toast.error(result?.message || '福利礼包领取失败');
+                return;
+            }
+
+            saveSyncService.applyAuthoritativeSave(saveData);
             this.render();
+
+            if (videoResult.skippedAd) {
+                Toast.success(`已消耗 1 张免广告卡，直接领取 ${this.getGiftName(gift)}`);
+            }
+
             await RewardModal.show({
-                title: `${this.getGiftName(gift)} 已领取`,
-                rewards: this.createRewardModalEntries(gift.rewards),
-                summaryText: '福利礼包奖励已发放到背包与资源库'
+                title: `${this.getGiftName(gift)} 奖励`,
+                rewards: this.createRewardModalEntries(result.rewards),
+                summaryText: '奖励已发放到当前账号。'
             });
         } catch (error) {
-            console.error('welfare reward ad failed', error);
-            Toast.error(error?.message || '激励视频加载失败');
+            console.error('welfare reward claim failed', error);
+            Toast.error(error?.message || '福利礼包领取失败');
         } finally {
             button?.removeAttribute('disabled');
             button?.classList.remove('is-loading');
@@ -696,7 +690,12 @@ class CheckinView {
     async handleMonthCardAction(cardId) {
         const card = this.getMonthCardConfigs().find(entry => entry.id === cardId);
         if (!card) {
-            Toast.error('月卡配置不存在');
+            Toast.error('特权配置不存在');
+            return;
+        }
+
+        if (!authService.isLoggedIn()) {
+            Toast.error('请先登录账号');
             return;
         }
 
@@ -706,19 +705,24 @@ class CheckinView {
             return;
         }
 
-        const claimResult = checkinManager.claimMonthCardRewards(card);
-        if (!claimResult.success) {
-            Toast.error(claimResult.message);
-            return;
+        try {
+            const result = await SaveApi.claimMonthCard(card.id);
+            const saveData = result?.saveData || null;
+            if (!saveData?.data) {
+                Toast.error(result?.message || '特权奖励领取失败');
+                return;
+            }
+
+            saveSyncService.applyAuthoritativeSave(saveData);
+            this.render();
+            await RewardModal.show({
+                title: `${card.name} 每日奖励`,
+                rewards: this.createRewardModalEntries(result.rewards),
+                summaryText: '今日特权奖励已发放。'
+            });
+        } catch (error) {
+            Toast.error(error?.message || '特权奖励领取失败');
         }
-        window.game.save();
-        window.game.refreshRuntimeUI();
-        this.render();
-        await RewardModal.show({
-            title: `${card.name} 每日奖励`,
-            rewards: claimResult.rewards,
-            summaryText: '月卡每日奖励已发放'
-        });
     }
 
     refresh() {

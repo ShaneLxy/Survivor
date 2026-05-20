@@ -379,6 +379,19 @@
                     byId.set(entry.id, nextBuilding);
                 }
             });
+
+            window.shelterManager?.getAllBuildings?.().forEach(building => {
+                const config = window.BuildingConfig.getBuildingConfig?.(building.id);
+                if (!config) {
+                    return;
+                }
+                building.name = config.name || building.name;
+                building.icon = config.icon || building.icon;
+                building.description = config.description || building.description;
+                building.maxLevel = config.maxLevel || building.maxLevel;
+                building.updateLevelEffect?.();
+            });
+            window.game?.ui?.shelterView?.refresh?.();
         },
 
         stripCatalogMeta(entry) {

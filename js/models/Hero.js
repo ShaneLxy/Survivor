@@ -9,6 +9,7 @@ class Hero {
         this.name = config.name || '未知英雄';
         this.icon = config.icon || '🧙';
         this.portrait = config.portrait || null;
+        this.cardPortrait = config.cardPortrait || HeroConfig.getCardPortraitPath?.(config.portrait) || null;
         this.rarity = HeroConfig.normalizeRarity(config.rarity);
         this.profession = config.profession || null;
         this.professionIcon = config.professionIcon || HeroConfig.getProfessionIconPath?.(this.profession) || null;
@@ -276,6 +277,7 @@ class Hero {
             name: this.name,
             icon: this.icon,
             portrait: this.portrait,
+            cardPortrait: this.cardPortrait,
             rarity: this.rarity,
             profession: this.profession,
             professionIcon: this.professionIcon,

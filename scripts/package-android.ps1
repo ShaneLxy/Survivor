@@ -6,7 +6,7 @@ param(
     [string]$Artifact = 'apk',
 
     [string]$VersionName = '1.0',
-    [int]$VersionCode = 1,
+    [string]$VersionCode = '1',
     [string]$ApplicationId = 'com.survivor.game',
     [string]$AppName = '',
     [string]$BuildVersion = '',
@@ -31,7 +31,7 @@ $androidRoot = Join-Path $projectRoot 'android'
 $mobileWebRoot = Join-Path $projectRoot 'mobile\web'
 $capacitorConfigPath = Join-Path $projectRoot 'capacitor.config.json'
 $androidStringsPath = Join-Path $androidRoot 'app\src\main\res\values\strings.xml'
-$defaultAppName = [string]([char]0x4e91) + [string]([char]0x5883)
+$defaultAppName = '云境Paradise'
 
 if ([string]::IsNullOrWhiteSpace($AppName)) {
     $AppName = $defaultAppName
@@ -42,11 +42,11 @@ if ([string]::IsNullOrWhiteSpace($BuildVersion)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $projectRoot 'dist\android'
+    $OutputDir = Join-Path $projectRoot 'android\app\build\outputs\apk\debug'
 }
 
-if ($VersionCode -lt 1) {
-    throw 'VersionCode must be greater than 0.'
+if ($VersionCode -notmatch '^[1-9]\d*$') {
+    throw 'VersionCode must be a positive integer string.'
 }
 
 if ($ApplicationId -notmatch '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$') {
@@ -73,6 +73,39 @@ $effectiveWebViewDebugging = if ([string]::IsNullOrWhiteSpace($WebViewDebugging)
 } else {
     [System.Convert]::ToBoolean($WebViewDebugging)
 }
+
+function ConvertTo-AndroidVersionCode {
+    param([string]$RawVersionCode)
+
+    $maxVersionCode = 2100000000
+    $parsedValue = 0L
+    if ([long]::TryParse($RawVersionCode, [ref]$parsedValue) -and $parsedValue -ge 1 -and $parsedValue -le $maxVersionCode) {
+        return [int]$parsedValue
+    }
+
+    if ($RawVersionCode.Length -ge 12) {
+        $year = [int]$RawVersionCode.Substring(0, 4)
+        $month = [int]$RawVersionCode.Substring(4, 2)
+        $day = [int]$RawVersionCode.Substring(6, 2)
+        $hour = [int]$RawVersionCode.Substring(8, 2)
+        $minute = [int]$RawVersionCode.Substring(10, 2)
+        $safeYear = [Math]::Max(0, $year - 2020)
+        $converted = ($safeYear * 100000000) + ($month * 1000000) + ($day * 10000) + ($hour * 100) + $minute
+        if ($converted -ge 1 -and $converted -le $maxVersionCode) {
+            return [int]$converted
+        }
+    }
+
+    $tailLength = [Math]::Min(9, $RawVersionCode.Length)
+    $tail = $RawVersionCode.Substring($RawVersionCode.Length - $tailLength, $tailLength)
+    $fallbackValue = [int]$tail
+    if ($fallbackValue -lt 1) {
+        throw 'VersionCode must be greater than 0.'
+    }
+    return $fallbackValue
+}
+
+$effectiveVersionCode = ConvertTo-AndroidVersionCode -RawVersionCode $VersionCode
 
 function Resolve-Tool {
     param([string[]]$Names)
@@ -222,6 +255,9 @@ try {
     Write-Host "Artifact: $Artifact"
     Write-Host "VersionName: $VersionName"
     Write-Host "VersionCode: $VersionCode"
+    if ([string]$effectiveVersionCode -ne $VersionCode) {
+        Write-Host "Android VersionCode: $effectiveVersionCode"
+    }
     Write-Host "ApplicationId: $ApplicationId"
     Write-Host "BuildVersion: $BuildVersion"
     Write-Host "WebView debugging: $effectiveWebViewDebugging"
@@ -264,7 +300,7 @@ try {
     $task = if ($Artifact -eq 'apk') { "assemble$variantTaskName" } else { "bundle$variantTaskName" }
     $gradleProperties = @(
         "-PsurvivorApplicationId=$ApplicationId",
-        "-PsurvivorVersionCode=$VersionCode",
+        "-PsurvivorVersionCode=$effectiveVersionCode",
         "-PsurvivorVersionName=$VersionName"
     )
     if ($hasSigningConfig) {
@@ -303,7 +339,8 @@ try {
         variant = $variant
         artifact = $Artifact
         versionName = $VersionName
-        versionCode = $VersionCode
+        versionCode = $effectiveVersionCode
+        rawVersionCode = $VersionCode
         buildVersion = $BuildVersion
     } | ConvertTo-Json -Compress
     Write-Host "PACKAGE_RESULT_JSON:$result"

@@ -182,7 +182,31 @@ const GachaConfig = {
 
     getPoolDisplayEntries(poolId) {
         const pool = this.getPoolConfig(poolId);
-        return pool ? [...(pool.entries || [])] : [];
+        return pool
+            ? [...(pool.entries || [])].sort((left, right) => this.comparePoolEntryIds(left?.id, right?.id))
+            : [];
+    },
+
+    comparePoolEntryIds(leftId, rightId) {
+        const left = String(leftId ?? '');
+        const right = String(rightId ?? '');
+        const leftNumber = Number(left);
+        const rightNumber = Number(right);
+        const leftIsNumeric = left !== '' && Number.isFinite(leftNumber) && String(leftNumber) === left.trim();
+        const rightIsNumeric = right !== '' && Number.isFinite(rightNumber) && String(rightNumber) === right.trim();
+
+        if (leftIsNumeric && rightIsNumeric) {
+            return leftNumber - rightNumber;
+        }
+
+        if (leftIsNumeric !== rightIsNumeric) {
+            return leftIsNumeric ? -1 : 1;
+        }
+
+        return left.localeCompare(right, 'zh-Hans-CN', {
+            numeric: true,
+            sensitivity: 'base'
+        });
     },
 
     rollPoolEntry(poolId) {

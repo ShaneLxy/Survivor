@@ -12,11 +12,11 @@ SRC_DIR = Path(r"E:\AIGame\resource\hero")
 DST_DIR = ROOT / "assets" / "media" / "heroes"
 
 TARGET_FILES = [
-    "HeiFa.png",
+    "YingChen.png",
 ]
 
 PORTRAIT_UPDATES = {
-    "hero_027": "assets/media/heroes/HeiFa.png",
+    "hero_029": "assets/media/heroes/YingChen.png",
 }
 
 

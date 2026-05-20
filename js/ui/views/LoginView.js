@@ -6,6 +6,7 @@ class LoginView {
         this.mode = 'login';
         this.isSubmitting = false;
         this.element = null;
+        this.guestLoginModal = null;
         this.sessionNotice = '';
         this.versionPolicy = null;
 
@@ -27,9 +28,7 @@ class LoginView {
         if (appEl) appEl.style.display = 'none';
         this._setGameChromeVisible(false);
 
-        const modalContainer = document.getElementById('modal-container');
         const toastContainer = document.getElementById('toast-container');
-        if (modalContainer) modalContainer.style.display = 'none';
         if (toastContainer) toastContainer.style.display = 'none';
     }
 
@@ -44,6 +43,8 @@ class LoginView {
 
     hide() {
         this.sessionNotice = '';
+        this.guestLoginModal?.close?.();
+        this.guestLoginModal = null;
         if (this.element) {
             this.element.classList.add('login-fade-out');
             setTimeout(() => {
@@ -59,9 +60,7 @@ class LoginView {
         document.body?.classList.remove('app-boot-hidden');
         this._setGameChromeVisible(true);
 
-        const modalContainer = document.getElementById('modal-container');
         const toastContainer = document.getElementById('toast-container');
-        if (modalContainer) modalContainer.style.display = '';
         if (toastContainer) toastContainer.style.display = '';
     }
 
@@ -149,8 +148,7 @@ class LoginView {
 
     _renderLogin(savedAccount, savedPwd, rememberChecked) {
         const tapTapLoginButton = this._canUseTapTapLogin() ? `
-                    <div class="login-divider"><span>TapTap</span></div>
-                    <button class="login-btn login-btn-taptap" id="btn-taptap-login" onclick="window.loginView.handleTapTapLogin()">
+                    <button class="login-btn login-btn-taptap login-entry-btn" id="btn-taptap-login" onclick="window.loginView.handleTapTapLogin()">
                         <span class="btn-text">TapTap &#30331;&#24405;</span>
                         <span class="btn-loading" style="display:none;">TapTap &#25480;&#26435;&#20013;...</span>
                     </button>
@@ -166,71 +164,24 @@ class LoginView {
                 ${this._renderNotice()}
                 ${this._renderVersionPolicyNotice()}
                 <div class="login-logo">
-                    <div class="login-logo-icon" aria-hidden="true">
-                        <span class="login-logo-core"></span>
-                    </div>
                     <h1 class="login-title">&#20113;&#22659;</h1>
                     <p class="login-subtitle">YUNJING</p>
                 </div>
 
-                <div class="login-form-panel" id="login-form-panel">
-                    <div class="login-panel-accent" aria-hidden="true"></div>
-                    <div class="login-error-tip" id="login-error" style="display:none;"></div>
+                <div class="login-form-panel login-form-panel-hidden" id="login-form-panel" aria-hidden="true"></div>
 
-                    <div class="login-field">
-                        <label class="login-label" for="login-account">
-                            <span class="field-icon field-icon-account" aria-hidden="true"></span>&#36134;&#21495;
-                        </label>
-                        <input type="text" id="login-account" class="login-input"
-                               value="${this._escapeAttr(savedAccount)}"
-                               placeholder="&#35831;&#36755;&#20837;&#36134;&#21495;" autocomplete="username" />
-                    </div>
-
-                    <div class="login-field">
-                        <label class="login-label" for="login-password">
-                            <span class="field-icon field-icon-password" aria-hidden="true"></span>&#23494;&#30721;
-                        </label>
-                        <input type="password" id="login-password" class="login-input"
-                               value="${rememberChecked ? this._escapeAttr(savedPwd) : ''}"
-                               placeholder="&#35831;&#36755;&#20837;&#23494;&#30721;" autocomplete="current-password" />
-                    </div>
-
-                    <div class="login-options">
-                        <label class="login-remember">
-                            <input type="checkbox" id="login-remember" ${rememberChecked ? 'checked' : ''} />
-                            <span class="checkmark"></span>
-                            &#35760;&#20303;&#23494;&#30721;
-                        </label>
-                    </div>
-
-                    <button class="login-btn login-btn-primary" id="btn-login" onclick="window.loginView.handleLogin()">
-                        <span class="btn-text">&#30331;&#24405;</span>
-                        <span class="btn-loading" style="display:none;">&#30331;&#24405;&#20013;...</span>
-                    </button>
+                <div class="login-entry-panel">
                     ${tapTapLoginButton}
-
-                    <div class="login-switch">
-                        &#27809;&#26377;&#36134;&#21495;&#65311;<a href="javascript:void(0)" id="link-to-register" onclick="window.loginView.switchToRegister()">&#31435;&#21363;&#27880;&#20876;</a>
+                    <div class="login-entry-actions">
+                        <button class="login-guest-link" id="btn-guest-login" type="button">
+                            &#28216;&#23458;&#30331;&#24405;
+                        </button>
                     </div>
                 </div>
             </div>
         `;
 
-        const passwordInput = document.getElementById('login-password');
-        if (passwordInput) {
-            passwordInput.addEventListener('keydown', e => {
-                if (e.key === 'Enter') this.handleLogin();
-            });
-        }
-        const accountInput = document.getElementById('login-account');
-        if (accountInput) {
-            accountInput.addEventListener('keydown', e => {
-                if (e.key === 'Enter') {
-                    const pwdInput = document.getElementById('login-password');
-                    if (pwdInput) pwdInput.focus();
-                }
-            });
-        }
+        this._bindLoginEntryEvents();
         const noticeButton = document.getElementById('login-session-notice-btn');
         if (noticeButton) {
             noticeButton.addEventListener('click', () => {
@@ -248,6 +199,108 @@ class LoginView {
         }
     }
 
+    _bindLoginEntryEvents() {
+        const guestButton = this.element?.querySelector('#btn-guest-login');
+        if (!guestButton) {
+            return;
+        }
+
+        let handledAt = 0;
+        const openGuestLogin = (event) => {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            const now = Date.now();
+            if (now - handledAt < 350) {
+                return;
+            }
+            handledAt = now;
+            this.openGuestLoginModal();
+        };
+
+        guestButton.addEventListener('pointerup', openGuestLogin);
+        guestButton.addEventListener('click', openGuestLogin);
+    }
+
+    _buildGuestLoginContent(savedAccount, savedPwd, rememberChecked) {
+        return `
+            <div class="login-panel-accent" aria-hidden="true"></div>
+            <div class="login-error-tip" id="login-error" style="display:none;"></div>
+
+            <div class="login-field">
+                <label class="login-label" for="login-account">
+                    <span class="field-icon field-icon-account" aria-hidden="true"></span>&#36134;&#21495;
+                </label>
+                <input type="text" id="login-account" class="login-input"
+                       value="${this._escapeAttr(savedAccount)}"
+                       placeholder="&#35831;&#36755;&#20837;&#36134;&#21495;" autocomplete="username" />
+            </div>
+
+            <div class="login-field">
+                <label class="login-label" for="login-password">
+                    <span class="field-icon field-icon-password" aria-hidden="true"></span>&#23494;&#30721;
+                </label>
+                <input type="password" id="login-password" class="login-input"
+                       value="${rememberChecked ? this._escapeAttr(savedPwd) : ''}"
+                       placeholder="&#35831;&#36755;&#20837;&#23494;&#30721;" autocomplete="current-password" />
+            </div>
+
+            <div class="login-options">
+                <label class="login-remember">
+                    <input type="checkbox" id="login-remember" ${rememberChecked ? 'checked' : ''} />
+                    <span class="checkmark"></span>
+                    &#35760;&#20303;&#23494;&#30721;
+                </label>
+            </div>
+
+            <button class="login-btn login-btn-primary" id="btn-login" onclick="window.loginView.handleLogin()">
+                <span class="btn-text">&#30331;&#24405;</span>
+                <span class="btn-loading" style="display:none;">&#30331;&#24405;&#20013;...</span>
+            </button>
+        `;
+    }
+
+    openGuestLoginModal() {
+        if (this.isSubmitting) return;
+
+        const savedAccount = localStorage.getItem(this.KEY_ACCOUNT) || '';
+        const savedPwd = localStorage.getItem(this.KEY_PASSWORD) || '';
+        const rememberChecked = localStorage.getItem(this.KEY_REMEMBER_PWD) === 'true';
+
+        if (this.guestLoginModal?.isShown()) {
+            this.guestLoginModal.setContent(this._buildGuestLoginContent(savedAccount, savedPwd, rememberChecked));
+        } else {
+            this.guestLoginModal = new Modal({
+                title: '\u6e38\u5ba2\u767b\u5f55',
+                className: 'login-guest-modal',
+                content: this._buildGuestLoginContent(savedAccount, savedPwd, rememberChecked),
+                onClose: () => {
+                    this.guestLoginModal = null;
+                }
+            });
+            this.guestLoginModal.show();
+        }
+
+        this._bindGuestLoginEvents();
+    }
+
+    _bindGuestLoginEvents() {
+        const passwordInput = document.getElementById('login-password');
+        if (passwordInput) {
+            passwordInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') this.handleLogin();
+            });
+        }
+        const accountInput = document.getElementById('login-account');
+        if (accountInput) {
+            accountInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    const pwdInput = document.getElementById('login-password');
+                    if (pwdInput) pwdInput.focus();
+                }
+            });
+        }
+    }
+
     _renderRegister(savedAccount) {
         this.element.innerHTML = `
             <div class="login-backdrop">
@@ -258,9 +311,6 @@ class LoginView {
             <div class="login-container">
                 ${this._renderVersionPolicyNotice()}
                 <div class="login-logo">
-                    <div class="login-logo-icon" aria-hidden="true">
-                        <span class="login-logo-core"></span>
-                    </div>
                     <h1 class="login-title">&#20113;&#22659;</h1>
                     <p class="login-subtitle">YUNJING</p>
                 </div>
@@ -388,6 +438,7 @@ class LoginView {
                 message: '\u9a8c\u8bc1\u6210\u529f\uff0c\u6b63\u5728\u51c6\u5907\u6570\u636e',
                 progress: 8
             });
+            this.guestLoginModal?.close?.();
             this.hide();
             eventManager.emit('loginSuccess');
         } catch (err) {
@@ -429,6 +480,7 @@ class LoginView {
                 message: 'TapTap \u6388\u6743\u6210\u529f\uff0c\u6b63\u5728\u51c6\u5907\u6570\u636e',
                 progress: 8
             });
+            this.guestLoginModal?.close?.();
             this.hide();
             eventManager.emit('loginSuccess');
         } catch (err) {
@@ -518,7 +570,7 @@ class LoginView {
     }
 
     _shakePanel() {
-        const panel = this.element.querySelector('.login-form-panel');
+        const panel = document.querySelector('.login-guest-modal') || this.element?.querySelector('.login-form-panel');
         if (panel) {
             panel.classList.remove('login-shake');
             void panel.offsetWidth;

@@ -2235,6 +2235,175 @@
           ]
         }
       }
+    },
+    {
+      "id": "hero_028",
+      "name": "苍绿之殇-莹尘",
+      "icon": "✦",
+      "portrait": "assets/media/heroes/YingChen.png",
+      "cardPortrait": "assets/media/heroesCardPortrait/YingChen.png",
+      "rarity": "common",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 74,
+        "attack": 10,
+        "defense": 3,
+        "speed": 8,
+        "defensePen": 0,
+        "accuracy": 10,
+        "crit": 8,
+        "antiCrit": 5,
+        "dodge": 2,
+        "attackRange": 2,
+        "moveRange": 2
+      },
+      "skill": {
+        "name": "砾心相授",
+        "description": "消耗当前生命值，为范围内1个友方单位恢复莹尘当前攻击力100%的生命值。该消耗不会使莹尘死亡。",
+        "multiplier": 1,
+        "cooldownTurns": 1,
+        "range": 2,
+        "targetType": "ally",
+        "targetCount": 1,
+        "hpCostPercent": 10,
+        "hpCostBase": "current",
+        "effectType": "heal",
+        "canCrit": false,
+        "unlockStage": 1
+      },
+      "skills": [
+        {
+          "name": "砾心相授",
+          "description": "消耗当前生命值，为范围内1个友方单位恢复莹尘当前攻击力100%的生命值。该消耗不会使莹尘死亡。",
+          "multiplier": 1,
+          "cooldownTurns": 1,
+          "range": 2,
+          "targetType": "ally",
+          "targetCount": 1,
+          "hpCostPercent": 10,
+          "hpCostBase": "current",
+          "effectType": "heal",
+          "canCrit": false,
+          "unlockStage": 1
+        }
+      ],
+      "specialTraits": {
+        "name": "砾心相授",
+        "summary": "普通品质单体治疗辅助成长路线，围绕消耗自身当前生命为友方提供稳定治疗，并在终极强化后附加短期续愈。",
+        "traits": [
+          {
+            "name": "砾心相授",
+            "description": "莹尘的核心特技，治疗量按战斗中的当前攻击力结算，包含装备、训练场与临时增减益等全部当前修正。生命消耗不会使莹尘死亡。"
+          }
+        ],
+        "track": [
+          {
+            "stage": 1,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁核心特技",
+            "description": "解锁“砾心相授”：以自身为中心2格内选择1个友方单位，恢复莹尘当前攻击力100%的生命值；冷却1回合；消耗10%当前生命值，且不会使莹尘死亡。"
+          },
+          {
+            "stage": 2,
+            "kind": "boost",
+            "label": "第二强化",
+            "description": "“砾心相授”治疗量提升至莹尘当前攻击力120%，生命消耗提升至11%当前生命值。"
+          },
+          {
+            "stage": 3,
+            "kind": "boost",
+            "label": "第三强化",
+            "description": "基础攻击力额外提高3点。"
+          },
+          {
+            "stage": 6,
+            "kind": "boost",
+            "label": "第四强化",
+            "description": "“砾心相授”治疗量提升至莹尘当前攻击力150%，生命消耗提升至13%当前生命值。"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第五强化",
+            "description": "“砾心相授”治疗量提升至莹尘当前攻击力180%，生命消耗提升至15%当前生命值。"
+          },
+          {
+            "stage": 15,
+            "kind": "boost",
+            "label": "第六强化",
+            "description": "“砾心相授”治疗量提升至莹尘当前攻击力200%，生命消耗保持15%当前生命值。"
+          },
+          {
+            "stage": 16,
+            "kind": "ultimate",
+            "label": "终极强化",
+            "description": "“砾心相授”治疗量保持莹尘当前攻击力200%，生命消耗提升至20%当前生命值；施放后目标单位和莹尘自身在之后2次自身回合开始时，各恢复当前已损失生命值的10%。"
+          }
+        ],
+        "battleGrowth": {
+          "statStages": [
+            {
+              "stage": 3,
+              "stats": {
+                "attack": 3
+              }
+            }
+          ],
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 1,
+                  "multiplier": 1,
+                  "range": 2,
+                  "targetCount": 1,
+                  "hpCostPercent": 10,
+                  "hpCostBase": "current",
+                  "effectType": "heal",
+                  "canCrit": false
+                },
+                {
+                  "stage": 2,
+                  "multiplier": 1.2,
+                  "hpCostPercent": 11
+                },
+                {
+                  "stage": 6,
+                  "multiplier": 1.5,
+                  "hpCostPercent": 13
+                },
+                {
+                  "stage": 11,
+                  "multiplier": 1.8,
+                  "hpCostPercent": 15
+                },
+                {
+                  "stage": 15,
+                  "multiplier": 2
+                },
+                {
+                  "stage": 16,
+                  "multiplier": 2,
+                  "hpCostPercent": 20,
+                  "customEffect": {
+                    "type": "apply_missing_hp_regen",
+                    "name": "苍绿续愈",
+                    "healMissingHpRatio": 0.1,
+                    "durationTurns": 2,
+                    "includeCaster": true,
+                    "includeTarget": true,
+                    "tickTiming": "turnStart"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
     }
   ],
   "enemySkills": {
@@ -2386,6 +2555,58 @@
       "targetType": "self",
       "targetCount": 1,
       "effectType": "heal"
+    },
+    "enemy_skill_charge_quake": {
+      "name": "\u84c4\u529b\u9707\u8361",
+      "description": "\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u5bf9\u81ea\u8eab\u5468\u56f41\u683c\u9020\u6210115%\u653b\u51fb\u4f24\u5bb3\u3002",
+      "multiplier": 1,
+      "cooldownTurns": 4,
+      "range": 4,
+      "targetType": "enemy",
+      "targetCount": 1,
+      "effectType": "warning_area_damage",
+      "customEffect": {
+        "type": "warning_area_damage",
+        "shape": "around_self",
+        "radius": 1,
+        "delayTurns": 2,
+        "multiplier": 1.15
+      }
+    },
+    "enemy_skill_line_crack": {
+      "name": "\u76f4\u7ebf\u88c2\u51fb",
+      "description": "\u84c4\u529b1\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u6cbf\u76ee\u6807\u65b9\u5411\u76f4\u7ebf\u9020\u6210130%\u653b\u51fb\u4f24\u5bb3\u3002",
+      "multiplier": 1,
+      "cooldownTurns": 3,
+      "range": 5,
+      "targetType": "enemy",
+      "targetCount": 1,
+      "effectType": "warning_area_damage",
+      "customEffect": {
+        "type": "warning_area_damage",
+        "shape": "line_to_target",
+        "length": 8,
+        "delayTurns": 1,
+        "multiplier": 1.3
+      }
+    },
+    "enemy_skill_random_fall": {
+      "name": "\u968f\u673a\u5760\u51fb",
+      "description": "\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u968f\u673a4\u4e2a\u683c\u5b50\u9020\u621090%-130%\u653b\u51fb\u4f24\u5bb3\u3002",
+      "multiplier": 1,
+      "cooldownTurns": 4,
+      "range": 6,
+      "targetType": "enemy",
+      "targetCount": 1,
+      "effectType": "warning_area_damage",
+      "customEffect": {
+        "type": "warning_area_damage",
+        "shape": "random_cells",
+        "count": 4,
+        "delayTurns": 2,
+        "multiplier": 1.1,
+        "randomDamageRatio": 0.2
+      }
     }
   },
   "enemies": {

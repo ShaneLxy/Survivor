@@ -109,7 +109,7 @@ class ItemGrid {
                         id: fragment.configId,
                         name: `${fragment.heroConfig.name}碎片`,
                         icon: fragment.heroConfig.icon,
-                        iconSrc: fragment.heroConfig.portrait || null,
+                        iconSrc: fragment.heroConfig.cardPortrait || fragment.heroConfig.portrait || null,
                         count,
                         type: 'fragment',
                         rarity: fragment.heroConfig.rarity,
@@ -303,7 +303,7 @@ class ItemGrid {
         const rarityName = this.getRarityName(heroConfig.rarity);
         const rarityColor = this.getRarityColor(heroConfig.rarity);
         const professionName = HeroConfig.getProfessionName(heroConfig.profession);
-        const portraitMarkup = heroConfig.portrait
+        const portraitMarkup = (heroConfig.cardPortrait || heroConfig.portrait)
             ? `<div class="hero-fragment-detail-portrait">${window.game.ui.heroView.getProfessionBadgeMarkup(heroConfig)}${window.game.ui.heroView.getHeroAvatarMarkup(heroConfig)}</div>`
             : `<div class="hero-fragment-detail-icon">${heroConfig.icon || '❓'}</div>`;
 

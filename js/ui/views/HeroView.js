@@ -14,6 +14,7 @@ class HeroView {
         this.boundOutsideClick = null;
         this.equipmentBubble = null;
         this.professionFilter = 'all';
+        this.activePanel = 'home';
     }
 
     show() {
@@ -25,6 +26,8 @@ class HeroView {
         this.visible = false;
         this.cleanupStatTooltip();
         this.equipmentBubble = null;
+        this.activePanel = 'home';
+        this.syncHeroSubpageMode(false);
         this.element.innerHTML = '';
     }
 
@@ -54,6 +57,16 @@ class HeroView {
     }
 
     render() {
+        if (this.activePanel === 'album') {
+            this.renderHeroAlbumPage();
+            return;
+        }
+        if (this.activePanel === 'team') {
+            this.renderTeamPage();
+            return;
+        }
+
+        this.syncHeroSubpageMode(false);
         const allHeroes = heroManager.getAllHeroes();
         const teamCount = allHeroes.filter(hero => heroManager.isHeroInTeam(hero.id)).length;
         this.element.innerHTML = `
@@ -100,6 +113,57 @@ class HeroView {
             </div>
         `;
         this.renderHeroes();
+    }
+
+    syncHeroSubpageMode(enabled) {
+        document.getElementById('app')?.classList.toggle('hero-subpage-mode', Boolean(enabled));
+    }
+
+    openHeroPanel(panel) {
+        this.cleanupStatTooltip();
+        this.equipmentBubble = null;
+        this.closeEquipmentSelectionModal();
+        if (this.heroDetailModal?.isShown()) {
+            this.closeHeroDetail();
+        }
+        this.activePanel = panel || 'home';
+        if (this.visible) {
+            this.render();
+        }
+    }
+
+    showHeroHome() {
+        this.activePanel = 'home';
+        if (this.visible) {
+            this.render();
+        } else {
+            this.syncHeroSubpageMode(false);
+        }
+    }
+
+    renderHeroSecondaryPage({ panelClass = '', body = '' }) {
+        this.syncHeroSubpageMode(true);
+        this.element.innerHTML = `
+            <div class="hero-view hero-view-secondary ${panelClass}" ${this.getHeroUiStyle()}>
+                <div class="hero-secondary-body">
+                    ${body}
+                </div>
+            </div>
+        `;
+    }
+
+    renderHeroAlbumPage() {
+        this.renderHeroSecondaryPage({
+            panelClass: 'hero-album-page',
+            body: this.getHeroAlbumModalContent()
+        });
+    }
+
+    renderTeamPage() {
+        this.renderHeroSecondaryPage({
+            panelClass: 'hero-team-page',
+            body: this.getTeamModalContent()
+        });
     }
 
     formatPower(value) {
@@ -181,20 +245,18 @@ class HeroView {
     }
 
     showHeroAlbum() {
-        const content = this.getHeroAlbumModalContent();
-        const modal = new Modal({
-            title: '英雄图鉴',
-            className: 'hero-preview-modal hero-command-modal-shell hero-album-modal-shell',
-            overlayClassName: 'hero-preview-modal-overlay',
-            content
-        });
-        modal.show();
+        this.openHeroPanel('album');
     }
 
-    getHeroRosterHeader({ kicker, title, subtitle, metrics = [], logoCode = 'HC' }) {
+    getHeroRosterHeader({ kicker, title, subtitle, metrics = [], logoCode = 'HC', showBackButton = false }) {
         const logoUrl = this.resolveAbsoluteAssetUrl('assets/media/recruit/emblem_action.png');
         return `
-            <div class="hero-roster-command-header">
+            <div class="hero-roster-command-header ${showBackButton ? 'has-back-button' : ''}">
+                ${showBackButton ? `
+                    <button class="hero-secondary-back-button" type="button" onclick="window.game.ui.heroView.showHeroHome()" aria-label="返回英雄管理" title="返回">
+                        <span aria-hidden="true">‹</span>
+                    </button>
+                ` : ''}
                 <div class="hero-roster-logo" aria-hidden="true">
                     ${logoUrl ? `<img src="${logoUrl}" alt="">` : ''}
                     <span>${logoCode}</span>
@@ -268,6 +330,7 @@ class HeroView {
                     title: '英雄图鉴',
                     subtitle: '查阅已收编与待发现英雄档案，快速确认职业与稀有度。',
                     logoCode: 'IDX',
+                    showBackButton: true,
                     metrics: [
                         { value: `${ownedCount}/${allHeroConfigs.length}`, label: '图鉴' },
                         { value: `${ownedHeroes.length}`, label: '已收编' }
@@ -383,13 +446,14 @@ class HeroView {
     }
 
     getHeroAvatarMarkup(entity, size = 'default') {
-        const portrait = entity?.portrait || null;
+        const portrait = entity?.cardPortrait || entity?.portrait || null;
         const baseClass = size === 'large'
             ? 'hero-avatar hero-detail-avatar hero-avatar-portrait hero-avatar-portrait-large'
             : 'hero-avatar hero-avatar-portrait';
         if (portrait) {
             const src = this.resolveAssetUrl(portrait);
-            return `<div class="${baseClass}"><img class="hero-avatar-image" src="${src}" alt="${entity?.name || 'hero'}" loading="eager" decoding="async" draggable="false"></div>`;
+            const loading = size === 'large' ? 'eager' : 'lazy';
+            return `<div class="${baseClass}"><img class="hero-avatar-image" src="${src}" alt="${entity?.name || 'hero'}" loading="${loading}" decoding="async" draggable="false"></div>`;
         }
         const style = size === 'large' ? ' style="font-size:56px;"' : '';
         return `<div class="hero-avatar"${style}>${entity?.icon || '❓'}</div>`;
@@ -400,12 +464,13 @@ class HeroView {
             return;
         }
         heroes.forEach(hero => {
-            if (!hero?.portrait) {
+            const portrait = hero?.cardPortrait || hero?.portrait;
+            if (!portrait) {
                 return;
             }
             const image = new Image();
             image.decoding = 'async';
-            image.src = this.resolveAssetUrl(hero.portrait);
+            image.src = this.resolveAssetUrl(portrait);
         });
     }
 
@@ -965,22 +1030,17 @@ class HeroView {
     }
 
     showTeam() {
-        if (this.teamModal && this.teamModal.isShown()) {
+        if (this.activePanel === 'team') {
             return;
         }
-        this.teamModal = new Modal({
-            title: '英雄编队',
-            className: 'hero-preview-modal hero-command-modal-shell hero-team-modal-shell',
-            overlayClassName: 'hero-preview-modal-overlay',
-            content: this.getTeamModalContent(),
-            onClose: () => {
-                this.teamModal = null;
-            }
-        });
-        this.teamModal.show();
+        this.openHeroPanel('team');
     }
 
     closeTeamModal() {
+        if (this.activePanel === 'team') {
+            this.showHeroHome();
+            return;
+        }
         if (this.teamModal && this.teamModal.isShown()) {
             const modal = this.teamModal;
             this.teamModal = null;
@@ -1050,8 +1110,8 @@ class HeroView {
                     title: '英雄编队',
                     subtitle: '点击英雄切换参战状态，满编后需先移出一个席位。',
                     logoCode: 'OPS',
+                    showBackButton: true,
                     metrics: [
-                        { value: `${teamCount}/${maxTeamSize}`, label: '出战' },
                         { value: this.formatPower(heroManager.getTeamPower()), label: '总战力' }
                     ]
                 })}
@@ -1094,6 +1154,10 @@ class HeroView {
     }
 
     updateTeamModal() {
+        if (this.activePanel === 'team') {
+            this.render();
+            return;
+        }
         if (!this.teamModal || !this.teamModal.isShown()) {
             return;
         }

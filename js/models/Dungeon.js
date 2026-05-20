@@ -16,7 +16,15 @@ class Dungeon {
             ...config.battlefield,
             obstacles: Array.isArray(config.battlefield.obstacles)
                 ? config.battlefield.obstacles.map(entry => Array.isArray(entry) ? [...entry] : { ...entry })
-                : []
+                : [],
+            specialTiles: Array.isArray(config.battlefield.specialTiles)
+                ? config.battlefield.specialTiles.map(entry => Array.isArray(entry) ? [...entry] : { ...entry })
+                : (config.battlefield.specialTiles && typeof config.battlefield.specialTiles === 'object'
+                    ? Object.entries(config.battlefield.specialTiles).map(([type, positions]) => ({
+                        type,
+                        positions: Array.isArray(positions) ? positions.map(position => Array.isArray(position) ? [...position] : { ...position }) : []
+                    }))
+                    : [])
         } : null;
         this.initialEnemies = [...(config.initialEnemies || config.enemies || [])];
         this.bossWaves = (config.bossWaves || []).map((wave, index) => ({
@@ -104,7 +112,15 @@ class Dungeon {
                     ...this.battlefield,
                     obstacles: Array.isArray(this.battlefield.obstacles)
                         ? this.battlefield.obstacles.map(entry => Array.isArray(entry) ? [...entry] : { ...entry })
-                        : []
+                        : [],
+                    specialTiles: Array.isArray(this.battlefield.specialTiles)
+                        ? this.battlefield.specialTiles.map(entry => Array.isArray(entry) ? [...entry] : { ...entry })
+                        : (this.battlefield.specialTiles && typeof this.battlefield.specialTiles === 'object'
+                            ? Object.entries(this.battlefield.specialTiles).map(([type, positions]) => ({
+                                type,
+                                positions: Array.isArray(positions) ? positions.map(position => Array.isArray(position) ? [...position] : { ...position }) : []
+                            }))
+                            : [])
                 }
                 : null,
             initialEnemies: this.createUnitsFromEntries(this.initialEnemies),

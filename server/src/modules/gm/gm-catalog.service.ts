@@ -707,10 +707,10 @@ export class GmCatalogService {
       {
         id: 'welfare_month_card',
         kind: 'monthCard',
-        name: '\u798f\u5229\u6708\u5361',
-        title: '\u798f\u5229\u6708\u5361',
+        name: '\u5353\u8d8a\u7279\u6743x30\u5929',
+        title: '\u5353\u8d8a\u7279\u6743x30\u5929',
         subtitle: '\u6bcf\u65e5\u57fa\u7840\u8d44\u6e90\u8865\u7ed9',
-        badge: '\u6708\u5361',
+        badge: '\u7279\u6743',
         description: '\u901a\u8fc7\u89c2\u770b\u6fc0\u52b1\u89c6\u9891\u6fc0\u6d3b\uff0c\u6fc0\u6d3b\u540e\u6bcf\u65e5\u53ef\u9886\u53d6\u4e00\u7ec4\u989d\u5916\u8d44\u6e90\u3002',
         sortOrder: 101,
         requiredViews: 30,
@@ -724,8 +724,8 @@ export class GmCatalogService {
       {
         id: 'supreme_month_card',
         kind: 'monthCard',
-        name: '\u81f3\u5c0a\u6708\u5361',
-        title: '\u81f3\u5c0a\u6708\u5361',
+        name: '\u81f3\u5c0a\u7279\u6743x30\u5929',
+        title: '\u81f3\u5c0a\u7279\u6743x30\u5929',
         subtitle: '\u66f4\u9ad8\u9636\u7684\u65e5\u5e38\u798f\u5229',
         badge: '\u81f3\u5c0a',
         description: '\u6fc0\u6d3b\u95e8\u69db\u66f4\u9ad8\uff0c\u4f46\u6bcf\u65e5\u8865\u7ed9\u66f4\u4e30\u539a\uff0c\u540c\u65f6\u63d0\u5347\u798f\u5229\u793c\u5305\u89c2\u770b\u4e0a\u9650\u3002',
@@ -851,6 +851,23 @@ export class GmCatalogService {
     if (levelEntry?.statBonus !== undefined) {
       normalized.statBonus = Math.max(0, Number(levelEntry.statBonus) || 0);
     }
+    const backgroundVideo = String(
+      levelEntry?.backgroundVideo || levelEntry?.videoSrc || levelEntry?.sceneVideo || '',
+    ).trim();
+    const backgroundImage = String(
+      levelEntry?.backgroundImage ||
+        levelEntry?.backgroundPoster ||
+        levelEntry?.mobileFallbackSrc ||
+        levelEntry?.fallbackImage ||
+        levelEntry?.poster ||
+        '',
+    ).trim();
+    if (backgroundVideo) {
+      normalized.backgroundVideo = backgroundVideo;
+    }
+    if (backgroundImage) {
+      normalized.backgroundImage = backgroundImage;
+    }
     if (Array.isArray(levelEntry?.outputs)) {
       normalized.outputs = levelEntry.outputs
         .map((output: any) => ({
@@ -966,6 +983,10 @@ export class GmCatalogService {
       range: Math.max(0, Number(entry?.range ?? 1) || 0),
       targetType: String(entry?.targetType || 'enemy').trim(),
       targetCount: Math.max(1, Number(entry?.targetCount ?? 1) || 1),
+      canCrit: entry?.canCrit !== false,
+      customEffect: entry?.customEffect && typeof entry.customEffect === 'object' ? entry.customEffect : undefined,
+      statusEffects: Array.isArray(entry?.statusEffects) ? entry.statusEffects.filter(Boolean) : undefined,
+      extraStatusEffects: Array.isArray(entry?.extraStatusEffects) ? entry.extraStatusEffects.filter(Boolean) : undefined,
     };
   }
 
@@ -1040,6 +1061,77 @@ export class GmCatalogService {
         positions: this.normalizeCoordinateList(battlefield?.enemySpawn?.positions),
       },
       obstacles: this.normalizeCoordinateList(battlefield?.obstacles),
+      specialTiles: this.normalizeSpecialTileList(battlefield?.specialTiles),
+    };
+  }
+
+  private normalizeSpecialTileList(tiles: any) {
+    const entries = this.expandSpecialTileList(tiles);
+    const groups = new Map<string, number[][]>();
+    entries
+      .forEach((entry) => {
+        const source = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+        const row = source.row !== undefined ? source.row : Number(source.y) + 1;
+        const col = source.col !== undefined ? source.col : Number(source.x) + 1;
+        const type = source.type || source.kind || source.effect;
+        const normalizedType = String(type || '').trim();
+        if (!normalizedType) {
+          return;
+        }
+        if (!groups.has(normalizedType)) {
+          groups.set(normalizedType, []);
+        }
+        groups.get(normalizedType)?.push([
+          Math.max(1, Number(row) || 1),
+          Math.max(1, Number(col) || 1),
+        ]);
+      });
+    return Array.from(groups.entries()).map(([type, positions]) => ({ type, positions }));
+  }
+
+  private expandSpecialTileList(tiles: any) {
+    if (Array.isArray(tiles)) {
+      return tiles.flatMap((entry) => this.expandSpecialTileEntry(entry));
+    }
+    if (tiles && typeof tiles === 'object') {
+      if ((tiles as any).type && Array.isArray((tiles as any).positions || (tiles as any).coords || (tiles as any).cells)) {
+        return this.expandSpecialTileEntry(tiles);
+      }
+      return Object.entries(tiles).flatMap(([type, positions]) => {
+        const group = Array.isArray(positions) ? positions : (positions as any)?.positions;
+        if (!Array.isArray(group)) {
+          return [];
+        }
+        return group.map((position) => this.createSpecialTileEntry(type, position));
+      });
+    }
+    return [];
+  }
+
+  private expandSpecialTileEntry(entry: any) {
+    if (Array.isArray(entry)) {
+      return [{ row: entry[0], col: entry[1], type: entry[2] }];
+    }
+    if (!entry || typeof entry !== 'object') {
+      return [];
+    }
+    const positions = entry.positions || entry.coords || entry.cells || entry.points || entry.list;
+    if (!Array.isArray(positions)) {
+      return [entry];
+    }
+    const type = entry.type || entry.kind || entry.effect;
+    return positions.map((position: any) => this.createSpecialTileEntry(type, position));
+  }
+
+  private createSpecialTileEntry(type: any, position: any) {
+    if (Array.isArray(position)) {
+      return { type, row: position[0], col: position[1] };
+    }
+    return {
+      ...(position || {}),
+      type,
+      row: position?.row !== undefined ? position.row : Number(position?.y) + 1,
+      col: position?.col !== undefined ? position.col : Number(position?.x) + 1,
     };
   }
 

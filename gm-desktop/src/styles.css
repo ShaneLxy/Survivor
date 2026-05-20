@@ -210,6 +210,19 @@ p {
   outline: none;
 }
 
+.select-input {
+  overflow-y: auto;
+}
+
+.select-input.select-expanded {
+  position: relative;
+  z-index: 20;
+  height: auto;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 .search-input:focus,
 .text-input:focus,
 .select-input:focus,
@@ -940,6 +953,12 @@ label span {
 }
 .shelter-cost-field {
   min-width: 0;
+}
+
+.shelter-level-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 8px;
 }
 
 .shelter-output-editor {

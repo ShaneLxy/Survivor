@@ -1,6 +1,59 @@
 ﻿/**
  * HTTP 请求封装
  */
+class ServerClock {
+    constructor() {
+        this.serverEpochMs = Date.now();
+        this.anchorPerfMs = this.getPerfNow();
+        this.initialized = false;
+    }
+
+    getPerfNow() {
+        return typeof performance !== 'undefined' && typeof performance.now === 'function'
+            ? performance.now()
+            : Date.now();
+    }
+
+    sync(serverTime) {
+        const parsedMs = Date.parse(serverTime);
+        if (!Number.isFinite(parsedMs)) {
+            return false;
+        }
+        this.serverEpochMs = parsedMs;
+        this.anchorPerfMs = this.getPerfNow();
+        this.initialized = true;
+        return true;
+    }
+
+    updateFromResponse(response) {
+        if (!response?.headers?.get) {
+            return false;
+        }
+        const headerTime = response.headers.get('X-Server-Time') || response.headers.get('Date');
+        if (!headerTime) {
+            return false;
+        }
+        return this.sync(headerTime);
+    }
+
+    now() {
+        const elapsed = this.getPerfNow() - this.anchorPerfMs;
+        return new Date(this.serverEpochMs + Math.max(0, elapsed));
+    }
+
+    todayKey() {
+        return this.now().toDateString();
+    }
+
+    monthKey() {
+        const now = this.now();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+}
+
+const serverClock = window.serverClock || new ServerClock();
+window.serverClock = serverClock;
+
 class HttpClient {
     constructor() {
         this.baseUrlKey = 'survivor_api_base_url';
@@ -95,6 +148,7 @@ class HttpClient {
         }
 
         const response = await fetch(url, config);
+        window.serverClock?.updateFromResponse?.(response);
         const rawText = await response.text();
         let payload = null;
         if (rawText) {

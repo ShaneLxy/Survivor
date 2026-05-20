@@ -1,5 +1,5 @@
 ﻿const state = {
-  baseUrl: localStorage.getItem('survivor_gm_base_url') || 'http://127.0.0.1:3000/api',
+  baseUrl: localStorage.getItem('survivor_gm_base_url') || 'https://mom-wed-engaging-laura.trycloudflare.com/api',
   gmSecret: localStorage.getItem('survivor_gm_secret') || 'survivor_gm_secret',
   view: 'catalog',
   catalogType: 'items',
@@ -69,12 +69,19 @@ const gachaEntryTypeLabels = {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
+const DEFAULT_PACKAGE_APPLICATION_ID = 'com.survivor.game';
+const DEFAULT_PACKAGE_APP_NAME = '云境Paradise';
+const DEFAULT_PACKAGE_OUTPUT_DIR = 'E:\\AIGame\\Survivor\\android\\app\\build\\outputs\\apk\\debug';
+const EXPANDED_SELECT_SIZE = 12;
+
 viewMeta.shelter = ['避难所建筑', '配置农场、林场、水井等建筑的图标、描述、每级收益和升级消耗'];
 
 document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
+  bindScrollableSelects();
   bindPackageLogStream();
   syncSettingsInputs();
+  syncPackageDefaults();
   syncPackageChannelDefaults();
   refreshAll();
 });
@@ -220,8 +227,83 @@ function bindEvents() {
   $('#saveDungeonBatchBtn').addEventListener('click', saveDungeonBatch);
 }
 
+function collapseScrollableSelect(select) {
+  if (!select) return;
+  const originalSize = Number(select.dataset.originalSize || 0);
+  if (originalSize > 0) {
+    select.size = originalSize;
+  } else {
+    select.size = 0;
+    select.removeAttribute('size');
+  }
+  select.classList.remove('select-expanded');
+  delete select.dataset.originalSize;
+}
+
+function collapseAllScrollableSelects(except = null) {
+  $$('select.select-input.select-expanded').forEach((select) => {
+    if (except && select === except) return;
+    collapseScrollableSelect(select);
+  });
+}
+
+function expandScrollableSelect(select) {
+  if (!select || select.disabled) return;
+  if (!select.classList.contains('select-expanded')) {
+    select.dataset.originalSize = String(Number(select.getAttribute('size')) || 0);
+  }
+  collapseAllScrollableSelects(select);
+  select.size = Math.max(2, Math.min(EXPANDED_SELECT_SIZE, select.options.length || 2));
+  select.classList.add('select-expanded');
+}
+
+function bindScrollableSelects() {
+  document.addEventListener('mousedown', (event) => {
+    const select = event.target instanceof Element
+      ? event.target.closest('select.select-input')
+      : null;
+    if (!select) {
+      collapseAllScrollableSelects();
+      return;
+    }
+    if (!select.classList.contains('select-expanded')) {
+      event.preventDefault();
+      expandScrollableSelect(select);
+      select.focus();
+    }
+  });
+
+  document.addEventListener('change', (event) => {
+    const select = event.target instanceof HTMLSelectElement ? event.target : null;
+    if (select?.classList.contains('select-input')) {
+      collapseScrollableSelect(select);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    const select = event.target instanceof HTMLSelectElement ? event.target : null;
+    if (!select?.classList.contains('select-input')) return;
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === 'Tab') {
+      collapseScrollableSelect(select);
+    }
+  });
+
+  document.addEventListener('focusout', (event) => {
+    const select = event.target instanceof HTMLSelectElement ? event.target : null;
+    if (!select?.classList.contains('select-input')) return;
+    window.setTimeout(() => {
+      if (document.activeElement !== select) {
+        collapseScrollableSelect(select);
+      }
+    }, 0);
+  });
+}
+
 async function refreshAll() {
-  await testConnection(false);
+  const connected = await testConnection(false);
+  if (!connected) {
+    return;
+  }
   await loadCatalog();
   if (state.view === 'cdkey') {
     await loadCdkeys();
@@ -290,7 +372,7 @@ function saveSettings(event) {
 }
 
 function resetSettings() {
-  state.baseUrl = 'http://127.0.0.1:3000/api';
+  state.baseUrl = 'http://127.0.0.1:9000/api';
   state.gmSecret = 'survivor_gm_secret';
   localStorage.setItem('survivor_gm_base_url', state.baseUrl);
   localStorage.setItem('survivor_gm_secret', state.gmSecret);
@@ -303,6 +385,38 @@ function bindPackageLogStream() {
   window.gmDesktop.onPackageLog((payload) => {
     appendPackageLog(payload?.text || '');
   });
+}
+
+function formatPackageVersionCode(date = new Date()) {
+  const parts = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0')
+  ];
+  return parts.join('');
+}
+
+function syncPackageDefaults() {
+  const applicationIdInput = $('#packageApplicationId');
+  const appNameInput = $('#packageAppName');
+  const versionCodeInput = $('#packageVersionCode');
+  const outputDirInput = $('#packageOutputDir');
+
+  if (applicationIdInput && !applicationIdInput.value.trim()) {
+    applicationIdInput.value = DEFAULT_PACKAGE_APPLICATION_ID;
+  }
+  if (appNameInput && !appNameInput.value.trim()) {
+    appNameInput.value = DEFAULT_PACKAGE_APP_NAME;
+  }
+  if (versionCodeInput && !versionCodeInput.value.trim()) {
+    versionCodeInput.value = formatPackageVersionCode();
+  }
+  if (outputDirInput && !outputDirInput.value.trim()) {
+    outputDirInput.value = DEFAULT_PACKAGE_OUTPUT_DIR;
+  }
 }
 
 function syncPackageChannelDefaults() {
@@ -318,10 +432,6 @@ function clearPackageLog() {
     output.value = '';
   }
   state.packageLastOutputPath = '';
-  const openButton = $('#openPackageOutputBtn');
-  if (openButton) {
-    openButton.disabled = true;
-  }
 }
 
 function appendPackageLog(text) {
@@ -340,7 +450,7 @@ function readPackageOptions() {
     buildChannel: $('#packageBuildChannel').value,
     artifact: $('#packageArtifact').value,
     versionName: $('#packageVersionName').value.trim(),
-    versionCode: Number($('#packageVersionCode').value) || 1,
+    versionCode: $('#packageVersionCode').value.trim(),
     applicationId: $('#packageApplicationId').value.trim(),
     appName: $('#packageAppName').value.trim(),
     buildVersion: $('#packageBuildVersion').value.trim(),
@@ -361,7 +471,7 @@ function validatePackageOptions(options) {
   if (!options.versionName) {
     return '请填写版本号';
   }
-  if (!Number.isFinite(options.versionCode) || options.versionCode < 1) {
+  if (!/^[1-9]\d*$/.test(options.versionCode)) {
     return '版本编码必须大于 0';
   }
   if (!/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(options.applicationId)) {
@@ -389,19 +499,7 @@ function setPackageRunning(running) {
   state.packageRunning = running;
   const startButton = $('#startPackageBtn');
   if (startButton) {
-    startButton.disabled = running;
     startButton.textContent = running ? '打包中...' : '开始打包';
-  }
-  $$('#packageForm input, #packageForm select').forEach((input) => {
-    input.disabled = running;
-  });
-  const clearButton = $('#clearPackageLogBtn');
-  const openButton = $('#openPackageOutputBtn');
-  if (clearButton) {
-    clearButton.disabled = running;
-  }
-  if (openButton) {
-    openButton.disabled = running || !state.packageLastOutputPath;
   }
 }
 
@@ -432,10 +530,6 @@ async function startAndroidPackage(event) {
       state.packageLastOutputPath = result.artifactPath || result.result?.artifactPath || '';
       appendPackageLine(`打包成功：${state.packageLastOutputPath || '已生成安装包'}`);
       showToast('打包成功');
-      const openButton = $('#openPackageOutputBtn');
-      if (openButton) {
-        openButton.disabled = !state.packageLastOutputPath;
-      }
     } else {
       const message = result?.error || '未知错误';
       appendPackageLine(`打包失败：${message}`);
@@ -1123,6 +1217,50 @@ function parseRewardInput(raw) {
   return parseNamedInput(raw, getRewardOptions());
 }
 
+function renderRewardSelectOptions(selectedId = '', placeholder = '请选择') {
+  const normalizedSelectedId = String(selectedId || '').trim();
+  const options = getRewardOptions();
+  const placeholderOption = `<option value="">${escapeHtml(placeholder)}</option>`;
+  const selectedExists = normalizedSelectedId && options.some((entry) => entry.id === normalizedSelectedId);
+  const customOption = normalizedSelectedId && !selectedExists
+    ? `<option value="${escapeAttr(normalizedSelectedId)}" selected>${escapeHtml(formatRewardDisplay(normalizedSelectedId))}</option>`
+    : '';
+  const rewardOptions = options.map((entry) => `
+    <option value="${escapeAttr(entry.id)}" ${entry.id === normalizedSelectedId ? 'selected' : ''}>
+      ${escapeHtml(`${entry.name || entry.id} (${entry.id}) · ${entry.typeLabel || getRewardTypeLabel(entry)}`)}
+    </option>
+  `).join('');
+  return `${placeholderOption}${customOption}${rewardOptions}`;
+}
+
+function renderEnemySelectOptions(selectedId = '', placeholder = '请选择怪物') {
+  const normalizedSelectedId = String(selectedId || '').trim();
+  const options = getEnemyOptions();
+  const placeholderOption = `<option value="">${escapeHtml(placeholder)}</option>`;
+  const selectedExists = normalizedSelectedId && options.some((entry) => entry.id === normalizedSelectedId);
+  const customOption = normalizedSelectedId && !selectedExists
+    ? `<option value="${escapeAttr(normalizedSelectedId)}" selected>${escapeHtml(formatEnemyDisplay(normalizedSelectedId))}</option>`
+    : '';
+  const enemyOptions = options.map((entry) => `
+    <option value="${escapeAttr(entry.id)}" ${entry.id === normalizedSelectedId ? 'selected' : ''}>
+      ${escapeHtml(`${entry.name || entry.id} (${entry.id})`)}
+    </option>
+  `).join('');
+  return `${placeholderOption}${customOption}${enemyOptions}`;
+}
+
+function renderGachaTargetSelectOptions(type, selectedValue = '') {
+  if (type === 'fragment' || type === 'hero' || type === 'equipment') {
+    const normalizedSelectedId = parseRarityInput(selectedValue) || String(selectedValue || '').trim();
+    const placeholderOption = '<option value="">请选择品质</option>';
+    const rarityOptions = Object.entries(rarityLabels).map(([value, label]) => `
+      <option value="${escapeAttr(value)}" ${value === normalizedSelectedId ? 'selected' : ''}>${escapeHtml(label)}</option>
+    `).join('');
+    return `${placeholderOption}${rarityOptions}`;
+  }
+  return renderRewardSelectOptions(parseRewardInput(selectedValue) || String(selectedValue || '').trim(), '请选择资源或道具');
+}
+
 function formatEnemyDisplay(id) {
   return formatNamedDisplay(id, getEnemyOptions());
 }
@@ -1257,7 +1395,7 @@ function renderPoolEditor(pool) {
   $('#poolId').disabled = Boolean(pool?.id);
   $('#poolName').value = effective.name || '';
   $('#poolIcon').value = effective.icon || '';
-  $('#poolCostResource').value = formatRewardDisplay(firstCostKey);
+  $('#poolCostResource').innerHTML = renderRewardSelectOptions(firstCostKey, '请选择消耗资源');
   $('#poolCostSingle').value = firstCost.single ?? '';
   $('#poolCostTen').value = firstCost.ten ?? '';
   $('#poolDescription').value = effective.description || '';
@@ -1294,7 +1432,9 @@ function renderGachaEntryRows(entries) {
           `<option value="${escapeAttr(value)}" ${entry.type === value ? 'selected' : ''}>${escapeHtml(label)}</option>`
         ).join('')}
       </select>
-      <input class="text-input" data-field="target" list="rewardTargetOptions" value="${escapeAttr(formatGachaEntryTarget(entry))}" placeholder="道具/资源/品质">
+      <select class="select-input" data-field="target">
+        ${renderGachaTargetSelectOptions(entry.type || 'item', getGachaEntryTarget(entry))}
+      </select>
       <input class="text-input" data-field="min" type="number" min="0" value="${escapeAttr(entry.min ?? '')}" placeholder="最小">
       <input class="text-input" data-field="max" type="number" min="0" value="${escapeAttr(entry.max ?? '')}" placeholder="最大">
       <input class="text-input" data-field="weight" type="number" min="0" step="0.01" value="${escapeAttr(entry.weight ?? '')}" placeholder="概率">
@@ -1307,6 +1447,13 @@ function renderGachaEntryRows(entries) {
     button.addEventListener('click', () => {
       const rows = readGachaEntryRows();
       rows.splice(Number(button.dataset.removeRow), 1);
+      renderGachaEntryRows(rows);
+    });
+  });
+
+  root.querySelectorAll('[data-field="type"]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const rows = readGachaEntryRows();
       renderGachaEntryRows(rows);
     });
   });
@@ -1470,28 +1617,39 @@ function renderShopEditor(item) {
     : '填写 ID 后保存';
   $('#shopEditorSource').textContent = hasGmOverride ? 'GM改动' : '基础配置';
   $('#shopItemId').value = effective.id || '';
-  $('#shopItemId').disabled = Boolean(item?.id);
+  $('#shopItemId').dataset.originalId = item?.id || '';
   $('#shopItemName').value = effective.name || '';
   $('#shopItemIcon').value = effective.icon || '';
   $('#shopItemIconSrc').value = effective.iconSrc || '';
   $('#shopItemType').value = effective.type || 'consumable';
   $('#shopItemRarity').value = effective.rarity || 'common';
   $('#shopItemPrice').value = effective.price ?? 0;
-  $('#shopItemCurrency').value = formatRewardDisplay(effective.currency || 'gold');
+  $('#shopItemCurrency').innerHTML = renderRewardSelectOptions(effective.currency || 'gold', '请选择货币类型');
   $('#shopItemMaxBuy').value = effective.maxBuy ?? 0;
   $('#shopItemSortOrder').value = effective.sortOrder ?? '';
-  $('#shopItemGiveItem').value = formatRewardDisplay(effective.giveItem || '');
+  $('#shopItemGiveItem').innerHTML = renderRewardSelectOptions(effective.giveItem || '', '请选择发放道具');
   $('#shopItemGiveCount').value = effective.giveCount ?? 1;
   $('#shopItemDescription').value = effective.description || '';
   $('#deleteShopItemBtn').disabled = !effective.id;
 }
 
+function getNextShopItemId() {
+  const usedIds = new Set((state.catalog.shopItems || []).map((item) => String(item.id || '').trim()).filter(Boolean));
+  let nextIndex = Math.max(1, (state.catalog.shopItems || []).length + 1);
+  let candidate = `shop_${String(nextIndex).padStart(3, '0')}`;
+  while (usedIds.has(candidate)) {
+    nextIndex += 1;
+    candidate = `shop_${String(nextIndex).padStart(3, '0')}`;
+  }
+  return { id: candidate, sortOrder: nextIndex };
+}
+
 function createBlankShopItem() {
-  const nextIndex = (state.catalog.shopItems || []).length + 1;
+  const { id, sortOrder } = getNextShopItemId();
   state.selectedShopItem = null;
   renderShopItems();
   renderShopEditor({
-    id: `shop_${String(nextIndex).padStart(3, '0')}`,
+    id,
     name: '',
     icon: '',
     type: 'consumable',
@@ -1501,13 +1659,14 @@ function createBlankShopItem() {
     maxBuy: 1,
     giveItem: '',
     giveCount: 1,
-    sortOrder: nextIndex
+    sortOrder
   });
 }
 
 async function saveShopItem(event) {
   event.preventDefault();
   const id = $('#shopItemId').value.trim();
+  const originalId = $('#shopItemId').dataset.originalId?.trim() || '';
   if (!id) {
     showToast('请填写商品 ID');
     return;
@@ -1531,6 +1690,9 @@ async function saveShopItem(event) {
 
   try {
     await api(`/gm/catalog/shopItems/${encodeURIComponent(id)}`, { method: 'PUT', body: payload });
+    if (originalId && originalId !== id) {
+      await api(`/gm/catalog/shopItems/${encodeURIComponent(originalId)}`, { method: 'DELETE' });
+    }
     showToast('商城商品已保存');
     await loadCatalog();
     state.selectedShopItem = (state.catalog.shopItems || []).find((entry) => entry.id === id) || null;
@@ -1841,6 +2003,26 @@ function getShelterBuildingModeLabel(building) {
   return '产出建筑';
 }
 
+function isShelterCoreBuildingId(id) {
+  return String(id || '').trim() === 'building_shelter';
+}
+
+function getDefaultShelterLevelMedia(levelNumber) {
+  return {
+    backgroundVideo: 'assets/media/house.mp4',
+    backgroundImage: 'assets/media/house_poster.png',
+  };
+}
+
+function getShelterLevelMediaPayload(level) {
+  const backgroundVideo = String(level?.backgroundVideo || '').trim();
+  const backgroundImage = String(level?.backgroundImage || level?.backgroundPoster || level?.mobileFallbackSrc || '').trim();
+  return {
+    ...(backgroundVideo ? { backgroundVideo } : {}),
+    ...(backgroundImage ? { backgroundImage } : {}),
+  };
+}
+
 function createBlankShelterOutput(type = 'resource', id = 'meat', amountPerHour = 0) {
   return {
     type,
@@ -1924,6 +2106,28 @@ function createBlankShelterBuildingLevel(level = 1) {
   };
 }
 
+function renderShelterBuildingMediaRows(level, buildingId) {
+  if (!isShelterCoreBuildingId(buildingId)) {
+    return '';
+  }
+  const levelNumber = Number(level?.level) || 1;
+  const defaults = getDefaultShelterLevelMedia(levelNumber);
+  const backgroundVideo = String(level?.backgroundVideo || defaults.backgroundVideo || '').trim();
+  const backgroundImage = String(level?.backgroundImage || level?.backgroundPoster || level?.mobileFallbackSrc || defaults.backgroundImage || '').trim();
+  return `
+    <div class="shelter-level-media-grid">
+      <label class="field-inline-label">
+        <span>背景视频地址</span>
+        <input class="text-input code-input" data-field="backgroundVideo" value="${escapeAttr(backgroundVideo)}" placeholder="assets/media/shelter/level-${levelNumber}.mp4">
+      </label>
+      <label class="field-inline-label">
+        <span>降级静态图地址</span>
+        <input class="text-input code-input" data-field="backgroundImage" value="${escapeAttr(backgroundImage)}" placeholder="assets/media/shelter/level-${levelNumber}.png">
+      </label>
+    </div>
+  `;
+}
+
 function renderShelterBuildingOutputRows(level, levelIndex, buildingMode) {
   if (buildingMode !== 'production') {
     return '';
@@ -1947,7 +2151,9 @@ function renderShelterBuildingOutputRows(level, levelIndex, buildingMode) {
             </label>
             <label class="field-inline-label">
               <span>资源/道具 ID</span>
-              <input class="text-input" data-field="resourceId" list="rewardTargetOptions" value="${escapeAttr(formatRewardDisplay(output.id || ''))}" placeholder="meat / exp_potion">
+              <select class="select-input" data-field="resourceId">
+                ${renderRewardSelectOptions(output.id || '', '请选择资源或道具')}
+              </select>
             </label>
             <label class="field-inline-label">
               <span>每小时产出</span>
@@ -1965,9 +2171,10 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
   const root = $('#shelterBuildingLevelRows');
   if (!root) return;
   const rows = (Array.isArray(levels) ? levels : []).slice().sort((left, right) => Number(left.level || 1) - Number(right.level || 1));
+  const buildingId = $('#shelterBuildingId')?.value?.trim() || building?.id;
   const buildingMode = getShelterBuildingMode({
     ...building,
-    id: $('#shelterBuildingId')?.value?.trim() || building?.id,
+    id: buildingId,
     levels: rows,
   });
   root.innerHTML = rows.length ? rows.map((level, levelIndex) => `
@@ -1996,6 +2203,7 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
           </label>
           <button class="icon-button" data-remove-level="${Number(level.level) || 1}" type="button">-</button>
         </div>
+        ${renderShelterBuildingMediaRows(level, buildingId)}
         ${renderShelterBuildingOutputRows(level, levelIndex, buildingMode)}
       </div>
     </div>
@@ -2040,7 +2248,9 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
 }
 
 function readShelterBuildingLevels() {
-  const buildingMode = getShelterBuildingMode({ id: $('#shelterBuildingId')?.value?.trim() });
+  const buildingId = $('#shelterBuildingId')?.value?.trim();
+  const buildingMode = getShelterBuildingMode({ id: buildingId });
+  const isShelterCore = isShelterCoreBuildingId(buildingId);
   return [...document.querySelectorAll('#shelterBuildingLevelRows .shelter-building-level-row')].map((row, index) => {
     const costRaw = row.querySelector('[data-field="upgradeCost"]').value.trim();
     let upgradeCost = {};
@@ -2055,6 +2265,12 @@ function readShelterBuildingLevels() {
       level: Math.max(1, Number(row.dataset.level) || index + 1),
       upgradeCost,
     };
+    if (isShelterCore) {
+      Object.assign(entry, getShelterLevelMediaPayload({
+        backgroundVideo: row.querySelector('[data-field="backgroundVideo"]')?.value,
+        backgroundImage: row.querySelector('[data-field="backgroundImage"]')?.value,
+      }));
+    }
     if (buildingMode === 'energy') {
       entry.energyBonus = Math.max(0, Number(row.querySelector('[data-field="energyBonus"]')?.value) || 0);
       return entry;
@@ -2118,6 +2334,7 @@ async function saveShelterBuilding(event) {
       level: level.level,
       energyBonus: Math.max(0, Number(level.energyBonus) || 0),
       upgradeCost: level.upgradeCost || {},
+      ...getShelterLevelMediaPayload(level),
     }));
   } else if (mode === 'stat') {
     payload.levels = payload.levels.map((level) => ({
@@ -2320,6 +2537,7 @@ function renderDungeonEditor(dungeon) {
   $('#dungeonRows').value = battlefield.rows || battlefield.height || 10;
   $('#dungeonHeroSpawn').value = formatCoordinates(battlefield.heroSpawn?.positions || []);
   $('#dungeonObstacles').value = formatCoordinates(battlefield.obstacles || []);
+  $('#dungeonSpecialTiles').value = formatSpecialTiles(battlefield.specialTiles || []);
   $('#dungeonGoldMin').value = rewards.gold?.min ?? '';
   $('#dungeonGoldMax').value = rewards.gold?.max ?? '';
   $('#dungeonExpMin').value = rewards.exp?.min ?? '';
@@ -2352,6 +2570,7 @@ function setDungeonEditorMode(isChapterMode) {
   setFieldVisible('#dungeonRows', !isChapterMode);
   setFieldVisible('#dungeonHeroSpawn', !isChapterMode);
   setFieldVisible('#dungeonObstacles', !isChapterMode);
+  setFieldVisible('#dungeonSpecialTiles', !isChapterMode);
   setFieldVisible('#dungeonGoldMin', !isChapterMode);
   setFieldVisible('#dungeonGoldMax', !isChapterMode);
   setFieldVisible('#dungeonExpMin', !isChapterMode);
@@ -2417,7 +2636,8 @@ function createBlankDungeon() {
       cols: 7,
       rows: 10,
       heroSpawn: { positions: [[10, 3], [10, 4], [10, 5], [9, 4]] },
-      obstacles: []
+      obstacles: [],
+      specialTiles: []
     },
     rewards: { gold: { min: 0, max: 0 }, exp: { min: 0, max: 0 }, chapter: [], items: [] },
     initialEnemies: [],
@@ -2456,7 +2676,9 @@ function renderRewardRangeRows(selector, rewards, withChance) {
   if (!root) return;
   root.innerHTML = rewards.length ? rewards.map((reward, index) => `
     <div class="editable-row reward-range-grid" data-reward-index="${index}">
-      <input class="text-input" data-field="id" list="rewardTargetOptions" value="${escapeAttr(formatRewardDisplay(reward.id || ''))}" placeholder="道具 / 资源">
+      <select class="select-input" data-field="id">
+        ${renderRewardSelectOptions(reward.id || '', '请选择道具或资源')}
+      </select>
       <input class="text-input" data-field="min" type="number" min="0" value="${escapeAttr(reward.min ?? reward.count ?? 1)}" placeholder="最小">
       <input class="text-input" data-field="max" type="number" min="0" value="${escapeAttr(reward.max ?? reward.count ?? 1)}" placeholder="最大">
       ${withChance ? `<input class="text-input" data-field="chance" type="number" min="0" max="1" step="0.01" value="${escapeAttr(reward.chance ?? 1)}" placeholder="概率 0-1">` : ''}
@@ -2543,7 +2765,9 @@ function renderDungeonEnemyRows(enemies) {
   if (!root) return;
   root.innerHTML = enemies.length ? enemies.map((enemy, index) => `
     <div class="editable-row dungeon-enemy-grid" data-enemy-index="${index}">
-      <input class="text-input" data-field="id" list="enemyIdOptions" value="${escapeAttr(formatEnemyDisplay(enemy.id || ''))}" placeholder="怪物">
+      <select class="select-input" data-field="id">
+        ${renderEnemySelectOptions(enemy.id || '', '请选择怪物')}
+      </select>
       <select class="select-input" data-field="rank">${renderRankOptions(enemy.rank || 'normal')}</select>
       <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(enemy.count || 1)}" placeholder="数量">
       <input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(enemy.positions || enemy.spawnPositions || []))}" placeholder="出生点 2,3;2,4">
@@ -2618,7 +2842,9 @@ function renderDungeonBossRows(waves) {
         <option value="true" ${entry.spawnOnClearBeforeRound !== false ? 'selected' : ''}>清场前可出现</option>
         <option value="false" ${entry.spawnOnClearBeforeRound === false ? 'selected' : ''}>固定回合</option>
       </select>
-      <input class="text-input" data-field="id" list="enemyIdOptions" value="${escapeAttr(formatEnemyDisplay(entry.id || ''))}" placeholder="BOSS">
+      <select class="select-input" data-field="id">
+        ${renderEnemySelectOptions(entry.id || '', '请选择BOSS')}
+      </select>
       <select class="select-input" data-field="rank">${renderRankOptions(entry.rank || 'boss')}</select>
       <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(entry.count || 1)}" placeholder="数量">
       <input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(entry.positions || entry.spawnPositions || []))}" placeholder="出生点">
@@ -2844,7 +3070,8 @@ async function saveDungeon(event) {
       rows: Number($('#dungeonRows').value) || 10,
       heroSpawn: { positions: parseCoordinateInput($('#dungeonHeroSpawn').value) },
       enemySpawn: currentBattlefield.enemySpawn || {},
-      obstacles: parseCoordinateInput($('#dungeonObstacles').value)
+      obstacles: parseCoordinateInput($('#dungeonObstacles').value),
+      specialTiles: parseSpecialTileInput($('#dungeonSpecialTiles').value)
     },
     initialEnemies,
     bossWaves,
@@ -3072,6 +3299,102 @@ function formatCoordinates(value) {
   }).filter(Boolean).join(';');
 }
 
+function parseSpecialTileInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return [];
+  }
+  if (raw.startsWith('[') || raw.startsWith('{')) {
+    try {
+      return normalizeSpecialTileGroups(JSON.parse(raw));
+    } catch (error) {
+      showToast(`特殊地格格式错误：${error.message}`);
+      return [];
+    }
+  }
+  return raw
+    .split(/[;\n]+/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .map((chunk) => {
+      const [typePart, coordPart] = chunk.includes(':') ? chunk.split(':') : chunk.split('@');
+      const [row, col] = String(coordPart || '').split(/[,，\s]+/).map((part) => Number(part));
+      const type = String(typePart || '').trim();
+      if (!type) {
+        return null;
+      }
+      return {
+        type,
+        row: Math.max(1, row || 1),
+        col: Math.max(1, col || 1)
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeSpecialTileGroups(value) {
+  const list = Array.isArray(value)
+    ? value
+    : (value?.type && Array.isArray(value?.positions || value?.coords || value?.cells)
+      ? [value]
+      : Object.entries(value || {}).map(([type, positions]) => ({ type, positions })));
+  return list
+    .map((entry) => {
+      const type = String(Array.isArray(entry) ? entry[2] : (entry?.type || entry?.kind || entry?.effect || '')).trim();
+      const positions = Array.isArray(entry)
+        ? [entry]
+        : (Array.isArray(entry?.positions || entry?.coords || entry?.cells)
+        ? (entry.positions || entry.coords || entry.cells)
+        : (entry?.row !== undefined || entry?.col !== undefined || entry?.x !== undefined || entry?.y !== undefined ? [entry] : []));
+      if (!type || !positions.length) {
+        return null;
+      }
+      return {
+        type,
+        positions: positions
+          .map((position) => {
+            const row = Array.isArray(position) ? position[0] : position?.row ?? (Number(position?.y) + 1);
+            const col = Array.isArray(position) ? position[1] : position?.col ?? (Number(position?.x) + 1);
+            return [
+              Math.max(1, Number(row) || 1),
+              Math.max(1, Number(col) || 1)
+            ];
+          })
+          .filter(Boolean)
+      };
+    })
+    .filter(Boolean);
+}
+
+function formatSpecialTiles(value) {
+  const groups = new Map();
+  (Array.isArray(value) ? value : normalizeSpecialTileGroups(value)).forEach((entry) => {
+    const type = String(Array.isArray(entry) ? entry[2] : entry?.type || '').trim();
+    if (!type) {
+      return;
+    }
+    const positions = Array.isArray(entry)
+      ? [entry]
+      : (Array.isArray(entry?.positions || entry?.coords || entry?.cells)
+        ? (entry.positions || entry.coords || entry.cells)
+        : [entry]);
+    if (!groups.has(type)) {
+      groups.set(type, []);
+    }
+    positions.forEach((position) => {
+      const row = Array.isArray(position)
+        ? Math.max(1, Number(position[0]) || 1)
+        : (position?.row !== undefined ? Math.max(1, Number(position.row) || 1) : Math.max(1, Number(position?.y) + 1 || 1));
+      const col = Array.isArray(position)
+        ? Math.max(1, Number(position[1]) || 1)
+        : (position?.col !== undefined ? Math.max(1, Number(position.col) || 1) : Math.max(1, Number(position?.x) + 1 || 1));
+      groups.get(type).push([row, col]);
+    });
+  });
+  const result = Array.from(groups.entries()).map(([type, positions]) => ({ type, positions }));
+  return result.length ? JSON.stringify(result, null, 2) : '';
+}
+
 function stringifyInlineJson(value) {
   if (!value || (typeof value === 'object' && Object.keys(value).length === 0)) {
     return '';
@@ -3202,7 +3525,13 @@ async function api(path, options = {}) {
 }
 
 function normalizeBaseUrl(value) {
-  return String(value || 'http://127.0.0.1:3000/api').trim().replace(/\/+$/, '');
+  const raw = String(value || 'http://127.0.0.1:9000/api').trim();
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
+  const cleaned = withProtocol.replace(/\/+$/, '');
+  if (/\/api$/i.test(cleaned)) {
+    return cleaned;
+  }
+  return `${cleaned}/api`;
 }
 
 function parseJsonField(selector, fallback) {

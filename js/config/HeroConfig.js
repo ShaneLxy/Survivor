@@ -126,16 +126,29 @@ const HeroConfig = {
         return window.VersionManager?.getVersionedAssetUrl?.(rawPath) || rawPath;
     },
 
+    getCardPortraitPath(portraitPath) {
+        if (!portraitPath || typeof portraitPath !== 'string') {
+            return null;
+        }
+
+        const explicitPath = portraitPath.replace('assets/media/heroes/', 'assets/media/heroesCardPortrait/');
+        return window.VersionManager?.getVersionedAssetUrl?.(explicitPath) || explicitPath;
+    },
+
     normalizeHeroConfig(hero = {}) {
         const skills = this.normalizeSkillCollection(hero.skills, hero.skill);
         const portrait = hero.portrait
             ? (window.VersionManager?.getVersionedAssetUrl?.(hero.portrait) || hero.portrait)
             : null;
+        const cardPortrait = hero.cardPortrait
+            ? (window.VersionManager?.getVersionedAssetUrl?.(hero.cardPortrait) || hero.cardPortrait)
+            : this.getCardPortraitPath(hero.portrait);
         return {
             ...hero,
             rarity: this.normalizeRarity(hero.rarity),
             profession: hero.profession || null,
             portrait,
+            cardPortrait,
             professionIcon: hero.professionIcon || this.getProfessionIconPath(hero.profession),
             skills,
             skill: skills[0] || null

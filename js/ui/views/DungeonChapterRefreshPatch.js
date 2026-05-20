@@ -105,7 +105,31 @@
         if (!chapter) {
             return { accessible: true, message: '' };
         }
-        return this.getChapterAccessibility(chapter.id);
+        const chapterAccessibility = this.getChapterAccessibility(chapter.id);
+        if (!chapterAccessibility.accessible) {
+            return chapterAccessibility;
+        }
+        return this.getStageAccessibility(chapter.id, dungeonId);
+    };
+
+    DungeonView.prototype.getStageAccessibility = function(chapterId, dungeonId) {
+        const chapter = this.getChapters().find((entry) => entry.id === chapterId);
+        if (!chapter) {
+            return { accessible: true, message: '' };
+        }
+
+        const stages = chapter.dungeons || [];
+        const stageIndex = stages.findIndex((stage) => stage.id === dungeonId);
+        if (stageIndex <= 0) {
+            return { accessible: true, message: '' };
+        }
+
+        const previousStage = stages[stageIndex - 1];
+        const accessible = !!previousStage && dungeonManager.isCompleted(previousStage.id);
+        return {
+            accessible,
+            message: accessible ? '' : `请先通关第 ${stageIndex} 关`
+        };
     };
 
     DungeonView.prototype.getChapterProgressSummary = function(chapters) {
@@ -197,7 +221,9 @@
             return;
         }
 
-        this.selectedStageId = chapter.dungeons[0]?.id || null;
+        const stages = chapter.dungeons || [];
+        const firstAccessibleStage = stages.find((stage) => this.getStageAccessibility(chapter.id, stage.id).accessible);
+        this.selectedStageId = firstAccessibleStage?.id || stages[0]?.id || null;
         const modal = new Modal({
             className: 'chapter-stage-modal-shell',
             title: `${chapter.index}. ${chapter.name}`,
@@ -216,6 +242,11 @@
     };
 
     DungeonView.prototype.selectStage = function(chapterId, dungeonId) {
+        const accessibility = this.getStageAccessibility(chapterId, dungeonId);
+        if (!accessibility.accessible) {
+            Toast.info(accessibility.message);
+            return;
+        }
         this.selectedStageId = dungeonId;
         const chapter = this.getChapters().find((entry) => entry.id === chapterId);
         if (chapter) {
@@ -448,13 +479,22 @@
         return `
             <div class="chapter-stage-layout">
                 <div class="chapter-stage-list chapter-stage-list-horizontal ${stageCountClass}">
-                    ${stages.map((stage, index) => `
-                        <button class="chapter-stage-item ${activeStage.id === stage.id ? 'is-active' : ''} ${dungeonManager.isCompleted(stage.id) ? 'is-completed' : 'is-pending'}"
-                            onclick="window.game.ui.dungeonView.selectStage('${chapter.id}', '${stage.id}')">
+                    ${stages.map((stage, index) => {
+                        const stageAccessibility = this.getStageAccessibility(chapter.id, stage.id);
+                        const stateClass = !stageAccessibility.accessible
+                            ? 'is-locked'
+                            : (dungeonManager.isCompleted(stage.id) ? 'is-completed' : 'is-pending');
+                        const label = !stageAccessibility.accessible
+                            ? '未解锁'
+                            : (dungeonManager.isCompleted(stage.id) ? '已清剿' : `Lv.${stage.level}`);
+                        return `
+                        <button class="chapter-stage-item ${activeStage.id === stage.id ? 'is-active' : ''} ${stateClass}"
+                            ${stageAccessibility.accessible ? `onclick="window.game.ui.dungeonView.selectStage('${chapter.id}', '${stage.id}')"` : 'disabled'}>
                             <span class="chapter-stage-item-index">关卡 ${index + 1}</span>
-                            <span>${dungeonManager.isCompleted(stage.id) ? '已清剿' : `Lv.${stage.level}`}</span>
+                            <span>${label}</span>
                         </button>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
                 <div class="chapter-stage-detail">
                     <div class="chapter-stage-detail-heading">

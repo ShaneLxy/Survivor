@@ -7,12 +7,71 @@ class ShopView {
         this.visible = false;
         this.shopItems = [];
         this.purchasedCounts = {};
+        this.lastResetDate = '';
         this.activeType = 'all';
+        this.resetShopItems();
+    }
+
+    getTodayKey() {
+        return window.serverClock?.todayKey?.() || new Date().toDateString();
+    }
+
+    resetShopItems() {
+        this.shopItems = ShopConfig.getShopItems();
+    }
+
+    resetPurchaseCounts(resetDate = this.getTodayKey()) {
+        this.resetShopItems();
+        this.purchasedCounts = {};
+        this.shopItems.forEach(item => {
+            this.purchasedCounts[item.id] = 0;
+        });
+        this.lastResetDate = resetDate;
+    }
+
+    ensureDailyReset(now = null) {
+        const todayKey = now?.toDateString?.() || this.getTodayKey();
+        if (this.lastResetDate !== todayKey) {
+            this.resetPurchaseCounts(todayKey);
+            return true;
+        }
+        this.resetShopItems();
+        return false;
+    }
+
+    init(saveData) {
+        const counts = saveData?.purchasedCounts && typeof saveData.purchasedCounts === 'object'
+            ? saveData.purchasedCounts
+            : {};
+        const lastResetDate = String(saveData?.lastResetDate || '').trim();
+
+        this.resetShopItems();
+        this.purchasedCounts = {};
+        this.shopItems.forEach(item => {
+            this.purchasedCounts[item.id] = Math.max(0, Number(counts[item.id]) || 0);
+        });
+        this.lastResetDate = lastResetDate || this.getTodayKey();
+        this.ensureDailyReset();
+    }
+
+    getSaveData() {
+        this.ensureDailyReset();
+        const purchasedCounts = {};
+        Object.entries(this.purchasedCounts || {}).forEach(([itemId, count]) => {
+            const normalizedCount = Math.max(0, Number(count) || 0);
+            if (normalizedCount > 0) {
+                purchasedCounts[itemId] = normalizedCount;
+            }
+        });
+        return {
+            lastResetDate: this.lastResetDate || this.getTodayKey(),
+            purchasedCounts
+        };
     }
 
     show() {
         this.visible = true;
-        this.resetPurchaseCounts();
+        this.ensureDailyReset();
         this.render();
     }
 
@@ -21,14 +80,8 @@ class ShopView {
         this.element.innerHTML = '';
     }
 
-    resetPurchaseCounts() {
-        this.shopItems = ShopConfig.getShopItems();
-        this.shopItems.forEach(item => {
-            this.purchasedCounts[item.id] = 0;
-        });
-    }
-
     render() {
+        this.ensureDailyReset();
         this.element.innerHTML = `
             <div class="shop-view">
                 <div class="shop-stage-header">
@@ -98,6 +151,7 @@ class ShopView {
     }
 
     getRemaining(item) {
+        this.ensureDailyReset();
         return Math.max(0, item.maxBuy - (this.purchasedCounts[item.id] || 0));
     }
 
@@ -107,6 +161,23 @@ class ShopView {
 
     getGoldBalance() {
         return shelterManager.getResource('gold') || 0;
+    }
+
+    getCurrencyType(item) {
+        return String(item?.currency || 'gold').trim() || 'gold';
+    }
+
+    getCurrencyIconSrc(currencyType) {
+        return ResourceVisualConfig.get(currencyType)?.src || this.getGoldIconSrc();
+    }
+
+    getCurrencyBalance(currencyType) {
+        return shelterManager.getResource(currencyType) || 0;
+    }
+
+    getCurrencyLabel(currencyType) {
+        const config = shelterManager.getResourceConfig?.(currencyType);
+        return config?.name || currencyType || '资源';
     }
 
     renderIconMarkup(item, imageClass = 'shop-icon-image') {
@@ -129,7 +200,8 @@ class ShopView {
         const remainingTotal = this.shopItems.reduce((sum, item) => sum + this.getRemaining(item), 0);
         const soldOutCount = this.shopItems.filter(item => this.getRemaining(item) <= 0).length;
         return {
-            balance: this.getGoldBalance(),
+            goldBalance: this.getCurrencyBalance('gold'),
+            diamondBalance: this.getCurrencyBalance('diamond'),
             catalogCount: this.shopItems.length,
             remainingTotal,
             soldOutCount
@@ -138,7 +210,9 @@ class ShopView {
 
     getItemAvailability(item) {
         const remaining = this.getRemaining(item);
-        const balance = this.getGoldBalance();
+        const currencyType = this.getCurrencyType(item);
+        const balance = this.getCurrencyBalance(currencyType);
+        const currencyLabel = this.getCurrencyLabel(currencyType);
         if (remaining <= 0) {
             return {
                 canBuy: false,
@@ -151,18 +225,17 @@ class ShopView {
             return {
                 canBuy: false,
                 className: 'is-unaffordable',
-                label: '金币不足',
-                actionText: '缺金币'
+                label: `${currencyLabel}不足`,
+                actionText: `缺${currencyLabel}`
             };
         }
         return {
             canBuy: true,
             className: 'is-available',
-            label: '可交易',
-            actionText: '购买'
+            label: '已售罄',
+            actionText: '售罄'
         };
     }
-
     renderShopSurface() {
         this.renderShopStats();
         this.renderTypeTabs();
@@ -176,16 +249,16 @@ class ShopView {
         const summary = this.getShopSummary();
         statsEl.innerHTML = `
             <div class="shop-stage-stat shop-stage-stat-gold">
-                <span>金币余额</span>
-                <strong><img class="shop-price-icon" src="${this.getGoldIconSrc()}" alt="金币">${summary.balance}</strong>
+                <span>剩余可购</span>
+                <strong><img class="shop-price-icon" src="${this.getCurrencyIconSrc('gold')}" alt="??">${summary.goldBalance}</strong>
             </div>
             <div class="shop-stage-stat">
-                <span>商品</span>
-                <strong>${summary.catalogCount}</strong>
+                <span>剩余可购</span>
+                <strong><img class="shop-price-icon" src="${this.getCurrencyIconSrc('diamond')}" alt="??">${summary.diamondBalance}</strong>
             </div>
             <div class="shop-stage-stat">
-                <span>余量</span>
-                <strong>${summary.remainingTotal}</strong>
+                <span>\u5546\u54c1\/\u4f59\u91cf</span>
+                <strong>${summary.catalogCount}/${summary.remainingTotal}</strong>
             </div>
         `;
     }
@@ -225,14 +298,13 @@ class ShopView {
 
         listEl.innerHTML = '';
         const filteredItems = this.getFilteredShopItems();
-        const goldIconSrc = this.getGoldIconSrc();
 
         if (countEl) {
-            countEl.textContent = `${filteredItems.length} 件补给`;
+            countEl.textContent = `\${filteredItems.length} \u4ef6\u8865\u7ed9`;
         }
 
         if (filteredItems.length === 0) {
-            listEl.innerHTML = '<div class="shop-empty">当前分类暂无商品</div>';
+            listEl.innerHTML = '<div class="shop-empty">\u5f53\u524d\u5206\u7c7b\u6682\u65e0\u5546\u54c1</div>';
             return;
         }
 
@@ -240,6 +312,9 @@ class ShopView {
             const remaining = this.getRemaining(item);
             const availability = this.getItemAvailability(item);
             const rarityMeta = this.getRarityMeta(item.rarity);
+            const currencyType = this.getCurrencyType(item);
+            const currencyIconSrc = this.getCurrencyIconSrc(currencyType);
+            const currencyLabel = this.getCurrencyLabel(currencyType);
 
             const itemEl = document.createElement('div');
             itemEl.className = `shop-item shop-item-${item.type} shop-rarity-${rarityMeta.className} ${availability.className}`;
@@ -259,16 +334,16 @@ class ShopView {
                 </div>
                 <div class="shop-item-meta">
                     <div class="shop-item-meta-block">
-                        <span>类型</span>
+                        <span>单价</span>
                         <strong>${this.getTypeLabel(item.type)}</strong>
                     </div>
                     <div class="shop-item-meta-block">
-                        <span>限购</span>
+                        <span>单价</span>
                         <strong>${remaining}/${item.maxBuy}</strong>
                     </div>
                 </div>
                 <div class="shop-item-footer">
-                    <div class="shop-col-price"><img class="shop-price-icon" src="${goldIconSrc}" alt="金币">${item.price}</div>
+                    <div class="shop-col-price"><img class="shop-price-icon" src="${currencyIconSrc}" alt="${currencyLabel}">${item.price}</div>
                     <button class="btn btn-small shop-buy-button ${availability.canBuy ? 'btn-primary' : 'btn-secondary'}"
                             onclick="window.game.ui.shopView.showBuyConfirm('${item.id}')"
                             ${!availability.canBuy ? 'disabled' : ''}>
@@ -285,22 +360,24 @@ class ShopView {
         if (!item) return;
 
         const remaining = item.maxBuy - (this.purchasedCounts[item.id] || 0);
-        const canBuy = remaining > 0 && shelterManager.getResource('gold') >= item.price;
+        const currencyType = this.getCurrencyType(item);
+        const currencyIconSrc = this.getCurrencyIconSrc(currencyType);
+        const currencyLabel = this.getCurrencyLabel(currencyType);
+        const canBuy = remaining > 0 && this.getCurrencyBalance(currencyType) >= item.price;
 
         if (!canBuy) {
-            Toast.error('购买条件不足');
+            Toast.error('\u8d2d\u4e70\u6570\u91cf\u65e0\u6548');
             return;
         }
 
         const resolvedItem = ShopConfig.resolveGiveItem(item);
         if (!resolvedItem) {
-            Toast.error('商品数据异常，请稍后重试');
+            Toast.error('发放道具配置无效');
             return;
         }
 
         const needInput = remaining > 1;
         const rarityMeta = this.getRarityMeta(item.rarity);
-        const goldIconSrc = this.getGoldIconSrc();
         const content = `
             <div class="shop-confirm-card shop-rarity-${rarityMeta.className}">
                 <div class="shop-confirm-hero">
@@ -314,20 +391,20 @@ class ShopView {
                 <div class="shop-confirm-grid">
                     <div>
                         <span>单价</span>
-                        <strong><img class="shop-price-icon shop-price-icon-inline" src="${goldIconSrc}" alt="金币">${item.price}</strong>
+                        <strong><img class="shop-price-icon shop-price-icon-inline" src="${currencyIconSrc}" alt="${currencyLabel}">${item.price}</strong>
                     </div>
                     <div>
                         <span>剩余可购</span>
                         <strong>${remaining}/${item.maxBuy}</strong>
                     </div>
                     <div>
-                        <span>当前金币</span>
-                        <strong><img class="shop-price-icon shop-price-icon-inline" src="${goldIconSrc}" alt="金币">${this.getGoldBalance()}</strong>
+                        <span>当前${currencyLabel}</span>
+                        <strong><img class="shop-price-icon shop-price-icon-inline" src="${currencyIconSrc}" alt="${currencyLabel}">${this.getCurrencyBalance(currencyType)}</strong>
                     </div>
                 </div>
                 ${needInput ? `
                     <label class="shop-quantity-field">
-                        <span>购买数量</span>
+                        <span>剩余可购</span>
                         <input type="number" id="buy-quantity"
                                min="1" max="${remaining}"
                                value="1"
@@ -335,8 +412,8 @@ class ShopView {
                     </label>
                 ` : ''}
                 <div class="shop-confirm-total">
-                    <span>预计消耗</span>
-                    <strong><img class="shop-price-icon shop-price-icon-inline" src="${goldIconSrc}" alt="金币"><span id="shop-buy-subtotal">${item.price}</span></strong>
+                    <span>剩余可购</span>
+                    <strong><img class="shop-price-icon shop-price-icon-inline" src="${currencyIconSrc}" alt="${currencyLabel}"><span id="shop-buy-subtotal">${item.price}</span></strong>
                 </div>
             </div>
         `;
@@ -355,7 +432,7 @@ class ShopView {
                             const input = document.getElementById('buy-quantity');
                             quantity = parseInt(input.value, 10) || 1;
                             if (quantity < 1 || quantity > remaining) {
-                                Toast.error('购买数量无效');
+                                Toast.error('\u8d2d\u4e70\u6570\u91cf\u65e0\u6548');
                                 return;
                             }
                         }
@@ -391,84 +468,59 @@ class ShopView {
 
     async buyItem(item, quantity) {
         try {
-            const resolvedItem = ShopConfig.resolveGiveItem(item);
-            if (!resolvedItem) {
-                Toast.error('商品数据异常，请稍后重试');
-                return false;
-            }
-
+            this.ensureDailyReset();
             const remaining = item.maxBuy - (this.purchasedCounts[item.id] || 0);
             if (quantity < 1 || quantity > remaining) {
-                Toast.error('购买数量无效');
+                Toast.error('\u8d2d\u4e70\u6570\u91cf\u65e0\u6548');
                 return false;
             }
 
             const totalPrice = item.price * quantity;
-            if (shelterManager.getResource('gold') < totalPrice) {
-                Toast.error('金币不足');
+            const currencyType = this.getCurrencyType(item);
+            if (this.getCurrencyBalance(currencyType) < totalPrice) {
+                Toast.error(`\${this.getCurrencyLabel(currencyType)}\u4e0d\u8db3`);
                 return false;
             }
 
-            let rewardEntries = [];
-            let fragmentRewards = null;
-            if (item.type === 'fragment') {
-                fragmentRewards = ShopConfig.resolveFragmentRewards(item, quantity);
-                if (!fragmentRewards || fragmentRewards.length === 0) {
-                    Toast.error('商品数据异常，请稍后重试');
-                    return false;
+            if (!authService.isLoggedIn()) {
+                Toast.error('\u8bf7\u5148\u767b\u5f55');
+                return false;
+            }
+
+            const result = await SaveApi.purchaseShopItem(item.id, quantity);
+            const saveData = result?.saveData || null;
+            if (!saveData?.data) {
+                Toast.error(result?.message || '\u8d2d\u4e70\u5931\u8d25');
+                return false;
+            }
+
+            saveSyncService.applyAuthoritativeSave(saveData);
+            const rewardEntries = (Array.isArray(result?.rewards) ? result.rewards : []).map((reward) => {
+                const count = Number(reward?.amount ?? reward?.count ?? 0) || 0;
+                if (reward?.type === 'resource') {
+                    return RewardModal.createResourceReward(reward.id, count);
                 }
-            }
-
-            if (item.type === 'consumable') {
-                const totalCount = quantity * (resolvedItem.giveCount || 1);
-                const inventoryCheck = itemManager.canAddItem(item.giveItem, totalCount);
-                if (!inventoryCheck.success) {
-                    Toast.error(inventoryCheck.message || '背包容量达到上限');
-                    return false;
+                if (String(reward?.id || '').endsWith('_fragment')) {
+                    return RewardModal.createFragmentReward(String(reward.id).replace(/_fragment$/, ''), count);
                 }
-            }
+                return RewardModal.createItemReward(reward.id, count);
+            }).filter(Boolean);
 
-            if (!shelterManager.consumeResource('gold', totalPrice)) {
-                Toast.error('金币不足');
-                return false;
-            }
-
-            this.purchasedCounts[item.id] = (this.purchasedCounts[item.id] || 0) + quantity;
-
-            if (item.type === 'fragment') {
-                fragmentRewards.forEach(reward => {
-                    heroManager.addFragments(reward.heroId, reward.count);
-                    rewardEntries.push(RewardModal.createFragmentReward(reward.heroId, reward.count));
-                });
-            } else if (item.type === 'resource') {
-                const totalCount = quantity * (resolvedItem.giveCount || 1);
-                shelterManager.addResource(item.giveItem, totalCount);
-                rewardEntries.push(RewardModal.createResourceReward(item.giveItem, totalCount));
-            } else if (item.type === 'consumable') {
-                const totalCount = quantity * (resolvedItem.giveCount || 1);
-                itemManager.addItem(item.giveItem, totalCount);
-                rewardEntries.push(RewardModal.createItemReward(item.giveItem, totalCount));
-            } else {
-                Toast.error('未知商品类型');
-                return false;
-            }
-
-            this.renderShopSurface();
             await RewardModal.show({
-                title: '购买成功',
+                title: '确认购买',
                 rewards: rewardEntries,
-                summaryText: `已消耗 ${totalPrice} 金币`
+                summaryText: `\u6d88\u8017 \${totalPrice} \${this.getCurrencyLabel(currencyType)}`
             });
-            window.game.save();
             return true;
         } catch (error) {
-            console.error('购买商品出错:', error);
-            Toast.error('购买失败，请重试');
+            console.error('shop purchase failed:', error);
+            Toast.error(error?.message || '\u8d2d\u4e70\u5931\u8d25');
             return false;
         }
     }
 
     refresh() {
+        this.ensureDailyReset();
         if (this.visible) this.render();
     }
 }
