@@ -25,6 +25,7 @@ class HeroView {
     hide() {
         this.visible = false;
         this.cleanupStatTooltip();
+        this.closeHeroPreview();
         this.equipmentBubble = null;
         this.activePanel = 'home';
         this.syncHeroSubpageMode(false);
@@ -156,6 +157,24 @@ class HeroView {
         this.renderHeroSecondaryPage({
             panelClass: 'hero-album-page',
             body: this.getHeroAlbumModalContent()
+        });
+        this.bindHeroAlbumCardEvents();
+    }
+
+    bindHeroAlbumCardEvents() {
+        const grid = this.element.querySelector('.hero-album-grid');
+        if (!grid) return;
+        grid.addEventListener('click', (event) => {
+            const card = event.target.closest('.hero-album-card[data-hero-config-id]');
+            if (!card) return;
+            this.showHeroPreview(card.dataset.heroConfigId);
+        });
+        grid.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const card = event.target.closest('.hero-album-card[data-hero-config-id]');
+            if (!card) return;
+            event.preventDefault();
+            this.showHeroPreview(card.dataset.heroConfigId);
         });
     }
 
@@ -304,7 +323,7 @@ class HeroView {
     getHeroAlbumCardMarkup(heroConfig, isOwned) {
         const rarityColor = this.getRarityColor(heroConfig.rarity);
         return `
-            <div class="hero-card hero-card-compact hero-roster-card hero-album-card card ${isOwned ? 'is-owned' : 'is-locked'}" style="--hero-card-rarity:${rarityColor};" title="${heroConfig.name}">
+            <div class="hero-card hero-card-compact hero-roster-card hero-album-card card ${isOwned ? 'is-owned' : 'is-locked'}" style="--hero-card-rarity:${rarityColor};" title="${heroConfig.name}" data-hero-config-id="${heroConfig.id}" role="button" tabindex="0">
                 ${this.getProfessionBadgeMarkup(heroConfig)}
                 ${this.getHeroAvatarMarkup(heroConfig)}
                 <div class="hero-name">${heroConfig.name}</div>
@@ -340,6 +359,119 @@ class HeroView {
                 <div class="hero-modal-grid hero-roster-grid hero-album-grid">
                     ${cards}
                 </div>
+            </div>
+        `;
+    }
+
+    showHeroPreview(configId) {
+        if (!configId) return;
+        const heroConfig = HeroConfig.getHeroConfig(configId);
+        if (!heroConfig) return;
+        const isOwned = heroManager.getAllHeroes().some(hero => hero.configId === configId);
+        const traitFramework = HeroConfig.getSpecialTraitFramework(configId);
+
+        this.closeHeroPreview();
+        const modal = new Modal({
+            title: `${heroConfig.name} · 图鉴预览`,
+            content: this.getHeroPreviewMarkup(heroConfig, traitFramework, isOwned),
+            className: 'hero-trait-modal hero-command-modal-shell hero-album-preview-modal',
+            buttons: [{ text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }],
+            onClose: () => {
+                if (this.heroPreviewEscHandler) {
+                    document.removeEventListener('keydown', this.heroPreviewEscHandler);
+                    this.heroPreviewEscHandler = null;
+                }
+                this.heroPreviewModal = null;
+            }
+        });
+        modal.show();
+        this.heroPreviewModal = modal;
+
+        this.heroPreviewEscHandler = (event) => {
+            if (event.key === 'Escape') this.closeHeroPreview();
+        };
+        document.addEventListener('keydown', this.heroPreviewEscHandler);
+    }
+
+    closeHeroPreview() {
+        if (this.heroPreviewModal) {
+            this.heroPreviewModal.close();
+        }
+    }
+
+    getHeroPreviewMarkup(heroConfig, traitFramework, isOwned) {
+        const rarityColor = this.getRarityColor(heroConfig.rarity);
+        const rarityName = this.getRarityName(heroConfig.rarity);
+        const professionName = HeroConfig.getProfessionName(heroConfig.profession);
+        const portrait = heroConfig.portrait || heroConfig.cardPortrait || '';
+        const portraitSrc = portrait ? this.resolveAssetUrl(portrait) : '';
+        const traits = Array.isArray(traitFramework?.traits) ? traitFramework.traits : [];
+
+        const statusBadge = isOwned
+            ? `<span class="hero-preview-status is-owned">已收编</span>`
+            : `<span class="hero-preview-status is-locked">未获得</span>`;
+        const obtainHint = isOwned
+            ? ''
+            : `<div class="hero-album-preview-obtain">通过英雄招募或碎片合成获取</div>`;
+
+        return `
+            <div class="hero-album-preview" style="--hero-card-rarity:${rarityColor};">
+                <div class="hero-album-preview-banner">
+                    <div class="hero-album-preview-portrait">
+                        ${portraitSrc
+                            ? `<img src="${portraitSrc}" alt="${heroConfig.name}" loading="eager" decoding="async">`
+                            : `<div class="hero-album-preview-portrait-fallback">${heroConfig.icon || '英雄'}</div>`}
+                        ${this.getProfessionBadgeMarkup(heroConfig)}
+                    </div>
+                    <div class="hero-album-preview-info">
+                        <div class="hero-album-preview-headline">
+                            <div class="hero-album-preview-name-row">
+                                <div class="hero-album-preview-name" style="color:${rarityColor};">${heroConfig.name}</div>
+                                ${statusBadge}
+                            </div>
+                            <div class="hero-album-preview-chips">
+                                <span class="hero-preview-chip is-rarity">${rarityName}</span>
+                                <span class="hero-preview-chip is-profession">${professionName}</span>
+                            </div>
+                            ${obtainHint}
+                        </div>
+                        <div class="hero-trait-heading">
+                            <div class="hero-trait-kicker">SKILL DOSSIER</div>
+                            <div class="hero-trait-main-title">${traitFramework?.name || '专属特技'}</div>
+                            <div class="hero-trait-subtitle">${traitFramework?.summary || ''}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-trait-panel hero-trait-panel-preview">
+                    <div class="hero-trait-section-title">
+                        <span>特技位概览</span>
+                        <strong>${traits.length} SLOTS</strong>
+                    </div>
+                    <div class="hero-trait-slots">
+                        ${traits.length
+                            ? traits.map(trait => this.getHeroPreviewTraitSlotMarkup(trait)).join('')
+                            : '<div class="hero-trait-slot locked"><div class="hero-trait-slot-desc">该英雄暂未公开特技资料。</div></div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    getHeroPreviewTraitSlotMarkup(trait) {
+        const initialUnlock = !trait?.unlockStage || trait.unlockStage <= 1;
+        const stateClass = initialUnlock ? 'unlocked' : 'locked';
+        const badgeText = initialUnlock ? '初始解锁' : (trait.unlockLabel || `${trait.unlockStage}星解锁`);
+        return `
+            <div class="hero-trait-slot ${stateClass}">
+                <div class="hero-trait-slot-index">0${trait.slot}</div>
+                <div class="hero-trait-slot-header">
+                    <div class="hero-trait-slot-title">
+                        <span>特技${trait.slot}</span>
+                        <strong>${trait.name}</strong>
+                    </div>
+                    <div class="hero-trait-slot-badge">${badgeText}</div>
+                </div>
+                <div class="hero-trait-slot-desc">${trait.description || ''}</div>
             </div>
         `;
     }

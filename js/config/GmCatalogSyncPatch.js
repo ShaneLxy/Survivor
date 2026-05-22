@@ -43,6 +43,16 @@
             this.applyDungeons(catalog?.dungeons);
             this.applyShopItems(catalog?.shopItems);
             this.applyWelfareGifts(catalog?.welfareGifts);
+            this.applyTaskDefinitions(catalog?.quests, catalog?.achievements);
+        },
+
+        applyTaskDefinitions(quests, achievements) {
+            if (!window.taskManager?.setDefinitions) {
+                return;
+            }
+            const questList = Array.isArray(quests) ? quests : [];
+            const achievementList = Array.isArray(achievements) ? achievements : [];
+            window.taskManager.setDefinitions(questList, achievementList);
         },
 
         refreshDungeonRuntime() {

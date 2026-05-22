@@ -55,6 +55,7 @@ export class GmController {
       | 'shelterBuildings'
       | 'dungeonChapters'
       | 'dungeons'
+      | 'enemies'
       | 'enemySkills'
       | 'shopItems'
       | 'welfareGifts',
@@ -75,6 +76,7 @@ export class GmController {
       | 'shelterBuildings'
       | 'dungeonChapters'
       | 'dungeons'
+      | 'enemies'
       | 'enemySkills'
       | 'shopItems'
       | 'welfareGifts',
@@ -96,6 +98,7 @@ export class GmController {
       | 'shelterBuildings'
       | 'dungeonChapters'
       | 'dungeons'
+      | 'enemies'
       | 'enemySkills'
       | 'shopItems'
       | 'welfareGifts',
@@ -138,5 +141,11 @@ export class GmController {
   @UseGuards(GmAuthGuard)
   updateCdkey(@Param('id') id: string, @Body() body: any) {
     return this.gmService.updateCdkey(id, body);
+  }
+
+  @Post('cache/bump')
+  @UseGuards(GmAuthGuard)
+  bumpCacheVersion(@Body() body: any) {
+    return this.gmService.bumpCacheVersion(body?.version);
   }
 }

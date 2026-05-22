@@ -36,7 +36,39 @@
         const bottomPanel = this.element?.querySelector('.battle-bottom-panel');
         if (bottomPanel) {
             bottomPanel.style.minHeight = '';
+            bottomPanel.style.height = '';
+            bottomPanel.style.maxHeight = '';
         }
+    };
+
+    BattleView.prototype.getBattleMainAvailableHeight = function() {
+        const view = this.element?.querySelector('.battle-grid-view');
+        const topPanel = this.element?.querySelector('.battle-top-panel');
+        if (!view) {
+            return 0;
+        }
+        const styles = window.getComputedStyle(view);
+        const gap = parseFloat(styles.rowGap || styles.gap) || 0;
+        const paddingTop = parseFloat(styles.paddingTop) || 0;
+        const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+        const topHeight = topPanel?.getBoundingClientRect?.().height || 0;
+        return Math.max(0, view.clientHeight - paddingTop - paddingBottom - topHeight - gap);
+    };
+
+    BattleView.prototype.syncBattleMainPanelHeight = function() {
+        const mainPanel = this.element?.querySelector('.battle-main-panel');
+        const height = Math.floor(this.getBattleMainAvailableHeight?.() || 0);
+        if (!mainPanel || height <= 0) {
+            return height;
+        }
+        const nextHeight = `${height}px`;
+        if (mainPanel.style.height !== nextHeight) {
+            mainPanel.style.height = nextHeight;
+            mainPanel.style.minHeight = nextHeight;
+            mainPanel.style.maxHeight = nextHeight;
+            this.battleBoardLayoutDirty = true;
+        }
+        return height;
     };
 
     BattleView.prototype.syncBattleViewHeight = function() {
@@ -73,7 +105,8 @@
         const mainStyles = window.getComputedStyle(mainPanel);
         const gap = parseFloat(mainStyles.rowGap || mainStyles.gap) || 0;
         const baseHeight = parseFloat(window.getComputedStyle(view).getPropertyValue('--battle-bottom-panel-base-height')) || 146;
-        const availableHeight = Math.max(0, mainPanel.clientHeight - height - gap);
+        const mainAvailableHeight = Math.max(this.getBattleMainAvailableHeight?.() || 0, mainPanel.clientHeight || 0);
+        const availableHeight = Math.max(0, mainAvailableHeight - height - gap);
         const targetHeight = Math.max(baseHeight, Math.floor(availableHeight));
         const extraHeight = Math.max(0, targetHeight - baseHeight);
         const nextExtraHeight = `${extraHeight > 2 ? extraHeight : 0}px`;
@@ -84,6 +117,8 @@
             const nextMinHeight = `${targetHeight}px`;
             if (bottomPanel.style.minHeight !== nextMinHeight) {
                 bottomPanel.style.minHeight = nextMinHeight;
+                bottomPanel.style.height = nextMinHeight;
+                bottomPanel.style.maxHeight = nextMinHeight;
             }
         }
     };
@@ -91,7 +126,9 @@
     const originalRenderBoard = BattleView.prototype.renderBoard;
     BattleView.prototype.renderBoard = function(snapshot) {
         this.syncBattleViewHeight();
+        this.syncBattleMainPanelHeight();
         originalRenderBoard.call(this, snapshot);
+        this.syncBattleMainPanelHeight();
 
         const board = this.element?.querySelector('#battle-board');
         const container = this.element?.querySelector('#battle-board-container');

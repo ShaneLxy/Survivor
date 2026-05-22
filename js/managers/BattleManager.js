@@ -346,6 +346,20 @@ class BattleManager {
         return icons[type] || '·';
     }
 
+    getSpecialTileDescription(type) {
+        const descriptions = {
+            heal: '回合开始时,恢复已损失生命值的 5%。',
+            fire: '回合开始时,受到当前生命值 10% 的火焰伤害。',
+            swamp: '速度与移动距离 -30%,移动消耗增加。',
+            miasma: '防御力 -50%,在此格上更易受到伤害。'
+        };
+        return descriptions[type] || '';
+    }
+
+    getObstacleDescription() {
+        return '不可破坏的障碍物,会阻挡移动与攻击路径,无法在其上停留或与之互动。';
+    }
+
     normalizeObstacleEntry(entry, width, height, index = 0) {
         let row = null;
         let col = null;
@@ -538,9 +552,12 @@ class BattleManager {
             bosses
         });
         this.placeSpawnedUnits(bosses, this.scene.enemySpawn, true);
-
         this.addLog('boss', `${bossNames} 登场了！`);
         this.emitStateChange();
+        if (window.battleView && typeof window.battleView.forceBattleStateRender === 'function') {
+            window.battleView.forceBattleStateRender();
+        }
+        await new Promise(resolve => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(resolve) : setTimeout(resolve, 0)));
         return true;
     }
 
@@ -1555,20 +1572,66 @@ class BattleManager {
 
     chooseBestMove(actor) {
         const reachableCells = this.getReachableCells(actor);
-        const opponents = this.getOpponents(actor);
-        if (reachableCells.length === 0 || opponents.length === 0) {
+        if (reachableCells.length === 0) {
             return null;
         }
+        const opponents = this.getOpponents(actor);
+        const hpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
+        const hasHealTile = (this.scene?.specialTiles || []).some(tile => tile?.type === 'heal');
+        const stayScore = this.evaluateMoveCell(actor, actor.position, opponents, hpRatio, hasHealTile);
 
-        reachableCells.sort((cellA, cellB) => {
-            const scoreA = Math.min(...opponents.map(target => this.distanceBetween(cellA, target.position)));
-            const scoreB = Math.min(...opponents.map(target => this.distanceBetween(cellB, target.position)));
-            if (scoreA !== scoreB) {
-                return scoreA - scoreB;
+        const scored = reachableCells.map(cell => ({
+            cell,
+            score: this.evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile)
+        }));
+
+        scored.sort((a, b) => {
+            if (b.score !== a.score) {
+                return b.score - a.score;
             }
-            return cellA.y - cellB.y;
+            if (a.cell.y !== b.cell.y) {
+                return a.cell.y - b.cell.y;
+            }
+            return a.cell.x - b.cell.x;
         });
-        return reachableCells[0] || null;
+        const best = scored[0];
+        if (!best || best.score <= stayScore) {
+            return null;
+        }
+        return best.cell;
+    }
+
+    evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile = false) {
+        let score = 0;
+        const tile = this.getSpecialTileAt(cell);
+        if (tile) {
+            if (tile.type === 'heal') {
+                const missing = 1 - hpRatio;
+                score += 8 + missing * 70;
+            } else if (tile.type === 'fire') {
+                score -= 32;
+            } else if (tile.type === 'swamp') {
+                score -= 14;
+            } else if (tile.type === 'miasma') {
+                score -= 20;
+            }
+        }
+
+        if (opponents && opponents.length > 0) {
+            const distances = opponents.map(target => this.distanceBetween(cell, target.position));
+            const minDist = Math.min(...distances);
+            const attackRange = Math.max(1, Number(actor.attackRange) || 1);
+            const canAttack = minDist <= attackRange;
+            if (canAttack) {
+                score += 16;
+            }
+            if (hpRatio < 0.4 && hasHealTile) {
+                score += minDist * 1.4;
+            } else {
+                score -= minDist * 1.1;
+            }
+        }
+        return score;
     }
 
     chooseTarget(actor) {
@@ -1576,7 +1639,127 @@ class BattleManager {
         if (targets.length === 0) {
             return null;
         }
-        return [...targets].sort((a, b) => a.hp - b.hp || actor.distanceTo(a) - actor.distanceTo(b))[0];
+        return [...targets].sort((a, b) => {
+            const badA = this.isUnitOnNegativeTile(a) ? 0 : 1;
+            const badB = this.isUnitOnNegativeTile(b) ? 0 : 1;
+            if (badA !== badB) {
+                return badA - badB;
+            }
+            if (a.hp !== b.hp) {
+                return a.hp - b.hp;
+            }
+            return actor.distanceTo(a) - actor.distanceTo(b);
+        })[0];
+    }
+
+    isUnitOnNegativeTile(unit) {
+        const tile = this.getSpecialTileAt(unit?.position);
+        if (!tile) {
+            return false;
+        }
+        return tile.type === 'fire' || tile.type === 'swamp' || tile.type === 'miasma';
+    }
+
+    chooseSkillAction(actor) {
+        const usable = this.getUsableSkills(actor).filter(skill => skill.canUse);
+        if (usable.length === 0) {
+            return null;
+        }
+        let best = null;
+        for (const skill of usable) {
+            if (actor.camp === 'enemy' && this.isWarningSkill(skill)) {
+                continue;
+            }
+            const candidates = this.getSkillTargetCandidates(actor, skill.index);
+            if (candidates.length === 0) {
+                continue;
+            }
+            for (const target of candidates) {
+                const score = this.scoreSkillAction(actor, skill, target);
+                if (best === null || score > best.score) {
+                    best = { skill, target, score };
+                }
+            }
+        }
+        if (!best || best.score <= 0) {
+            return null;
+        }
+        return {
+            type: 'skill',
+            targetId: best.target.id,
+            skillIndex: best.skill.index
+        };
+    }
+
+    scoreSkillAction(actor, skill, target) {
+        let score = (Number(skill.multiplier) || 1) * 10;
+        const customEffect = skill.customEffect || null;
+        const isSelfTarget = target?.id === actor?.id;
+
+        if (skill.effectType === 'heal' && isSelfTarget) {
+            const hpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
+            if (hpRatio > 0.85) {
+                return -1;
+            }
+            score += (1 - hpRatio) * 80;
+            return score;
+        }
+
+        if (skill.effectType === 'heal' && target && !isSelfTarget) {
+            const targetHpRatio = target.maxHp > 0 ? target.hp / target.maxHp : 1;
+            if (targetHpRatio > 0.85) {
+                return -1;
+            }
+            score += (1 - targetHpRatio) * 70;
+            return score;
+        }
+
+        if (skill.targetType === 'self' && skill.effectType === 'utility') {
+            score += 12;
+            return score;
+        }
+
+        if (target && !isSelfTarget) {
+            if (target.maxHp > 0) {
+                const targetHpRatio = target.hp / target.maxHp;
+                score += (1 - targetHpRatio) * 28;
+            }
+            if (this.isUnitOnNegativeTile(target)) {
+                score += 12;
+            }
+        }
+
+        if (customEffect?.type === 'lifesteal' && target && !isSelfTarget) {
+            const selfHpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
+            score += (1 - selfHpRatio) * 35;
+        }
+
+        if (customEffect?.type === 'displace' && target && !isSelfTarget) {
+            const result = this.computeDisplaceEffect(actor, target, customEffect);
+            if (result.moved <= 0) {
+                score -= 28;
+            } else {
+                const landing = this.getSpecialTileAt(result.toPosition);
+                if (landing?.type === 'fire') {
+                    score += 90;
+                } else if (landing?.type === 'swamp') {
+                    score += 45;
+                } else if (landing?.type === 'miasma') {
+                    score += 40;
+                } else if (landing?.type === 'heal') {
+                    score -= 40;
+                }
+                const atEdge = result.toPosition.x === 0
+                    || result.toPosition.x === this.scene.width - 1
+                    || result.toPosition.y === 0
+                    || result.toPosition.y === this.scene.height - 1;
+                if (result.mode === 'push' && atEdge) {
+                    score += 8;
+                }
+            }
+        }
+
+        return score;
     }
 
     getUsableBattleItems(actor) {
@@ -1645,16 +1828,9 @@ class BattleManager {
             return { type: 'item', itemId: healItems[0].id, targetId: actor.id };
         }
 
-        const usableSkills = this.getUsableSkills(actor).filter(skill => skill.canUse);
-        const skillChoice = usableSkills.find(skill => {
-            const candidates = this.getSkillTargetCandidates(actor, skill.index);
-            return candidates.length > 0;
-        });
-        if (skillChoice) {
-            const skillTarget = this.getSkillTargetCandidates(actor, skillChoice.index)[0];
-            if (skillTarget) {
-                return { type: 'skill', targetId: skillTarget.id, skillIndex: skillChoice.index };
-            }
+        const skillAction = this.chooseSkillAction(actor);
+        if (skillAction) {
+            return skillAction;
         }
 
         const target = this.chooseTarget(actor);
@@ -2067,6 +2243,70 @@ class BattleManager {
         return events;
     }
 
+    computeDisplaceEffect(actor, targetUnit, customEffect) {
+        const distance = Math.max(0, Math.floor(Number(customEffect?.distance) || 0));
+        const mode = customEffect?.mode === 'pull' ? 'pull' : 'push';
+        if (!actor || !targetUnit || distance <= 0) {
+            return { type: 'displace', mode, moved: 0, distance, blocked: false };
+        }
+        const dx = targetUnit.position.x - actor.position.x;
+        const dy = targetUnit.position.y - actor.position.y;
+        let stepX = 0;
+        let stepY = 0;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            stepX = Math.sign(dx);
+        } else {
+            stepY = Math.sign(dy);
+        }
+        if (mode === 'pull') {
+            stepX = -stepX;
+            stepY = -stepY;
+        }
+        if (stepX === 0 && stepY === 0) {
+            return { type: 'displace', mode, moved: 0, distance, blocked: true };
+        }
+        const fromPosition = { x: targetUnit.position.x, y: targetUnit.position.y };
+        let current = { x: fromPosition.x, y: fromPosition.y };
+        let moved = 0;
+        let blocked = false;
+        for (let i = 0; i < distance; i++) {
+            const next = { x: current.x + stepX, y: current.y + stepY };
+            if (!this.isInsideBoard(next) || this.isCellBlocked(next, targetUnit.id)) {
+                blocked = true;
+                break;
+            }
+            current = next;
+            moved += 1;
+        }
+        return {
+            type: 'displace',
+            mode,
+            moved,
+            distance,
+            blocked,
+            fromPosition,
+            toPosition: current
+        };
+    }
+
+    commitDisplaceEffect(targetUnit, displaceResult, actor = null) {
+        if (!displaceResult || displaceResult.type !== 'displace' || displaceResult.moved <= 0 || !targetUnit?.isAlive()) {
+            return false;
+        }
+        const { fromPosition, toPosition, mode } = displaceResult;
+        targetUnit.setPosition(toPosition);
+        eventManager.emit('battleUnitMove', {
+            unit: targetUnit,
+            fromPosition,
+            position: toPosition,
+            toPosition,
+            reason: 'displace',
+            mode,
+            causedBy: actor?.id || null
+        });
+        return true;
+    }
+
     resolveCustomSkillEffect(actor, targetUnit, skillIndex = 0, attackResult = {}) {
         if (!attackResult?.hit || !targetUnit?.isAlive()) {
             return null;
@@ -2115,6 +2355,23 @@ class BattleManager {
 
         if (customEffect.type === 'apply_missing_hp_regen') {
             return this.applyMissingHpRegenEffect(actor, targetUnit, customEffect);
+        }
+
+        if (customEffect.type === 'displace') {
+            return this.computeDisplaceEffect(actor, targetUnit, customEffect);
+        }
+
+        if (customEffect.type === 'lifesteal') {
+            const ratio = Math.max(0, Math.min(1, Number(customEffect.ratio) || 0));
+            const damageDealt = Math.max(0, Number(attackResult?.damage) || 0);
+            const healAmount = Math.max(0, Math.floor(damageDealt * ratio));
+            const actualHeal = healAmount > 0 && actor?.isAlive?.() ? actor.heal(healAmount) : 0;
+            return {
+                type: 'lifesteal',
+                ratio,
+                damage: damageDealt,
+                heal: actualHeal
+            };
         }
 
         if (customEffect.type !== 'consume_status_damage') {
@@ -2573,7 +2830,22 @@ class BattleManager {
                             const customText = customEffectResult?.consumedStacks > 0
                                 ? `，结算${customEffectResult.consumedStacks}层${customEffectResult.statusType === 'burn' ? '灼烧' : '状态'}追加 ${customEffectResult.extraDamage} 点伤害`
                                 : '';
-                            skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}${statusText}${customText}`);
+                            let displaceText = '';
+                            if (customEffectResult?.type === 'displace') {
+                                if (customEffectResult.moved > 0) {
+                                    const verb = customEffectResult.mode === 'pull' ? '拉近' : '击退';
+                                    displaceText = `，${verb}${customEffectResult.moved}格`;
+                                } else if (customEffectResult.blocked) {
+                                    displaceText = '，但位移被阻挡';
+                                }
+                            }
+                            const lifestealText = customEffectResult?.type === 'lifesteal' && customEffectResult.heal > 0
+                                ? `，自身吸取 ${customEffectResult.heal} 点生命`
+                                : '';
+                            skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}${statusText}${customText}${displaceText}${lifestealText}`);
+                            if (customEffectResult?.type === 'displace') {
+                                this.commitDisplaceEffect(targetUnit, customEffectResult, actor);
+                            }
                         }
                         actionTargets.push({ target: targetUnit, result: attackResult });
                         if (!targetUnit.isAlive()) {

@@ -1,4 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import * as fs from 'fs';
+import * as fsp from 'fs/promises';
+import * as path from 'path';
 import { MongoService } from '../../shared/mongo/mongo.service';
 import {
   CdkeyDocument,
@@ -9,7 +12,52 @@ import {
 
 @Injectable()
 export class GmService {
+  private readonly rootDir = path.resolve(__dirname, '../../../../');
+  private readonly cacheBustTargets = [
+    path.join(this.rootDir, 'index.html'),
+    path.join(this.rootDir, 'mobile', 'web', 'index.html'),
+  ];
+
   constructor(private readonly mongoService: MongoService) {}
+
+  async bumpCacheVersion(rawVersion?: string) {
+    const version = this.normalizeBumpVersion(rawVersion);
+    const results: { file: string; replaced: number }[] = [];
+
+    for (const file of this.cacheBustTargets) {
+      if (!fs.existsSync(file)) {
+        continue;
+      }
+      const content = await fsp.readFile(file, 'utf8');
+      const matches = content.match(/\?v=[\d.]+/g) || [];
+      if (matches.length === 0) {
+        results.push({ file: path.relative(this.rootDir, file), replaced: 0 });
+        continue;
+      }
+      const replaced = content.replace(/\?v=[\d.]+/g, `?v=${version}`);
+      await fsp.writeFile(file, replaced, 'utf8');
+      results.push({ file: path.relative(this.rootDir, file), replaced: matches.length });
+    }
+
+    return {
+      success: true,
+      version,
+      results,
+    };
+  }
+
+  private normalizeBumpVersion(input?: string) {
+    const trimmed = String(input || '').trim();
+    if (trimmed && /^[\d.]{3,}$/.test(trimmed)) {
+      return trimmed;
+    }
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
+    return `${y}.${m}.${d}.${minuteOfDay}`;
+  }
 
   async listPlayers(query: any = {}) {
     const keyword = String(query.keyword || '').trim();

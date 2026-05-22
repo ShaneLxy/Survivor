@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk '{print $9, $5}')",
+      "Bash(awk NR==12886 || NR==13074 {print NR\": \"$0} *)",
+      "Bash(awk 'NR>=15400 && NR<=15600' \"E:/AIGame/Survivor/css/views.css\")",
+      "Bash(awk END {print NR} *)",
+      "Bash(node *)",
+      "Bash(xargs grep -l \"instanceId\\\\|baseStats\")",
+      "Bash(xargs grep -l \"refreshStats\\\\|enhanceLevel\")",
+      "Bash(xargs grep -l \"game.ui.taskView\\\\|new TaskView\")",
+      "Bash(npm run *)"
+    ]
+  }
+}

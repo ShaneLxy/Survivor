@@ -38,9 +38,14 @@ class HeroCard {
         }
 
         const rarityColor = this.getRarityColor(hero.rarity);
+        const rarityPalette = this.getRarityPalette(hero.rarity);
         const starInfo = HeroConfig.getStarDisplayInfo(hero.stars);
         card.style.borderColor = rarityColor;
         card.style.setProperty('--hero-card-rarity', rarityColor);
+        card.style.setProperty('--hero-card-rarity-soft', rarityPalette.soft);
+        card.style.setProperty('--hero-card-rarity-glow', rarityPalette.glow);
+        card.style.setProperty('--hero-card-rarity-edge', rarityPalette.edge);
+        card.dataset.rarity = hero.rarity || 'common';
 
         if (isInTeam) {
             const badge = document.createElement('div');
@@ -100,6 +105,16 @@ class HeroCard {
             legendary: '#ffcc00'
         };
         return colors[rarity] || colors.common;
+    }
+
+    getRarityPalette(rarity) {
+        const palette = {
+            common:    { soft: 'rgba(160, 160, 160, 0.42)', glow: 'rgba(160, 160, 160, 0.22)', edge: 'rgba(160, 160, 160, 0.18)' },
+            rare:      { soft: 'rgba(163, 53, 238, 0.62)',  glow: 'rgba(163, 53, 238, 0.30)', edge: 'rgba(163, 53, 238, 0.22)' },
+            epic:      { soft: 'rgba(255, 128, 0, 0.65)',   glow: 'rgba(255, 128, 0, 0.34)',  edge: 'rgba(255, 128, 0, 0.24)' },
+            legendary: { soft: 'rgba(255, 204, 0, 0.70)',   glow: 'rgba(255, 204, 0, 0.38)',  edge: 'rgba(255, 204, 0, 0.28)' }
+        };
+        return palette[rarity] || palette.common;
     }
 
     setupEvents() {

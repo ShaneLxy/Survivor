@@ -3,6 +3,10 @@ class TaskView {
         this.element = document.getElementById('main-display');
         this.visible = false;
         this.activeTab = 'daily';
+        this.pageSize = 30;
+        this.sortedTasks = [];
+        this.renderedCount = 0;
+        this.loadMoreObserver = null;
         this.bindEvents();
     }
 
@@ -16,6 +20,7 @@ class TaskView {
     }
 
     hide() {
+        this.disconnectLoadMoreObserver();
         this.visible = false;
         this.element.innerHTML = '';
     }
@@ -27,6 +32,15 @@ class TaskView {
 
     getTasks() {
         return this.activeTab === 'daily' ? taskManager.getDailyTasks() : taskManager.getAchievements();
+    }
+
+    sortTasksByClaimState(tasks) {
+        const rank = (task) => {
+            if (task.completed && !task.claimed) return 0;
+            if (!task.completed) return 1;
+            return 2;
+        };
+        return tasks.slice().sort((left, right) => rank(left) - rank(right));
     }
 
     getSummary() {
@@ -224,22 +238,74 @@ class TaskView {
     }
 
     render() {
+        this.disconnectLoadMoreObserver();
         const summary = this.getSummary();
-        const tasks = this.getTasks();
-        const meta = this.getViewMeta(tasks, summary);
+        this.sortedTasks = this.sortTasksByClaimState(this.getTasks());
+        const meta = this.getViewMeta(this.sortedTasks, summary);
+
+        const initialBatch = this.sortedTasks.slice(0, this.pageSize);
+        this.renderedCount = initialBatch.length;
+        const hasMore = this.sortedTasks.length > this.renderedCount;
 
         this.element.innerHTML = `
             <div class="task-view">
                 ${this.renderHeader(meta)}
                 ${this.renderTabs()}
                 <div class="task-command-board">
-                    ${this.renderBoardHeader(meta, tasks)}
+                    ${this.renderBoardHeader(meta, this.sortedTasks)}
                     <div class="task-list">
-                        ${tasks.map(task => this.renderTaskCard(task)).join('')}
+                        ${initialBatch.map(task => this.renderTaskCard(task)).join('')}
+                        ${hasMore ? '<div class="task-list-sentinel" aria-hidden="true"></div>' : ''}
                     </div>
                 </div>
             </div>
         `;
+
+        if (hasMore) {
+            this.observeSentinel();
+        }
+    }
+
+    observeSentinel() {
+        const list = this.element.querySelector('.task-list');
+        const sentinel = list?.querySelector('.task-list-sentinel');
+        if (!list || !sentinel || typeof IntersectionObserver === 'undefined') {
+            return;
+        }
+        this.loadMoreObserver = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+                this.loadMoreTasks();
+            }
+        }, { root: list, rootMargin: '160px 0px', threshold: 0 });
+        this.loadMoreObserver.observe(sentinel);
+    }
+
+    loadMoreTasks() {
+        const list = this.element.querySelector('.task-list');
+        const sentinel = list?.querySelector('.task-list-sentinel');
+        if (!list || !sentinel) {
+            this.disconnectLoadMoreObserver();
+            return;
+        }
+        const nextBatch = this.sortedTasks.slice(this.renderedCount, this.renderedCount + this.pageSize);
+        if (nextBatch.length === 0) {
+            this.disconnectLoadMoreObserver();
+            sentinel.remove();
+            return;
+        }
+        sentinel.insertAdjacentHTML('beforebegin', nextBatch.map(task => this.renderTaskCard(task)).join(''));
+        this.renderedCount += nextBatch.length;
+        if (this.renderedCount >= this.sortedTasks.length) {
+            this.disconnectLoadMoreObserver();
+            sentinel.remove();
+        }
+    }
+
+    disconnectLoadMoreObserver() {
+        if (this.loadMoreObserver) {
+            this.loadMoreObserver.disconnect();
+            this.loadMoreObserver = null;
+        }
     }
 
     renderTaskCard(task) {

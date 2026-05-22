@@ -21,6 +21,10 @@
         <span class="nav-icon">▦</span>
         <span>资源目录</span>
       </button>
+      <button class="nav-item" data-view="quest" type="button">
+        <span class="nav-icon">✓</span>
+        <span>任务成就</span>
+      </button>
       <button class="nav-item" data-view="enemy" type="button">
         <span class="nav-icon">※</span>
         <span>怪物信息</span>
@@ -89,11 +93,14 @@
           <section class="panel catalog-list-panel">
             <div class="panel-toolbar">
               <div class="segmented-control" role="tablist">
-                <button class="segment active" data-catalog-type="items" type="button">道具</button>
-                <button class="segment" data-catalog-type="resources" type="button">资源</button>
-                <button class="segment" data-catalog-type="equipment" type="button">装备</button>
-                <button class="segment" data-catalog-type="enemySkills" type="button">敌技</button>
+                <button class="segment active" data-catalog-type="items" data-segment-group="catalog" type="button">道具</button>
+                <button class="segment" data-catalog-type="resources" data-segment-group="catalog" type="button">资源</button>
+                <button class="segment" data-catalog-type="equipment" data-segment-group="catalog" type="button">装备</button>
+                <button class="segment" data-catalog-type="enemySkills" data-segment-group="catalog" type="button">敌技</button>
+                <button class="segment" data-catalog-type="quests" data-segment-group="quest" type="button" hidden>任务</button>
+                <button class="segment" data-catalog-type="achievements" data-segment-group="quest" type="button" hidden>成就</button>
               </div>
+              <button id="generateFirstClearBtn" class="ghost-button" type="button" hidden>一键生成首通成就</button>
               <button id="newCatalogBtn" class="icon-button" title="新建条目" type="button">＋</button>
             </div>
             <div class="filter-row">
@@ -172,14 +179,91 @@
                 <span>效果 JSON</span>
                 <textarea id="catalogEffect" name="effect" class="textarea-input code-input" rows="4"></textarea>
               </label>
-              <label class="wide">
+              <label class="wide" id="catalogStatsLabel">
                 <span>属性 JSON</span>
                 <textarea id="catalogStats" name="stats" class="textarea-input code-input" rows="4"></textarea>
               </label>
-              <label class="wide">
+              <label class="wide" id="catalogStatRulesLabel">
                 <span>装备属性规则 JSON</span>
                 <textarea id="catalogStatRules" name="statRules" class="textarea-input code-input" rows="5"></textarea>
               </label>
+              <div class="wide quest-editor" id="questEditor" hidden>
+                <div class="quest-editor-section">
+                  <div class="quest-field-row">
+                    <label class="quest-field">
+                      <span>周期</span>
+                      <select id="questPeriod" class="select-input">
+                        <option value="daily">每日</option>
+                        <option value="weekly">每周</option>
+                        <option value="permanent">永久(成就)</option>
+                      </select>
+                    </label>
+                    <label class="quest-field">
+                      <span>目标计数</span>
+                      <input id="questTarget" type="number" min="1" class="text-input">
+                    </label>
+                  </div>
+                </div>
+                <div class="quest-editor-section">
+                  <div class="quest-section-header">
+                    <span class="quest-section-title">触发条件</span>
+                  </div>
+                  <div class="quest-trigger-row">
+                    <label class="quest-field">
+                      <span>事件</span>
+                      <select id="questTriggerEvent" class="select-input"></select>
+                    </label>
+                    <label class="quest-field">
+                      <span>进度模式</span>
+                      <select id="questTriggerMode" class="select-input">
+                        <option value="increment">累加(每次 +1)</option>
+                        <option value="mark">标记(达到即完成)</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="quest-trigger-conditions">
+                    <div class="quest-section-subtitle">附加条件(留空 = 任意触发)</div>
+                    <div class="quest-condition-rows" id="questTriggerConditions"></div>
+                    <div class="quest-condition-empty" id="questTriggerConditionsEmpty">该事件不支持附加条件。</div>
+                  </div>
+                </div>
+                <div class="quest-editor-section">
+                  <div class="quest-section-header">
+                    <span class="quest-section-title">奖励</span>
+                    <button type="button" class="ghost-button quest-section-add" id="questRewardAddBtn">+ 添加奖励</button>
+                  </div>
+                  <div class="quest-reward-rows" id="questRewardRows"></div>
+                  <div class="quest-section-empty" id="questRewardEmpty">还没添加任何奖励。</div>
+                </div>
+              </div>
+              <div class="wide equipment-stats-editor" id="equipmentStatsEditor" hidden>
+                <div class="equipment-stats-block">
+                  <div class="equipment-stats-header">
+                    <span class="equipment-stats-title">按品质属性范围 (statRules)</span>
+                    <button type="button" class="ghost-button equipment-stats-add" id="equipmentStatRulesAddBtn">+ 添加属性</button>
+                  </div>
+                  <div class="equipment-stat-rules-table">
+                    <div class="equipment-stat-rules-thead">
+                      <span>属性</span>
+                      <span class="quality-col quality-common">普通</span>
+                      <span class="quality-col quality-rare">稀有</span>
+                      <span class="quality-col quality-epic">史诗</span>
+                      <span class="quality-col quality-legendary">传说</span>
+                      <span></span>
+                    </div>
+                    <div class="equipment-stat-rules-tbody" id="equipmentStatRulesRows"></div>
+                    <div class="equipment-stats-empty" id="equipmentStatRulesEmpty">还没添加任何属性。点击右上角 "+ 添加属性" 开始配置。</div>
+                  </div>
+                </div>
+                <div class="equipment-stats-block">
+                  <div class="equipment-stats-header">
+                    <span class="equipment-stats-title">固定属性 (fixedStats,不随品质变化)</span>
+                    <button type="button" class="ghost-button equipment-stats-add" id="equipmentFixedStatsAddBtn">+ 添加固定属性</button>
+                  </div>
+                  <div class="equipment-fixed-stats-rows" id="equipmentFixedStatsRows"></div>
+                  <div class="equipment-stats-empty" id="equipmentFixedStatsEmpty">通常无需配置。如果该装备有不随品质变化的恒定属性,在此添加。</div>
+                </div>
+              </div>
               <div class="form-actions wide">
                 <button id="saveCatalogBtn" class="primary-button" type="submit">保存条目</button>
                 <button id="deleteCatalogBtn" class="danger-button" type="button">撤销 GM 改动</button>
@@ -223,7 +307,7 @@
               </label>
               <label class="file-row">
                 <span>本地图片</span>
-                <input id="enemyImageFile" type="file" accept="image/*">
+                <button id="pickEnemyImageBtn" class="ghost-button" type="button">选择图片</button>
               </label>
               <div class="image-preview-wrap">
                 <div id="enemyImagePreview" class="image-preview">IMG</div>
@@ -612,6 +696,7 @@
                   <option value="rain">&#x4E0B;&#x96E8;</option>
                   <option value="storm_night">&#x66B4;&#x96E8;&#x591C;</option>
                   <option value="snow">&#x4E0B;&#x96EA;</option>
+                  <option value="ash">&#x7070;&#x70EC;&#x7279;&#x6548;</option>
                 </select>
               </label>
               <label class="wide">
@@ -634,6 +719,10 @@
                 <span>&#x68CB;&#x76D8;&#x884C;&#x6570;</span>
                 <input id="dungeonRows" class="text-input" type="number" min="1">
               </label>
+              <div class="wide" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <button id="openBoardEditorBtn" class="ghost-button" type="button">&#x68CB;&#x76D8;&#x7F16;&#x8F91;&#x5668;</button>
+                <span style="font-size:12px;color:#888;">&#x53EF;&#x89C6;&#x5316;&#x914D;&#x7F6E;&#x969C;&#x788D;&#x7269;&#x3001;&#x7279;&#x6B8A;&#x5730;&#x683C;&#x3001;&#x82F1;&#x96C4;&#x51FA;&#x751F;&#x70B9;</span>
+              </div>
               <label class="wide">
                 <span>&#x82F1;&#x96C4;&#x51FA;&#x751F;&#x70B9;</span>
                 <input id="dungeonHeroSpawn" class="text-input" placeholder="10,3;10,4">
@@ -644,7 +733,7 @@
               </label>
               <label class="wide">
                 <span>&#x7279;&#x6B8A;&#x5730;&#x683C;</span>
-                <textarea id="dungeonSpecialTiles" class="textarea-input" rows="5" placeholder='[{"type":"heal","positions":[[4,4],[4,5]]},{"type":"fire","positions":[[5,4]]},{"type":"swamp","positions":[[6,3]]},{"type":"miasma","positions":[[7,5]]}]'></textarea>
+                <textarea id="dungeonSpecialTiles" class="textarea-input" rows="3" placeholder="heal:5,4;fire:4,8;swamp:6,3"></textarea>
               </label>
               <label>
                 <span>&#x91D1;&#x5E01;&#x6700;&#x5C0F;</span>
@@ -898,6 +987,16 @@
               <p>选择正式或测试版本，默认生成 APK，并在下方输出完整打包日志和结果路径</p>
             </div>
           </div>
+          <div class="cache-bump-row">
+            <div class="cache-bump-info">
+              <strong>静态资源缓存</strong>
+              <span>一键更新 index.html / mobile/web/index.html 里所有 <code>?v=...</code> 引用,强制玩家拉取最新 CSS/JS,避免改动被浏览器缓存挡住</span>
+            </div>
+            <div class="cache-bump-action">
+              <input id="cacheBumpVersionInput" class="text-input" type="text" placeholder="留空自动生成 YYYY.MM.DD.N">
+              <button id="cacheBumpBtn" class="primary-button" type="button">更新版本号</button>
+            </div>
+          </div>
           <form id="packageForm" class="form-grid package-form">
             <label>
               <span>版本类型</span>
@@ -1040,6 +1139,47 @@
   <datalist id="rewardTargetOptions"></datalist>
   <datalist id="enemyIdOptions"></datalist>
   <datalist id="enemySkillOptions"></datalist>
+
+  <!-- 棋盘编辑器弹窗 -->
+  <div id="boardEditorOverlay" class="board-editor-overlay" style="display:none;" aria-modal="true" role="dialog">
+    <div class="board-editor-dialog">
+      <div class="board-editor-header">
+        <span><span>棋盘编辑器</span><span id="boardEditorSubtitle" class="board-editor-subtitle" hidden></span></span>
+        <button class="board-editor-close" id="boardEditorClose" type="button">&#x2715;</button>
+      </div>
+      <div class="board-editor-body">
+        <div class="board-editor-tools">
+          <span class="board-tool-label">模式：</span>
+          <button class="board-tool-btn is-active" data-mode="obstacle" data-tool-group="global" type="button">障碍物</button>
+          <button class="board-tool-btn" data-mode="hero" data-tool-group="global" type="button">英雄出生点</button>
+          <button class="board-tool-btn" data-mode="heal" data-tool-group="global" type="button">恢复地格</button>
+          <button class="board-tool-btn" data-mode="fire" data-tool-group="global" type="button">火焰地格</button>
+          <button class="board-tool-btn" data-mode="swamp" data-tool-group="global" type="button">沼泽地格</button>
+          <button class="board-tool-btn" data-mode="miasma" data-tool-group="global" type="button">瘴气地格</button>
+          <button class="board-tool-btn" data-mode="enemy" data-tool-group="row" type="button" hidden>敌人出生点</button>
+          <button class="board-tool-btn board-tool-clear" id="boardEditorClear" type="button">清空全部</button>
+        </div>
+        <div class="board-editor-scroll">
+          <div id="boardEditorGrid" class="board-editor-grid"></div>
+        </div>
+        <div class="board-editor-legend">
+          <span class="board-legend-item obstacle">障碍</span>
+          <span class="board-legend-item hero">英雄</span>
+          <span class="board-legend-item heal">恢复</span>
+          <span class="board-legend-item fire">火焰</span>
+          <span class="board-legend-item swamp">沼泽</span>
+          <span class="board-legend-item miasma">瘴气</span>
+          <span class="board-legend-item enemy">敌人</span>
+          <span class="board-legend-item other-spawn">其他行出生点</span>
+        </div>
+      </div>
+      <div class="board-editor-footer">
+        <button class="ghost-button" id="boardEditorCancel" type="button">取消</button>
+        <button class="primary-button" id="boardEditorConfirm" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
   <script src="src/app.js"></script>
 </body>
 </html>

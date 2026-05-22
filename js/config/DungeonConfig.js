@@ -401,6 +401,76 @@ const DungeonConfig = {
             targetCount: 1,
             effectType: 'warning_area_damage',
             customEffect: { type: 'warning_area_damage', shape: 'random_cells', count: 4, delayTurns: 2, multiplier: 1.1, randomDamageRatio: 0.2 }
+        },
+        enemy_skill_hook_drag: {
+            name: '\u94a9\u722a\u62d6\u62fd',
+            description: '\u5bf93\u683c\u5185\u7684\u654c\u65b9\u5355\u4f4d\u9020\u621090%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u5c06\u5176\u671d\u81ea\u8eab\u65b9\u5411\u6700\u591a\u62c9\u8fd12\u683c\u3002',
+            multiplier: 0.9,
+            cooldownTurns: 3,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: false,
+            customEffect: { type: 'displace', mode: 'pull', distance: 2 }
+        },
+        enemy_skill_quake_blow: {
+            name: '\u9707\u9000\u51b2\u62f3',
+            description: '\u5bf9\u76f8\u90bb\u654c\u65b9\u5355\u4f4d\u9020\u6210130%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u5c06\u5176\u5411\u8fdc\u79bb\u81ea\u8eab\u65b9\u5411\u51fb\u90003\u683c\u3002',
+            multiplier: 1.3,
+            cooldownTurns: 3,
+            range: 1,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true,
+            customEffect: { type: 'displace', mode: 'push', distance: 3 }
+        },
+        enemy_skill_gust_repel: {
+            name: '\u6c14\u6d6a\u51b2\u51fb',
+            description: '\u5bf92\u683c\u5185\u7684\u654c\u65b9\u5355\u4f4d\u9020\u621060%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u5c06\u5176\u51fb\u90002\u683c\u3002',
+            multiplier: 0.6,
+            cooldownTurns: 2,
+            range: 2,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: false,
+            customEffect: { type: 'displace', mode: 'push', distance: 2 }
+        },
+        enemy_skill_pack_howl: {
+            name: '\u517d\u7fa4\u568e\u53eb',
+            description: '\u53ec\u5524\u540c\u4f34\u56de\u5e94\uff0c\u4e3a\u81ea\u8eab2\u683c\u5185\u6700\u591a3\u4e2a\u53cb\u519b\u6062\u590d110%\u653b\u51fb\u529b\u7684\u751f\u547d\u3002',
+            multiplier: 1.1,
+            cooldownTurns: 4,
+            range: 2,
+            targetType: 'ally',
+            targetCount: 3,
+            effectType: 'heal',
+            canCrit: false
+        },
+        enemy_skill_chant_mend: {
+            name: '\u5492\u6587\u533b\u6108',
+            description: '\u5bf93\u683c\u5185\u7684\u4e00\u4e2a\u53cb\u519b\u6062\u590d200%\u653b\u51fb\u529b\u7684\u751f\u547d\uff0c\u4f18\u5148\u6cbb\u7597\u6700\u6b8b\u7684\u540c\u4f34\u3002',
+            multiplier: 2,
+            cooldownTurns: 3,
+            range: 3,
+            targetType: 'ally',
+            targetCount: 1,
+            effectType: 'heal',
+            canCrit: false
+        },
+        enemy_skill_blood_drain: {
+            name: '\u5438\u8840\u5543\u54ac',
+            description: '\u5bf9\u76f8\u90bb\u654c\u65b9\u9020\u6210120%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u5c06\u9020\u6210\u4f24\u5bb3\u768450%\u8f6c\u5316\u4e3a\u81ea\u8eab\u751f\u547d\u3002',
+            multiplier: 1.2,
+            cooldownTurns: 3,
+            range: 1,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true,
+            customEffect: { type: 'lifesteal', ratio: 0.5 }
         }
     },
 

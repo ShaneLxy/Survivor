@@ -17,6 +17,8 @@ class BattleView {
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
         this.inspectedUnitId = null;
+        this.inspectedSpecialTile = null;
+        this.inspectedObstacle = null;
         this.isFallenTrayOpen = false;
         // 动画系统相关
         this.animationLayer = null;
@@ -153,6 +155,8 @@ class BattleView {
         this.clearBattleEffectTimers();
         this.stopEnvironmentEffect();
         this.inspectedUnitId = null;
+        this.inspectedSpecialTile = null;
+        this.inspectedObstacle = null;
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
         this.battleSessionId++;
@@ -299,10 +303,16 @@ class BattleView {
             storm: 'storm_night',
             stormnight: 'storm_night',
             heavy_rain: 'storm_night',
-            lightning_rain: 'storm_night'
+            lightning_rain: 'storm_night',
+            ember: 'ash',
+            embers: 'ash',
+            cinder: 'ash',
+            cinders: 'ash',
+            ashes: 'ash',
+            black_ash: 'ash'
         };
         const normalized = aliases[type] || type;
-        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night'].includes(normalized) ? normalized : 'none';
+        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night', 'ash'].includes(normalized) ? normalized : 'none';
     }
 
     startEnvironmentEffect(effect) {
@@ -417,6 +427,40 @@ class BattleView {
                     '--snow-drift-a': `${randomBetween(-5, 5).toFixed(1)}vw`,
                     '--snow-drift-b': `${randomBetween(-8, 8).toFixed(1)}vw`,
                     '--weather-opacity': randomBetween(0.34, 0.72).toFixed(2),
+                    '--weather-duration': `${duration.toFixed(2)}s`,
+                    '--weather-delay': `${(-randomBetween(0, duration)).toFixed(2)}s`
+                })}"></span>`);
+            }
+            return particles.join('');
+        }
+
+        if (type === 'ash') {
+            const count = isCompact ? 34 : 52;
+            const ashColors = [
+                'rgba(18, 18, 16, 0.82)',
+                'rgba(39, 37, 34, 0.78)',
+                'rgba(66, 61, 54, 0.66)',
+                'rgba(96, 88, 76, 0.52)'
+            ];
+            for (let i = 0; i < count; i++) {
+                const duration = randomBetween(5.8, 11.8);
+                const isEmber = Math.random() < 0.14;
+                const spin = randomBetween(isEmber ? 80 : 140, isEmber ? 240 : 480);
+                const opacity = randomBetween(isEmber ? 0.38 : 0.26, isEmber ? 0.72 : 0.58);
+                particles.push(`<span class="battle-weather-particle battle-weather-ash ${isEmber ? 'is-ember' : ''}" style="${styleText({
+                    left: `${randomBetween(-10, 108).toFixed(2)}%`,
+                    top: `${randomBetween(-42, 104).toFixed(2)}%`,
+                    '--ash-width': `${randomBetween(isEmber ? 1.5 : 2.1, isEmber ? 3.2 : 5.2).toFixed(1)}px`,
+                    '--ash-height': `${randomBetween(isEmber ? 1.5 : 1.1, isEmber ? 3.2 : 3.4).toFixed(1)}px`,
+                    '--ash-color': isEmber ? 'rgba(249, 115, 22, 0.86)' : ashColors[Math.floor(randomBetween(0, ashColors.length))],
+                    '--ash-drift-a': `${randomBetween(-7, 9).toFixed(1)}vw`,
+                    '--ash-drift-b': `${randomBetween(-14, 16).toFixed(1)}vw`,
+                    '--ash-rotate': `${randomBetween(0, 360).toFixed(1)}deg`,
+                    '--ash-spin-mid': `${(spin * 0.48).toFixed(1)}deg`,
+                    '--ash-spin': `${spin.toFixed(1)}deg`,
+                    '--weather-opacity': opacity.toFixed(2),
+                    '--ash-opacity-mid': (opacity * 0.92).toFixed(2),
+                    '--ash-opacity-low': (opacity * 0.72).toFixed(2),
                     '--weather-duration': `${duration.toFixed(2)}s`,
                     '--weather-delay': `${(-randomBetween(0, duration)).toFixed(2)}s`
                 })}"></span>`);
@@ -808,12 +852,29 @@ class BattleView {
         this.syncBattleEffectsDisabledClass();
         this.syncHeroTurnPresentation(snapshot);
         this.renderTurnMeta(snapshot);
+        this.syncCurrentActorUnitMarkers(snapshot.currentActorId);
         if (this.isProcessingAction) {
             return;
         }
         this.renderProgress(snapshot);
         // 动画进行中跳过棋盘重建，避免打断浮动元素动画
         this.renderBoardIfNeeded(snapshot);
+        this.renderFallenTray(snapshot);
+        this.renderActionPanel();
+    }
+
+    forceBattleStateRender() {
+        if (!this.visible) {
+            return;
+        }
+        this.cancelBattleStateRender();
+        const snapshot = battleManager.getSnapshot();
+        this.syncBattleEffectsDisabledClass();
+        this.syncHeroTurnPresentation(snapshot);
+        this.renderTurnMeta(snapshot);
+        this.renderProgress(snapshot);
+        this.lastBoardRenderKey = '';
+        this.renderBoard(snapshot);
         this.renderFallenTray(snapshot);
         this.renderActionPanel();
     }
@@ -862,6 +923,7 @@ class BattleView {
         const selectionKey = [
             this.selectionMode || '',
             actorId,
+            snapshot.currentActorId || '',
             Number.isFinite(this.selectedSkillIndex) ? this.selectedSkillIndex : '',
             this.selectedBattleItemId || '',
             this.isPaused ? 1 : 0,
@@ -890,7 +952,7 @@ class BattleView {
         const currentActorId = battleManager.currentActor?.id || null;
         const playerTurnActorId = this.getPendingHeroTurnActor()?.id || null;
         Array.from(board.children).forEach((cell) => {
-            cell.classList.remove('active', 'player-turn-cell');
+            cell.classList.remove('active', 'player-turn-cell', 'boss');
             const x = Number(cell.dataset.x);
             const y = Number(cell.dataset.y);
             const warning = battleManager.getWarningAt({ x, y });
@@ -910,13 +972,34 @@ class BattleView {
             if (!unit) {
                 return;
             }
+            cell.classList.toggle('boss', unit.rank === 'boss');
             cell.classList.toggle('active', currentActorId === unit.id);
             cell.classList.toggle('player-turn-cell', playerTurnActorId === unit.id);
             const token = cell.querySelector(`[data-unit-id="${unit.id}"]`);
+            token?.classList.toggle('is-current-actor', currentActorId === unit.id);
             if (token?.dataset.wasHidden) {
                 token.style.visibility = '';
                 delete token.dataset.wasHidden;
             }
+        });
+        this.syncCurrentActorUnitMarkers(currentActorId);
+    }
+
+    syncCurrentActorUnitMarkers(currentActorId = battleManager.currentActor?.id || null) {
+        if (!this.element) {
+            return;
+        }
+        const board = this.element.querySelector('#battle-board');
+        if (board) {
+            board.querySelectorAll('.battle-cell.active').forEach(cell => cell.classList.remove('active'));
+            const actor = currentActorId ? battleManager.getAllUnits().find(unit => unit.id === currentActorId && unit.isAlive?.()) : null;
+            if (actor?.position) {
+                const cell = this.getBoardCellElement(actor.position.x, actor.position.y);
+                cell?.classList.add('active');
+            }
+        }
+        this.element.querySelectorAll('.battle-unit-token, .battle-unit-floating').forEach((unitElement) => {
+            unitElement.classList.toggle('is-current-actor', Boolean(currentActorId && unitElement.dataset.unitId === currentActorId));
         });
     }
 
@@ -1516,9 +1599,77 @@ class BattleView {
         `;
     }
 
-    renderBoardUnitMarkup(unit) {
+    renderSpecialTileDetailPanel(tile) {
+        if (!tile) {
+            return '<div class="battle-detail-empty">等待行动中</div>';
+        }
+        const name = tile.name || battleManager.getSpecialTileTypeLabel(tile.type);
+        const description = battleManager.getSpecialTileDescription(tile.type) || '该地格暂无效果说明。';
         return `
-            <div class="battle-unit-token ${unit.camp} ${unit.rank || 'normal'} ${unit.portrait ? 'has-portrait' : ''}" data-unit-id="${unit.id}">
+            <div class="battle-tile-detail-card battle-tile-detail-${tile.type}">
+                <div class="battle-tile-detail-head">
+                    <span class="battle-tile-detail-icon">${tile.icon || ''}</span>
+                    <div class="battle-tile-detail-name">${name}</div>
+                </div>
+                <div class="battle-tile-detail-desc">${description}</div>
+            </div>
+        `;
+    }
+
+    renderObstacleDetailPanel(obstacle) {
+        if (!obstacle) {
+            return '<div class="battle-detail-empty">等待行动中</div>';
+        }
+        const name = obstacle.name || '障碍物';
+        const description = battleManager.getObstacleDescription();
+        const iconSrc = this.resolveAssetUrl(obstacle.iconSrc || 'assets/images/battle/obstacle-barricade.png');
+        const iconMarkup = iconSrc
+            ? `<img class="battle-tile-detail-icon-image" src="${iconSrc}" alt="${name}">`
+            : `<span class="battle-tile-detail-icon">${obstacle.icon || '■'}</span>`;
+        return `
+            <div class="battle-tile-detail-card battle-tile-detail-obstacle">
+                <div class="battle-tile-detail-head">
+                    ${iconMarkup}
+                    <div class="battle-tile-detail-name">${name}</div>
+                </div>
+                <div class="battle-tile-detail-desc">${description}</div>
+            </div>
+        `;
+    }
+
+    showSpecialTileToast(tile, x, y) {
+        const board = this.element?.querySelector?.('#battle-board');
+        if (!board || !tile) {
+            return;
+        }
+        const cell = board.querySelector(`.battle-cell[data-x="${x}"][data-y="${y}"]`);
+        if (!cell) {
+            return;
+        }
+        const existing = board.querySelector('.battle-tile-toast');
+        if (existing) {
+            existing.remove();
+        }
+        const toast = document.createElement('div');
+        toast.className = `battle-tile-toast battle-tile-toast-${tile.type}`;
+        toast.textContent = tile.name || battleManager.getSpecialTileTypeLabel(tile.type);
+        const cellRect = cell.getBoundingClientRect();
+        const boardRect = board.getBoundingClientRect();
+        toast.style.left = `${cellRect.left - boardRect.left + cellRect.width / 2}px`;
+        toast.style.top = `${cellRect.top - boardRect.top - 6}px`;
+        board.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
+        clearTimeout(this._specialTileToastTimer);
+        this._specialTileToastTimer = setTimeout(() => {
+            toast.classList.remove('is-visible');
+            setTimeout(() => toast.remove(), 220);
+        }, 1500);
+    }
+
+    renderBoardUnitMarkup(unit) {
+        const isCurrentActor = battleManager.currentActor?.id === unit.id;
+        return `
+            <div class="battle-unit-token ${unit.camp} ${unit.rank || 'normal'} ${unit.portrait ? 'has-portrait' : ''} ${isCurrentActor ? 'is-current-actor' : ''}" data-unit-id="${unit.id}">
                 ${this.getBattleUnitVisualMarkup(unit, 'board')}
                 ${this.getUnitStatusBadgesMarkup(unit, 'board')}
                 ${this.getUnitHpMarkup(unit, 'board')}
@@ -1600,6 +1751,9 @@ class BattleView {
 
                 if (unit) {
                     cell.classList.add('occupied', unit.camp);
+                    if (unit.rank === 'boss') {
+                        cell.classList.add('boss');
+                    }
                     if (battleManager.currentActor?.id === unit.id) {
                         cell.classList.add('active');
                     }
@@ -1645,7 +1799,7 @@ class BattleView {
                     cell.classList.add('attack-disabled');
                 }
 
-                const inspectable = Boolean(unit);
+                const inspectable = Boolean(unit) || Boolean(specialTile) || Boolean(obstacle);
                 if (environmentType && !inspectable && !obstacle) {
                     cell.classList.add('environment-cell');
                     if (environmentPulseCells.has(cellKey)) {
@@ -1661,6 +1815,7 @@ class BattleView {
             }
         }
         board.appendChild(fragment);
+        this.syncCurrentActorUnitMarkers(battleManager.currentActor?.id || null);
         this.lastBoardRenderKey = this.buildBoardRenderKey(snapshot);
     }
 
@@ -1729,18 +1884,24 @@ class BattleView {
                 : '等待回合推进中...';
               panel.innerHTML = `
                   <div class="battle-action-buttons battle-action-buttons-vertical" style="opacity:0.5;pointer-events:none;">
-                      <button class="btn btn-secondary" disabled>攻击</button>
-                      <button class="btn btn-secondary" disabled>移动</button>
-                      <button class="btn btn-secondary" disabled>防御</button>
-                      <button class="btn btn-secondary" disabled>使用道具</button>
-                      <button class="btn btn-secondary" disabled>使用特技</button>
+                      <button class="btn btn-secondary battle-command-btn is-attack" disabled><span class="battle-command-icon">攻击</span></button>
+                      <button class="btn btn-secondary battle-command-btn is-move" disabled><span class="battle-command-icon">移动</span></button>
+                      <button class="btn btn-secondary battle-command-btn is-defend" disabled><span class="battle-command-icon">防御</span></button>
+                      <button class="btn btn-secondary battle-command-btn is-item" disabled><span class="battle-command-icon">物品</span></button>
+                      <button class="btn btn-secondary battle-command-btn is-skill" disabled><span class="battle-command-icon">特技</span></button>
                   </div>
               `;
               if (detailPanel) {
-                  const detailUnit = this.getSelectedDetailUnit(actor);
-                  detailPanel.innerHTML = detailUnit
-                      ? this.renderUnitDetailPanel(detailUnit)
-                      : `<div class="battle-detail-empty">${statusText}</div>`;
+                  if (this.inspectedSpecialTile) {
+                      detailPanel.innerHTML = this.renderSpecialTileDetailPanel(this.inspectedSpecialTile);
+                  } else if (this.inspectedObstacle) {
+                      detailPanel.innerHTML = this.renderObstacleDetailPanel(this.inspectedObstacle);
+                  } else {
+                      const detailUnit = this.getSelectedDetailUnit(actor);
+                      detailPanel.innerHTML = detailUnit
+                          ? this.renderUnitDetailPanel(detailUnit)
+                          : `<div class="battle-detail-empty">${statusText}</div>`;
+                  }
               }
               return;
           }
@@ -1749,38 +1910,26 @@ class BattleView {
           const heroActor = this.pendingAction.context.actor;
           panel.innerHTML = `
               <div class="battle-action-buttons battle-action-buttons-vertical">
-                  <button class="btn battle-command-btn ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span>攻击</span></button>
-                  <button class="btn battle-command-btn ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span>移动</span></button>
-                  <button class="btn btn-secondary battle-command-btn" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span>防御</span></button>
-                  <button class="btn battle-command-btn ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span>物品</span></button>
-                  <button class="btn battle-command-btn ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span>特技</span></button>
+                  <button class="btn battle-command-btn is-attack ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span class="battle-command-icon">攻击</span></button>
+                  <button class="btn battle-command-btn is-move ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span class="battle-command-icon">移动</span></button>
+                  <button class="btn btn-secondary battle-command-btn is-defend" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span class="battle-command-icon">防御</span></button>
+                  <button class="btn battle-command-btn is-item ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span class="battle-command-icon">物品</span></button>
+                  <button class="btn battle-command-btn is-skill ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span class="battle-command-icon">特技</span></button>
               </div>
               <div class="battle-action-turn-badge">${heroActor.name} 可操作</div>
-              <div class="battle-action-tip">${this.getSelectionTip()}</div>
           `;
           if (detailPanel) {
               detailPanel.innerHTML = this.renderDetailPanel(heroActor);
           }
       }
 
-    getSelectionTip() {
-        switch (this.selectionMode) {
-            case 'move':
-                return '点击左侧高亮格子移动。';
-            case 'attack':
-                return '点击左侧高亮敌人攻击。';
-            case 'item':
-                return '在右侧选择物品后立即使用。';
-            case 'revive-item':
-                return '点击上方阵亡英雄浮层头像，对其使用强心剂。';
-            case 'skill':
-                return '先在右侧选择特技，再点击棋盘中的有效目标。';
-            default:
-                return '请选择本回合行动。';
-        }
-    }
-
     renderDetailPanel(actor) {
+        if (this.inspectedSpecialTile) {
+            return this.renderSpecialTileDetailPanel(this.inspectedSpecialTile);
+        }
+        if (this.inspectedObstacle) {
+            return this.renderObstacleDetailPanel(this.inspectedObstacle);
+        }
         if (!actor) {
             return '<div class="battle-detail-empty">等待行动中</div>';
         }
@@ -1961,7 +2110,8 @@ class BattleView {
             dust_smoke: 9,
             rain: 11,
             storm_night: 13,
-            snow: 15
+            snow: 15,
+            ash: 17
         };
         const seed = seeds[type] || 0;
         if (!seed) {
@@ -2055,6 +2205,27 @@ class BattleView {
         const actor = this.pendingAction?.context?.actor;
         if (clickedUnit) {
             this.inspectedUnitId = clickedUnit.id;
+            this.inspectedSpecialTile = null;
+            this.inspectedObstacle = null;
+        } else {
+            const obstacle = battleManager.getObstacleAt({ x, y });
+            if (obstacle) {
+                this.inspectedObstacle = obstacle;
+                this.inspectedSpecialTile = null;
+                this.inspectedUnitId = null;
+                this.showSpecialTileToast({
+                    type: 'obstacle',
+                    name: obstacle.name || '障碍物'
+                }, x, y);
+            } else {
+                const tile = battleManager.getSpecialTileAt({ x, y });
+                if (tile) {
+                    this.inspectedSpecialTile = tile;
+                    this.inspectedObstacle = null;
+                    this.inspectedUnitId = null;
+                    this.showSpecialTileToast(tile, x, y);
+                }
+            }
         }
         if (!this.pendingAction || this.isPaused || battleManager.isAutoBattleEnabled()) {
             this.renderBattleState();
@@ -2428,7 +2599,7 @@ class BattleView {
 
     clearEnvironmentCellState(cell) {
         if (!cell) return;
-        ['environment-cell', 'environment-pulse-cell', 'environment-smoke', 'environment-poison_fog', 'environment-dust_smoke', 'environment-rain', 'environment-storm_night', 'environment-snow']
+        ['environment-cell', 'environment-pulse-cell', 'environment-smoke', 'environment-poison_fog', 'environment-dust_smoke', 'environment-rain', 'environment-storm_night', 'environment-snow', 'environment-ash']
             .forEach(className => cell.classList.remove(className));
     }
 
@@ -2488,9 +2659,19 @@ class BattleView {
             token.remove();
         }
         if (!cell.querySelector('.battle-unit-token')) {
-            cell.classList.remove('occupied', 'hero', 'enemy', 'active', 'inspectable');
+            cell.classList.remove('occupied', 'hero', 'enemy', 'boss', 'active', 'player-turn-cell', 'inspectable');
             if (!cell.classList.contains('obstacle')) {
-                cell.disabled = true;
+                const x = Number(cell.dataset.x);
+                const y = Number(cell.dataset.y);
+                const specialTile = Number.isFinite(x) && Number.isFinite(y)
+                    ? battleManager.getSpecialTileAt({ x, y })
+                    : null;
+                if (specialTile) {
+                    cell.classList.add('inspectable');
+                    cell.disabled = false;
+                } else {
+                    cell.disabled = true;
+                }
                 cell.innerHTML = '';
                 this.applyBoardOverlayMarks(cell);
                 this.applyEnvironmentCellState(cell);
@@ -2509,7 +2690,9 @@ class BattleView {
         }
         cell.classList.add('occupied', unit.camp, 'inspectable');
         cell.classList.remove(unit.camp === 'hero' ? 'enemy' : 'hero');
+        cell.classList.toggle('boss', unit.rank === 'boss');
         cell.classList.toggle('active', battleManager.currentActor?.id === unit.id);
+        cell.classList.toggle('player-turn-cell', this.getPendingHeroTurnActor()?.id === unit.id);
         cell.disabled = false;
         cell.innerHTML = this.renderBoardUnitMarkup(unit);
         this.applyBoardOverlayMarks(cell);
@@ -2539,8 +2722,10 @@ class BattleView {
             this.clearEnvironmentCellState(toCell);
             toCell.classList.add('occupied', unit.camp);
             toCell.classList.remove(unit.camp === 'hero' ? 'enemy' : 'hero');
+            toCell.classList.toggle('boss', unit.rank === 'boss');
             toCell.classList.add('inspectable');
             toCell.classList.toggle('active', battleManager.currentActor?.id === unit.id);
+            toCell.classList.toggle('player-turn-cell', this.getPendingHeroTurnActor()?.id === unit.id);
             toCell.disabled = false;
             if (!toCell.querySelector(`[data-unit-id="${unit.id}"]`)) {
                 toCell.innerHTML = this.renderBoardUnitMarkup(unit);
@@ -2559,7 +2744,8 @@ class BattleView {
 
     createFloatingUnit(unit) {
         const el = document.createElement('div');
-        el.className = `battle-unit-floating ${unit.camp} ${unit.rank || 'normal'}`.trim();
+        const isCurrentActor = battleManager.currentActor?.id === unit.id;
+        el.className = `battle-unit-floating ${unit.camp} ${unit.rank || 'normal'} ${isCurrentActor ? 'is-current-actor' : ''}`.trim();
         el.dataset.unitId = unit.id;
         el.innerHTML = `
             ${this.getBattleUnitVisualMarkup(unit, 'floating')}
@@ -3261,6 +3447,8 @@ class BattleView {
         this.hpTrailMap = new Map();
         this.combatTextBurstMap = new Map();
         this.inspectedUnitId = null;
+        this.inspectedSpecialTile = null;
+        this.inspectedObstacle = null;
         battleManager.reset();
 
         this.currentDungeon = null;

@@ -12,9 +12,12 @@ type CatalogType =
   | 'shelterBuildings'
   | 'dungeonChapters'
   | 'dungeons'
+  | 'enemies'
   | 'enemySkills'
   | 'shopItems'
-  | 'welfareGifts';
+  | 'welfareGifts'
+  | 'quests'
+  | 'achievements';
 
 interface CatalogOverrides {
   resources: Record<string, any>;
@@ -24,9 +27,12 @@ interface CatalogOverrides {
   shelterBuildings: Record<string, any>;
   dungeonChapters: Record<string, any>;
   dungeons: Record<string, any>;
+  enemies: Record<string, any>;
   enemySkills: Record<string, any>;
   shopItems: Record<string, any>;
   welfareGifts: Record<string, any>;
+  quests: Record<string, any>;
+  achievements: Record<string, any>;
 }
 
 const RESOURCE_META: Record<string, any> = {
@@ -104,9 +110,12 @@ export class GmCatalogService {
       shelterBuildings: catalog.shelterBuildings,
       dungeonChapters: catalog.dungeonChapters,
       dungeons: catalog.dungeons,
+      enemies: catalog.enemies,
       enemySkills: catalog.enemySkills,
       shopItems: catalog.shopItems,
       welfareGifts: catalog.welfareGifts,
+      quests: catalog.quests,
+      achievements: catalog.achievements,
     };
   }
 
@@ -214,9 +223,12 @@ export class GmCatalogService {
         'shelterBuildings',
         'dungeonChapters',
         'dungeons',
+        'enemies',
         'enemySkills',
         'shopItems',
         'welfareGifts',
+        'quests',
+        'achievements',
       ].includes(type)
     ) {
       throw new BadRequestException('Unsupported catalog type');
@@ -224,7 +236,7 @@ export class GmCatalogService {
   }
 
   private isDeletableCatalogType(type: CatalogType) {
-    return ['dungeonChapters', 'dungeons', 'shopItems', 'welfareGifts'].includes(type);
+    return ['dungeonChapters', 'dungeons', 'enemies', 'shopItems', 'welfareGifts'].includes(type);
   }
 
   private getCategory(type: CatalogType) {
@@ -246,6 +258,9 @@ export class GmCatalogService {
     if (type === 'dungeons') {
       return 'dungeon';
     }
+    if (type === 'enemies') {
+      return 'enemy';
+    }
     if (type === 'enemySkills') {
       return 'enemySkill';
     }
@@ -254,6 +269,12 @@ export class GmCatalogService {
     }
     if (type === 'welfareGifts') {
       return 'welfareGift';
+    }
+    if (type === 'quests') {
+      return 'quest';
+    }
+    if (type === 'achievements') {
+      return 'achievement';
     }
     return 'item';
   }
@@ -312,6 +333,10 @@ export class GmCatalogService {
       Object.assign(normalized, this.normalizeEnemySkillEntry(normalized));
     }
 
+    if (type === 'enemies') {
+      Object.assign(normalized, this.normalizeEnemyEntry(normalized));
+    }
+
     if (type === 'shopItems') {
       Object.assign(normalized, this.normalizeShopItemEntry(normalized));
     }
@@ -320,7 +345,64 @@ export class GmCatalogService {
       Object.assign(normalized, this.normalizeWelfareGiftEntry(normalized));
     }
 
+    if (type === 'quests' || type === 'achievements') {
+      Object.assign(normalized, this.normalizeQuestEntry(normalized, type));
+    }
+
     return normalized;
+  }
+
+  private normalizeQuestEntry(entry: Record<string, any>, type: 'quests' | 'achievements') {
+    const defaultPeriod = type === 'quests' ? 'daily' : 'permanent';
+    const allowedPeriods = ['daily', 'weekly', 'permanent'];
+    const periodRaw = String(entry?.period || defaultPeriod).trim();
+    const period = allowedPeriods.includes(periodRaw) ? periodRaw : defaultPeriod;
+
+    const triggerRaw = entry?.trigger || {};
+    const conditionsRaw = triggerRaw?.conditions || {};
+    const conditions: Record<string, any> = {};
+    if (conditionsRaw && typeof conditionsRaw === 'object' && !Array.isArray(conditionsRaw)) {
+      Object.keys(conditionsRaw).forEach((key) => {
+        const value = conditionsRaw[key];
+        if (value === '' || value === null || value === undefined) {
+          return;
+        }
+        conditions[key] = value;
+      });
+    }
+    const allowedModes = ['increment', 'mark'];
+    const modeRaw = String(triggerRaw?.mode || (type === 'achievements' ? 'mark' : 'increment')).trim();
+    const mode = allowedModes.includes(modeRaw) ? modeRaw : 'increment';
+
+    const trigger = {
+      event: String(triggerRaw?.event || '').trim(),
+      conditions,
+      mode,
+    };
+
+    const rewards = Array.isArray(entry?.rewards) ? entry.rewards : entry?.reward;
+    const rewardList = (Array.isArray(rewards) ? rewards : []).reduce<any[]>((acc, raw) => {
+      if (!raw) return acc;
+      const rewardType = String(raw.type || '').trim();
+      const rewardId = String(raw.id || '').trim();
+      const count = Math.max(0, Number(raw.count) || 0);
+      if (!rewardType || !rewardId || count <= 0) return acc;
+      if (!['resource', 'item'].includes(rewardType)) return acc;
+      acc.push({ type: rewardType, id: rewardId, count });
+      return acc;
+    }, []);
+
+    const title = String(entry?.title || entry?.name || '').trim();
+
+    return {
+      name: title,
+      title,
+      description: String(entry?.description || '').trim(),
+      period,
+      trigger,
+      target: Math.max(1, Math.floor(Number(entry?.target) || 1)),
+      rewards: rewardList,
+    };
   }
 
   private mergeCatalog(baseCatalog: any, overrides: CatalogOverrides) {
@@ -352,7 +434,9 @@ export class GmCatalogService {
       enemySkills: this.mergeEntries(baseCatalog.enemySkills, catalogOverrides.enemySkills, 'enemySkill'),
       shopItems: this.mergeEntries(baseCatalog.shopItems, catalogOverrides.shopItems, 'shopItem'),
       welfareGifts: this.mergeEntries(baseCatalog.welfareGifts, catalogOverrides.welfareGifts, 'welfareGift'),
-      enemies: baseCatalog.enemies,
+      quests: this.mergeEntries(baseCatalog.quests, catalogOverrides.quests, 'quest'),
+      achievements: this.mergeEntries(baseCatalog.achievements, catalogOverrides.achievements, 'achievement'),
+      enemies: this.mergeEntries(baseCatalog.enemies, catalogOverrides.enemies, 'enemy'),
     };
   }
 
@@ -393,9 +477,12 @@ export class GmCatalogService {
       shelterBuildings: overrides.shelterBuildings || {},
       dungeonChapters: overrides.dungeonChapters || {},
       dungeons: overrides.dungeons || {},
+      enemies: overrides.enemies || {},
       enemySkills: overrides.enemySkills || {},
       shopItems: overrides.shopItems || {},
       welfareGifts: overrides.welfareGifts || {},
+      quests: overrides.quests || {},
+      achievements: overrides.achievements || {},
     };
   }
 
@@ -596,6 +683,8 @@ export class GmCatalogService {
       enemySkills,
       shopItems,
       welfareGifts,
+      quests: [],
+      achievements: [],
       enemies,
     };
   }
@@ -938,9 +1027,15 @@ export class GmCatalogService {
       stormnight: 'storm_night',
       heavy_rain: 'storm_night',
       lightning_rain: 'storm_night',
+      ember: 'ash',
+      embers: 'ash',
+      cinder: 'ash',
+      cinders: 'ash',
+      ashes: 'ash',
+      black_ash: 'ash',
     };
     const normalized = aliases[type] || type;
-    return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night'].includes(normalized) ? normalized : 'none';
+    return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night', 'ash'].includes(normalized) ? normalized : 'none';
   }
 
   private normalizeDungeonChapterEntry(entry: Record<string, any>) {
@@ -987,6 +1082,25 @@ export class GmCatalogService {
       customEffect: entry?.customEffect && typeof entry.customEffect === 'object' ? entry.customEffect : undefined,
       statusEffects: Array.isArray(entry?.statusEffects) ? entry.statusEffects.filter(Boolean) : undefined,
       extraStatusEffects: Array.isArray(entry?.extraStatusEffects) ? entry.extraStatusEffects.filter(Boolean) : undefined,
+    };
+  }
+
+  private normalizeEnemyEntry(entry: Record<string, any>) {
+    const {
+      category: _category,
+      source: _source,
+      ...rest
+    } = entry || {};
+    const portrait = String(entry?.portrait || entry?.iconSrc || entry?.src || '').trim();
+    return {
+      ...rest,
+      id: String(entry?.id || '').trim(),
+      name: String(entry?.name || entry?.id || '').trim(),
+      icon: String(entry?.icon || '').trim(),
+      description: String(entry?.description || '').trim(),
+      portrait,
+      iconSrc: portrait,
+      src: portrait,
     };
   }
 
@@ -1323,9 +1437,12 @@ export class GmCatalogService {
         shelterBuildings: parsed.shelterBuildings || {},
         dungeonChapters: parsed.dungeonChapters || {},
         dungeons: parsed.dungeons || {},
+        enemies: parsed.enemies || {},
         enemySkills: parsed.enemySkills || {},
         shopItems: parsed.shopItems || {},
         welfareGifts: parsed.welfareGifts || {},
+        quests: parsed.quests || {},
+        achievements: parsed.achievements || {},
       };
     } catch (error: any) {
       if (error?.code !== 'ENOENT') {
@@ -1339,9 +1456,12 @@ export class GmCatalogService {
         shelterBuildings: {},
         dungeonChapters: {},
         dungeons: {},
+        enemies: {},
         enemySkills: {},
         shopItems: {},
         welfareGifts: {},
+        quests: {},
+        achievements: {},
       };
     }
   }
