@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="compliance_color_15c5ce">#15C5CE</color>
+    <color name="compliance_color_222222">#222222</color>
+    <color name="compliance_color_888888">#888888</color>
+    <color name="compliance_color_bfbfbf">#BFBFBF</color>
+    <color name="compliance_color_black_a30">#B3000000</color>
+    <string name="compliance_dialog_tap_authorization_title" translatable="false">TapTap 快速认证服务</string>
+    <string name="compliance_fetch_realname_fail" translatable="false">未查询到实名状态，防沉迷启动失败</string>
+    <string name="compliance_network_error" translatable="false">网络异常，请稍后重试</string>
+    <string name="compliance_realname_success">已通过防沉迷校验，祝您游戏愉快！</string>
+    <string name="compliance_retry" translatable="false">重试</string>
+    <string name="compliance_return_game">返回游戏</string>
+    <style name="compliance_common_text_style">
+        <item name="android:textColor">@color/compliance_color_888888</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+</resources>

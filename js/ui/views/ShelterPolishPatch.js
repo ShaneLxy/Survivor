@@ -8,41 +8,41 @@
             stage: 1,
             minLevel: 1,
             maxLevel: 2,
-            src: 'assets/media/house.mp4',
-            poster: 'assets/media/house_poster.png',
-            mobileFallbackSrc: 'assets/media/house_poster.png'
+            src: 'assets/media/shelter/shelter_bg.png',
+            poster: 'assets/media/shelter/shelter_bg.png',
+            mobileFallbackSrc: 'assets/media/shelter/shelter_bg.png'
         },
         {
             stage: 2,
             minLevel: 3,
             maxLevel: 4,
-            src: 'assets/media/house.mp4',
-            poster: 'assets/media/house_poster.png',
-            mobileFallbackSrc: 'assets/media/house_poster.png'
+            src: 'assets/media/shelter/shelter_bg.png',
+            poster: 'assets/media/shelter/shelter_bg.png',
+            mobileFallbackSrc: 'assets/media/shelter/shelter_bg.png'
         },
         {
             stage: 3,
             minLevel: 5,
             maxLevel: 6,
-            src: 'assets/media/house.mp4',
-            poster: 'assets/media/house_poster.png',
-            mobileFallbackSrc: 'assets/media/house_poster.png'
+            src: 'assets/media/shelter/shelter_bg.png',
+            poster: 'assets/media/shelter/shelter_bg.png',
+            mobileFallbackSrc: 'assets/media/shelter/shelter_bg.png'
         },
         {
             stage: 4,
             minLevel: 7,
             maxLevel: 8,
-            src: 'assets/media/house.mp4',
-            poster: 'assets/media/house_poster.png',
-            mobileFallbackSrc: 'assets/media/house_poster.png'
+            src: 'assets/media/shelter/shelter_bg.png',
+            poster: 'assets/media/shelter/shelter_bg.png',
+            mobileFallbackSrc: 'assets/media/shelter/shelter_bg.png'
         },
         {
             stage: 5,
             minLevel: 9,
             maxLevel: 10,
-            src: 'assets/media/house.mp4',
-            poster: 'assets/media/house_poster.png',
-            mobileFallbackSrc: 'assets/media/house_poster.png'
+            src: 'assets/media/shelter/shelter_bg.png',
+            poster: 'assets/media/shelter/shelter_bg.png',
+            mobileFallbackSrc: 'assets/media/shelter/shelter_bg.png'
         }
     ];
 
@@ -82,7 +82,6 @@
             return null;
         }
 
-        const backgroundVideo = normalizeMediaPath(selected.backgroundVideo || selected.videoSrc || selected.sceneVideo);
         const backgroundImage = normalizeMediaPath(
             selected.backgroundImage ||
             selected.backgroundPoster ||
@@ -93,10 +92,10 @@
         const fallbackStage = this.getShelterStageEntry(level);
         return {
             ...fallbackStage,
-            type: backgroundVideo ? 'video' : 'image',
-            src: backgroundVideo || backgroundImage,
-            poster: backgroundImage,
-            mobileFallbackSrc: backgroundImage,
+            type: 'image',
+            src: backgroundImage || fallbackStage.src,
+            poster: backgroundImage || fallbackStage.poster || fallbackStage.src,
+            mobileFallbackSrc: backgroundImage || fallbackStage.mobileFallbackSrc || fallbackStage.src,
             configuredLevel: Number(selected.level || level)
         };
     };
@@ -109,7 +108,7 @@
             return normalized ? (window.VersionManager?.getVersionedAssetUrl?.(normalized) || normalized) : '';
         };
         return {
-            type: entry.type || 'video',
+            type: 'image',
             src: versioned(entry.src),
             mimeType: 'video/mp4',
             poster: entry.poster ? versioned(entry.poster) : '',

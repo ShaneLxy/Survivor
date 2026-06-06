@@ -559,6 +559,70 @@ class ItemManager {
             return { success: false, message: '道具不存在' };
         }
 
+        if (item.effect?.type === 'random_hero_fragment') {
+            const rarity = String(item.effect.rarity || 'any');
+            const count = Math.max(1, Number(item.effect.count) || 1);
+            const pool = (rarity === 'any'
+                ? HeroConfig.getAllHeroes()
+                : HeroConfig.getHeroesByRarity(rarity)
+            ).filter(hero => hero?.id);
+            if (!pool.length) {
+                return { success: false, message: '当前没有可用的英雄碎片池' };
+            }
+            const hero = pool[Math.floor(Math.random() * pool.length)];
+            heroManager.addFragments(hero.id, count);
+            this.removeItem(itemId, 1);
+            const fragmentReward = RewardModal.createFragmentReward(hero.id, count);
+            eventManager.emit('itemUse', {
+                item,
+                target: null,
+                result: {
+                    success: true,
+                    effect: { type: 'random_hero_fragment', rarity, heroId: hero.id, count },
+                    rewards: [fragmentReward]
+                }
+            });
+            return {
+                success: true,
+                message: `获得 ${hero.name} 碎片 x${count}`,
+                effect: { type: 'random_hero_fragment', rarity, heroId: hero.id, count },
+                rewards: [fragmentReward],
+                heroId: hero.id
+            };
+        }
+
+        // 特权卡：直接激活对应月卡（卓越 / 至尊），互不影响
+        if (item.effect?.type === 'activate_month_card') {
+            const cardId = String(item.effect.cardId || '').trim();
+            if (!cardId) {
+                return { success: false, message: '道具配置错误' };
+            }
+            const cardNames = {
+                welfare_month_card: '卓越特权',
+                supreme_month_card: '至尊特权'
+            };
+            const cardName = cardNames[cardId] || '特权';
+            // 已激活：不消耗道具
+            if (typeof checkinManager?.isMonthCardActive === 'function' && checkinManager.isMonthCardActive(cardId)) {
+                return { success: false, message: `${cardName}已激活，无需重复使用` };
+            }
+            const state = checkinManager.ensureMonthCardState(cardId);
+            checkinManager.refreshMonthCardActiveState?.(state);
+            if (state.active) {
+                return { success: false, message: `${cardName}已激活，无需重复使用` };
+            }
+            const cardConfig = { id: cardId, durationDays: 30 };
+            checkinManager.activateMonthCard(state, cardConfig);
+            this.removeItem(itemId, 1);
+            eventManager.emit('itemUse', { item, target: null, result: { type: 'activate_month_card', cardId } });
+            eventManager.emit('monthCardActivated', { cardId });
+            return {
+                success: true,
+                message: `${cardName}已开启，持续 30 天`,
+                effect: { type: 'activate_month_card', cardId }
+            };
+        }
+
         if (item.effect?.type === 'hero_exp') {
             const hero = target?.id ? heroManager.getHero(target.id) || target : heroManager.getHero(target?.heroId || target);
             if (!hero) {
@@ -849,6 +913,119 @@ class ItemManager {
         };
     }
 
+    getEquipmentReforgeInfo(target) {
+        const resolved = this.resolveEquipmentTarget(target);
+        if (!resolved?.equipment) {
+            return { success: false, message: '装备不存在' };
+        }
+
+        const equipment = resolved.equipment;
+        const armoryRules = shelterManager.getArmoryReforgeRules?.() || { level: 0, unlockedStats: [], bonus: 0 };
+        if ((Number(armoryRules.level) || 0) <= 0) {
+            return { success: false, message: '武器库尚未建造' };
+        }
+
+        const availableStats = (armoryRules.unlockedStats || [])
+            .map((statKey) => {
+                const range = EquipmentConfig.getTemplateStatRange(equipment.templateId, equipment.rarity, statKey);
+                if (!range) {
+                    return null;
+                }
+                return {
+                    key: statKey,
+                    name: Equipment.getStatName(statKey),
+                    range,
+                    current: Number(equipment.baseStats?.[statKey]) || 0
+                };
+            })
+            .filter(Boolean);
+
+        if (!availableStats.length) {
+            return {
+                success: false,
+                message: '该装备没有可洗炼的属性（模板中未定义对应词条范围）',
+                equipment,
+                armoryLevel: Number(armoryRules.level) || 0,
+                bonus: Math.max(0, Number(armoryRules.bonus) || 0)
+            };
+        }
+
+        return {
+            success: true,
+            equipment,
+            holder: resolved,
+            armoryLevel: Number(armoryRules.level) || 0,
+            bonus: Math.max(0, Number(armoryRules.bonus) || 0),
+            availableStats,
+            cost: ItemManager.getReforgeCost(equipment.rarity),
+            stoneOwned: this.getItemCount(ItemManager.REFORGE_STONE_ITEM_ID)
+        };
+    }
+
+    static get REFORGE_STONE_ITEM_ID() {
+        return 'reforge_stone';
+    }
+
+    static getReforgeCost(rarity) {
+        const table = { common: 1, rare: 2, epic: 4, legendary: 8 };
+        const finalRarity = String(rarity || 'common');
+        return table[finalRarity] || 1;
+    }
+
+    reforgeEquipment(target, statKey) {
+        const info = this.getEquipmentReforgeInfo(target);
+        if (!info.success) {
+            return info;
+        }
+
+        const statInfo = info.availableStats.find(entry => entry.key === statKey);
+        if (!statInfo) {
+            return { success: false, message: '当前属性暂未解锁洗炼' };
+        }
+
+        const costAmount = Number(info.cost) || 1;
+        const stoneId = ItemManager.REFORGE_STONE_ITEM_ID;
+        const owned = this.getItemCount(stoneId);
+        if (owned < costAmount) {
+            return { success: false, message: `洗炼石不足（需要 ${costAmount}，持有 ${owned}）` };
+        }
+        if (!this.removeItem(stoneId, costAmount)) {
+            return { success: false, message: '洗炼石消耗失败' };
+        }
+
+        const rolledValue = EquipmentConfig.rollStat(statInfo.range);
+        const nextValue = Math.max(0, rolledValue + info.bonus);
+        info.equipment.applyBaseStat(statKey, nextValue);
+
+        if (info.holder?.hero) {
+            info.holder.hero.refreshStats(false);
+            eventManager.emit('heroEquipmentChange', {
+                heroId: info.holder.hero.id,
+                slot: info.holder.slot,
+                equipment: info.equipment
+            });
+            eventManager.emit('heroUpdate', info.holder.hero);
+        }
+
+        eventManager.emit('equipmentUpdate', {
+            equipment: info.equipment,
+            reforgeStat: statKey,
+            reforgeValue: nextValue
+        });
+
+        return {
+            success: true,
+            equipment: info.equipment,
+            statKey,
+            value: nextValue,
+            baseRoll: rolledValue,
+            bonus: info.bonus,
+            stoneCost: costAmount,
+            stoneRemaining: this.getItemCount(stoneId),
+            message: `${info.equipment.name} 的${Equipment.getStatName(statKey)}洗炼为 +${nextValue}（消耗 ${costAmount} 洗炼石）`
+        };
+    }
+
     dismantleEquipment(target) {
         const info = this.getEquipmentDismantleInfo(target);
         if (!info.success) {
@@ -982,3 +1159,4 @@ class ItemManager {
 
 const itemManager = new ItemManager();
 window.itemManager = itemManager;
+window.ItemManager = ItemManager;

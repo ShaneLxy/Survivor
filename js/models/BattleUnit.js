@@ -61,6 +61,9 @@ class BattleUnit {
         this.statusEffects = [];
         this.battleContext = null;
         this.passiveState = {};
+        this.shield = 0;
+        this.maxShield = 0;
+        this.shieldRemainingTurns = 0;
 
         const baseStats = {
             hp: 100,
@@ -118,7 +121,8 @@ class BattleUnit {
             hpCostBase: skill?.hpCostBase === 'max' ? 'max' : 'current',
             effectType: skill?.effectType || 'damage',
             canCrit: skill?.canCrit !== false,
-            defensePenBonus: Math.max(0, Number(skill?.defensePenBonus ?? 0) || 0)
+            defensePenBonus: Math.max(0, Number(skill?.defensePenBonus ?? 0) || 0),
+            customEffect: skill?.customEffect ? { ...skill.customEffect } : null
         };
     }
 
@@ -129,7 +133,8 @@ class BattleUnit {
         const effectType = effect.effectType
             || (effect.type === 'bleed' ? 'damage_over_time'
                 : effect.type === 'stun' ? 'control'
-                    : 'stat_modifier');
+                    : effect.type === 'charm' ? 'control'
+                        : 'stat_modifier');
         return {
             id: effect.id || Utils.generateId(),
             type: effect.type || 'custom',
@@ -211,6 +216,8 @@ class BattleUnit {
                 return '沉默';
             case 'taunt':
                 return '嘲讽';
+            case 'charm':
+                return '魅惑';
             case 'bleed':
                 return '流血';
             case 'burn':
@@ -247,7 +254,7 @@ class BattleUnit {
         if (effect.isDebuff === true || effect.debuff === true) {
             return true;
         }
-        if (['slow', 'stun', 'silence', 'taunt', 'bleed', 'burn'].includes(type)) {
+        if (['slow', 'stun', 'silence', 'taunt', 'bleed', 'burn', 'charm'].includes(type)) {
             return true;
         }
         if (effect.effectType === 'damage_over_time' || effect.effectType === 'control') {
@@ -592,7 +599,35 @@ class BattleUnit {
             }
         });
         this.removeExpiredStatuses();
+        if (this.shield > 0) {
+            this.shieldRemainingTurns = Math.max(0, this.shieldRemainingTurns - 1);
+            if (this.shieldRemainingTurns <= 0) {
+                this.shield = 0;
+            }
+        }
         return expired;
+    }
+
+    cleanseDebuffs(count = 1) {
+        if (!Number.isFinite(Number(count)) || Number(count) <= 0) {
+            return [];
+        }
+        const removeCount = Math.floor(Number(count));
+        const debuffIndices = [];
+        this.statusEffects.forEach((effect, index) => {
+            if (debuffIndices.length >= removeCount) {
+                return;
+            }
+            if (this.isStatusEffectDebuff(effect)) {
+                debuffIndices.push(index);
+            }
+        });
+        if (debuffIndices.length === 0) {
+            return [];
+        }
+        const removed = debuffIndices.map(i => ({ ...this.statusEffects[i] }));
+        this.statusEffects = this.statusEffects.filter((_, index) => !debuffIndices.includes(index));
+        return removed;
     }
 
     calculateStatusDamage(effect = {}) {
@@ -632,25 +667,93 @@ class BattleUnit {
     }
 
     calculateHitChance(target) {
-        return Utils.clamp(0.9 + (this.accuracy - target.dodge) / 100, 0.35, 1);
+        const accuracy = this.getEffectiveStat('accuracy') || this.accuracy || 0;
+        const dodge = target?.getEffectiveStat?.('dodge') || target?.dodge || 0;
+        return Utils.clamp(0.9 + (accuracy - dodge) / 100, 0.35, 1);
     }
 
     calculateCritChance(target) {
-        return Utils.clamp(0.05 + (this.crit - target.antiCrit) / 100, 0.05, 0.85);
+        const crit = this.getEffectiveStat('crit') || this.crit || 0;
+        const antiCrit = target?.getEffectiveStat?.('antiCrit') || target?.antiCrit || 0;
+        return Utils.clamp(0.05 + (crit - antiCrit) / 100, 0.05, 0.85);
     }
 
     calculateCritMultiplier(target) {
-        return 1.5 + Math.max(0, this.crit - target.antiCrit) / 100;
+        const crit = this.getEffectiveStat('crit') || this.crit || 0;
+        const antiCrit = target?.getEffectiveStat?.('antiCrit') || target?.antiCrit || 0;
+        return 1.5 + Math.max(0, crit - antiCrit) / 100;
+    }
+
+    addShield(amount, durationTurns = 1) {
+        if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+            return 0;
+        }
+        const safeAmount = Math.floor(Number(amount));
+        const previousShield = this.shield;
+        this.shield = Math.max(this.shield, 0) + safeAmount;
+        this.maxShield = Math.max(this.maxShield, this.shield);
+        this.shieldRemainingTurns = Math.max(this.shieldRemainingTurns, Math.max(1, Number(durationTurns) || 1));
+        return this.shield - previousShield;
+    }
+
+    getEffectiveShield() {
+        if (this.shield <= 0 || this.shieldRemainingTurns <= 0) {
+            return 0;
+        }
+        return this.shield;
     }
 
     takeDamage(rawDamage, attacker = null) {
+        const shieldBeforeHp = this.shield > 0 && this.shieldRemainingTurns > 0;
         const penRatio = Utils.clamp((Number(attacker?.defensePen) || 0) / 100, 0, 0.9);
         const effectiveDefense = Math.floor(this.getEffectiveDefense() * (1 + this.defendBonus) * (1 - penRatio));
         const reducedDamage = Math.max(1, Math.floor(rawDamage - effectiveDefense * 0.45));
         const damageReduction = Utils.clamp(Number(this.getBattleModifiers().damageReduction) || 0, 0, 0.95);
         const damageTakenBonus = this.getIncomingDamageTakenBonus(attacker);
         const actualDamage = Math.max(1, Math.floor(reducedDamage * (1 - damageReduction) * (1 + damageTakenBonus)));
-        this.hp = Math.max(0, this.hp - actualDamage);
+
+        if (shieldBeforeHp) {
+            const absorbedByShield = Math.min(actualDamage, this.shield);
+            this.shield = Math.max(0, this.shield - actualDamage);
+            const remainingDamage = actualDamage - absorbedByShield;
+            if (remainingDamage <= 0) {
+                return actualDamage;
+            }
+            const nextHpAfterShield = Math.max(0, this.hp - remainingDamage);
+            let finalDamage = remainingDamage;
+            if (nextHpAfterShield <= 0 && this.battleContext && typeof this.battleContext.tryDamageRedirect === 'function') {
+                const redirectResult = this.battleContext.tryDamageRedirect(this, remainingDamage, attacker);
+                if (redirectResult && redirectResult !== remainingDamage) {
+                    finalDamage = redirectResult;
+                }
+            }
+            const nextHp = Math.max(0, this.hp - finalDamage);
+            if (nextHp <= 0 && this.battleContext && typeof this.battleContext.tryPreventFatalDamage === 'function') {
+                const prevented = this.battleContext.tryPreventFatalDamageExtended(this, finalDamage, attacker);
+                if (prevented) {
+                    return actualDamage;
+                }
+            }
+            this.hp = nextHp;
+            return actualDamage;
+        }
+
+        const nextHpDirect = Math.max(0, this.hp - actualDamage);
+        let finalDirectDamage = actualDamage;
+        if (nextHpDirect <= 0 && this.battleContext && typeof this.battleContext.tryDamageRedirect === 'function') {
+            const redirectResult = this.battleContext.tryDamageRedirect(this, actualDamage, attacker);
+            if (redirectResult && redirectResult !== actualDamage) {
+                finalDirectDamage = redirectResult;
+            }
+        }
+        const nextHp = Math.max(0, this.hp - finalDirectDamage);
+        if (nextHp <= 0 && this.battleContext && typeof this.battleContext.tryPreventFatalDamage === 'function') {
+            const prevented = this.battleContext.tryPreventFatalDamageExtended(this, finalDirectDamage, attacker);
+            if (prevented) {
+                return actualDamage;
+            }
+        }
+        this.hp = nextHp;
         return actualDamage;
     }
 
@@ -680,7 +783,14 @@ class BattleUnit {
             return this.takeDamage(rawDamage, null);
         }
         const actualDamage = Math.max(1, Math.floor(Number(rawDamage) || 0));
-        this.hp = Math.max(0, this.hp - actualDamage);
+        const nextHp = Math.max(0, this.hp - actualDamage);
+        if (nextHp <= 0 && this.battleContext && typeof this.battleContext.tryPreventFatalDamage === 'function') {
+            const prevented = this.battleContext.tryPreventFatalDamageExtended(this, actualDamage, null);
+            if (prevented) {
+                return actualDamage;
+            }
+        }
+        this.hp = nextHp;
         return actualDamage;
     }
 
@@ -714,13 +824,16 @@ class BattleUnit {
         if (this.isAlive()) {
             return 0;
         }
+        const preservedPassiveState = this.passiveState?.fatalSurvivalUsed
+            ? { fatalSurvivalUsed: true }
+            : {};
         const ratio = Utils.clamp(Number(reviveRatio) || 0.3, 0.05, 1);
         const restoredHp = Math.max(1, Math.floor(this.maxHp * ratio));
         this.hp = Math.min(this.maxHp, restoredHp);
         this.progress = 0;
         this.defendBonus = 0;
         this.statusEffects = [];
-        this.passiveState = {};
+        this.passiveState = preservedPassiveState;
         return this.hp;
     }
 
@@ -792,6 +905,9 @@ class BattleUnit {
         if (this.hasStatus('silence') || this.statusEffects.some(effect => effect.silenceSkills)) {
             return false;
         }
+        if (this.hasStatus('charm')) {
+            return false;
+        }
         if (state.cooldownRemaining > 0) {
             return false;
         }
@@ -856,8 +972,13 @@ class BattleUnit {
             damage = Math.max(1, Math.floor(damage * (1 + outgoingDamageBonus)));
         }
 
+        const runtimeAttackModifiers = this.battleContext && typeof this.battleContext.getAttackContextModifiers === 'function'
+            ? this.battleContext.getAttackContextModifiers(this, target, config) || {}
+            : {};
         const attackerContext = {
-            defensePen: this.defensePen + Math.max(0, Number(config?.defensePenBonus ?? 0) || 0),
+            defensePen: this.defensePen
+                + Math.max(0, Number(config?.defensePenBonus ?? 0) || 0)
+                + Math.max(0, Number(runtimeAttackModifiers?.defensePenBonus ?? 0) || 0),
             sourceUnitId: this.id
         };
         const actualDamage = target.takeDamage(damage, attackerContext);
@@ -927,6 +1048,9 @@ class BattleUnit {
         this.defendBonus = 0;
         this.statusEffects = [];
         this.passiveState = {};
+        this.shield = 0;
+        this.maxShield = 0;
+        this.shieldRemainingTurns = 0;
         this.skillStates.forEach(state => {
             state.cooldownRemaining = 0;
         });
@@ -936,6 +1060,8 @@ class BattleUnit {
         return {
             hp: this.hp,
             maxHp: this.maxHp,
+            shield: this.shield > 0 && this.shieldRemainingTurns > 0 ? this.shield : 0,
+            shieldRemainingTurns: this.shieldRemainingTurns,
             attack: this.getEffectiveAttack(),
             defense: this.getEffectiveDefense(),
             speed: this.speed,

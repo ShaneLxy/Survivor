@@ -191,7 +191,8 @@ class CheckinManager {
                 totalWatched: Math.max(0, Number(info.totalWatched) || 0),
                 lastWatchDate: String(info.lastWatchDate || '').trim(),
                 watchMonthKey: String(info.watchMonthKey || '').trim(),
-                lastClaimDate: String(info.lastClaimDate || '').trim()
+                lastClaimDate: String(info.lastClaimDate || '').trim(),
+                cycleProgress: Math.max(0, Number(info.cycleProgress) || 0)
             };
         });
         return result;
@@ -220,7 +221,8 @@ class CheckinManager {
                 totalWatched: 0,
                 lastWatchDate: '',
                 watchMonthKey: '',
-                lastClaimDate: ''
+                lastClaimDate: '',
+                cycleProgress: 0
             };
         }
         if (!this.monthCardStates[id]) {
@@ -233,8 +235,12 @@ class CheckinManager {
                 totalWatched: 0,
                 lastWatchDate: '',
                 watchMonthKey: '',
-                lastClaimDate: ''
+                lastClaimDate: '',
+                cycleProgress: 0
             };
+        } else if (this.monthCardStates[id].cycleProgress === undefined || this.monthCardStates[id].cycleProgress === null) {
+            // 兼容老存档
+            this.monthCardStates[id].cycleProgress = 0;
         }
         return this.monthCardStates[id];
     }
@@ -275,10 +281,24 @@ class CheckinManager {
         return Math.max(0, Number(this.rewardVideoStats.count) || 0);
     }
 
-    recordRewardVideoWatch() {
+    recordRewardVideoWatch(cardConfigs = []) {
         this.getMonthlyRewardVideoViews();
         this.rewardVideoStats.count += 1;
         this.rewardVideoStats.total += 1;
+
+        // 给每张月卡的 cycleProgress 各自 +1，封顶为 requiredViews（方案 A，上限 = 门槛 ×1）
+        const configs = Array.isArray(cardConfigs) ? cardConfigs : [];
+        configs.forEach(card => {
+            const cardId = String(card?.id || '').trim();
+            if (!cardId) {
+                return;
+            }
+            const requiredViews = Math.max(1, Number(card?.requiredViews ?? card?.activationViews ?? 1) || 1);
+            const cardState = this.ensureMonthCardState(cardId);
+            const current = Math.max(0, Number(cardState.cycleProgress) || 0);
+            cardState.cycleProgress = Math.min(requiredViews, current + 1);
+        });
+
         return {
             monthKey: this.rewardVideoStats.monthKey,
             count: this.rewardVideoStats.count,
@@ -295,6 +315,10 @@ class CheckinManager {
         state.active = true;
         state.activatedAt = now.toISOString();
         state.expiresAt = expiresAt.toISOString();
+        // 激活时扣减门槛，剩余次数进入下一周期（上限 = 门槛时等价于清零）
+        const requiredViews = Math.max(1, Number(cardConfig?.requiredViews ?? cardConfig?.activationViews ?? 1) || 1);
+        const current = Math.max(0, Number(state.cycleProgress) || 0);
+        state.cycleProgress = Math.max(0, current - requiredViews);
     }
 
     getMonthCardTier() {
@@ -368,19 +392,22 @@ class CheckinManager {
         const watchProgress = state.lastWatchDate === today
             ? Math.max(0, Number(state.watchedToday) || 0)
             : 0;
-        const monthProgress = this.getMonthlyRewardVideoViews();
-        if (!state.active && monthProgress >= requiredViews) {
+        const cycleProgress = Math.max(0, Number(state.cycleProgress) || 0);
+        if (!state.active && cycleProgress >= requiredViews) {
             this.activateMonthCard(state, cardConfig);
         }
+        const cycleProgressAfter = Math.max(0, Number(state.cycleProgress) || 0);
         const canClaim = state.active && state.lastClaimDate !== today;
         return {
             id: cardId,
             active: Boolean(state.active),
             requiredViews,
             watchedToday: watchProgress,
-            watchedMonth: monthProgress,
+            // 兼容字段：watchedMonth 现在等于 cycleProgress
+            watchedMonth: cycleProgressAfter,
+            cycleProgress: cycleProgressAfter,
             totalWatched: Math.max(0, Number(state.totalWatched) || 0),
-            remainingViews: Math.max(0, requiredViews - monthProgress),
+            remainingViews: Math.max(0, requiredViews - cycleProgressAfter),
             canClaim,
             activatedAt: state.activatedAt || '',
             expiresAt: state.expiresAt || '',

@@ -9,6 +9,9 @@ class SaveManager {
         this.baseSaveKey = 'survivor_game_save';
         this.autoSaveInterval = 30000;
         this.autoSaveTimer = null;
+        this.emergencySaveBound = false;
+        this.handlePageHide = null;
+        this.handleVisibilityChange = null;
         SaveManager.instance = this;
     }
 
@@ -23,6 +26,25 @@ class SaveManager {
 
     init() {
         this.startAutoSave();
+        this.bindEmergencySave();
+    }
+
+    bindEmergencySave() {
+        if (this.emergencySaveBound) {
+            return;
+        }
+        const doSave = () => {
+            try { this.save(); } catch (e) { /* best-effort */ }
+        };
+        this.handlePageHide = doSave;
+        this.handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') doSave();
+        };
+        window.addEventListener('pagehide', this.handlePageHide);
+        if (typeof document !== 'undefined' && document.addEventListener) {
+            document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        }
+        this.emergencySaveBound = true;
     }
 
     startAutoSave() {

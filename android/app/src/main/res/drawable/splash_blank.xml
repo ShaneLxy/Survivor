@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 透明占位，避免 Android 12+ 系统 splash 显示 launcher 图标。
+     真正的健康忠告 splash 由 WebView 加载完成后的 #boot-splash 显示。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1dp"
+    android:height="1dp"
+    android:viewportWidth="1"
+    android:viewportHeight="1">
+    <path android:fillColor="#00000000" android:pathData="M0,0L1,0L1,1L0,1z"/>
+</vector>

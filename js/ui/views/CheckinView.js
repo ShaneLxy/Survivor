@@ -5,6 +5,11 @@ class CheckinView {
     constructor() {
         this.element = document.getElementById('main-display');
         this.visible = false;
+        if (typeof eventManager !== 'undefined' && typeof eventManager.on === 'function') {
+            eventManager.on('monthCardActivated', () => {
+                if (this.visible) this.refresh();
+            });
+        }
     }
 
     show() {
@@ -319,7 +324,7 @@ class CheckinView {
                         <div class="checkin-welfare-kicker">PRIVILEGE</div>
                         <div class="checkin-welfare-title">特权福利</div>
                     </div>
-                    <div class="checkin-welfare-tip">本月看视频解锁 30 天权益</div>
+                    <div class="checkin-welfare-tip">累计观看视频解锁 30 天权益，期间继续观看可预存下一轮</div>
                 </div>
                 <div class="checkin-month-card-list">
                     ${monthCards.map(card => this.renderMonthCard(card)).join('')}
@@ -348,7 +353,7 @@ class CheckinView {
                     <div class="checkin-month-card-badge">${this.escapeHtml(card.badge || '特权')}</div>
                 </div>
                 <div class="checkin-month-card-progress">
-                    <span>${status.active ? `有效期 ${status.durationDays} 天` : `本月进度 ${status.watchedMonth}/${status.requiredViews}`}</span>
+                    <span>${status.active ? `有效期 ${status.durationDays} 天` : `累计进度 ${status.cycleProgress ?? status.watchedMonth}/${status.requiredViews}`}</span>
                     <strong>${status.active ? (status.canClaim ? '待领取' : '已领取') : '未解锁'}</strong>
                 </div>
                 <div class="checkin-month-card-action-row">
@@ -389,7 +394,6 @@ class CheckinView {
                                     </div>
                                     <div class="checkin-welfare-badge">${adBadgeText}</div>
                                 </div>
-                                <div class="checkin-welfare-desc">${this.escapeHtml(gift.description || '领取一组额外福利奖励。')}</div>
                                 <div class="checkin-welfare-meta">
                                     <div class="checkin-welfare-limit">今日 ${usage.used}/${usage.limit} 次</div>
                                     <div class="checkin-welfare-rewards">
@@ -701,7 +705,7 @@ class CheckinView {
 
         const status = checkinManager.getMonthCardStatus(card);
         if (!status.active) {
-            Toast.info(`${card.name} 本月进度 ${status.watchedMonth}/${status.requiredViews}`);
+            Toast.info(`${card.name} 累计进度 ${status.cycleProgress ?? status.watchedMonth}/${status.requiredViews}`);
             return;
         }
 

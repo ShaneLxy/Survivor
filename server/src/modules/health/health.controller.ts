@@ -1,9 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { GmService } from '../gm/gm.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly gmService: GmService,
+  ) {}
 
   @Get()
   check() {
@@ -36,5 +40,10 @@ export class HealthController {
         wechatMiniProgram: createPolicy('WECHAT_MINI_PROGRAM'),
       },
     };
+  }
+
+  @Get('operation')
+  getOperationConfig() {
+    return this.gmService.getOperationConfig();
   }
 }

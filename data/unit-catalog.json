@@ -2404,6 +2404,1309 @@
           ]
         }
       }
+    },
+    {
+      "id": "hero_029",
+      "name": "绝境末刃-破御",
+      "icon": "✦",
+      "portrait": "assets/media/heroes/PoYu.png",
+      "cardPortrait": "assets/media/heroesCardPortrait/PoYu.png",
+      "rarity": "legendary",
+      "profession": "raider",
+      "description": "一名越濒死越凶猛的破袭者，会以持续损血换取更高的爆发与残局收割能力。",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 110,
+        "attack": 28,
+        "defense": 11,
+        "speed": 10,
+        "defensePen": 4,
+        "accuracy": 13,
+        "crit": 14,
+        "antiCrit": 8,
+        "dodge": 5,
+        "attackRange": 2,
+        "moveRange": 2
+      },
+      "skill": {
+        "name": "绝境刃闪",
+        "description": "以自身为中心，对2格内全部敌方单位造成130%攻击伤害，不计算暴击。若施放时生命值低于20%，范围扩大至3格，伤害提升至150%，且每命中1个敌方单位额外恢复自身当前已损失生命值的5%。",
+        "multiplier": 1.3,
+        "cooldownTurns": 3,
+        "range": 2,
+        "targetType": "self",
+        "targetCount": 1,
+        "hpCostPercent": 0,
+        "hpCostBase": "current",
+        "effectType": "damage",
+        "canCrit": false,
+        "unlockStage": 15,
+        "customEffect": {
+          "type": "desperate_blade_flash",
+          "lowHpThresholdPercent": 20,
+          "lowHpRange": 3,
+          "lowHpMultiplier": 1.5,
+          "healMissingHpRatioPerHit": 0.05
+        }
+      },
+      "skills": [
+        {
+          "name": "绝境刃闪",
+          "description": "以自身为中心，对2格内全部敌方单位造成130%攻击伤害，不计算暴击。若施放时生命值低于20%，范围扩大至3格，伤害提升至150%，且每命中1个敌方单位额外恢复自身当前已损失生命值的5%。",
+          "multiplier": 1.3,
+          "cooldownTurns": 3,
+          "range": 2,
+          "targetType": "self",
+          "targetCount": 1,
+          "hpCostPercent": 0,
+          "hpCostBase": "current",
+          "effectType": "damage",
+          "canCrit": false,
+          "unlockStage": 15,
+          "customEffect": {
+            "type": "desperate_blade_flash",
+            "lowHpThresholdPercent": 20,
+            "lowHpRange": 3,
+            "lowHpMultiplier": 1.5,
+            "healMissingHpRatioPerHit": 0.05
+          }
+        }
+      ],
+      "passiveEffects": [
+        {
+          "name": "绝境本能",
+          "type": "desperate_instinct",
+          "trigger": "custom",
+          "unlockStage": 3,
+          "stepDivisor": 5,
+          "attackPerStep": 0.05,
+          "critPerStep": 0.03,
+          "despairThresholdPercent": 30,
+          "despairDefensePenBonus": 30,
+          "despairKillHealMaxHpRatio": 0.08
+        },
+        {
+          "name": "刃嗜",
+          "type": "turn_start_hp_loss",
+          "trigger": "custom",
+          "unlockStage": 6,
+          "maxHpLossRatio": 0.01
+        },
+        {
+          "name": "不屈之刃",
+          "type": "fatal_survival_once",
+          "trigger": "custom",
+          "unlockStage": 16,
+          "healRatio": 0.3,
+          "teamDamageReduction": 0.1,
+          "teamDamageReductionDurationTurns": 9999,
+          "resetSkillIndex": 0,
+          "teamStatusName": "不屈之刃",
+          "teamStatusEffect": {
+            "type": "battle_guard",
+            "name": "不屈之刃",
+            "effectType": "stat_modifier",
+            "durationTurns": 9999,
+            "damageReduction": 0.1,
+            "countsAsDebuff": false,
+            "stackMode": "replace"
+          }
+        }
+      ],
+      "specialTraits": {
+        "name": "绝境四式",
+        "summary": "围绕残血增伤、持续燃命、范围爆发与一次锁血反打构建的传奇破袭者成长路线。",
+        "traits": [
+          {
+            "name": "绝境本能",
+            "description": "根据当前生命值比例持续提升攻击与暴击；当生命值低于30%时进入绝境状态，攻击额外无视目标30%防御，并在击杀后回复自身8%最大生命值。"
+          },
+          {
+            "name": "刃嗜",
+            "description": "回合开始时自动损失最大生命值，用于主动压低血线，以更快进入绝境本能的高收益区间。"
+          },
+          {
+            "name": "绝境刃闪",
+            "description": "自我施放的范围爆发特技，低血量时会扩展范围并附带命中回血效果。"
+          },
+          {
+            "name": "不屈之刃",
+            "description": "每场战斗仅一次的锁血与反打机制，触发后下回合优先回血，并为全队提供战斗内减伤。"
+          }
+        ],
+        "track": [
+          {
+            "stage": 3,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁核心特技",
+            "description": "解锁被动“绝境本能”：根据已损失生命值比例提升攻击与暴击；生命值低于30%时，攻击额外无视目标30%防御，并在击杀后回复自身8%最大生命值。"
+          },
+          {
+            "stage": 4,
+            "kind": "boost",
+            "label": "第一特技强化",
+            "description": "“绝境本能”的增益成长由每损失5%生命结算一次，强化为每损失3%生命结算一次。"
+          },
+          {
+            "stage": 6,
+            "kind": "unlock",
+            "slot": 2,
+            "unlocksSlot": true,
+            "label": "解锁第二特技",
+            "description": "解锁被动“刃嗜”：每回合开始时损失自身1%最大生命值。"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第二特技强化",
+            "description": "“刃嗜”强化为每回合开始时损失自身3%最大生命值。"
+          },
+          {
+            "stage": 15,
+            "kind": "unlock",
+            "slot": 3,
+            "unlocksSlot": true,
+            "label": "解锁第三特技",
+            "description": "解锁“绝境刃闪”：以自身为中心，对2格内全部敌方单位造成130%攻击伤害；若施放时生命值低于20%，则范围扩大至3格，伤害提升至150%，且每命中1个敌方单位额外恢复自身当前已损失生命值的5%。"
+          },
+          {
+            "stage": 16,
+            "kind": "ultimate",
+            "slot": 4,
+            "unlocksSlot": true,
+            "label": "终极强化",
+            "description": "解锁“不屈之刃”：受到致命伤害时生命锁定为1，并在下回合开始时优先恢复30%生命；同时为所有队友提供10%减伤直到战斗结束，并重置“绝境刃闪”的冷却。此效果每场战斗仅触发一次。"
+          }
+        ],
+        "battleGrowth": {
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 15,
+                  "multiplier": 1.3,
+                  "cooldownTurns": 3,
+                  "range": 2,
+                  "targetType": "self",
+                  "targetCount": 1,
+                  "effectType": "damage",
+                  "canCrit": false,
+                  "unlockStage": 15,
+                  "customEffect": {
+                    "type": "desperate_blade_flash",
+                    "lowHpThresholdPercent": 20,
+                    "lowHpRange": 3,
+                    "lowHpMultiplier": 1.5,
+                    "healMissingHpRatioPerHit": 0.05
+                  }
+                }
+              ]
+            }
+          ],
+          "passiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 3,
+                  "type": "desperate_instinct",
+                  "trigger": "custom",
+                  "unlockStage": 3,
+                  "stepDivisor": 5,
+                  "attackPerStep": 0.05,
+                  "critPerStep": 0.03,
+                  "despairThresholdPercent": 30,
+                  "despairDefensePenBonus": 30,
+                  "despairKillHealMaxHpRatio": 0.08
+                },
+                {
+                  "stage": 4,
+                  "stepDivisor": 3
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "stages": [
+                {
+                  "stage": 6,
+                  "type": "turn_start_hp_loss",
+                  "trigger": "custom",
+                  "unlockStage": 6,
+                  "maxHpLossRatio": 0.01
+                },
+                {
+                  "stage": 11,
+                  "maxHpLossRatio": 0.03
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hero_030",
+      "name": "裂空者-寒鸦",
+      "icon": "🎯",
+      "portrait": "assets/media/heroes/_placeholder_Hanya.png",
+      "rarity": "epic",
+      "profession": "raider",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 85,
+        "attack": 30,
+        "defense": 6,
+        "speed": 11,
+        "crit": 18,
+        "antiCrit": 4,
+        "defensePen": 8,
+        "accuracy": 14,
+        "dodge": 5,
+        "attackRange": 4,
+        "moveRange": 1
+      },
+      "skill": {
+        "name": "穿甲弹",
+        "description": "对攻击范围内任意一名敌人造成130%攻击力伤害，无视目标25%防御，命中后附加1层破甲标记",
+        "multiplier": 1.3,
+        "cooldownTurns": 3,
+        "range": 4,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "effectType": "damage",
+        "canCrit": true,
+        "unlockStage": 6
+      },
+      "skills": [
+        {
+          "name": "穿甲弹",
+          "description": "对攻击范围内任意一名敌人造成130%攻击力伤害，无视目标25%防御，命中后附加1层破甲标记",
+          "multiplier": 1.3,
+          "cooldownTurns": 3,
+          "range": 4,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "effectType": "damage",
+          "canCrit": true,
+          "unlockStage": 6
+        }
+      ],
+      "basicAttackEffects": [
+        {
+          "name": "冷凝瞄准",
+          "trigger": "hit",
+          "unlockStage": 3,
+          "chance": 1,
+          "damageBonus": 0.15,
+          "damageBonusType": "stationary",
+          "conditionMovesNotMadeThisTurn": true,
+          "extraCritChance": 10
+        }
+      ],
+      "passiveEffects": [
+        {
+          "name": "死亡定理",
+          "trigger": "kill",
+          "unlockStage": 15,
+          "type": "extra_action_on_kill",
+          "maxPerTurn": 2,
+          "critGuaranteed": true
+        }
+      ],
+      "specialTraits": {
+        "name": "寒夜三息",
+        "summary": "寒鸦以远程狙击和破甲标记叠加为核心，站桩输出伤害可翻倍，击杀获得额外行动发起追击。",
+        "traits": [
+          {
+            "name": "冷凝瞄准",
+            "description": "寒鸦本回合未移动时普攻附加15%攻击额外伤且暴击率+10%"
+          },
+          {
+            "name": "穿甲弹",
+            "description": "对远程单体造成130%伤并附加破甲标记(最多5层每层受伤+8%)"
+          },
+          {
+            "name": "死亡定理",
+            "description": "击杀带破甲标记的敌人获得1次额外行动(每回合最多2次),16星后该行动必暴击"
+          }
+        ],
+        "track": [
+          {
+            "stage": 3,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁第一特技",
+            "description": "解锁冷凝瞄准：未移动时普攻附加15%攻击力额外伤害，暴击率额外+10%"
+          },
+          {
+            "stage": 4,
+            "kind": "boost",
+            "label": "第一特技强化",
+            "description": "冷凝瞄准额外伤害提升至25%，暴击率额外+15%"
+          },
+          {
+            "stage": 6,
+            "kind": "unlock",
+            "slot": 2,
+            "unlocksSlot": true,
+            "label": "解锁第二特技",
+            "description": "解锁穿甲弹：对攻击范围内一名敌人造成130%攻击力伤害，无视25%防御，附加1层破甲标记(最多3层，每层受伤+8%，持续到战斗结束)"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第二特技强化",
+            "description": "穿甲弹伤害提升至160%，破甲标记上限提升至5层"
+          },
+          {
+            "stage": 15,
+            "kind": "unlock",
+            "slot": 3,
+            "unlocksSlot": true,
+            "label": "解锁第三特技",
+            "description": "解锁死亡定理：击杀带破甲标记的敌人获得1次额外行动(每回合最多2次)"
+          },
+          {
+            "stage": 16,
+            "kind": "ultimate",
+            "slot": 4,
+            "unlocksSlot": true,
+            "label": "终极强化",
+            "description": "死亡定理触发额外行动时该次行动必定暴击"
+          }
+        ],
+        "battleGrowth": {
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 6,
+                  "multiplier": 1.3,
+                  "range": 4,
+                  "targetCount": 1,
+                  "cooldownTurns": 3,
+                  "canCrit": true,
+                  "defensePenBonus": 25,
+                  "unlockStage": 6
+                },
+                {
+                  "stage": 11,
+                  "multiplier": 1.6
+                }
+              ]
+            }
+          ],
+          "basicAttackEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 3,
+                  "damageBonus": 0.15
+                },
+                {
+                  "stage": 4,
+                  "damageBonus": 0.25
+                }
+              ]
+            }
+          ],
+          "passiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 15,
+                  "type": "extra_action_on_kill",
+                  "maxPerTurn": 2,
+                  "critGuaranteed": false,
+                  "unlockStage": 15
+                },
+                {
+                  "stage": 16,
+                  "critGuaranteed": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hero_031",
+      "name": "灯语者-星烬",
+      "icon": "🏮",
+      "portrait": "assets/media/heroes/_placeholder_Xingjin.png",
+      "rarity": "epic",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 75,
+        "attack": 16,
+        "defense": 8,
+        "speed": 15,
+        "crit": 5,
+        "antiCrit": 6,
+        "defensePen": 0,
+        "accuracy": 12,
+        "dodge": 6,
+        "attackRange": 3,
+        "moveRange": 3
+      },
+      "skill": {
+        "name": "晨曦祝祷",
+        "description": "对全体队友回复10%最大生命并随机清除1个负面状态，赋予加速效果持续2回合",
+        "multiplier": 0.1,
+        "cooldownTurns": 4,
+        "range": 99,
+        "targetType": "ally",
+        "targetCount": 99,
+        "effectType": "group_heal",
+        "healRatioMaxHp": 0.1,
+        "cleanseCount": 1,
+        "canCrit": false,
+        "unlockStage": 6,
+        "allyStatusEffects": [
+          {
+            "type": "hasten",
+            "name": "加速",
+            "effectType": "stat_modifier",
+            "stat": "speed",
+            "value": 0.2,
+            "modifierType": "percent",
+            "durationTurns": 2,
+            "countsAsDebuff": false
+          }
+        ]
+      },
+      "skills": [
+        {
+          "name": "晨曦祝祷",
+          "description": "对全体队友回复10%最大生命并随机清除1个负面状态，赋予加速效果持续2回合",
+          "multiplier": 0.1,
+          "cooldownTurns": 4,
+          "range": 99,
+          "targetType": "ally",
+          "targetCount": 99,
+          "effectType": "group_heal",
+          "healRatioMaxHp": 0.1,
+          "cleanseCount": 1,
+          "canCrit": false,
+          "unlockStage": 6,
+          "allyStatusEffects": [
+            {
+              "type": "hasten",
+              "name": "加速",
+              "effectType": "stat_modifier",
+              "stat": "speed",
+              "value": 0.2,
+              "modifierType": "percent",
+              "durationTurns": 2,
+              "countsAsDebuff": false
+            }
+          ]
+        }
+      ],
+      "passiveEffects": [
+        {
+          "name": "灯语",
+          "trigger": "turn_start",
+          "unlockStage": 3,
+          "type": "heal_over_time",
+          "chance": 1,
+          "healMissingHpRatio": 0.12,
+          "targetDescription": "生命百分比最低的队友",
+          "healTarget": "lowest_hp_percent_ally"
+        },
+        {
+          "name": "星烬复燃",
+          "trigger": "fatal_ally_intercept",
+          "unlockStage": 15,
+          "type": "fatal_ally_intercept",
+          "maxGlobalUses": 2,
+          "healRatio": 0.3,
+          "maxPerAlly": 1
+        }
+      ],
+      "specialTraits": {
+        "name": "灯火三守",
+        "summary": "星烬以持续治疗和紧急救援为核心，每回合自动治疗残血队友，主动技能群体恢复并清除debuff，关键时刻能将队友从死亡边缘拉回。",
+        "traits": [
+          {
+            "name": "灯语",
+            "description": "每回合开始为生命百分比最低的队友回复其已损失生命的12%"
+          },
+          {
+            "name": "晨曦祝祷",
+            "description": "全体队友回复最大生命10%并随机清除1个负面状态+加速"
+          },
+          {
+            "name": "星烬复燃",
+            "description": "队友致命伤时抵消伤害返回30%生命(每队友1次，整场战斗2次)"
+          }
+        ],
+        "track": [
+          {
+            "stage": 3,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁第一特技",
+            "description": "解锁灯语：每回合开始为生命百分比最低的队友回复已损失生命的12%"
+          },
+          {
+            "stage": 4,
+            "kind": "boost",
+            "label": "第一特技强化",
+            "description": "灯语治疗量提升至18%已损失生命，若目标生命低于30%则额外赋予50点护盾"
+          },
+          {
+            "stage": 6,
+            "kind": "unlock",
+            "slot": 2,
+            "unlocksSlot": true,
+            "label": "解锁第二特技",
+            "description": "解锁晨曦祝祷：全体队友回复10%最大生命+清除1个负面状态+加速20%持续2回合，冷却4回合"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第二特技强化",
+            "description": "晨曦祝祷治疗提升至15%最大生命，清除2个负面状态，加速延长至3回合"
+          },
+          {
+            "stage": 15,
+            "kind": "unlock",
+            "slot": 3,
+            "unlocksSlot": true,
+            "label": "解锁第三特技",
+            "description": "解锁星烬复燃：队友受到致命伤害时抵消该伤害并将生命拉到30%（每队友每场1次，全场最多2次）"
+          },
+          {
+            "stage": 16,
+            "kind": "ultimate",
+            "slot": 4,
+            "unlocksSlot": true,
+            "label": "终极强化",
+            "description": "星烬复燃触发后被救队友获得星烬庇护：3回合内受伤-30%并每回合回复8%最大生命"
+          }
+        ],
+        "battleGrowth": {
+          "passiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 3,
+                  "healMissingHpRatio": 0.12,
+                  "unlockStage": 3
+                },
+                {
+                  "stage": 4,
+                  "healMissingHpRatio": 0.18
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "stages": [
+                {
+                  "stage": 15,
+                  "maxGlobalUses": 2,
+                  "healRatio": 0.3,
+                  "unlockStage": 15
+                },
+                {
+                  "stage": 16,
+                  "maxGlobalUses": 2,
+                  "healRatio": 0.3,
+                  "allyStatusEffects": [
+                    {
+                      "type": "starjin_shelter",
+                      "name": "星烬庇护",
+                      "effectType": "stat_modifier",
+                      "damageReduction": 0.3,
+                      "healMissingHpRatio": 0.08,
+                      "durationTurns": 3,
+                      "countsAsDebuff": false,
+                      "stackMode": "replace"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 6,
+                  "healRatioMaxHp": 0.1,
+                  "cleanseCount": 1,
+                  "cooldownTurns": 4,
+                  "unlockStage": 6
+                },
+                {
+                  "stage": 11,
+                  "healRatioMaxHp": 0.15,
+                  "cleanseCount": 2
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hero_032",
+      "name": "淬钢者-赫斯",
+      "icon": "🛡️",
+      "portrait": "assets/media/heroes/_placeholder_Hesi.png",
+      "rarity": "epic",
+      "profession": "defender",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 130,
+        "attack": 24,
+        "defense": 22,
+        "speed": 7,
+        "crit": 5,
+        "antiCrit": 12,
+        "defensePen": 0,
+        "accuracy": 8,
+        "dodge": 3,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skill": null,
+      "skills": [],
+      "reactiveEffects": [
+        {
+          "name": "荆棘甲",
+          "trigger": "damaged",
+          "unlockStage": 3,
+          "type": "damage_reflect",
+          "reflectRatio": 0.2,
+          "hpThresholdPercent": 50,
+          "belowThresholdMultiplier": 2
+        }
+      ],
+      "passiveEffects": [
+        {
+          "name": "怒锤反击",
+          "trigger": "hit",
+          "unlockStage": 6,
+          "type": "counter_attack",
+          "chance": 1,
+          "multiplier": 1,
+          "maxPerRound": 1,
+          "canCrit": true
+        }
+      ],
+      "specialTraits": {
+        "name": "淬钢三律",
+        "summary": "赫斯以受击反击和反弹为核心，挨打越多伤害越重，残血时反弹翻倍并吸血。",
+        "traits": [
+          {
+            "name": "荆棘甲",
+            "description": "受普攻伤害时反弹20%给攻击者(忽视防御不可暴击)"
+          },
+          {
+            "name": "怒锤反击",
+            "description": "受击后若攻击者在范围内立即普攻反击(每回合1次)"
+          },
+          {
+            "name": "不灭熔炉",
+            "description": "生命低于50%时反弹翻倍(40%/60%)并每次反弹/反击回复造成伤害的50%生命"
+          }
+        ],
+        "track": [
+          {
+            "stage": 3,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁第一特技",
+            "description": "解锁荆棘甲：受到普通攻击时反弹该次伤害的20%给攻击者(无视防御不暴击)"
+          },
+          {
+            "stage": 4,
+            "kind": "boost",
+            "label": "第一特技强化",
+            "description": "荆棘甲反弹提升至30%，并赋予攻击者裂伤(下次受伤+10%)"
+          },
+          {
+            "stage": 6,
+            "kind": "unlock",
+            "slot": 2,
+            "unlocksSlot": true,
+            "label": "解锁第二特技",
+            "description": "解锁怒锤反击：受击后攻击者在范围内时发起普攻反击(每回合1次)"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第二特技强化",
+            "description": "怒锤反击改为120%攻击力伤害，每回合可触发2次"
+          },
+          {
+            "stage": 15,
+            "kind": "unlock",
+            "slot": 3,
+            "unlocksSlot": true,
+            "label": "解锁第三特技",
+            "description": "解锁不灭熔炉：生命低于50%时反弹比例翻倍(到60%)，反击次数+1"
+          },
+          {
+            "stage": 16,
+            "kind": "ultimate",
+            "label": "终极强化",
+            "description": "不灭熔炉状态下反弹/反击命中敌人时为自己回复伤害量50%的生命"
+          }
+        ],
+        "battleGrowth": {
+          "reactiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 3,
+                  "reflectRatio": 0.2,
+                  "unlockStage": 3
+                },
+                {
+                  "stage": 4,
+                  "reflectRatio": 0.3,
+                  "statusEffects": [
+                    {
+                      "type": "crack",
+                      "name": "裂伤",
+                      "effectType": "stat_modifier",
+                      "damageTakenDebuffBonus": 0.1,
+                      "durationTurns": 2,
+                      "countsAsDebuff": true
+                    }
+                  ]
+                },
+                {
+                  "stage": 15,
+                  "reflectRatio": 0.6,
+                  "belowThresholdMultiplier": 1,
+                  "unlockStage": 15
+                }
+              ]
+            }
+          ],
+          "passiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 6,
+                  "maxPerRound": 1,
+                  "multiplier": 1,
+                  "unlockStage": 6
+                },
+                {
+                  "stage": 11,
+                  "maxPerRound": 2,
+                  "multiplier": 1.2
+                },
+                {
+                  "stage": 15,
+                  "maxPerRound": 3
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "stages": [
+                {
+                  "stage": 16,
+                  "type": "reflect_lifesteal",
+                  "lifestealRatio": 0.5
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hero_033",
+      "name": "噪潮-赫尔墨",
+      "icon": "📡",
+      "portrait": "assets/media/heroes/_placeholder_Hermo.png",
+      "rarity": "legendary",
+      "profession": "psionic",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 95,
+        "attack": 25,
+        "defense": 12,
+        "speed": 18,
+        "crit": 5,
+        "antiCrit": 8,
+        "defensePen": 5,
+        "accuracy": 15,
+        "dodge": 8,
+        "attackRange": 3,
+        "moveRange": 3
+      },
+      "skill": {
+        "name": "解析过载",
+        "description": "引爆攻击范围内所有敌人身上的噪点标记，每层造成30%攻击力伤害，冷却5回合",
+        "multiplier": 0.3,
+        "cooldownTurns": 5,
+        "range": 3,
+        "targetType": "enemy",
+        "targetCount": 99,
+        "effectType": "damage",
+        "canCrit": false,
+        "unlockStage": 15,
+        "customEffect": {
+          "type": "consume_status_damage",
+          "statusType": "haze_noise",
+          "damageMultiplierPerStack": 0.3,
+          "sourceAttackMultiplier": true
+        }
+      },
+      "skills": [
+        {
+          "name": "解析过载",
+          "description": "引爆攻击范围内所有敌人身上的噪点标记，每层造成30%攻击力伤害，冷却5回合",
+          "multiplier": 0.3,
+          "cooldownTurns": 5,
+          "range": 3,
+          "targetType": "enemy",
+          "targetCount": 99,
+          "effectType": "damage",
+          "canCrit": false,
+          "unlockStage": 15,
+          "customEffect": {
+            "type": "consume_status_damage",
+            "statusType": "haze_noise",
+            "damageMultiplierPerStack": 0.3,
+            "sourceAttackMultiplier": true
+          }
+        }
+      ],
+      "basicAttackEffects": [
+        {
+          "name": "信号污染",
+          "trigger": "hit",
+          "unlockStage": 3,
+          "chance": 1,
+          "statusEffects": [
+            {
+              "type": "haze_noise",
+              "name": "噪点",
+              "effectType": "stat_modifier",
+              "damageTakenDebuffBonus": 0.04,
+              "maxStacks": 5,
+              "durationTurns": 3,
+              "countsAsDebuff": true,
+              "stackMode": "stack",
+              "refreshAllStacksOnApply": true
+            }
+          ]
+        }
+      ],
+      "passiveEffects": [
+        {
+          "name": "频段共振",
+          "trigger": "profession_synergy",
+          "unlockStage": 6,
+          "type": "profession_synergy",
+          "profession": "psionic",
+          "skillDamagePerUnit": 0.12,
+          "healPerUnit": 0.1,
+          "maxCount": 4,
+          "attackRangeBonusPerUnit": 0
+        }
+      ],
+      "specialTraits": {
+        "name": "赫尔墨四曲",
+        "summary": "赫尔墨以信噪干涉为核心，普攻叠加噪点使目标受到伤害递增，共振为所有灵能者提供群体强化，解析过载引爆噪点进行AOE清场。",
+        "traits": [
+          {
+            "name": "信号污染",
+            "description": "普攻命中后目标获噪点标记(可叠5层每层+4%受伤)"
+          },
+          {
+            "name": "频段共振",
+            "description": "队伍中每有1个灵能者所有灵能者技能伤害+12%治疗+10%最多4层"
+          },
+          {
+            "name": "解析过载",
+            "description": "引爆噪点每层30%攻击力AOE"
+          },
+          {
+            "name": "协议:终焉",
+            "description": "整场战斗限1次追加:全场敌人+2层噪点+再次解析过载"
+          }
+        ],
+        "track": [
+          {
+            "stage": 3,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁第一特技",
+            "description": "解锁信号污染：普攻命中目标后目标获噪点标记(可叠5层每层+4%受伤持续3回合刷新)"
+          },
+          {
+            "stage": 4,
+            "kind": "boost",
+            "label": "第一特技强化",
+            "description": "普攻同时为攻击范围内所有敌人叠1层噪点"
+          },
+          {
+            "stage": 6,
+            "kind": "unlock",
+            "slot": 2,
+            "unlocksSlot": true,
+            "label": "解锁第二特技",
+            "description": "解锁频段共振：每有1个灵能者所有灵能者技能伤害+12%治疗+10%(最多4层)"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第二特技强化",
+            "description": "共振效果提升为+18%/+15%，为所有灵能者增加1点攻击距离"
+          },
+          {
+            "stage": 15,
+            "kind": "unlock",
+            "slot": 3,
+            "unlocksSlot": true,
+            "label": "解锁第三特技",
+            "description": "解锁解析过载：引爆噪点每层30%攻击力AOE伤害"
+          },
+          {
+            "stage": 16,
+            "kind": "unlock",
+            "slot": 4,
+            "unlocksSlot": true,
+            "label": "解锁第四特技",
+            "description": "解锁协议终焉：整场战斗限1次，使用解析过载后追加全场敌人+2层噪点并再次解析过载"
+          }
+        ],
+        "battleGrowth": {
+          "basicAttackEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 3,
+                  "statusEffects": [
+                    {
+                      "type": "haze_noise",
+                      "name": "噪点",
+                      "damageTakenDebuffBonus": 0.04,
+                      "maxStacks": 5,
+                      "durationTurns": 3,
+                      "countsAsDebuff": true,
+                      "stackMode": "stack",
+                      "refreshAllStacksOnApply": true
+                    }
+                  ],
+                  "unlockStage": 3
+                },
+                {
+                  "stage": 4,
+                  "statusEffects": [
+                    {
+                      "type": "haze_noise",
+                      "name": "噪点",
+                      "damageTakenDebuffBonus": 0.04,
+                      "maxStacks": 5,
+                      "durationTurns": 3,
+                      "countsAsDebuff": true,
+                      "stackMode": "stack",
+                      "refreshAllStacksOnApply": true
+                    }
+                  ],
+                  "extraTargets": "attack_range"
+                }
+              ]
+            }
+          ],
+          "passiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 6,
+                  "skillDamagePerUnit": 0.12,
+                  "healPerUnit": 0.1,
+                  "maxCount": 4,
+                  "attackRangeBonusPerUnit": 0,
+                  "unlockStage": 6
+                },
+                {
+                  "stage": 11,
+                  "skillDamagePerUnit": 0.18,
+                  "healPerUnit": 0.15,
+                  "attackRangeBonusPerUnit": 1
+                }
+              ]
+            }
+          ],
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 15,
+                  "multiplier": 0.3,
+                  "cooldownTurns": 5,
+                  "canCrit": false,
+                  "unlockStage": 15,
+                  "customEffect": {
+                    "type": "consume_status_damage",
+                    "statusType": "haze_noise",
+                    "damageMultiplierPerStack": 0.3,
+                    "sourceAttackMultiplier": true
+                  }
+                },
+                {
+                  "stage": 16,
+                  "customEffect": {
+                    "type": "consume_status_damage",
+                    "statusType": "haze_noise",
+                    "damageMultiplierPerStack": 0.3,
+                    "sourceAttackMultiplier": true,
+                    "doubleTrigger": true,
+                    "doubleTriggerLimit": 1,
+                    "preAddStacksToAll": 2
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hero_034",
+      "name": "磐石-沃伦",
+      "icon": "⚓",
+      "portrait": "assets/media/heroes/_placeholder_Wolun.png",
+      "rarity": "legendary",
+      "profession": "defender",
+      "attackCoefficient": 1,
+      "baseStats": {
+        "hp": 180,
+        "attack": 18,
+        "defense": 28,
+        "speed": 6,
+        "crit": 3,
+        "antiCrit": 20,
+        "defensePen": 0,
+        "accuracy": 6,
+        "dodge": 2,
+        "attackRange": 1,
+        "moveRange": 2
+      },
+      "skill": {
+        "name": "庇护壁垒",
+        "description": "为所有队友赋予护盾(沃伦最大生命的8%)持续2回合，冷却4回合",
+        "multiplier": 0.08,
+        "cooldownTurns": 4,
+        "range": 99,
+        "targetType": "ally",
+        "targetCount": 99,
+        "effectType": "group_grant_shield",
+        "shieldRatioMaxHp": 0.08,
+        "shieldSourceMaxHp": true,
+        "shieldDurationTurns": 2,
+        "canCrit": false,
+        "unlockStage": 6
+      },
+      "skills": [
+        {
+          "name": "庇护壁垒",
+          "description": "为所有队友赋予护盾(沃伦最大生命的8%)持续2回合，冷却4回合",
+          "multiplier": 0.08,
+          "cooldownTurns": 4,
+          "range": 99,
+          "targetType": "ally",
+          "targetCount": 99,
+          "effectType": "group_grant_shield",
+          "shieldRatioMaxHp": 0.08,
+          "shieldSourceMaxHp": true,
+          "shieldDurationTurns": 2,
+          "canCrit": false,
+          "unlockStage": 6
+        }
+      ],
+      "passiveEffects": [
+        {
+          "name": "铁壁誓约",
+          "trigger": "team_damage_reduction",
+          "unlockStage": 3,
+          "type": "team_damage_reduction",
+          "reductionPerAlly": 0.08,
+          "maxReduction": 0.12
+        },
+        {
+          "name": "死誓",
+          "trigger": "fatal_survival_once",
+          "unlockStage": 15,
+          "type": "fatal_survival_once",
+          "healRatio": 0
+        }
+      ],
+      "reactiveEffects": [
+        {
+          "name": "死誓-团队恢复",
+          "trigger": "fatal_survival_once",
+          "unlockStage": 16,
+          "type": "on_fatal_survival_team_heal",
+          "teamHealRatio": 0.3
+        }
+      ],
+      "specialTraits": {
+        "name": "磐石四诫",
+        "summary": "沃伦为全队提供减伤光环和护盾保护，自身拥有一次免死保障，触发免死后为全队恢复大量生命。",
+        "traits": [
+          {
+            "name": "铁壁誓约",
+            "description": "队友受到伤害-8%(沃伦在场即生效)"
+          },
+          {
+            "name": "庇护壁垒",
+            "description": "全队护盾(沃伦8%最大生命)持续2回合"
+          },
+          {
+            "name": "死誓",
+            "description": "首次致命伤保留1血并获得增益"
+          },
+          {
+            "name": "磐石之心",
+            "description": "死誓触发时额外为全队恢复30%最大生命+赋予一层不会死亡(每队友1次)"
+          }
+        ],
+        "track": [
+          {
+            "stage": 3,
+            "kind": "unlock",
+            "slot": 1,
+            "unlocksSlot": true,
+            "label": "解锁第一特技",
+            "description": "解锁铁壁誓约：队友受到伤害-8%"
+          },
+          {
+            "stage": 4,
+            "kind": "boost",
+            "label": "第一特技强化",
+            "description": "减伤提升至12%，队友受到致命伤害时沃伦为其承担50%伤害"
+          },
+          {
+            "stage": 6,
+            "kind": "unlock",
+            "slot": 2,
+            "unlocksSlot": true,
+            "label": "解锁第二特技",
+            "description": "解锁庇护壁垒：全队护盾(沃伦8%HP)持续2回合冷却4回合"
+          },
+          {
+            "stage": 11,
+            "kind": "boost",
+            "label": "第二特技强化",
+            "description": "护盾提升至沃伦14%最大HP，护盾存续期间受攻击反弹30固定伤害"
+          },
+          {
+            "stage": 15,
+            "kind": "unlock",
+            "slot": 3,
+            "unlocksSlot": true,
+            "label": "解锁第三特技",
+            "description": "解锁死誓：首次致命伤保留1血并获激怒(速度+50%攻击+50%持续3回合)"
+          },
+          {
+            "stage": 16,
+            "kind": "unlock",
+            "slot": 4,
+            "unlocksSlot": true,
+            "label": "解锁第四特技",
+            "description": "解锁磐石之心：死誓触发时为全队恢复30%最大生命+赋予每队友1次免死"
+          }
+        ],
+        "battleGrowth": {
+          "passiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 3,
+                  "reductionPerAlly": 0.08,
+                  "maxReduction": 0.12,
+                  "unlockStage": 3
+                },
+                {
+                  "stage": 4,
+                  "reductionPerAlly": 0.12,
+                  "maxReduction": 0.12
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "stages": [
+                {
+                  "stage": 15,
+                  "type": "fatal_survival_once",
+                  "healRatio": 0,
+                  "unlockStage": 15,
+                  "teamDamageReduction": 0,
+                  "teamDamageReductionDurationTurns": 0
+                }
+              ]
+            }
+          ],
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 6,
+                  "shieldRatioMaxHp": 0.08,
+                  "shieldDurationTurns": 2,
+                  "cooldownTurns": 4,
+                  "unlockStage": 6
+                },
+                {
+                  "stage": 11,
+                  "shieldRatioMaxHp": 0.14,
+                  "shieldDurationTurns": 2,
+                  "shieldReflectDamage": 30
+                }
+              ]
+            }
+          ],
+          "reactiveEffects": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 16,
+                  "teamHealRatio": 0.3,
+                  "unlockStage": 16
+                }
+              ]
+            }
+          ]
+        }
+      }
     }
   ],
   "enemySkills": {

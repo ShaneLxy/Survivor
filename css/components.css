@@ -240,7 +240,7 @@
     justify-content: center;
     min-width: 0;
     min-height: 0;
-    padding: 6px;
+    padding: 2px;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -320,14 +320,14 @@
     position: relative;
     z-index: 1;
     font-size: 28px;
-    margin-bottom: 0;
-    width: min(42px, calc(100% - 8px));
-    height: min(42px, calc(100% - 8px));
+    margin: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    border-radius: 9px;
+    border-radius: 5px;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 58%),
         rgba(0, 0, 0, 0.18);
@@ -335,6 +335,7 @@
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.07),
         0 6px 12px rgba(0, 0, 0, 0.22);
+    box-sizing: border-box;
 }
 
 .equipment-star-badge {
@@ -577,6 +578,22 @@
     cursor: pointer;
 }
 
+.player-info-toggle.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.player-info-toggle.is-disabled input {
+    cursor: not-allowed;
+}
+
+.player-info-toggle-hint {
+    margin-left: 4px;
+    font-size: 11px;
+    color: #fbbf24;
+    font-style: normal;
+}
+
 .player-info-tools {
     padding: 12px;
 }
@@ -798,14 +815,17 @@
 }
 
 .hero-view .hero-card[data-rarity="common"]::before {
+    animation-name: hero-card-common-aura;
     animation-duration: 4.6s;
 }
 
 .hero-view .hero-card[data-rarity="rare"]::before {
+    animation-name: hero-card-rare-aura;
     animation-duration: 3.8s;
 }
 
 .hero-view .hero-card[data-rarity="epic"]::before {
+    animation-name: hero-card-legendary-aura;
     animation-duration: 3s;
 }
 
@@ -857,19 +877,89 @@
 }
 
 .hero-view:not(.hero-view-secondary) .hero-grid .hero-card[data-rarity="common"]::before {
+    animation-name: hero-card-home-common-aura;
     animation-duration: 4.6s;
 }
 
 .hero-view:not(.hero-view-secondary) .hero-grid .hero-card[data-rarity="rare"]::before {
+    animation-name: hero-card-home-rare-aura;
     animation-duration: 3.8s;
 }
 
 .hero-view:not(.hero-view-secondary) .hero-grid .hero-card[data-rarity="epic"]::before {
+    animation-name: hero-card-home-legendary-aura;
     animation-duration: 3s;
 }
 
 .hero-view:not(.hero-view-secondary) .hero-grid .hero-card[data-rarity="legendary"]::before {
     animation-duration: 2.4s;
+}
+
+.hero-view .hero-card[data-rarity="epic"] {
+    background:
+        linear-gradient(180deg, rgba(10, 8, 8, 0) 42%, rgba(16, 10, 10, 0.82) 78%, rgba(10, 8, 8, 0.96) 100%),
+        radial-gradient(130% 80% at 50% 0%, rgba(120, 54, 36, 0.24) 0%, rgba(15, 18, 26, 0) 60%),
+        linear-gradient(180deg, #241717 0%, #09080a 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 244, 224, 0.06),
+        inset 0 0 18px rgba(120, 54, 36, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.42),
+        0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.hero-view .hero-card[data-rarity="epic"]:hover {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 244, 224, 0.1),
+        inset 0 0 20px rgba(120, 54, 36, 0.2),
+        0 12px 24px rgba(0, 0, 0, 0.48);
+}
+
+.hero-view .hero-card[data-rarity="epic"].selected {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 244, 224, 0.12),
+        inset 0 0 24px rgba(120, 54, 36, 0.24),
+        0 14px 26px rgba(0, 0, 0, 0.48) !important;
+}
+
+@keyframes hero-card-legendary-aura {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 0.8px rgba(236, 201, 140, 0.1),
+            inset 0 0 8px -3px rgba(120, 54, 36, 0.06),
+            inset 0 0 20px -16px rgba(236, 201, 140, 0.03);
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 2.4px rgba(161, 88, 58, 0.74),
+            inset 0 0 36px -3px rgba(161, 88, 58, 0.48),
+            inset 0 0 64px -10px rgba(236, 201, 140, 0.24);
+    }
+}
+
+@keyframes hero-card-common-aura {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 0.7px rgba(160, 160, 160, 0.06),
+            inset 0 0 8px -3px rgba(160, 160, 160, 0.03);
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 1.8px rgba(160, 160, 160, 0.42),
+            inset 0 0 24px -2px rgba(160, 160, 160, 0.28);
+    }
+}
+
+@keyframes hero-card-rare-aura {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 0.7px rgba(163, 53, 238, 0.08),
+            inset 0 0 10px -3px rgba(163, 53, 238, 0.04);
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 2px rgba(163, 53, 238, 0.62),
+            inset 0 0 28px -2px rgba(163, 53, 238, 0.38);
+    }
 }
 
 @keyframes hero-card-home-aura {
@@ -884,6 +974,51 @@
             inset 0 0 0 2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.72)),
             inset 0 0 34px -2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.58)),
             inset 0 0 56px -14px var(--hero-card-rarity-glow, rgba(255, 210, 139, 0.34));
+    }
+}
+
+@keyframes hero-card-home-legendary-aura {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 0.9px rgba(236, 201, 140, 0.12),
+            inset 0 0 10px -3px rgba(120, 54, 36, 0.08),
+            inset 0 0 24px -16px rgba(236, 201, 140, 0.04);
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 2.8px rgba(161, 88, 58, 0.8),
+            inset 0 0 42px -3px rgba(161, 88, 58, 0.56),
+            inset 0 0 76px -10px rgba(236, 201, 140, 0.28);
+    }
+}
+
+@keyframes hero-card-home-common-aura {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 0.8px rgba(160, 160, 160, 0.07),
+            inset 0 0 10px -3px rgba(160, 160, 160, 0.04),
+            inset 0 0 18px -16px rgba(160, 160, 160, 0.02);
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 2px rgba(160, 160, 160, 0.46),
+            inset 0 0 28px -2px rgba(160, 160, 160, 0.32),
+            inset 0 0 42px -12px rgba(160, 160, 160, 0.14);
+    }
+}
+
+@keyframes hero-card-home-rare-aura {
+    0%, 100% {
+        box-shadow:
+            inset 0 0 0 0.8px rgba(163, 53, 238, 0.09),
+            inset 0 0 10px -3px rgba(163, 53, 238, 0.05),
+            inset 0 0 18px -16px rgba(163, 53, 238, 0.03);
+    }
+    50% {
+        box-shadow:
+            inset 0 0 0 2.1px rgba(163, 53, 238, 0.66),
+            inset 0 0 30px -2px rgba(163, 53, 238, 0.42),
+            inset 0 0 46px -12px rgba(163, 53, 238, 0.18);
     }
 }
 
@@ -982,6 +1117,12 @@
 .hero-card > .hero-avatar-portrait .hero-avatar-image {
     object-position: center 18%;
     transform: translateY(8px);
+}
+
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card > .hero-avatar-portrait .hero-avatar-image {
+    object-position: center top;
+    transform: translateY(0) scale(1.22);
+    transform-origin: center top;
 }
 
 .hero-name {
@@ -4934,7 +5075,8 @@ html.is-short-height .hero-preview-modal.hero-command-modal-shell .hero-team-gri
     opacity: 0;
 }
 
-.rare-reward-reveal-backdrop.is-reveal .rare-reward-panel-hero::before {
+.rare-reward-reveal-backdrop.is-reveal .rare-reward-panel-hero::before,
+.rare-reward-reveal-backdrop.is-reveal .rare-reward-panel-equipment::before {
     border-color: var(--rare-reward-color-edge);
     box-shadow:
         inset 0 0 0 1px var(--rare-reward-color-edge),

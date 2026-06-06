@@ -8,6 +8,7 @@ type CatalogType =
   | 'resources'
   | 'items'
   | 'equipment'
+  | 'heroes'
   | 'gachaPools'
   | 'shelterBuildings'
   | 'dungeonChapters'
@@ -23,6 +24,7 @@ interface CatalogOverrides {
   resources: Record<string, any>;
   items: Record<string, any>;
   equipment: Record<string, any>;
+  heroes: Record<string, any>;
   gachaPools: Record<string, any>;
   shelterBuildings: Record<string, any>;
   dungeonChapters: Record<string, any>;
@@ -79,6 +81,22 @@ const LEGACY_EQUIPMENT_SLOT_MAP: Record<string, string> = {
   armor: 'clothes',
 };
 
+const HERO_BASE_STAT_KEYS = [
+  'hp',
+  'attack',
+  'defense',
+  'speed',
+  'crit',
+  'antiCrit',
+  'defensePen',
+  'accuracy',
+  'dodge',
+  'attackRange',
+  'moveRange',
+];
+
+const HERO_RARITIES = new Set(['common', 'rare', 'epic', 'legendary']);
+
 @Injectable()
 export class GmCatalogService {
   private readonly rootDir = path.resolve(__dirname, '../../../../');
@@ -106,6 +124,7 @@ export class GmCatalogService {
       resources: catalog.resources,
       items: catalog.items,
       equipment: catalog.equipment,
+      heroes: catalog.heroes,
       gachaPools: catalog.gachaPools,
       shelterBuildings: catalog.shelterBuildings,
       dungeonChapters: catalog.dungeonChapters,
@@ -130,6 +149,9 @@ export class GmCatalogService {
     this.assertCatalogType(targetType);
     const catalog = await this.getCatalog();
     const current = this.findEntry(catalog, targetType, cleanId) || {};
+    if (targetType === 'heroes' && !current?.id) {
+      throw new BadRequestException('Hero entry does not exist');
+    }
     const mergedEntry = {
       ...current,
       ...data,
@@ -219,6 +241,7 @@ export class GmCatalogService {
         'resources',
         'items',
         'equipment',
+        'heroes',
         'gachaPools',
         'shelterBuildings',
         'dungeonChapters',
@@ -245,6 +268,9 @@ export class GmCatalogService {
     }
     if (type === 'equipment') {
       return 'equipment';
+    }
+    if (type === 'heroes') {
+      return 'hero';
     }
     if (type === 'gachaPools') {
       return 'gachaPool';
@@ -309,6 +335,10 @@ export class GmCatalogService {
       delete normalized.stats;
       delete normalized.stackLimit;
       delete normalized.effect;
+    }
+
+    if (type === 'heroes') {
+      Object.assign(normalized, this.normalizeHeroEntry(normalized));
     }
 
     if (type === 'gachaPools') {
@@ -405,6 +435,230 @@ export class GmCatalogService {
     };
   }
 
+  private normalizeHeroEntry(entry: Record<string, any>) {
+    const rarityRaw = String(entry?.rarity || 'common').trim().toLowerCase();
+    const rarity = HERO_RARITIES.has(rarityRaw) ? rarityRaw : 'common';
+    const baseStatsSource =
+      entry?.baseStats && typeof entry.baseStats === 'object' && !Array.isArray(entry.baseStats)
+        ? entry.baseStats
+        : {};
+    const baseStats = HERO_BASE_STAT_KEYS.reduce<Record<string, number>>((acc, key) => {
+      const value = Number(baseStatsSource[key]);
+      if (Number.isFinite(value)) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+
+    // ----- skills[] 文字字段合并(只动 name/description,机制字段保留) -----
+    const skills = Array.isArray(entry?.skills)
+      ? entry.skills.filter(Boolean).map((skill: any) => ({ ...skill }))
+      : entry?.skill
+        ? [{ ...entry.skill }]
+        : [];
+
+    // 兼容旧字段:primarySkillName / primarySkillDescription 优先级最高
+    const primarySkillName =
+      entry?.primarySkillName !== undefined
+        ? String(entry.primarySkillName || '').trim()
+        : undefined;
+    const primarySkillDescription =
+      entry?.primarySkillDescription !== undefined
+        ? String(entry.primarySkillDescription || '').trim()
+        : undefined;
+    if ((primarySkillName !== undefined || primarySkillDescription !== undefined) && skills.length > 0) {
+      skills[0] = {
+        ...skills[0],
+        ...(primarySkillName !== undefined ? { name: primarySkillName } : {}),
+        ...(primarySkillDescription !== undefined ? { description: primarySkillDescription } : {}),
+      };
+    } else if (primarySkillName || primarySkillDescription) {
+      skills[0] = { name: primarySkillName || '', description: primarySkillDescription || '' };
+    }
+
+    // 新接口:skills 数组的每条都接 name/description 文本(机制字段不动)
+    if (Array.isArray(entry?.skillTexts)) {
+      entry.skillTexts.forEach((text: any, index: number) => {
+        if (!text || typeof text !== 'object') return;
+        if (!skills[index]) return;
+        if (text.name !== undefined) skills[index].name = String(text.name || '').trim();
+        if (text.description !== undefined) skills[index].description = String(text.description || '').trim();
+      });
+    }
+
+    // ----- passiveEffects[i].name 文字字段合并 -----
+    const passiveEffects = Array.isArray(entry?.passiveEffects)
+      ? entry.passiveEffects.filter(Boolean).map((eff: any) => ({ ...eff }))
+      : [];
+    if (Array.isArray(entry?.passiveEffectTexts)) {
+      entry.passiveEffectTexts.forEach((text: any, index: number) => {
+        if (!text || typeof text !== 'object' || !passiveEffects[index]) return;
+        if (text.name !== undefined) passiveEffects[index].name = String(text.name || '').trim();
+        if (text.description !== undefined) passiveEffects[index].description = String(text.description || '').trim();
+        if (text.targetDescription !== undefined) {
+          passiveEffects[index].targetDescription = String(text.targetDescription || '').trim();
+        }
+      });
+    }
+
+    // ----- basicAttackEffects[i].name -----
+    const basicAttackEffects = Array.isArray(entry?.basicAttackEffects)
+      ? entry.basicAttackEffects.filter(Boolean).map((eff: any) => ({ ...eff }))
+      : [];
+    if (Array.isArray(entry?.basicAttackEffectTexts)) {
+      entry.basicAttackEffectTexts.forEach((text: any, index: number) => {
+        if (!text || typeof text !== 'object' || !basicAttackEffects[index]) return;
+        if (text.name !== undefined) basicAttackEffects[index].name = String(text.name || '').trim();
+      });
+    }
+
+    // ----- reactiveEffects[i].name -----
+    const reactiveEffects = Array.isArray(entry?.reactiveEffects)
+      ? entry.reactiveEffects.filter(Boolean).map((eff: any) => ({ ...eff }))
+      : [];
+    if (Array.isArray(entry?.reactiveEffectTexts)) {
+      entry.reactiveEffectTexts.forEach((text: any, index: number) => {
+        if (!text || typeof text !== 'object' || !reactiveEffects[index]) return;
+        if (text.name !== undefined) reactiveEffects[index].name = String(text.name || '').trim();
+      });
+    }
+
+    // ----- specialTraits 文字字段(name/summary + traits[] + track[] + stages[]) -----
+    const specialTraits =
+      entry?.specialTraits && typeof entry.specialTraits === 'object' && !Array.isArray(entry.specialTraits)
+        ? this.cloneSpecialTraits(entry.specialTraits)
+        : null;
+    const specialTraitTexts = entry?.specialTraitTexts;
+    if (specialTraits && specialTraitTexts && typeof specialTraitTexts === 'object') {
+      if (specialTraitTexts.name !== undefined) {
+        specialTraits.name = String(specialTraitTexts.name || '').trim();
+      }
+      if (specialTraitTexts.summary !== undefined) {
+        specialTraits.summary = String(specialTraitTexts.summary || '').trim();
+      }
+      if (Array.isArray(specialTraitTexts.traits) && Array.isArray(specialTraits.traits)) {
+        specialTraitTexts.traits.forEach((text: any, index: number) => {
+          if (!text || typeof text !== 'object' || !specialTraits.traits[index]) return;
+          if (text.name !== undefined) {
+            specialTraits.traits[index].name = String(text.name || '').trim();
+          }
+          if (text.description !== undefined) {
+            specialTraits.traits[index].description = String(text.description || '').trim();
+          }
+        });
+      }
+      if (Array.isArray(specialTraitTexts.track) && Array.isArray(specialTraits.track)) {
+        specialTraitTexts.track.forEach((text: any, index: number) => {
+          if (!text || typeof text !== 'object' || !specialTraits.track[index]) return;
+          if (text.label !== undefined) {
+            specialTraits.track[index].label = String(text.label || '').trim();
+          }
+          if (text.description !== undefined) {
+            specialTraits.track[index].description = String(text.description || '').trim();
+          }
+        });
+      }
+      if (Array.isArray(specialTraitTexts.stages) && Array.isArray(specialTraits.stages)) {
+        specialTraitTexts.stages.forEach((text: any, index: number) => {
+          if (!text || typeof text !== 'object' || !specialTraits.stages[index]) return;
+          if (text.title !== undefined) {
+            specialTraits.stages[index].title = String(text.title || '').trim();
+          }
+          if (text.description !== undefined) {
+            specialTraits.stages[index].description = String(text.description || '').trim();
+          }
+        });
+      }
+      // battleGrowth.skills[i].stages[j].description 同步
+      if (
+        specialTraitTexts.battleGrowth &&
+        typeof specialTraitTexts.battleGrowth === 'object' &&
+        specialTraits.battleGrowth &&
+        typeof specialTraits.battleGrowth === 'object'
+      ) {
+        this.applyBattleGrowthTexts(specialTraits.battleGrowth, specialTraitTexts.battleGrowth);
+      }
+    }
+
+    const result: Record<string, any> = {
+      id: String(entry?.id || '').trim(),
+      name: String(entry?.name || '').trim(),
+      rarity,
+      profession: entry?.profession ? String(entry.profession).trim() : '',
+      professionIcon: entry?.professionIcon ?? null,
+      portrait: entry?.portrait ? String(entry.portrait).trim() : '',
+      cardPortrait: entry?.cardPortrait ? String(entry.cardPortrait).trim() : '',
+      description: String(entry?.description || '').trim(),
+      baseStats,
+      skills,
+      skill: skills[0] || null,
+    };
+    if (passiveEffects.length > 0) result.passiveEffects = passiveEffects;
+    if (basicAttackEffects.length > 0) result.basicAttackEffects = basicAttackEffects;
+    if (reactiveEffects.length > 0) result.reactiveEffects = reactiveEffects;
+    if (specialTraits) result.specialTraits = specialTraits;
+    if (entry?.icon !== undefined) result.icon = String(entry.icon || '').trim();
+    if (entry?.attackCoefficient !== undefined && Number.isFinite(Number(entry.attackCoefficient))) {
+      result.attackCoefficient = Number(entry.attackCoefficient);
+    }
+    return result;
+  }
+
+  private cloneSpecialTraits(specialTraits: any): any {
+    if (!specialTraits || typeof specialTraits !== 'object') return null;
+    const next: any = { ...specialTraits };
+    if (Array.isArray(specialTraits.traits)) {
+      next.traits = specialTraits.traits.map((trait: any) => ({ ...(trait || {}) }));
+    }
+    if (Array.isArray(specialTraits.track)) {
+      next.track = specialTraits.track.map((stage: any) => ({ ...(stage || {}) }));
+    }
+    if (Array.isArray(specialTraits.stages)) {
+      next.stages = specialTraits.stages.map((stage: any) => ({ ...(stage || {}) }));
+    }
+    if (specialTraits.battleGrowth && typeof specialTraits.battleGrowth === 'object') {
+      next.battleGrowth = this.cloneBattleGrowth(specialTraits.battleGrowth);
+    }
+    return next;
+  }
+
+  private cloneBattleGrowth(battleGrowth: any): any {
+    if (!battleGrowth || typeof battleGrowth !== 'object') return battleGrowth;
+    const next: any = { ...battleGrowth };
+    ['skills', 'passiveEffects', 'basicAttackEffects', 'reactiveEffects'].forEach((key) => {
+      if (!Array.isArray(battleGrowth[key])) return;
+      next[key] = battleGrowth[key].map((entry: any) => {
+        const cloned = { ...(entry || {}) };
+        if (Array.isArray(entry?.stages)) {
+          cloned.stages = entry.stages.map((stage: any) => ({ ...(stage || {}) }));
+        }
+        return cloned;
+      });
+    });
+    return next;
+  }
+
+  private applyBattleGrowthTexts(growth: any, texts: any) {
+    if (!growth || !texts) return;
+    ['skills', 'passiveEffects', 'basicAttackEffects', 'reactiveEffects'].forEach((key) => {
+      if (!Array.isArray(growth[key]) || !Array.isArray(texts[key])) return;
+      texts[key].forEach((entryTexts: any, entryIndex: number) => {
+        if (!entryTexts || typeof entryTexts !== 'object') return;
+        const growthEntry = growth[key][entryIndex];
+        if (!growthEntry || !Array.isArray(growthEntry.stages)) return;
+        if (!Array.isArray(entryTexts.stages)) return;
+        entryTexts.stages.forEach((stageTexts: any, stageIndex: number) => {
+          if (!stageTexts || typeof stageTexts !== 'object') return;
+          const stage = growthEntry.stages[stageIndex];
+          if (!stage) return;
+          if (stageTexts.description !== undefined) {
+            stage.description = String(stageTexts.description || '').trim();
+          }
+        });
+      });
+    });
+  }
+
   private mergeCatalog(baseCatalog: any, overrides: CatalogOverrides) {
     const catalogOverrides = this.reclassifyLegacyEquipmentOverrides(baseCatalog, overrides);
     const dungeons = this.mergeEntries(baseCatalog.dungeons, catalogOverrides.dungeons, 'dungeon');
@@ -418,17 +672,20 @@ export class GmCatalogService {
       dungeonIds: (chapter.dungeonIds || []).filter((dungeonId: string) => dungeonIds.has(dungeonId)),
     }));
 
+    const shelterBuildings = this.mergeEntries(
+      baseCatalog.shelterBuildings,
+      catalogOverrides.shelterBuildings,
+      'shelterBuilding',
+    ).filter((entry: any) => !['building_farm', 'building_mine', 'building_well'].includes(String(entry?.id || '')));
+
     return {
       success: true,
       resources: this.mergeEntries(baseCatalog.resources, catalogOverrides.resources, 'resource'),
       items: this.mergeEntries(baseCatalog.items, catalogOverrides.items, 'item'),
       equipment: this.mergeEntries(baseCatalog.equipment, catalogOverrides.equipment, 'equipment'),
+      heroes: this.mergeEntries(baseCatalog.heroes, catalogOverrides.heroes, 'hero'),
       gachaPools: this.mergeEntries(baseCatalog.gachaPools, catalogOverrides.gachaPools, 'gachaPool'),
-      shelterBuildings: this.mergeEntries(
-        baseCatalog.shelterBuildings,
-        catalogOverrides.shelterBuildings,
-        'shelterBuilding',
-      ),
+      shelterBuildings,
       dungeonChapters,
       dungeons,
       enemySkills: this.mergeEntries(baseCatalog.enemySkills, catalogOverrides.enemySkills, 'enemySkill'),
@@ -473,6 +730,7 @@ export class GmCatalogService {
       resources: overrides.resources || {},
       items,
       equipment,
+      heroes: overrides.heroes || {},
       gachaPools: overrides.gachaPools || {},
       shelterBuildings: overrides.shelterBuildings || {},
       dungeonChapters: overrides.dungeonChapters || {},
@@ -601,9 +859,13 @@ export class GmCatalogService {
     const legacyEquipment = itemEntries
       .filter((item) => this.isLegacyEquipmentItem(item))
       .map((item) => this.toLegacyEquipmentEntry(item));
-    const heroFragments = this.getHeroList(heroConfig).map((hero: any) =>
-      this.toHeroFragmentItemEntry(hero),
+    const heroes = this.getHeroList(heroConfig).map((hero: any) =>
+      this.normalizeEntry('heroes', {
+        ...hero,
+        category: 'hero',
+      }),
     );
+    const heroFragments = heroes.map((hero: any) => this.toHeroFragmentItemEntry(hero));
 
     const equipment = (Array.isArray(equipmentConfig.templates) ? equipmentConfig.templates : []).map(
       (template: any) => ({
@@ -676,6 +938,7 @@ export class GmCatalogService {
       resources,
       items: [...items, ...heroFragments],
       equipment: [...equipment, ...legacyEquipment],
+      heroes,
       gachaPools,
       shelterBuildings,
       dungeonChapters,
@@ -940,6 +1203,30 @@ export class GmCatalogService {
     if (levelEntry?.statBonus !== undefined) {
       normalized.statBonus = Math.max(0, Number(levelEntry.statBonus) || 0);
     }
+    if (Array.isArray(levelEntry?.reforgeUnlockStats)) {
+      normalized.reforgeUnlockStats = levelEntry.reforgeUnlockStats
+        .map((statKey: any) => String(statKey || '').trim())
+        .filter((statKey: string) => Boolean(statKey));
+    }
+    if (levelEntry?.reforgeBonus !== undefined) {
+      normalized.reforgeBonus = Math.max(0, Number(levelEntry.reforgeBonus) || 0);
+    }
+    if (levelEntry?.td || levelEntry?.tdWeaponDamageMultiplier !== undefined) {
+      normalized.td = {
+        weaponDamageMultiplier: Math.max(
+          0.1,
+          Number(levelEntry?.td?.weaponDamageMultiplier ?? levelEntry?.tdWeaponDamageMultiplier ?? 1) || 1,
+        ),
+        weaponAttackSpeedMultiplier: Math.max(
+          0.1,
+          Number(levelEntry?.td?.weaponAttackSpeedMultiplier ?? levelEntry?.tdWeaponAttackSpeedMultiplier ?? 0.5) || 0.5,
+        ),
+        enemySpawnMultiplier: Math.max(
+          0.1,
+          Number(levelEntry?.td?.enemySpawnMultiplier ?? levelEntry?.tdEnemySpawnMultiplier ?? 1) || 1,
+        ),
+      };
+    }
     const backgroundVideo = String(
       levelEntry?.backgroundVideo || levelEntry?.videoSrc || levelEntry?.sceneVideo || '',
     ).trim();
@@ -1008,6 +1295,7 @@ export class GmCatalogService {
       battlefield: this.normalizeBattlefield(entry?.battlefield),
       initialEnemies: this.normalizeDungeonEnemies(entry?.initialEnemies || entry?.enemies),
       bossWaves: this.normalizeBossWaves(entry?.bossWaves, entry?.id),
+      storyDialogues: Array.isArray(entry?.storyDialogues) ? entry.storyDialogues : undefined,
     };
   }
 
@@ -1433,6 +1721,7 @@ export class GmCatalogService {
         resources: parsed.resources || {},
         items: parsed.items || {},
         equipment: parsed.equipment || {},
+        heroes: parsed.heroes || {},
         gachaPools: parsed.gachaPools || {},
         shelterBuildings: parsed.shelterBuildings || {},
         dungeonChapters: parsed.dungeonChapters || {},
@@ -1452,6 +1741,7 @@ export class GmCatalogService {
         resources: {},
         items: {},
         equipment: {},
+        heroes: {},
         gachaPools: {},
         shelterBuildings: {},
         dungeonChapters: {},

@@ -11,6 +11,8 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
   private readonly playerSavesCollectionName: string;
   private readonly playerMailsCollectionName: string;
   private readonly cdkeysCollectionName: string;
+  private readonly operationConfigCollectionName: string;
+  private readonly auditLogsCollectionName: string;
 
   constructor(private readonly configService: ConfigService) {
     const uri =
@@ -31,6 +33,10 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
       this.configService.get<string>('MONGODB_MAIL_COLLECTION') || 'playermails';
     this.cdkeysCollectionName =
       this.configService.get<string>('MONGODB_CDKEY_COLLECTION') || 'cdkeys';
+    this.operationConfigCollectionName =
+      this.configService.get<string>('MONGODB_OPERATION_CONFIG_COLLECTION') || 'operationconfigs';
+    this.auditLogsCollectionName =
+      this.configService.get<string>('MONGODB_AUDITLOGS_COLLECTION') || 'auditlogs';
 
     this.client = new MongoClient(uri);
   }
@@ -45,6 +51,13 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
       this.playerSaves().createIndex({ accountId: 1 }, { unique: true }),
       this.playerMails().createIndex({ accountId: 1 }),
       this.cdkeys().createIndex({ code: 1 }, { unique: true }),
+      this.auditLogs().createIndex({ accountId: 1, createdAt: -1 }),
+      this.auditLogs().createIndex({ type: 1, createdAt: -1 }),
+      // TTL 索引：90 天后自动删除（MongoDB 仅对 BSON Date 字段生效，所以 writeLog 必须写入 Date 对象）
+      this.auditLogs().createIndex(
+        { createdAt: 1 },
+        { expireAfterSeconds: 90 * 24 * 3600 },
+      ),
     ]);
   }
 
@@ -66,6 +79,14 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
 
   cdkeys() {
     return this.collection(this.cdkeysCollectionName);
+  }
+
+  operationConfigs() {
+    return this.collection(this.operationConfigCollectionName);
+  }
+
+  auditLogs() {
+    return this.collection(this.auditLogsCollectionName);
   }
 
   async findOne<T extends Document>(collection: Collection<T>, where: Filter<T>) {

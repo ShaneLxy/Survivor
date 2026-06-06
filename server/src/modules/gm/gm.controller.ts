@@ -43,6 +43,23 @@ export class GmController {
     return this.catalogService.getPublicCatalog();
   }
 
+  @Get('operation/public')
+  getPublicOperationConfig() {
+    return this.gmService.getOperationConfig();
+  }
+
+  @Get('operation')
+  @UseGuards(GmAuthGuard)
+  getOperationConfig() {
+    return this.gmService.getOperationConfig();
+  }
+
+  @Put('operation')
+  @UseGuards(GmAuthGuard)
+  updateOperationConfig(@Body() body: any) {
+    return this.gmService.updateOperationConfig(body);
+  }
+
   @Post('catalog/:type/batch')
   @UseGuards(GmAuthGuard)
   upsertCatalogEntries(
@@ -72,6 +89,7 @@ export class GmController {
       | 'resources'
       | 'items'
       | 'equipment'
+      | 'heroes'
       | 'gachaPools'
       | 'shelterBuildings'
       | 'dungeonChapters'

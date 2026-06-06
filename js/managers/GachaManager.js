@@ -8,12 +8,73 @@ class GachaManager {
         }
         this.currentPool = 'hero_pool';
         this.poolValidationReport = null;
+        // 保底:每池单独计数，连续未出史诗的次数；满 50 时强制出一发史诗
+        this.PITY_THRESHOLD = 50;
+        this.pityCounters = { hero_pool: 0, equipment_pool: 0 };
         GachaManager.instance = this;
     }
 
-    init() {
+    init(savedData) {
         this.currentPool = 'hero_pool';
+        this.pityCounters = { hero_pool: 0, equipment_pool: 0 };
+        if (savedData && typeof savedData === 'object') {
+            if (savedData.currentPool && GachaConfig.getPoolConfig(savedData.currentPool)) {
+                this.currentPool = savedData.currentPool;
+            }
+            if (savedData.pityCounters && typeof savedData.pityCounters === 'object') {
+                Object.keys(this.pityCounters).forEach((poolId) => {
+                    const val = Number(savedData.pityCounters[poolId]);
+                    if (Number.isFinite(val) && val >= 0) {
+                        this.pityCounters[poolId] = Math.min(Math.floor(val), this.PITY_THRESHOLD);
+                    }
+                });
+            }
+        }
         this.poolValidationReport = GachaConfig.validatePools?.() || null;
+    }
+
+    getPityState(poolId = this.currentPool) {
+        const current = this.pityCounters[poolId] || 0;
+        const threshold = this.PITY_THRESHOLD;
+        return {
+            poolId,
+            current,
+            threshold,
+            remaining: Math.max(0, threshold - current),
+            percent: Math.min(100, (current / threshold) * 100)
+        };
+    }
+
+    _isEpicOrAbove(rarity) {
+        return rarity === 'epic' || rarity === 'legendary';
+    }
+
+    /**
+     * 保底判定：仅
+     *  - 英雄池(hero_pool) 命中"史诗或更高的完整英雄(type='hero')"算数；史诗碎片/史诗道具不算
+     *  - 装备池(equipment_pool) 命中"史诗或更高品质的装备(type='equipment')"算数；史诗道具不算
+     */
+    _isPityHittingReward(poolId, reward) {
+        if (!reward) return false;
+        if (!this._isEpicOrAbove(reward.rarity)) return false;
+        if (poolId === 'hero_pool') {
+            return reward.type === 'hero';
+        }
+        if (poolId === 'equipment_pool') {
+            return reward.type === 'equipment';
+        }
+        return false;
+    }
+
+    _bumpPity(poolId, reward) {
+        if (!this.pityCounters.hasOwnProperty(poolId)) {
+            return;
+        }
+        if (this._isPityHittingReward(poolId, reward)) {
+            this.pityCounters[poolId] = 0;
+        } else {
+            this.pityCounters[poolId] = Math.min(this.PITY_THRESHOLD, (this.pityCounters[poolId] || 0) + 1);
+        }
     }
 
     setPool(poolId) {
@@ -154,11 +215,27 @@ class GachaManager {
             return { success: false, message: `${costLabel}不足，需要 ${cost?.amount || 0}` };
         }
 
+        // 失败回滚保护：先记录原 pity，后续如果库存/扣费失败需还原
+        const pityBackup = this.pityCounters[poolId] || 0;
         const results = [];
+        const pityTriggered = [];
         for (let index = 0; index < count; index++) {
-            const reward = this.drawRewardWithRetry(poolId);
+            const currentPity = this.pityCounters[poolId] || 0;
+            let reward = this.drawRewardWithRetry(poolId);
+            const wouldHitPity = currentPity + 1 >= this.PITY_THRESHOLD;
+            const isAlreadyPityHitting = this._isPityHittingReward(poolId, reward);
+
+            if (wouldHitPity && !isAlreadyPityHitting) {
+                const forced = GachaConfig.createForcedEpicResult?.(poolId);
+                if (forced) {
+                    reward = forced;
+                    pityTriggered.push(index);
+                }
+            }
+
             if (reward) {
                 results.push(reward);
+                this._bumpPity(poolId, reward);
             }
         }
 
@@ -168,15 +245,17 @@ class GachaManager {
 
         const inventoryCheck = this.canAcceptResults(results);
         if (!inventoryCheck.success) {
+            this.pityCounters[poolId] = pityBackup; // 回滚保底进度
             return { success: false, message: inventoryCheck.message || '背包容量达到上限' };
         }
 
         if (!this.consumePayment(cost)) {
+            this.pityCounters[poolId] = pityBackup; // 回滚保底进度
             return { success: false, message: `${costLabel}不足，需要 ${cost?.amount || 0}` };
         }
 
-        eventManager.emit('gachaPull', { poolId, results, cost });
-        return { success: true, poolId, results, cost };
+        eventManager.emit('gachaPull', { poolId, results, cost, pityTriggered });
+        return { success: true, poolId, results, cost, pityTriggered, pityState: this.getPityState(poolId) };
     }
 
     addResults(results) {
@@ -244,7 +323,8 @@ class GachaManager {
 
     getSaveData() {
         return {
-            currentPool: this.currentPool
+            currentPool: this.currentPool,
+            pityCounters: { ...this.pityCounters }
         };
     }
 }

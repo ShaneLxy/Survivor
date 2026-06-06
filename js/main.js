@@ -39,10 +39,19 @@ class Game {
         this.gameReady = false; // 游戏是否已经完成初始化
         this.loadingOverlay = null;
         this.loadingOverlayHideTimer = null;
+        this.eventsBound = false;
     }
 
     resolveAssetUrl(path) {
         return window.VersionManager?.getVersionedAssetUrl?.(path) || path;
+    }
+
+    preloadHeroCardPortraits() {
+        const heroConfigs = HeroConfig.getAllHeroes?.() || [];
+        if (!heroConfigs.length || !this.ui?.heroView?.preloadHeroPortraits) {
+            return;
+        }
+        this.ui.heroView.preloadHeroPortraits(heroConfigs);
     }
 
     async init() {
@@ -60,7 +69,7 @@ class Game {
         await window.GmCatalogSync?.load?.();
 
         // 强制每次打开都重新登录：清除本地登录状态
-        authService.logout();
+        authService.logout({ exitCompliance: false });
 
         // 初始化 HttpClient（设置 API 基地址等）
         await authService.init();
@@ -94,6 +103,9 @@ class Game {
             } else {
                 this.initNewGame();
             }
+
+            this.updateGameLoadingOverlay('\u9884\u52a0\u8f7d\u82f1\u96c4\u7acb\u7ed8', 58);
+            this.preloadHeroCardPortraits();
 
             audioManager.setMuted(this.settings.muted);
             this.updateGameLoadingOverlay('\u6574\u7406\u79bb\u7ebf\u6536\u76ca', 64);
@@ -144,6 +156,12 @@ class Game {
                     </div>
                     <div class="game-loading-percent">0%</div>
                 </div>
+                <div class="game-health-advice game-loading-health-advice">
+                    <div>抵制不良游戏，拒绝盗版游戏。</div>
+                    <div>注意自我保护，谨防受骗上当。</div>
+                    <div>适度游戏益脑，沉迷游戏伤身。</div>
+                    <div>合理安排时间，享受健康生活。</div>
+                </div>
             `;
             document.body.appendChild(overlay);
         }
@@ -183,6 +201,22 @@ class Game {
                 }
             }, 360);
         }, Math.max(0, Number(delay) || 0));
+    }
+
+    showBattleLoadingOverlay(message = '读取战场资源', progress = 0) {
+        this.showGameLoadingOverlay({
+            title: '正在奔赴战场',
+            message,
+            progress
+        });
+    }
+
+    updateBattleLoadingOverlay(message, progress = 0) {
+        this.updateGameLoadingOverlay(message, progress, '正在奔赴战场');
+    }
+
+    hideBattleLoadingOverlay(delay = 180) {
+        this.hideGameLoadingOverlay(delay);
     }
 
     applyLegacyMigrations() {
@@ -330,6 +364,10 @@ class Game {
     }
 
     bindEvents() {
+        if (this.eventsBound) {
+            return;
+        }
+        this.eventsBound = true;
         eventManager.on('viewChange', data => this.switchView(data.view));
         eventManager.on('enterBattle', async data => {
             this.switchView('battle');

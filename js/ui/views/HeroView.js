@@ -3,6 +3,7 @@
  */
 class HeroView {
     constructor() {
+        this.preloadedPortraitUrls = new Set();
         this.element = document.getElementById('main-display');
         this.visible = false;
         this.teamModal = null;
@@ -113,6 +114,7 @@ class HeroView {
                 </div>
             </div>
         `;
+        this.preloadHeroPortraits(allHeroes);
         this.renderHeroes();
     }
 
@@ -516,6 +518,7 @@ class HeroView {
             grid.innerHTML = '<div class="hero-grid-empty">暂无英雄，快去招募吧！</div>';
             return;
         }
+        this.preloadHeroPortraits(heroes);
         heroes.forEach(hero => {
             const card = new HeroCard({
                 hero,
@@ -600,9 +603,15 @@ class HeroView {
             if (!portrait) {
                 return;
             }
+            const resolvedPortrait = this.resolveAbsoluteAssetUrl(portrait);
+            if (!resolvedPortrait || this.preloadedPortraitUrls.has(resolvedPortrait)) {
+                return;
+            }
+            this.preloadedPortraitUrls.add(resolvedPortrait);
             const image = new Image();
             image.decoding = 'async';
-            image.src = this.resolveAssetUrl(portrait);
+            image.loading = 'eager';
+            image.src = resolvedPortrait;
         });
     }
 
@@ -1323,5 +1332,4 @@ class HeroView {
 
 const heroView = new HeroView();
 window.heroView = heroView;
-
 

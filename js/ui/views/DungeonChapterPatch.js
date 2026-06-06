@@ -128,7 +128,13 @@
         const prevChapter = this.getAdjacentChapter(-1);
         const nextChapter = this.getAdjacentChapter(1);
         const stageCount = selectedChapter?.dungeons?.length || 0;
-        const background = selectedChapter?.background || window.GameSceneBackgrounds?.dungeon?.src || '';
+        // 路径标准化：CSS 变量里的相对路径会被浏览器按 CSS 文件位置解析（导致 /css/assets/...）
+        const toAbsolute = (path) => {
+            const str = String(path || '').trim();
+            if (!str || /^(?:https?:|data:|blob:|\/)/i.test(str)) return str;
+            return '/' + str.replace(/^\.\//, '');
+        };
+        const background = toAbsolute(selectedChapter?.background || window.GameSceneBackgrounds?.dungeon?.src || '');
 
         this.element.innerHTML = `
             <div class="scene-view dungeon-view dungeon-view-chapter" style="--chapter-bg:url('${background}')">

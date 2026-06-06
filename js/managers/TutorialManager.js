@@ -18,6 +18,7 @@ class TutorialManager {
         this.promotedContainers = [];
         this.pendingCompletionStepIndex = null;
         this.waitingForRewardDialog = false;
+        this.stepStateWatcher = null;
         this.replayMode = false;
         this.persistedState = {};
         this.activeModalOverlay = null;
@@ -28,31 +29,50 @@ class TutorialManager {
     createSteps() {
         return [
             {
-                id: 'shelter_open_buildings',
+                id: 'welcome',
                 view: 'shelter',
-                target: '[data-shelter-action="building_menu"], .shelter-building-card, .building-card',
-                title: '先认识避难所',
-                description: '建筑会持续生产资源。先点开建筑列表，看一眼农场、矿场和水井。',
-                waitEvent: 'tutorial:shelterBuildingMenuOpen',
-                closeRewardModalAfterComplete: true
+                target: null,
+                title: '指挥官，欢迎归来',
+                description: '72号避难所已经沉睡太久。现在，让我带您重新熟悉这里的一切——从监控系统到战备资源，每一个环节都关乎我们的生存。',
+                skipHighlight: true,
+                autoAdvanceAfterMs: 3000,
+                prepare: () => {
+                    // 3 秒后自动进入下一步
+                    setTimeout(() => {
+                        if (this.isActiveStep('welcome')) {
+                            this.currentStepIndex += 1;
+                            this.showStep();
+                        }
+                    }, 3000);
+                    return true;
+                }
+            },
+            {
+                id: 'shelter_monitor_tap',
+                view: 'shelter',
+                target: '.shelter-td-wrapper canvas',
+                title: '先看看避难所监控',
+                description: '这里会持续抵御外部敌人，并累积挂机收益。先点击一次监控区，感受它的互动反馈。',
+                waitEvent: 'tutorial:shelterMonitorTapped'
             },
             {
                 id: 'shelter_collect',
                 view: 'shelter',
-                target: '[data-shelter-action="collect_all"], .collect-all',
-                title: '领取一次产出',
-                description: '这里可以统一收取建筑产出。新手阶段已为你准备好一份可领取资源。',
+                target: '.shelter-td-wrapper canvas',
+                title: '领取一次监控补给',
+                description: '点击右上角宝箱，领取一次挂机收益。后续你也可以在这里定期收取资源和稀有奖励。',
                 waitEvent: 'shelterProductionCollect',
                 prepare: () => this.ensureShelterCollectReady(),
+                afterComplete: () => this.setStateFlag('shelterCollectClaimed'),
                 closeRewardModalAfterComplete: true,
-                replaySkipWhen: () => this.isReplayMode() || this.hasStateFlag('shelterCollectPrimed')
+                replaySkipWhen: () => this.isReplayMode() || this.hasStateFlag('shelterCollectClaimed')
             },
             {
                 id: 'recruit_enter',
                 view: 'shelter',
                 target: '[data-tab="recruit"]',
                 title: '前往招募中心',
-                description: '接下来补充第一名伙伴和第一件武器。',
+                description: '接下来补齐第一名英雄和第一件武器，准备真正开始战斗。',
                 waitView: 'recruit'
             },
             {
@@ -69,7 +89,7 @@ class TutorialManager {
                 id: 'recruit_hero',
                 view: 'recruit',
                 target: '[data-pool-id="hero_pool"][data-draw-count="1"], .recruit-draw-button-single, .recruit-draw-button',
-                title: '使用英雄招募券',
+                title: '招募第一名英雄',
                 description: '这次招募会必得英雄“破伤风-断钉”，作为你的第一名出战成员。',
                 waitEvent: 'tutorial:starterHeroReady',
                 prepare: () => this.prepareRecruitPool('hero_pool'),
@@ -92,7 +112,7 @@ class TutorialManager {
                 view: 'recruit',
                 target: '[data-pool-id="equipment_pool"][data-draw-count="1"], .recruit-draw-button-single, .recruit-draw-button',
                 title: '打造第一件装备',
-                description: '切到装备打造，使用装备打造券。首次打造必得“裂木短棒”。',
+                description: '使用装备打造券。首次打造会必得“裂木短棒”。',
                 waitEvent: 'tutorial:starterEquipmentReady',
                 prepare: () => this.prepareRecruitPool('equipment_pool'),
                 closeRewardModalAfterComplete: true,
@@ -128,8 +148,8 @@ class TutorialManager {
                 id: 'hero_open_detail',
                 view: 'hero',
                 target: '.hero-card[data-hero-config-id="hero_020"]',
-                title: '打开断钉档案',
-                description: '回到英雄列表后，点击断钉的英雄卡片，进入他的档案。',
+                title: '打开断钉详情',
+                description: '回到英雄列表后，点击断钉的英雄卡片，进入他的详情。',
                 waitEvent: 'tutorial:starterHeroDetailOpened',
                 prepare: () => this.closeTeamModal(),
                 skipWhen: () => this.isStarterEquipmentEquipped()
@@ -139,7 +159,7 @@ class TutorialManager {
                 view: 'hero',
                 target: '.hero-equipment-button[data-hero-config-id="hero_020"][data-equipment-slot="weapon"]',
                 title: '选择武器槽',
-                description: '在断钉档案的装备区域，点击武器槽位。',
+                description: '在断钉详情里点击武器槽位。',
                 waitEvent: 'tutorial:starterEquipmentSelectionOpened',
                 skipWhen: () => this.isStarterEquipmentEquipped()
             },
@@ -160,7 +180,7 @@ class TutorialManager {
                 id: 'task_enter',
                 view: 'hero',
                 target: '[data-tab="task"]',
-                title: '领取任务奖励',
+                title: '去任务中心',
                 description: '任务中心会告诉你下一步做什么。先去领取一个已经完成的新手任务。',
                 waitView: 'task',
                 prepare: () => this.closeHeroDetail()
@@ -169,7 +189,7 @@ class TutorialManager {
                 id: 'task_claim',
                 view: 'task',
                 target: '.task-card.is-ready .task-claim-btn:not(:disabled)',
-                title: '任务会给你方向',
+                title: '领取任务奖励',
                 description: '领取一个已完成任务的奖励。后面不知道做什么时，就先看任务中心。',
                 waitEvent: 'tutorial:taskRewardClaimed',
                 closeRewardModalAfterComplete: true,
@@ -198,7 +218,7 @@ class TutorialManager {
                 view: 'checkin',
                 target: '.checkin-welfare-card:not(:disabled)',
                 title: '领取一个福利礼包',
-                description: '第一个福利礼包会优先消耗免广告卡，直接获得奖励并累计特权进度。',
+                description: '先领取第一个福利礼包。若背包中有免广告卡，会优先自动消耗并直接获得奖励。',
                 waitEvent: 'tutorial:welfareGiftClaimed',
                 closeRewardModalAfterComplete: true,
                 skipWhen: () => !document.querySelector('.checkin-welfare-card:not(:disabled)')
@@ -225,7 +245,7 @@ class TutorialManager {
                 view: 'dungeon',
                 target: '.chapter-stage-detail-actions .btn-primary',
                 title: '开始第一关',
-                description: '选择第一关并开始战斗。胜利后你就可以自由探索了。',
+                description: '选择第一关并开始战斗。进入战场后，注意站位、障碍和危险区域。',
                 waitEvent: 'enterBattle'
             }
         ];
@@ -435,6 +455,7 @@ class TutorialManager {
         window.removeEventListener('scroll', this.boundSpotlightUpdate, true);
         this.clearGameEventSubscriptions();
         this.clearRewardModalCloseTimers();
+        this.clearStepStateWatcher();
         this.cleanupHighlight();
         this.replayMode = false;
         this.pendingCompletionStepIndex = null;
@@ -462,6 +483,13 @@ class TutorialManager {
     clearRewardModalCloseTimers() {
         this.rewardModalCloseTimers.forEach(timerId => clearTimeout(timerId));
         this.rewardModalCloseTimers = [];
+    }
+
+    clearStepStateWatcher() {
+        if (this.stepStateWatcher) {
+            clearTimeout(this.stepStateWatcher);
+            this.stepStateWatcher = null;
+        }
     }
 
     closeRewardModalsForStep() {
@@ -509,6 +537,7 @@ class TutorialManager {
             this.finish();
             return;
         }
+        this.clearStepStateWatcher();
 
         if (step.replaySkipWhen?.()) {
             this.currentStepIndex += 1;
@@ -536,6 +565,17 @@ class TutorialManager {
 
         await Utils.delay(80);
         this.cleanupHighlight();
+
+        // 如果步骤设置了 skipHighlight，跳过目标查找和高亮逻辑
+        if (step.skipHighlight) {
+            this.activeTarget = null;
+            this.updateSpotlight();
+            this.positionPanel(null);
+            this.renderPanel(step);
+            this.watchStepState(step, stepIndex);
+            return;
+        }
+
         const target = await this.waitForTarget(step.target, stepIndex);
         if (!this.active || this.currentStepIndex !== stepIndex) {
             return;
@@ -557,11 +597,41 @@ class TutorialManager {
         }
 
         this.renderPanel(step);
+        this.watchStepState(step, stepIndex);
 
         if (step.autoComplete?.()) {
             window.setTimeout(() => this.nextStep(), 180);
             return;
         }
+    }
+
+    watchStepState(step, stepIndex) {
+        this.clearStepStateWatcher();
+        if (!step?.skipWhen) {
+            return;
+        }
+        const tick = async () => {
+            if (!this.active || this.currentStepIndex !== stepIndex) {
+                this.clearStepStateWatcher();
+                return;
+            }
+            if (this.pendingCompletionStepIndex === stepIndex) {
+                this.stepStateWatcher = window.setTimeout(tick, 120);
+                return;
+            }
+            let shouldAdvance = false;
+            try {
+                shouldAdvance = Boolean(step.skipWhen?.());
+            } catch (error) {
+                shouldAdvance = false;
+            }
+            if (shouldAdvance) {
+                await this.completeCurrentStep(step);
+                return;
+            }
+            this.stepStateWatcher = window.setTimeout(tick, 120);
+        };
+        this.stepStateWatcher = window.setTimeout(tick, 120);
     }
 
     renderPanel(step) {
@@ -733,19 +803,24 @@ class TutorialManager {
         if (this.hasStateFlag('shelterCollectPrimed')) {
             return;
         }
-        if (!shelterManager.productionTimers) {
+        if (!shelterManager?.ensureTdIdleState) {
             return;
         }
         const now = Date.now();
         const oneHourAgo = now - 3600 * 1000 - 1000;
-        (ShelterManager.PRODUCTION_BUILDING_IDS || []).forEach((buildingId) => {
-            if (shelterManager.getBuilding(buildingId)) {
-                shelterManager.productionTimers[buildingId] = Math.min(
-                    Number(shelterManager.productionTimers[buildingId]) || oneHourAgo,
-                    oneHourAgo
-                );
-            }
-        });
+        shelterManager.ensureTdIdleState(now);
+        shelterManager.tdIdleState.lastCollectAt = Math.min(
+            Number(shelterManager.tdIdleState.lastCollectAt) || oneHourAgo,
+            oneHourAgo
+        );
+        shelterManager.tdIdleState.chestReadyAt = Math.min(
+            Number(shelterManager.tdIdleState.chestReadyAt) || oneHourAgo,
+            oneHourAgo
+        );
+        shelterManager.tdIdleState.chestStored = Math.max(
+            1,
+            Math.min(2, Number(shelterManager.tdIdleState.chestStored) || 0)
+        );
         this.setStateFlag('shelterCollectPrimed');
         window.game.ui.shelterView?.refresh?.();
     }

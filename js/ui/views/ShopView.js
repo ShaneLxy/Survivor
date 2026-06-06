@@ -129,11 +129,13 @@ class ShopView {
     }
 
     getRarityMeta(rarity) {
+        const config = GameConfig.getRarityConfig?.(rarity || 'common') || {};
         const rarityMap = {
-            common: { label: 'COMMON', className: 'common' },
-            rare: { label: 'RARE', className: 'rare' },
-            epic: { label: 'EPIC', className: 'epic' },
-            random: { label: 'MIXED', className: 'random' }
+            common: { label: config.name || '普通', className: 'common' },
+            rare: { label: config.name || '稀有', className: 'rare' },
+            epic: { label: config.name || '史诗', className: 'epic' },
+            legendary: { label: config.name || '传说', className: 'legendary' },
+            random: { label: '随机', className: 'random' }
         };
         return rarityMap[rarity] || rarityMap.common;
     }
@@ -232,8 +234,8 @@ class ShopView {
         return {
             canBuy: true,
             className: 'is-available',
-            label: '已售罄',
-            actionText: '售罄'
+            label: '可购买',
+            actionText: '购买'
         };
     }
     renderShopSurface() {
@@ -300,7 +302,7 @@ class ShopView {
         const filteredItems = this.getFilteredShopItems();
 
         if (countEl) {
-            countEl.textContent = `\${filteredItems.length} \u4ef6\u8865\u7ed9`;
+            countEl.textContent = `${filteredItems.length} 件补给`;
         }
 
         if (filteredItems.length === 0) {
@@ -334,11 +336,11 @@ class ShopView {
                 </div>
                 <div class="shop-item-meta">
                     <div class="shop-item-meta-block">
-                        <span>单价</span>
+                        <span>类别</span>
                         <strong>${this.getTypeLabel(item.type)}</strong>
                     </div>
                     <div class="shop-item-meta-block">
-                        <span>单价</span>
+                        <span>库存</span>
                         <strong>${remaining}/${item.maxBuy}</strong>
                     </div>
                 </div>
@@ -404,7 +406,7 @@ class ShopView {
                 </div>
                 ${needInput ? `
                     <label class="shop-quantity-field">
-                        <span>剩余可购</span>
+                        <span>购买数量</span>
                         <input type="number" id="buy-quantity"
                                min="1" max="${remaining}"
                                value="1"
@@ -412,7 +414,7 @@ class ShopView {
                     </label>
                 ` : ''}
                 <div class="shop-confirm-total">
-                    <span>剩余可购</span>
+                    <span>总价</span>
                     <strong><img class="shop-price-icon shop-price-icon-inline" src="${currencyIconSrc}" alt="${currencyLabel}"><span id="shop-buy-subtotal">${item.price}</span></strong>
                 </div>
             </div>
@@ -478,7 +480,7 @@ class ShopView {
             const totalPrice = item.price * quantity;
             const currencyType = this.getCurrencyType(item);
             if (this.getCurrencyBalance(currencyType) < totalPrice) {
-                Toast.error(`\${this.getCurrencyLabel(currencyType)}\u4e0d\u8db3`);
+                Toast.error(`${this.getCurrencyLabel(currencyType)}不足`);
                 return false;
             }
 
@@ -507,9 +509,9 @@ class ShopView {
             }).filter(Boolean);
 
             await RewardModal.show({
-                title: '确认购买',
+                title: '购买成功',
                 rewards: rewardEntries,
-                summaryText: `\u6d88\u8017 \${totalPrice} \${this.getCurrencyLabel(currencyType)}`
+                summaryText: `消耗 ${totalPrice} ${this.getCurrencyLabel(currencyType)}`
             });
             return true;
         } catch (error) {

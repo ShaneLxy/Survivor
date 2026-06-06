@@ -10,6 +10,44 @@
         window.tutorialManager?.emitTutorialEvent?.(type, payload);
     }
 
+    function watchTutorialCondition(check, onSuccess, timeoutMs = 12000, intervalMs = 60) {
+        let stopped = false;
+        const startedAt = Date.now();
+
+        const tick = () => {
+            if (stopped) {
+                return;
+            }
+            try {
+                if (check()) {
+                    stopped = true;
+                    onSuccess?.();
+                    return;
+                }
+            } catch (error) {
+                stopped = true;
+                return;
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+                stopped = true;
+                return;
+            }
+            window.setTimeout(tick, intervalMs);
+        };
+
+        window.setTimeout(tick, intervalMs);
+        return () => {
+            stopped = true;
+        };
+    }
+
+    function emitMonitorTapOncePerSession() {
+        if (!window.tutorialManager?.isActiveStep?.('shelter_monitor_tap')) {
+            return;
+        }
+        emitTutorial('tutorial:shelterMonitorTapped');
+    }
+
     function hasHero(configId) {
         return heroManager.getAllHeroes().some(hero => hero.configId === configId);
     }
@@ -67,8 +105,7 @@
         setTutorialFlag('starterPackGranted');
         shelterManager.resources = {
             ...shelterManager.resources,
-            gold: 500,
-            diamond: 500
+            gold: 500
         };
         itemManager.addItem('hero_summon', 1);
         itemManager.addItem('weapon_forge_ticket', 1);
@@ -208,11 +245,13 @@
         );
     };
 
-    const originalShelterToggleMenu = ShelterView.prototype.toggleCompactBuildingMenu;
-    ShelterView.prototype.toggleCompactBuildingMenu = function(event) {
-        originalShelterToggleMenu?.call(this, event);
-        emitTutorial('tutorial:shelterBuildingMenuOpen');
-    };
+    if (window.ShelterTD?.ShelterTDScene?.prototype?._handleTap) {
+        const originalShelterTdHandleTap = window.ShelterTD.ShelterTDScene.prototype._handleTap;
+        window.ShelterTD.ShelterTDScene.prototype._handleTap = function() {
+            emitMonitorTapOncePerSession();
+            return originalShelterTdHandleTap.apply(this, arguments);
+        };
+    }
 
     const originalHeroManagerAddToTeam = HeroManager.prototype.addToTeam;
     HeroManager.prototype.addToTeam = function(heroId) {
@@ -279,23 +318,53 @@
     const originalDoCheckin = CheckinView.prototype.doCheckin;
     CheckinView.prototype.doCheckin = async function() {
         const before = checkinManager.getCheckinStatus?.()?.isTodayCheckedIn;
-        const promise = originalDoCheckin.call(this);
-        const after = checkinManager.getCheckinStatus?.()?.isTodayCheckedIn;
-        if (!before && after) {
+        let emitted = false;
+        const emitOnce = () => {
+            if (emitted) {
+                return;
+            }
+            emitted = true;
             emitTutorial('tutorial:checkinClaimed');
+        };
+        const stopWatching = before ? null : watchTutorialCondition(
+            () => Boolean(checkinManager.getCheckinStatus?.()?.isTodayCheckedIn),
+            emitOnce
+        );
+
+        try {
+            return await originalDoCheckin.call(this);
+        } finally {
+            stopWatching?.();
+            if (!before && checkinManager.getCheckinStatus?.()?.isTodayCheckedIn) {
+                emitOnce();
+            }
         }
-        return promise;
     };
 
-    const originalRecordWelfareGiftWatch = CheckinManager.prototype.recordWelfareGiftWatch;
-    CheckinManager.prototype.recordWelfareGiftWatch = function(giftId) {
-        const before = this.getWelfareGiftUsage?.(giftId)?.used || 0;
-        const result = originalRecordWelfareGiftWatch.call(this, giftId);
-        const after = this.getWelfareGiftUsage?.(giftId)?.used || 0;
-        if (after > before) {
+    const originalWatchWelfareGift = CheckinView.prototype.watchWelfareGift;
+    CheckinView.prototype.watchWelfareGift = async function(giftId) {
+        const beforeUsed = checkinManager.getWelfareGiftUsage?.(giftId)?.used || 0;
+        let emitted = false;
+        const emitOnce = () => {
+            if (emitted) {
+                return;
+            }
+            emitted = true;
             emitTutorial('tutorial:welfareGiftClaimed', { giftId });
+        };
+        const stopWatching = watchTutorialCondition(
+            () => (checkinManager.getWelfareGiftUsage?.(giftId)?.used || 0) > beforeUsed,
+            emitOnce
+        );
+
+        try {
+            return await originalWatchWelfareGift.call(this, giftId);
+        } finally {
+            stopWatching?.();
+            if ((checkinManager.getWelfareGiftUsage?.(giftId)?.used || 0) > beforeUsed) {
+                emitOnce();
+            }
         }
-        return result;
     };
 
     const originalOpenChapterStageModal = DungeonView.prototype.openChapterStageModal;

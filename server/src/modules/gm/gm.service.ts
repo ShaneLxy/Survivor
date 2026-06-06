@@ -5,6 +5,8 @@ import * as path from 'path';
 import { MongoService } from '../../shared/mongo/mongo.service';
 import {
   CdkeyDocument,
+  GameOperationAnnouncement,
+  GameOperationConfigDocument,
   MailAttachment,
   PlayerMailDocument,
   UserAccountDocument,
@@ -19,6 +21,103 @@ export class GmService {
   ];
 
   constructor(private readonly mongoService: MongoService) {}
+
+  async getOperationConfig() {
+    const config = await this.loadOperationConfig();
+    return {
+      success: true,
+      config: this.serializeOperationConfig(config),
+    };
+  }
+
+  async updateOperationConfig(body: any) {
+    const now = this.mongoService.nowIso();
+    const current = await this.loadOperationConfig();
+    const next: GameOperationConfigDocument = {
+      ...current,
+      gameStatus: this.normalizeGameStatus(body?.gameStatus),
+      announcements: this.normalizeAnnouncements(body?.announcements),
+      updatedAt: now,
+    };
+
+    await this.mongoService.operationConfigs().updateOne(
+      { _id: 'global' } as any,
+      {
+        $set: {
+          gameStatus: next.gameStatus,
+          announcements: next.announcements,
+          updatedAt: now,
+        },
+        $setOnInsert: {
+          _id: 'global',
+          createdAt: current.createdAt || now,
+        },
+      },
+      { upsert: true },
+    );
+
+    return {
+      success: true,
+      config: this.serializeOperationConfig(next),
+    };
+  }
+
+  private async loadOperationConfig(): Promise<GameOperationConfigDocument> {
+    const now = this.mongoService.nowIso();
+    const doc = (await this.mongoService.findOne(
+      this.mongoService.operationConfigs(),
+      { _id: 'global' } as any,
+    )) as GameOperationConfigDocument | null;
+
+    if (doc) {
+      return {
+        _id: 'global',
+        gameStatus: this.normalizeGameStatus(doc.gameStatus),
+        announcements: this.normalizeAnnouncements(doc.announcements),
+        createdAt: doc.createdAt || now,
+        updatedAt: doc.updatedAt || now,
+      };
+    }
+
+    return {
+      _id: 'global',
+      gameStatus: 'normal',
+      announcements: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  private serializeOperationConfig(config: GameOperationConfigDocument) {
+    return {
+      gameStatus: this.normalizeGameStatus(config.gameStatus),
+      announcements: this.normalizeAnnouncements(config.announcements),
+      updatedAt: config.updatedAt || null,
+    };
+  }
+
+  private normalizeGameStatus(value: any) {
+    return String(value || '').trim() === 'maintenance' ? 'maintenance' : 'normal';
+  }
+
+  private normalizeAnnouncements(value: any): GameOperationAnnouncement[] {
+    const list = Array.isArray(value) ? value : [];
+    return list
+      .slice(0, 3)
+      .map((entry, index) => {
+        const id = String(entry?.id || '').trim() || `announcement_${index + 1}`;
+        const title = String(entry?.title || '').trim().slice(0, 24);
+        const content = String(entry?.content || '').trim().slice(0, 5000);
+        return {
+          id,
+          title,
+          content,
+          order: Number.isFinite(Number(entry?.order)) ? Number(entry.order) : index + 1,
+        };
+      })
+      .filter((entry) => entry.title || entry.content)
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  }
 
   async bumpCacheVersion(rawVersion?: string) {
     const version = this.normalizeBumpVersion(rawVersion);

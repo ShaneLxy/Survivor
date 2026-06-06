@@ -243,9 +243,9 @@ class TopBar {
                         </div>
                     </div>
                     <div class="player-info-toggle-row">
-                        <label class="player-info-toggle">
-                            <input type="checkbox" id="auto-battle-setting" ${window.game.settings.autoBattle ? 'checked' : ''}>
-                            <span>自动战斗</span>
+                        <label class="player-info-toggle ${window.battleManager?.isAutoBattleAllowed?.() ? '' : 'is-disabled'}">
+                            <input type="checkbox" id="auto-battle-setting" ${window.game.settings.autoBattle ? 'checked' : ''} ${window.battleManager?.isAutoBattleAllowed?.() ? '' : 'disabled'}>
+                            <span>自动战斗${window.battleManager?.isAutoBattleAllowed?.() ? '' : '<em class="player-info-toggle-hint">（需卓越特权）</em>'}</span>
                         </label>
                         <label class="player-info-toggle">
                             <input type="checkbox" id="mute-setting" ${window.game.settings.muted ? 'checked' : ''}>

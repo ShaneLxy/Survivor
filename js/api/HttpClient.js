@@ -68,10 +68,10 @@ class HttpClient {
         const sameOriginUrl = /^https?:$/i.test(location.protocol)
             ? `${location.origin.replace(/\/+$/, '')}/api`
             : '';
-        const defaultUrl = configuredUrl || (isLocal ? 'http://127.0.0.1:3000/api' : sameOriginUrl);
-        const storedUrl = localStorage.getItem(this.baseUrlKey);
+        const defaultUrl = configuredUrl || (isLocal ? 'http://127.0.0.1:9000/api' : sameOriginUrl);
+        const storedUrl = String(localStorage.getItem(this.baseUrlKey) || '').trim().replace(/\/+$/, '');
         this.baseUrl = storedUrl || defaultUrl;
-        if (isNativeApp && /127\.0\.0\.1:3000\/api$/i.test(this.baseUrl) && configuredUrl) {
+        if (isNativeApp && configuredUrl) {
             this.baseUrl = configuredUrl;
             localStorage.setItem(this.baseUrlKey, configuredUrl);
         }
@@ -124,8 +124,43 @@ class HttpClient {
         return `${this.baseUrl}${normalizedPath}`;
     }
 
+    isHttpsRequired(url) {
+        // 非 http:// 直接放行（https / capacitor: / file: 等）
+        if (!/^http:\/\//i.test(url)) {
+            return false;
+        }
+        // 允许通过运行时配置或 localStorage 显式放行（局域网真机调试用）
+        const runtimeConfig = window.__SURVIVOR_RUNTIME_CONFIG__ || {};
+        if (runtimeConfig.allowInsecureTransport === true) {
+            return false;
+        }
+        if (String(localStorage.getItem('survivor_allow_insecure') || '').toLowerCase() === 'true') {
+            return false;
+        }
+        try {
+            const parsed = new URL(url);
+            const host = String(parsed.hostname || '').toLowerCase();
+            // 本地开发地址放行
+            if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.endsWith('.localhost')) {
+                return false;
+            }
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
     async request(path, options = {}) {
         const url = this.buildUrl(path);
+
+        // Phase 0：非本地 http:// 请求一律拒绝，防止密码/JWT 明文截听
+        if (this.isHttpsRequired(url)) {
+            const error = new Error('当前 API 地址非 HTTPS，已阻止请求以保护账号安全');
+            error.code = 'INSECURE_TRANSPORT';
+            console.error('[HttpClient] insecure transport blocked:', url);
+            throw error;
+        }
+
         const headers = {
             ...(options.headers || {})
         };

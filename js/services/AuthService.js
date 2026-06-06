@@ -8,9 +8,13 @@ class AuthService {
         this.currentUser = null;
         this.token = null;
         this.sessionExpiredHandled = false;
+        this.tapTapComplianceActive = false;
 
         window.addEventListener('survivor:auth-expired', event => {
             this.handleSessionExpired(event?.detail?.message);
+        });
+        window.Capacitor?.Plugins?.TapTapCompliance?.addListener?.('tapTapComplianceResult', event => {
+            this.handleTapTapComplianceResult(event);
         });
     }
 
@@ -63,6 +67,7 @@ class AuthService {
     clearSession() {
         this.token = null;
         this.currentUser = null;
+        this.tapTapComplianceActive = false;
         httpClient.clearToken();
         localStorage.removeItem(this.tokenKey);
         localStorage.removeItem(this.userKey);
@@ -76,6 +81,29 @@ class AuthService {
         this.sessionExpiredHandled = true;
         this.clearSession();
         window.game?.handleSessionExpired?.(message);
+    }
+
+    handleTapTapComplianceResult(event) {
+        const code = Number(event?.code);
+        if (!Number.isFinite(code) || code === 500) {
+            return;
+        }
+
+        const blockingCodes = new Set([1000, 1001, 1030, 1050, 1100, 1200, 9002]);
+        if (!blockingCodes.has(code)) {
+            return;
+        }
+
+        if (!this.tapTapComplianceActive || !this.isLoggedIn()) {
+            return;
+        }
+
+        this.clearSession();
+        window.game?.handleSessionExpired?.(event?.message || '防沉迷限制已生效，请稍后再试');
+    }
+
+    setTapTapComplianceActive(active) {
+        this.tapTapComplianceActive = Boolean(active);
     }
 
     async register({ account, password, nickname }) {
@@ -96,8 +124,24 @@ class AuthService {
         return response;
     }
 
-    logout() {
+    async exitTapTapCompliance() {
+        const plugin = window.Capacitor?.Plugins?.TapTapCompliance;
+        if (plugin?.exit) {
+            try {
+                await plugin.exit();
+            } catch (error) {
+                console.warn('[AuthService] TapTap compliance exit failed:', error);
+            }
+        }
+    }
+
+    logout(options = {}) {
+        const exitCompliance = options.exitCompliance !== false;
+        if (exitCompliance) {
+            this.exitTapTapCompliance();
+        }
         this.sessionExpiredHandled = false;
+        this.tapTapComplianceActive = false;
         this.clearSession();
     }
 

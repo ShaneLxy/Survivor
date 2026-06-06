@@ -37,11 +37,7 @@ class Building {
             this.upgradeCost = null;
         }
 
-        if (this.id === 'building_shelter') {
-            this.effect = { type: 'energyBonus', value: levelConfig.energyBonus };
-            return;
-        }
-        if (['building_farm', 'building_mine', 'building_well'].includes(this.id)) {
+        if (['building_shelter', 'building_farm', 'building_mine'].includes(this.id)) {
             const outputs = Array.isArray(levelConfig.outputs)
                 ? levelConfig.outputs.map(output => ({
                     type: output.type || 'resource',
@@ -54,6 +50,14 @@ class Building {
         }
         if (this.id === 'building_training_ground') {
             this.effect = { type: 'statBonus', value: levelConfig.statBonus };
+            return;
+        }
+        if (this.id === 'building_armory') {
+            this.effect = {
+                type: 'reforge',
+                unlockStats: Array.isArray(levelConfig.reforgeUnlockStats) ? [...levelConfig.reforgeUnlockStats] : [],
+                bonus: Math.max(0, Number(levelConfig.reforgeBonus) || 0)
+            };
             return;
         }
         this.effect = null;

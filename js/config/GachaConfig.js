@@ -229,8 +229,52 @@ const GachaConfig = {
         return entries[entries.length - 1];
     },
 
+    /**
+     * 50 抽保底：
+     *  - 英雄池(hero_pool) 仅在"史诗英雄(完整 hero, heroRarity='epic')"中抽
+     *  - 装备池(equipment_pool) 仅在"史诗装备(equipment, rarity='epic')"中抽
+     * 史诗碎片/史诗道具不参与保底。
+     */
+    createForcedEpicResult(poolId) {
+        const pool = this.getPoolConfig(poolId);
+        if (!pool || !Array.isArray(pool.entries)) {
+            return null;
+        }
+        const epicEntries = pool.entries.filter((entry) => {
+            if (!entry) return false;
+            if (poolId === 'hero_pool') {
+                return entry.type === 'hero' && entry.heroRarity === 'epic';
+            }
+            if (poolId === 'equipment_pool') {
+                return entry.type === 'equipment' && entry.rarity === 'epic';
+            }
+            return false;
+        });
+        if (epicEntries.length === 0) {
+            return null;
+        }
+        const totalWeight = epicEntries.reduce((sum, e) => sum + (Number(e.weight) || 1), 0);
+        let roll = Math.random() * totalWeight;
+        let pickedEntry = epicEntries[0];
+        for (const entry of epicEntries) {
+            roll -= (Number(entry.weight) || 1);
+            if (roll <= 0) {
+                pickedEntry = entry;
+                break;
+            }
+        }
+        return this.createResultFromEntry(poolId, pickedEntry);
+    },
+
     createPullResult(poolId) {
         const entry = this.rollPoolEntry(poolId);
+        if (!entry) {
+            return null;
+        }
+        return this.createResultFromEntry(poolId, entry);
+    },
+
+    createResultFromEntry(poolId, entry) {
         if (!entry) {
             return null;
         }

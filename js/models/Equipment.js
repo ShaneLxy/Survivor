@@ -143,6 +143,17 @@ class Equipment {
         return this.starLevel;
     }
 
+    applyBaseStat(statKey, value) {
+        if (!statKey) {
+            return;
+        }
+        this.baseStats = {
+            ...(this.baseStats || {}),
+            [statKey]: Math.max(0, Number(value) || 0)
+        };
+        this.refreshStats();
+    }
+
     setLocked(locked) {
         this.locked = Boolean(locked);
         return this.locked;

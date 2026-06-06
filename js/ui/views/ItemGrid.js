@@ -484,15 +484,72 @@ class ItemGrid {
 
     showEquipmentDetail(equipment) {
         const info = equipment.getInfo();
+        const rarityColor = this.getRarityColor(equipment.rarity);
+        const rarityName = EquipmentConfig.getRarityName(equipment.rarity);
+        const slotName = EquipmentConfig.getSlotName(equipment.slot);
+        const enhanceRate = EquipmentConfig.getEnhanceSuccessRate(equipment.rarity, equipment.enhanceLevel);
+        const maxStarLevel = (typeof EquipmentConfig.getStarMaxLevel === 'function')
+            ? EquipmentConfig.getStarMaxLevel(equipment.slot)
+            : null;
+        const enhanceMaxLevel = (typeof EquipmentConfig.getEnhanceMaxLevel === 'function')
+            ? EquipmentConfig.getEnhanceMaxLevel(equipment.rarity)
+            : null;
+
+        const tags = [
+            `<span style="color:${rarityColor};border-color:${rarityColor}66;">${rarityName}</span>`,
+            `<span>${slotName}</span>`,
+            `<span>${equipment.starLevel}星${maxStarLevel ? ` / ${maxStarLevel}` : ''}</span>`,
+            `<span>+${equipment.enhanceLevel}${enhanceMaxLevel ? ` / +${enhanceMaxLevel}` : ''}</span>`
+        ];
+        if (equipment.locked) {
+            tags.push('<span style="color:#f6c96b;border-color:#f6c96b66;">已锁定</span>');
+        }
+
+        const starBonus = (typeof equipment.getStarBonusStats === 'function') ? (equipment.getStarBonusStats() || {}) : {};
+        const enhanceBonus = (typeof equipment.getEnhanceBonusStats === 'function') ? (equipment.getEnhanceBonusStats() || {}) : {};
+        const statsSource = equipment.stats || {};
+        const statEntries = Object.entries(statsSource).filter(([, value]) => Number(value) !== 0);
+
+        const statCards = statEntries.map(([key, value]) => {
+            const starVal = Number(starBonus[key]) || 0;
+            const enhanceVal = Number(enhanceBonus[key]) || 0;
+            const bonusBits = [];
+            if (starVal > 0) bonusBits.push(`★+${starVal}`);
+            if (enhanceVal > 0) bonusBits.push(`强+${enhanceVal}`);
+            const bonusLine = bonusBits.length
+                ? `<div style="margin-top:2px;font-size:9px;color:rgba(159,179,200,0.78);">${bonusBits.join(' / ')}</div>`
+                : '';
+            return `
+                <div class="inventory-detail-stat">
+                    <span>${Equipment.getStatName(key)}</span>
+                    <strong>+${value}</strong>
+                    ${bonusLine}
+                </div>
+            `;
+        }).join('');
+
+        const statsBlock = statCards
+            ? `<div class="inventory-detail-stats">${statCards}</div>`
+            : '<div style="font-size:11px;color:rgba(159,179,200,0.78);">当前装备没有数值属性</div>';
+
+        const metaLine = `<div style="margin-top:4px;font-size:11px;color:rgba(159,179,200,0.78);">下次强化成功率：${EquipmentConfig.formatSuccessRate(enhanceRate)}</div>`;
+
         const modal = new Modal({
             title: equipment.name,
+            className: 'inventory-detail-modal-shell hero-command-modal-shell',
             content: `
-                <div style="text-align:center;display:flex;flex-direction:column;gap:10px;">
-                    <div class="inventory-detail-icon">${this.renderItemIconMarkup(equipment)}</div>
-                    <div style="color:${this.getRarityColor(equipment.rarity)};font-weight:bold;">${equipment.name}</div>
-                    <div>${equipment.description}</div>
-                    <div>部位：${EquipmentConfig.getSlotName(equipment.slot)}</div>
-                    <div style="font-size:12px;color:#a0a0a0;line-height:1.8;">${info.detailExtra.join('<br>')}</div>
+                <div class="inventory-detail-panel inventory-detail-rarity-${equipment.rarity || 'common'}">
+                    <div class="inventory-detail-visual-card">
+                        <div class="inventory-detail-icon">${this.renderItemIconMarkup(equipment)}</div>
+                    </div>
+                    <div class="inventory-detail-info-card">
+                        <div class="inventory-detail-kicker">EQUIPMENT</div>
+                        <div class="inventory-detail-name" style="color:${rarityColor};">${equipment.name}</div>
+                        <div class="inventory-detail-tags">${tags.join('')}</div>
+                        <div class="inventory-detail-desc">${equipment.description || '暂无说明'}</div>
+                        ${statsBlock}
+                        ${metaLine}
+                    </div>
                 </div>
             `,
             buttons: [
@@ -510,6 +567,24 @@ class ItemGrid {
                     }
                 },
                 {
+                    text: '洗炼',
+                    className: 'btn-primary',
+                    onClick: () => {
+                        const armoryRules = shelterManager.getArmoryReforgeRules?.() || { level: 0, unlockedStats: [] };
+                        if ((Number(armoryRules.level) || 0) <= 0) {
+                            Toast.info('武器库尚未建造，无法洗炼装备');
+                            return;
+                        }
+                        const reforgeCheck = itemManager.getEquipmentReforgeInfo?.(equipment.instanceId);
+                        if (!reforgeCheck?.success) {
+                            Toast.info(reforgeCheck?.message || '当前装备暂无可洗炼属性');
+                            return;
+                        }
+                        modal.close();
+                        window.equipmentReforgeModal?.show?.(equipment.instanceId);
+                    }
+                },
+                {
                     text: '分解',
                     className: 'btn-secondary',
                     onClick: () => {
@@ -518,21 +593,6 @@ class ItemGrid {
                             Toast.success(result.message);
                             this.refresh();
                             window.game.ui.heroView.refresh();
-                            window.game.save();
-                            modal.close();
-                        } else {
-                            Toast.error(result.message);
-                        }
-                    }
-                },
-                {
-                    text: '出售',
-                    className: 'btn-secondary',
-                    onClick: () => {
-                        const result = itemManager.sellEquipment(equipment.instanceId);
-                        if (result.success) {
-                            Toast.success(result.message);
-                            this.refresh();
                             window.game.save();
                             modal.close();
                         } else {

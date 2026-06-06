@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剧情对话系统测试</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/story-dialogue.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .test-container {
+            text-align: center;
+            color: #e8eef2;
+            padding: 40px;
+        }
+
+        .test-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #7accd6;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(122, 204, 214, 0.5);
+        }
+
+        .test-subtitle {
+            font-size: 16px;
+            color: #a8b8c8;
+            margin-bottom: 40px;
+        }
+
+        .test-button {
+            background: linear-gradient(135deg, #7accd6 0%, #5a9ca6 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #0a0e14;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(122, 204, 214, 0.4);
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(122, 204, 214, 0.6);
+        }
+
+        .test-button:active {
+            transform: translateY(0);
+        }
+
+        .test-info {
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(122, 204, 214, 0.1);
+            border: 1px solid rgba(122, 204, 214, 0.3);
+            border-radius: 8px;
+            max-width: 600px;
+            text-align: left;
+        }
+
+        .test-info h3 {
+            color: #f6c96b;
+            margin-bottom: 10px;
+        }
+
+        .test-info ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .test-info li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(122, 204, 214, 0.2);
+        }
+
+        .test-info li:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-title">剧情对话系统测试</div>
+        <div class="test-subtitle">Story Dialogue System Test</div>
+
+        <button class="test-button" onclick="testSimpleDialogue()">测试简单对话</button>
+        <button class="test-button" onclick="testMultiCharacterDialogue()">测试多角色对话</button>
+        <button class="test-button" onclick="testNarratorDialogue()">测试旁白模式</button>
+        <button class="test-button" onclick="testComplexDialogue()">测试完整剧情</button>
+
+        <div class="test-info">
+            <h3>功能说明</h3>
+            <ul>
+                <li>✓ 打字机效果：文字逐个显示</li>
+                <li>✓ 跳过功能：第一次点击显示全部，第二次点击进入下一句</li>
+                <li>✓ 多轮对话：支持多个角色依次对话</li>
+                <li>✓ 立绘显示：左侧显示角色半身立绘</li>
+                <li>✓ 旁白模式：无立绘的纯文字叙述</li>
+                <li>✓ 位置切换：立绘可在左右两侧切换</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="js/ui/components/StoryDialogue.js"></script>
+    <script>
+        // 测试简单对话
+        function testSimpleDialogue() {
+            const dialogues = [
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '这里就是传说中的遗迹吗...'
+                },
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '看起来已经荒废很久了，要小心行事。'
+                }
+            ];
+
+            new StoryDialogue(dialogues, {
+                typingSpeed: 50,
+                onComplete: () => {
+                    console.log('简单对话测试完成');
+                }
+            });
+        }
+
+        // 测试多角色对话
+        function testMultiCharacterDialogue() {
+            const dialogues = [
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '前方有敌人的踪迹，大家做好战斗准备！'
+                },
+                {
+                    speaker: 'hero_002',
+                    speakerName: '雷恩',
+                    avatarType: 'hero',
+                    position: 'right',
+                    text: '了解！我会掩护大家的。'
+                },
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '很好，按照计划行动！'
+                }
+            ];
+
+            new StoryDialogue(dialogues, {
+                typingSpeed: 50,
+                onComplete: () => {
+                    console.log('多角色对话测试完成');
+                }
+            });
+        }
+
+        // 测试旁白模式
+        function testNarratorDialogue() {
+            const dialogues = [
+                {
+                    speaker: '',
+                    speakerName: '',
+                    avatarType: 'none',
+                    position: 'left',
+                    text: '远处传来了怪物的咆哮声...'
+                },
+                {
+                    speaker: '',
+                    speakerName: '',
+                    avatarType: 'none',
+                    position: 'left',
+                    text: '空气中弥漫着不祥的气息。'
+                },
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '看来我们已经被发现了！'
+                }
+            ];
+
+            new StoryDialogue(dialogues, {
+                typingSpeed: 50,
+                onComplete: () => {
+                    console.log('旁白模式测试完成');
+                }
+            });
+        }
+
+        // 测试完整剧情
+        function testComplexDialogue() {
+            const dialogues = [
+                {
+                    speaker: '',
+                    speakerName: '',
+                    avatarType: 'none',
+                    position: 'left',
+                    text: '第一章 - 废墟中的遭遇'
+                },
+                {
+                    speaker: '',
+                    speakerName: '',
+                    avatarType: 'none',
+                    position: 'left',
+                    text: '小队深入废墟深处，寻找传说中的古代遗物。'
+                },
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '根据地图显示，目标就在前方不远处。'
+                },
+                {
+                    speaker: 'hero_002',
+                    speakerName: '雷恩',
+                    avatarType: 'hero',
+                    position: 'right',
+                    text: '队长，我感觉到了强烈的能量波动...'
+                },
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '保持警惕，这里可能有守卫者。'
+                },
+                {
+                    speaker: '',
+                    speakerName: '',
+                    avatarType: 'none',
+                    position: 'left',
+                    text: '突然，地面开始剧烈震动！'
+                },
+                {
+                    speaker: 'enemy_boss',
+                    speakerName: '???',
+                    avatarType: 'enemy',
+                    position: 'right',
+                    text: '入侵者...必须...消灭...'
+                },
+                {
+                    speaker: 'hero_001',
+                    speakerName: '艾莉娅',
+                    avatarType: 'hero',
+                    position: 'left',
+                    text: '准备战斗！'
+                }
+            ];
+
+            new StoryDialogue(dialogues, {
+                typingSpeed: 50,
+                onComplete: () => {
+                    console.log('完整剧情测试完成');
+                }
+            });
+        }
+
+        // 页面加载完成后的提示
+        window.addEventListener('load', () => {
+            console.log('剧情对话系统测试页面已加载');
+            console.log('点击按钮测试不同的对话场景');
+        });
+    </script>
+</body>
+</html>

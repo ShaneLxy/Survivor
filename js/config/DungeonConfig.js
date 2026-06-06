@@ -1,5 +1,8 @@
 /**
  * 地牢配置
+ * 注：副本（dungeons）、章节（DungeonChapterConfig）、敌人模板（enemyTemplates）均由 GM 工具同步注入，
+ * 见 js/config/GmCatalogSyncPatch.js 的 applyDungeons / applyDungeonChapters / applyEnemies。
+ * 此文件只保留通用的技能模板和工具方法。
  */
 const DungeonConfig = {
     defaultBossSpawnRound: 12,
@@ -10,181 +13,11 @@ const DungeonConfig = {
         boss: '领主'
     },
 
-    dungeons: [
-        {
-            id: 'dungeon_001',
-            name: '废弃工厂',
-            icon: '🏭',
-            level: 1,
-            energyCost: 5,
-            sceneId: 'standard_9x9',
-            battlefield: {
-                cols: 7,
-                rows: 10,
-                heroSpawn: {
-                    positions: [[10, 3], [10, 4], [10, 5], [9, 2], [9, 6]]
-                },
-                enemySpawn: {
-                    positions: [[1, 3], [1, 4], [1, 5], [2, 2], [2, 6]]
-                },
-                obstacles: [[3, 3], [3, 5], [5, 4]]
-            },
-            initialEnemies: [
-                { id: 'enemy_wanderer', count: 2, rank: 'normal', stats: { hp: 56, attack: 12, defense: 5, speed: 8, crit: 3, antiCrit: 0, defensePen: 0, accuracy: 1, dodge: 0, attackRange: 1, moveRange: 2 } },
-                { id: 'enemy_refugee', count: 2, rank: 'normal', stats: { hp: 48, attack: 10, defense: 4, speed: 12, crit: 4, antiCrit: 0, defensePen: 1, accuracy: 2, dodge: 3, attackRange: 1, moveRange: 3 } },
-                { id: 'enemy_raider', count: 1, rank: 'elite', stats: { hp: 128, attack: 20, defense: 13, speed: 10, crit: 6, antiCrit: 4, defensePen: 3, accuracy: 2, dodge: 1, attackRange: 1, moveRange: 2 } }
-            ],
-            bossWaves: [
-                {
-                    id: 'dungeon_001_boss_wave_1',
-                    spawnRound: 12,
-                    spawnOnClearBeforeRound: true,
-                    bosses: [
-                        { id: 'enemy_slaughterer', count: 1, rank: 'boss', stats: { hp: 220, attack: 34, defense: 16, speed: 11, crit: 10, antiCrit: 6, defensePen: 6, accuracy: 5, dodge: 2, attackRange: 2, moveRange: 2 } }
-                    ]
-                }
-            ],
-            rewards: {
-                gold: { min: 50, max: 100 },
-                exp: { min: 20, max: 40 },
-                items: [
-                    { id: 'wood', chance: 0.3 },
-                    { id: 'stone', chance: 0.2 }
-                ]
-            },
-            description: '一处被废弃的工厂，低阶感染者与失控机械混杂其中。'
-        },
-        {
-            id: 'dungeon_002',
-            name: '黑暗森林',
-            icon: '🌲',
-            level: 3,
-            energyCost: 8,
-            sceneId: 'standard_9x9',
-            battlefield: {
-                cols: 8,
-                rows: 10,
-                heroSpawn: {
-                    positions: [[10, 3], [10, 4], [10, 5], [10, 6], [9, 4], [9, 5]]
-                },
-                enemySpawn: {
-                    positions: [[1, 2], [1, 4], [1, 6], [1, 7], [2, 3], [2, 6]]
-                },
-                obstacles: [[2, 4], [4, 2], [4, 7], [6, 5]]
-            },
-            initialEnemies: [
-                { id: 'enemy_wolf', count: 2, rank: 'normal', stats: { hp: 64, attack: 16, defense: 5, speed: 20, crit: 6, antiCrit: 2, defensePen: 2, accuracy: 4, dodge: 4, attackRange: 1, moveRange: 3 } },
-                { id: 'enemy_blood_wolf', count: 1, rank: 'elite', stats: { hp: 118, attack: 24, defense: 8, speed: 18, crit: 8, antiCrit: 3, defensePen: 4, accuracy: 5, dodge: 5, attackRange: 1, moveRange: 3 } },
-                { id: 'enemy_hunter', count: 1, rank: 'normal', stats: { hp: 82, attack: 18, defense: 6, speed: 15, crit: 5, antiCrit: 2, defensePen: 2, accuracy: 6, dodge: 4, attackRange: 2, moveRange: 3 } }
-            ],
-            bossWaves: [
-                {
-                    id: 'dungeon_002_boss_wave_1',
-                    spawnRound: 12,
-                    spawnOnClearBeforeRound: true,
-                    bosses: [
-                        { id: 'enemy_aberrant_wolf', count: 1, rank: 'boss', stats: { hp: 238, attack: 38, defense: 12, speed: 17, crit: 12, antiCrit: 6, defensePen: 7, accuracy: 7, dodge: 4, attackRange: 1, moveRange: 3 } }
-                    ]
-                }
-            ],
-            rewards: {
-                gold: { min: 80, max: 150 },
-                exp: { min: 40, max: 60 },
-                items: [
-                    { id: 'wood', chance: 0.4 },
-                    { id: 'meat', chance: 0.3 }
-                ]
-            },
-            description: '阴森森林深处潜伏着野兽与异化蛛群。'
-        },
-        {
-            id: 'dungeon_003',
-            name: '地下墓穴',
-            icon: '⚰️',
-            level: 5,
-            energyCost: 10,
-            sceneId: 'standard_9x9',
-            battlefield: {
-                cols: 7,
-                rows: 11,
-                heroSpawn: {
-                    positions: [[11, 2], [11, 4], [11, 6], [10, 3], [10, 5]]
-                },
-                enemySpawn: {
-                    positions: [[1, 2], [1, 4], [1, 6], [2, 3], [2, 5]]
-                },
-                obstacles: [[3, 2], [3, 6], [5, 4], [7, 3], [7, 5]]
-            },
-            initialEnemies: [
-                { id: 'enemy_shelterer', count: 2, rank: 'normal', stats: { hp: 96, attack: 18, defense: 10, speed: 11, crit: 4, antiCrit: 2, defensePen: 1, accuracy: 3, dodge: 2, attackRange: 1, moveRange: 2 } },
-                { id: 'enemy_raider', count: 1, rank: 'elite', stats: { hp: 132, attack: 27, defense: 11, speed: 15, crit: 8, antiCrit: 3, defensePen: 5, accuracy: 6, dodge: 3, attackRange: 1, moveRange: 3 } },
-                { id: 'enemy_hunter', count: 1, rank: 'elite', stats: { hp: 122, attack: 29, defense: 10, speed: 14, crit: 7, antiCrit: 4, defensePen: 7, accuracy: 5, dodge: 2, attackRange: 2, moveRange: 2 } }
-            ],
-            bossWaves: [
-                {
-                    id: 'dungeon_003_boss_wave_1',
-                    spawnRound: 12,
-                    spawnOnClearBeforeRound: true,
-                    bosses: [
-                        { id: 'enemy_infected_hunter', count: 1, rank: 'boss', stats: { hp: 248, attack: 40, defense: 15, speed: 13, crit: 11, antiCrit: 7, defensePen: 8, accuracy: 7, dodge: 3, attackRange: 2, moveRange: 2 } }
-                    ]
-                }
-            ],
-            rewards: {
-                gold: { min: 120, max: 200 },
-                exp: { min: 60, max: 80 },
-                items: [
-                    { id: 'stone', chance: 0.3 },
-                    { id: 'iron_ore', chance: 0.1 }
-                ]
-            },
-            description: '古老墓穴中充斥着亡灵与守墓怨魂。'
-        },
-        {
-            id: 'dungeon_004',
-            name: '废弃医院',
-            icon: '🏥',
-            level: 8,
-            energyCost: 12,
-            sceneId: 'standard_9x9',
-            battlefield: {
-                cols: 8,
-                rows: 11,
-                heroSpawn: {
-                    positions: [[11, 3], [11, 4], [11, 5], [11, 6], [10, 2], [10, 7]]
-                },
-                enemySpawn: {
-                    positions: [[1, 3], [1, 4], [1, 5], [1, 6], [2, 2], [2, 7]]
-                },
-                obstacles: [[2, 3], [2, 6], [4, 4], [4, 5], [7, 2], [7, 7]]
-            },
-            initialEnemies: [
-                { id: 'enemy_refugee', count: 2, rank: 'normal', stats: { hp: 112, attack: 22, defense: 7, speed: 12, crit: 5, antiCrit: 2, defensePen: 1, accuracy: 4, dodge: 2, attackRange: 1, moveRange: 2 } },
-                { id: 'enemy_slaughterer', count: 1, rank: 'elite', stats: { hp: 168, attack: 30, defense: 12, speed: 11, crit: 8, antiCrit: 5, defensePen: 5, accuracy: 4, dodge: 1, attackRange: 1, moveRange: 2 } }
-            ],
-            bossWaves: [
-                {
-                    id: 'dungeon_004_boss_wave_1',
-                    spawnRound: 12,
-                    spawnOnClearBeforeRound: true,
-                    bosses: [
-                        { id: 'enemy_mutant', count: 1, rank: 'boss', stats: { hp: 280, attack: 42, defense: 14, speed: 9, crit: 10, antiCrit: 6, defensePen: 8, accuracy: 6, dodge: 2, attackRange: 2, moveRange: 2 } },
-                        { id: 'enemy_infected_hunter', count: 1, rank: 'boss', stats: { hp: 232, attack: 39, defense: 12, speed: 15, crit: 12, antiCrit: 7, defensePen: 7, accuracy: 8, dodge: 4, attackRange: 2, moveRange: 2 } }
-                    ]
-                }
-            ],
-            rewards: {
-                gold: { min: 150, max: 250 },
-                exp: { min: 80, max: 100 },
-                items: [
-                    { id: 'exp_potion', chance: 0.4 },
-                    { id: 'medicine', chance: 0.2 }
-                ]
-            },
-            description: '病毒肆虐后的医院深处，仍有危险领主盘踞。'
-        }
-    ],
+    dungeons: [],
 
+    // 章节 1-3 副本中使用的怪物模板（GM 副本配置仍引用这些 ID，
+    // 但 GM 怪物图鉴节点未单独维护，故在此保留作为兜底；
+    // 章节 4-6 的新怪物由 GM 同步注入，见 GmCatalogSyncPatch.applyEnemies）。
     enemyTemplates: {
         enemy_raider: {
             name: '掠夺者',
@@ -471,6 +304,104 @@ const DungeonConfig = {
             effectType: 'damage',
             canCrit: true,
             customEffect: { type: 'lifesteal', ratio: 0.5 }
+        },
+        enemy_skill_concussive_strike: {
+            name: '\u9707\u8361\u91cd\u51fb',
+            description: '\u5bf9\u5355\u4e2a\u654c\u65b9\u5355\u4f4d\u9020\u6210160%\u653b\u51fb\u4f24\u5bb3,\u5e76\u4f7f\u5176\u7729\u66551\u56de\u5408\u65e0\u6cd5\u884c\u52a8\u3002',
+            multiplier: 1.6,
+            cooldownTurns: 3,
+            range: 1,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: true,
+            statusEffects: [
+                { type: 'stun', name: '\u7729\u6655', durationTurns: 1, stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_flash_blast: {
+            name: '\u70ab\u5149\u7206',
+            description: '\u8fdc\u7a0b\u5f15\u7206\u70ab\u5149,\u5bf9\u81f3\u591a2\u540d\u654c\u65b9\u5355\u4f4d\u9020\u621085%\u653b\u51fb\u4f24\u5bb3,\u5e76\u4f7f\u5176\u7729\u66551\u56de\u5408\u3002',
+            multiplier: 0.85,
+            cooldownTurns: 4,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 2,
+            effectType: 'damage',
+            canCrit: false,
+            statusEffects: [
+                { type: 'stun', name: '\u7729\u6655', durationTurns: 1, stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_alluring_gaze: {
+            name: '\u86ca\u60d1\u51dd\u89c6',
+            description: '\u51dd\u89c61\u4e2a\u654c\u65b9\u5355\u4f4d,\u4f7f\u5176\u9677\u5165\u9b45\u60d12\u56de\u5408,\u671f\u95f4\u88ab\u8feb\u671d\u65bd\u6cd5\u8005\u79fb\u52a8\u4e14\u4e0d\u80fd\u884c\u52a8\u3002',
+            multiplier: 0,
+            cooldownTurns: 4,
+            range: 4,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'utility',
+            canCrit: false,
+            statusEffects: [
+                { type: 'charm', name: '\u9b45\u60d1', durationTurns: 2, stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_siren_song: {
+            name: '\u585e\u58ec\u4e4b\u6b4c',
+            description: '\u541f\u5531\u8ff7\u9b42\u4e4b\u6b4c,\u5bf9\u6700\u591a2\u540d\u654c\u65b9\u5355\u4f4d\u65bd\u52a0\u9b45\u60d12\u56de\u5408,\u88ab\u9b45\u60d1\u8005\u5c06\u671d\u65bd\u6cd5\u8005\u79fb\u52a8\u4e14\u4e0d\u80fd\u884c\u52a8\u3002',
+            multiplier: 0,
+            cooldownTurns: 5,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 2,
+            effectType: 'utility',
+            canCrit: false,
+            statusEffects: [
+                { type: 'charm', name: '\u9b45\u60d1', durationTurns: 2, stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_vine_bind: {
+            name: '\u85e4\u8513\u7f20\u7ed5',
+            description: '\u5bf93\u683c\u5185\u7684\u5355\u4e2a\u654c\u65b9\u5355\u4f4d\u9020\u621075%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u4ee4\u5176\u88ab\u7f20\u7ed51\u56de\u5408\u65e0\u6cd5\u884c\u52a8\u3002',
+            multiplier: 0.75,
+            cooldownTurns: 3,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 1,
+            effectType: 'damage',
+            canCrit: false,
+            statusEffects: [
+                { type: 'stun', name: '\u7f20\u7ed5', durationTurns: 1, stackMode: 'replace' }
+            ]
+        },
+        enemy_skill_spore_cloud: {
+            name: '\u5b62\u7c89\u96fe\u7206',
+            description: '\u5411\u6700\u591a2\u540d\u654c\u65b9\u5355\u4f4d\u6d12\u6492\u8150\u8680\u5b62\u7c89\uff0c\u9020\u621070%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u9644\u52a02\u56de\u5408\u4e2d\u6bd2\u3002',
+            multiplier: 0.7,
+            cooldownTurns: 3,
+            range: 3,
+            targetType: 'enemy',
+            targetCount: 2,
+            effectType: 'damage',
+            canCrit: false,
+            statusEffects: [
+                { type: 'poison', name: '\u5b62\u6bd2', durationTurns: 2, damageMultiplier: 0.16, stackMode: 'stack', maxStacks: 2 }
+            ]
+        },
+        enemy_skill_suppressive_fire: {
+            name: '\u538b\u5236\u9f50\u5c04',
+            description: '\u5bf9\u6700\u591a2\u540d\u654c\u65b9\u5355\u4f4d\u9020\u621080%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u4ee5\u5bc6\u96c6\u706b\u529b\u538b\u5236\u5176\u8fdb\u653b\u8282\u594f\u3002',
+            multiplier: 0.8,
+            cooldownTurns: 3,
+            range: 4,
+            targetType: 'enemy',
+            targetCount: 2,
+            effectType: 'damage',
+            canCrit: false,
+            statusEffects: [
+                { type: 'attack_down', name: '\u538b\u5236', stat: 'attack', value: -0.15, durationTurns: 2, modifierType: 'percent', stackMode: 'replace' }
+            ]
         }
     },
 
@@ -493,7 +424,13 @@ const DungeonConfig = {
     },
 
     getEnemyCatalog() {
-        const source = this.getUnitCatalog()?.enemies || this.enemyTemplates || this.enemies;
+        const unitEnemies = this.getUnitCatalog()?.enemies || {};
+        const source = {};
+        [this.enemies || {}, this.enemyTemplates || {}, unitEnemies].forEach((catalog) => {
+            Object.entries(catalog).forEach(([id, config]) => {
+                source[id] = { ...(source[id] || {}), ...(config || {}) };
+            });
+        });
         return Object.fromEntries(
             Object.entries(source).map(([id, config]) => [id, this.normalizeEnemyConfig(config)])
         );

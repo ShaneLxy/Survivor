@@ -9,6 +9,7 @@ class FloatingMenu {
         this.position = options.position || 'right'; // 'right', 'bottom'
         this.element = null;
         this.isShown = false;
+        this.boundHandleOutsideClick = this.handleOutsideClick.bind(this);
     }
 
     /**
@@ -27,7 +28,7 @@ class FloatingMenu {
 
         this.create();
         this.positionMenu();
-        document.addEventListener('click', this.handleOutsideClick.bind(this));
+        document.addEventListener('click', this.boundHandleOutsideClick);
         this.isShown = true;
     }
 
@@ -90,7 +91,10 @@ class FloatingMenu {
      * 处理点击外部区域
      */
     handleOutsideClick(e) {
-        if (this.element && !this.element.contains(e.target) && 
+        if (!this.element || !this.targetElement) {
+            return;
+        }
+        if (!this.element.contains(e.target) &&
             !this.targetElement.contains(e.target)) {
             this.hide();
         }
@@ -104,7 +108,7 @@ class FloatingMenu {
             this.element.remove();
             this.element = null;
         }
-        document.removeEventListener('click', this.handleOutsideClick.bind(this));
+        document.removeEventListener('click', this.boundHandleOutsideClick);
         this.isShown = false;
         if (this.onClose) {
             this.onClose();

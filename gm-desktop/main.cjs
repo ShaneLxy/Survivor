@@ -37,7 +37,7 @@ function normalizePackageOptions(rawOptions = {}) {
     artifact,
     versionName: asCleanString(rawOptions.versionName, '1.0'),
     versionCode,
-    applicationId: asCleanString(rawOptions.applicationId, 'com.survivor.game'),
+    applicationId: asCleanString(rawOptions.applicationId, 'game.taptap.yunjing.game'),
     appName: asCleanString(rawOptions.appName, '云境Paradise'),
     buildVersion: asCleanString(rawOptions.buildVersion, ''),
     outputDir: path.isAbsolute(rawOutputDir) ? rawOutputDir : path.resolve(projectRoot, rawOutputDir),

@@ -9,7 +9,9 @@
       "Bash(xargs grep -l \"instanceId\\\\|baseStats\")",
       "Bash(xargs grep -l \"refreshStats\\\\|enhanceLevel\")",
       "Bash(xargs grep -l \"game.ui.taskView\\\\|new TaskView\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "WebFetch(domain:developer.taptap.cn)",
+      "WebSearch"
     ]
   }
 }

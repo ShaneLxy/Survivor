@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,6 +11,7 @@ import {
   UserAccountDocument,
 } from '../../shared/mongo/mongo.types';
 import { GmCatalogService } from '../gm/gm-catalog.service';
+import { AuditService } from './audit.service';
 import { UpsertSaveDto } from './dto/upsert-save.dto';
 
 type SaveWrapper = {
@@ -39,6 +41,7 @@ export class SaveService {
   constructor(
     private readonly mongoService: MongoService,
     private readonly gmCatalogService: GmCatalogService,
+    private readonly auditService: AuditService,
   ) {}
 
   async getSaveByAccountId(accountId: string) {
@@ -61,6 +64,7 @@ export class SaveService {
   async upsertSave(
     user: { id: string } | UserAccountDocument,
     dto: UpsertSaveDto,
+    req?: any,
   ) {
     const wrapper = this.normalizeIncomingWrapper(dto.saveData || {});
     const accountId = 'id' in user ? user.id : user._id;
@@ -75,6 +79,27 @@ export class SaveService {
         message: 'Cloud save kept because remote data is newer',
         saveData: this.toSaveWrapper(existing),
       };
+    }
+
+    // Phase 0：审计关键字段单次涨幅，超极端阈值则封号
+    const beforeState = existing?.saveData || null;
+    const afterState = wrapper.data || null;
+    if (beforeState && afterState) {
+      const ctx = AuditService.extractContext(req);
+      const result = await this.auditService.auditSaveDiff(
+        accountId,
+        beforeState,
+        afterState,
+        ctx,
+      );
+      if (result.banned) {
+        // 触发封号：拒绝本次写入，下次登录直接被拦截
+        throw new ForbiddenException({
+          code: 'ACCOUNT_BANNED',
+          message: '账号因存档异常已被封禁，如有疑问请联系客服',
+          findings: result.findings,
+        });
+      }
     }
 
     const saved = await this.writePlayerSave(
@@ -216,7 +241,7 @@ export class SaveService {
 
     const rewards = this.expandRewards(gift?.rewards || [], state);
     rewards.forEach((reward) => this.applyReward(state, reward));
-    this.recordRewardVideoWatch(checkinData);
+    this.recordRewardVideoWatch(checkinData, gifts);
     this.recordWelfareGiftWatch(checkinData, giftId);
     this.tryActivateMonthCards(checkinData, gifts);
 
@@ -780,11 +805,30 @@ export class SaveService {
     return checkinData.rewardVideoStats;
   }
 
-  private recordRewardVideoWatch(checkinData: any) {
+  private recordRewardVideoWatch(checkinData: any, gifts: any[] = []) {
     const stats = this.ensureRewardVideoStats(checkinData);
     stats.count += 1;
     stats.total += 1;
     checkinData.rewardVideoStats = stats;
+
+    // 给每张月卡的 cycleProgress 各自 +1，封顶为 requiredViews（方案 A，上限 = 门槛 ×1）
+    const monthCards = Array.isArray(gifts)
+      ? gifts.filter((entry: any) => String(entry?.kind || '').trim() === 'monthCard')
+      : [];
+    monthCards.forEach((card: any) => {
+      const cardId = String(card?.id || '').trim();
+      if (!cardId) {
+        return;
+      }
+      const requiredViews = Math.max(
+        1,
+        Number(card?.requiredViews ?? card?.activationViews ?? 1) || 1,
+      );
+      const cardState = this.ensureMonthCardState(checkinData, cardId);
+      const current = Math.max(0, Number(cardState.cycleProgress) || 0);
+      cardState.cycleProgress = Math.min(requiredViews, current + 1);
+    });
+
     return stats;
   }
 
@@ -811,7 +855,14 @@ export class SaveService {
         lastWatchDate: '',
         watchMonthKey: '',
         lastClaimDate: '',
+        cycleProgress: 0,
       };
+    } else if (
+      checkinData.monthCardStates[cardId].cycleProgress === undefined ||
+      checkinData.monthCardStates[cardId].cycleProgress === null
+    ) {
+      // 兼容老存档：缺失字段时初始化为 0
+      checkinData.monthCardStates[cardId].cycleProgress = 0;
     }
     return checkinData.monthCardStates[cardId];
   }
@@ -836,13 +887,16 @@ export class SaveService {
     state.active = true;
     state.activatedAt = now.toISOString();
     state.expiresAt = expiresAt.toISOString();
+    // 激活后扣减门槛，剩余次数保留进入下一周期（封顶后等价于清零）
+    const requiredViews = Math.max(
+      1,
+      Number(cardConfig?.requiredViews ?? cardConfig?.activationViews ?? 1) || 1,
+    );
+    const current = Math.max(0, Number(state.cycleProgress) || 0);
+    state.cycleProgress = Math.max(0, current - requiredViews);
   }
 
   private tryActivateMonthCards(checkinData: any, gifts: any[]) {
-    const currentMonthViews = Math.max(
-      0,
-      Number(this.ensureRewardVideoStats(checkinData).count) || 0,
-    );
     gifts
       .filter((entry: any) => String(entry?.kind || '').trim() === 'monthCard')
       .forEach((card: any) => {
@@ -852,7 +906,8 @@ export class SaveService {
         );
         const state = this.ensureMonthCardState(checkinData, String(card?.id || ''));
         this.refreshMonthCardActiveState(state);
-        if (!state.active && currentMonthViews >= requiredViews) {
+        const cycleProgress = Math.max(0, Number(state.cycleProgress) || 0);
+        if (!state.active && cycleProgress >= requiredViews) {
           this.activateMonthCard(state, card);
         }
       });
@@ -882,18 +937,20 @@ export class SaveService {
       1,
       Number(card?.requiredViews ?? card?.activationViews ?? 1) || 1,
     );
-    const rewardVideoStats = this.ensureRewardVideoStats(checkinData);
-    const watchedMonth = Math.max(0, Number(rewardVideoStats.count) || 0);
-    if (!state.active && watchedMonth >= requiredViews) {
+    const cycleProgress = Math.max(0, Number(state.cycleProgress) || 0);
+    if (!state.active && cycleProgress >= requiredViews) {
       this.activateMonthCard(state, card);
     }
+    const cycleProgressAfter = Math.max(0, Number(state.cycleProgress) || 0);
     return {
       id: cardId,
       active: Boolean(state.active),
       requiredViews,
-      watchedMonth,
+      // 兼容字段：watchedMonth 保留语义改为"下次激活累计进度"
+      watchedMonth: cycleProgressAfter,
+      cycleProgress: cycleProgressAfter,
       canClaim: Boolean(state.active) && String(state.lastClaimDate || '') !== today,
-      remainingViews: Math.max(0, requiredViews - watchedMonth),
+      remainingViews: Math.max(0, requiredViews - cycleProgressAfter),
       activatedAt: String(state.activatedAt || ''),
       expiresAt: String(state.expiresAt || ''),
       watchMonthKey: currentMonthKey,

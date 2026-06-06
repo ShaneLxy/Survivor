@@ -4,7 +4,7 @@
     }
 
     ShelterManager.prototype.getAggregateProductionStatus = function(now = Date.now()) {
-        const buildingIds = ShelterManager.PRODUCTION_BUILDING_IDS || ['building_farm', 'building_mine', 'building_well'];
+        const buildingIds = ShelterManager.PRODUCTION_BUILDING_IDS || ['building_shelter'];
         const statuses = buildingIds.map((buildingId) => ({
             buildingId,
             ...this.getProductionStatus(buildingId, now)

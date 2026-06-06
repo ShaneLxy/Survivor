@@ -26,6 +26,20 @@ const EquipmentConfig = {
         return window.VersionManager?.getVersionedAssetUrl?.(src) || src;
     },
 
+    /**
+     * 招募中心打造装备页面顶部 banner 预览专用立绘路径。
+     * 只在 GachaView 的装备 banner 立绘 (renderForgeShowcaseVisual) 调用,
+     * 其他所有显示装备图标的地方仍走 getTemplateIconSrc。
+     */
+    getRecruitPreviewIconSrc(templateId) {
+        if (!templateId) {
+            return '';
+        }
+        const fileName = String(templateId).replace(/_/g, '-');
+        const src = `assets/images/equipmentMain/${fileName}.png`;
+        return window.VersionManager?.getVersionedAssetUrl?.(src) || src;
+    },
+
     withTemplateIcon(template) {
         if (!template) {
             return null;
@@ -74,8 +88,8 @@ const EquipmentConfig = {
             icon: '🗡️',
             description: '刃口已经发暗，但仍能在近身战里派上用场。',
             statRules: {
-                attack: { common: [3, 6] },
-                crit: { common: [0, 2] }
+                attack: { common: [2, 3] },
+                crit: { common: [1, 2] }
             }
         },
         {
@@ -86,8 +100,8 @@ const EquipmentConfig = {
             icon: '🪵',
             description: '随手削出来的短棒，胜在结实好修。',
             statRules: {
-                attack: { common: [4, 7] },
-                accuracy: { common: [0, 2] }
+                attack: { common: [3, 4] },
+                accuracy: { common: [1, 2] }
             }
         },
         {
@@ -98,8 +112,8 @@ const EquipmentConfig = {
             icon: '🗡️',
             description: '旧农具改出的近战武器，挥砍手感还算顺手。',
             statRules: {
-                attack: { common: [5, 8] },
-                defensePen: { common: [0, 1] }
+                attack: { common: [2, 4] },
+                defensePen: { common: [1, 2] }
             }
         },
         {
@@ -110,8 +124,8 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '厚重帆布挡不住利刃，但能抵消一些擦伤。',
             statRules: {
-                hp: { common: [12, 24] },
-                defense: { common: [1, 3] }
+                hp: { common: [8, 12] },
+                defense: { common: [2, 3] }
             }
         },
         {
@@ -122,8 +136,8 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '多处补丁压住了裂口，还保留着一点防护性。',
             statRules: {
-                hp: { common: [10, 20] },
-                defense: { common: [2, 4] }
+                hp: { common: [6, 10] },
+                defense: { common: [2, 3] }
             }
         },
         {
@@ -134,9 +148,9 @@ const EquipmentConfig = {
             icon: '🥋',
             description: '旧时代巡逻员的制服，口袋和绑带还算实用。',
             statRules: {
-                hp: { common: [8, 18] },
-                dodge: { common: [0, 2] },
-                defense: { common: [1, 3] }
+                hp: { common: [5, 9] },
+                dodge: { common: [1, 2] },
+                defense: { common: [1, 2] }
             }
         },
         {
@@ -147,8 +161,8 @@ const EquipmentConfig = {
             icon: '👖',
             description: '粗糙但耐磨，能撑过几场短途奔袭。',
             statRules: {
-                defense: { common: [1, 3] },
-                antiCrit: { common: [1, 3] }
+                defense: { common: [1, 2] },
+                antiCrit: { common: [1, 2] }
             }
         },
         {
@@ -159,8 +173,8 @@ const EquipmentConfig = {
             icon: '👖',
             description: '膝盖处加过布片，适合在废墟里跋涉。',
             statRules: {
-                hp: { common: [6, 14] },
-                defense: { common: [2, 4] }
+                hp: { common: [4, 7] },
+                defense: { common: [1, 3] }
             }
         },
         {
@@ -171,8 +185,8 @@ const EquipmentConfig = {
             icon: '👖',
             description: '用皮片和铁扣临时加固过的长裤。',
             statRules: {
-                defense: { common: [1, 3] },
-                dodge: { common: [0, 2] },
+                defense: { common: [1, 2] },
+                dodge: { common: [1, 2] },
                 antiCrit: { common: [1, 2] }
             }
         },
@@ -184,8 +198,8 @@ const EquipmentConfig = {
             icon: '👢',
             description: '鞋底已经磨薄，只要不跑太远还能继续穿。',
             statRules: {
-                speed: { common: [1, 3] },
-                defense: { common: [0, 2] }
+                speed: { common: [1, 2] },
+                defense: { common: [0, 1] }
             }
         },
         {
@@ -196,8 +210,8 @@ const EquipmentConfig = {
             icon: '👟',
             description: '轻便但不耐磨，适合短距离移动。',
             statRules: {
-                speed: { common: [2, 4] },
-                dodge: { common: [0, 2] }
+                speed: { common: [1, 2] },
+                dodge: { common: [1, 2] }
             }
         },
         {
@@ -208,9 +222,9 @@ const EquipmentConfig = {
             icon: '👢',
             description: '鞋面布满划痕，但支撑性仍然可靠。',
             statRules: {
-                speed: { common: [1, 3] },
-                accuracy: { common: [0, 2] },
-                defense: { common: [1, 2] }
+                speed: { common: [1, 2] },
+                accuracy: { common: [1, 2] },
+                defense: { common: [0, 1] }
             }
         },
         {
@@ -221,9 +235,9 @@ const EquipmentConfig = {
             icon: '⚔️',
             description: '保养良好的弧刃长刀，劈斩速度很快。',
             statRules: {
-                attack: { rare: [8, 13] },
-                crit: { rare: [2, 5] },
-                accuracy: { rare: [1, 4] }
+                attack: { rare: [5, 7] },
+                crit: { rare: [2, 3] },
+                speed: { rare: [2, 3] }
             }
         },
         {
@@ -234,8 +248,8 @@ const EquipmentConfig = {
             icon: '🪓',
             description: '沉重可靠，斧刃能有效撕开防护。',
             statRules: {
-                attack: { rare: [9, 14] },
-                defensePen: { rare: [2, 5] }
+                attack: { rare: [6, 8] },
+                defensePen: { rare: [2, 4] }
             }
         },
         {
@@ -246,9 +260,9 @@ const EquipmentConfig = {
             icon: '🛠️',
             description: '加厚钢材制成的撬棍，既能拆门也能破甲。',
             statRules: {
-                attack: { rare: [7, 12] },
-                defensePen: { rare: [1, 4] },
-                accuracy: { rare: [2, 5] }
+                attack: { rare: [5, 7] },
+                defensePen: { rare: [2, 3] },
+                accuracy: { rare: [1, 2] }
             }
         },
         {
@@ -259,9 +273,9 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '内衬防刺层的背心，适合前线巡逻。',
             statRules: {
-                hp: { rare: [26, 44] },
-                defense: { rare: [5, 8] },
-                antiCrit: { rare: [2, 5] }
+                hp: { rare: [18, 24] },
+                defense: { rare: [4, 6] },
+                antiCrit: { rare: [2, 3] }
             }
         },
         {
@@ -272,9 +286,9 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '改短后的隔热服，厚重但防护扎实。',
             statRules: {
-                hp: { rare: [32, 50] },
-                defense: { rare: [6, 9] },
-                dodge: { rare: [0, 3] }
+                hp: { rare: [22, 28] },
+                defense: { rare: [5, 6] },
+                dodge: { rare: [1, 2] }
             }
         },
         {
@@ -285,9 +299,9 @@ const EquipmentConfig = {
             icon: '🥋',
             description: '口袋、束带和护片分布合理，适合长期作战。',
             statRules: {
-                hp: { rare: [24, 40] },
-                defense: { rare: [4, 7] },
-                dodge: { rare: [2, 5] }
+                hp: { rare: [16, 22] },
+                defense: { rare: [3, 5] },
+                dodge: { rare: [2, 4] }
             }
         },
         {
@@ -298,9 +312,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '腿侧加了防割纤维，能减少突袭伤害。',
             statRules: {
-                defense: { rare: [4, 7] },
-                antiCrit: { rare: [4, 8] },
-                hp: { rare: [12, 24] }
+                defense: { rare: [3, 5] },
+                antiCrit: { rare: [3, 5] },
+                hp: { rare: [6, 12] }
             }
         },
         {
@@ -311,9 +325,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '护胫板固定得很牢，适合硬吃冲击。',
             statRules: {
-                defense: { rare: [5, 8] },
-                antiCrit: { rare: [3, 6] },
-                dodge: { rare: [0, 3] }
+                defense: { rare: [4, 5] },
+                antiCrit: { rare: [2, 4] },
+                dodge: { rare: [1, 2] }
             }
         },
         {
@@ -324,9 +338,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '厚皮与金属扣带提供了不错的灵活防护。',
             statRules: {
-                defense: { rare: [3, 6] },
-                dodge: { rare: [3, 6] },
-                antiCrit: { rare: [2, 5] }
+                defense: { rare: [3, 4] },
+                dodge: { rare: [3, 4] },
+                antiCrit: { rare: [2, 3] }
             }
         },
         {
@@ -337,9 +351,9 @@ const EquipmentConfig = {
             icon: '👢',
             description: '鞋底抓地力优秀，适合复杂地形推进。',
             statRules: {
-                speed: { rare: [3, 5] },
-                defense: { rare: [2, 4] },
-                accuracy: { rare: [1, 4] }
+                speed: { rare: [2, 3] },
+                defense: { rare: [2, 3] },
+                accuracy: { rare: [1, 3] }
             }
         },
         {
@@ -350,9 +364,9 @@ const EquipmentConfig = {
             icon: '👢',
             description: '强化鞋帮和鞋钉让移动更稳定。',
             statRules: {
-                speed: { rare: [2, 5] },
-                defense: { rare: [3, 5] },
-                antiCrit: { rare: [1, 3] }
+                speed: { rare: [2, 3] },
+                defense: { rare: [2, 3] },
+                antiCrit: { rare: [1, 2] }
             }
         },
         {
@@ -363,8 +377,8 @@ const EquipmentConfig = {
             icon: '👟',
             description: '去掉多余护片后非常轻，适合快速穿插。',
             statRules: {
-                speed: { rare: [4, 6] },
-                dodge: { rare: [2, 5] }
+                speed: { rare: [3, 4] },
+                dodge: { rare: [2, 4] }
             }
         },
         {
@@ -375,9 +389,9 @@ const EquipmentConfig = {
             icon: '⚔️',
             description: '据说由坠落金属反复锻打而成，剑身沉稳锋利。',
             statRules: {
-                attack: { epic: [14, 21] },
-                crit: { epic: [4, 8] },
-                defensePen: { epic: [3, 7] }
+                attack: { epic: [9, 11] },
+                crit: { epic: [3, 4] },
+                defensePen: { epic: [3, 4] }
             }
         },
         {
@@ -388,9 +402,9 @@ const EquipmentConfig = {
             icon: '🗡️',
             description: '断口被重新打磨过，短促斩击极具威胁。',
             statRules: {
-                attack: { epic: [13, 19] },
-                accuracy: { epic: [5, 9] },
-                crit: { epic: [3, 7] }
+                attack: { epic: [9, 11] },
+                accuracy: { epic: [2, 3] },
+                crit: { epic: [3, 4] }
             }
         },
         {
@@ -401,9 +415,8 @@ const EquipmentConfig = {
             icon: '🪓',
             description: '斧面有暗红锻纹，重击时很容易撕开装甲。',
             statRules: {
-                attack: { epic: [15, 22] },
-                defensePen: { epic: [5, 10] },
-                accuracy: { epic: [2, 6] }
+                attack: { epic: [10, 12] },
+                defensePen: { epic: [3, 5] }
             }
         },
         {
@@ -414,9 +427,9 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '黑钢薄片嵌在衣料内侧，沉重但可靠。',
             statRules: {
-                hp: { epic: [58, 92] },
-                defense: { epic: [10, 15] },
-                antiCrit: { epic: [4, 8] }
+                hp: { epic: [38, 50] },
+                defense: { epic: [8, 10] },
+                antiCrit: { epic: [4, 6] }
             }
         },
         {
@@ -427,9 +440,9 @@ const EquipmentConfig = {
             icon: '🥋',
             description: '柔软斗篷下藏着轻质护层，便于闪避和撤离。',
             statRules: {
-                hp: { epic: [48, 78] },
-                defense: { epic: [8, 13] },
-                dodge: { epic: [5, 9] }
+                hp: { epic: [32, 42] },
+                defense: { epic: [7, 9] },
+                dodge: { epic: [4, 6] }
             }
         },
         {
@@ -440,9 +453,9 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '前胸护板经过多次修补，专为正面冲阵设计。',
             statRules: {
-                hp: { epic: [66, 100] },
-                defense: { epic: [11, 16] },
-                antiCrit: { epic: [3, 7] }
+                hp: { epic: [42, 52] },
+                defense: { epic: [9, 11] },
+                antiCrit: { epic: [3, 5] }
             }
         },
         {
@@ -453,9 +466,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '沉重腿甲能稳住下盘，抵御致命冲击。',
             statRules: {
-                defense: { epic: [9, 14] },
-                antiCrit: { epic: [8, 13] },
-                hp: { epic: [26, 46] }
+                defense: { epic: [7, 9] },
+                antiCrit: { epic: [6, 8] },
+                hp: { epic: [16, 22] }
             }
         },
         {
@@ -466,9 +479,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '贴身剪裁和轻护片让步伐更难被捕捉。',
             statRules: {
-                defense: { epic: [7, 12] },
-                dodge: { epic: [6, 10] },
-                antiCrit: { epic: [6, 10] }
+                defense: { epic: [5, 7] },
+                dodge: { epic: [5, 7] },
+                antiCrit: { epic: [4, 6] }
             }
         },
         {
@@ -479,9 +492,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '护腿外层压着旧式合金板，适合守备者使用。',
             statRules: {
-                defense: { epic: [10, 15] },
-                antiCrit: { epic: [7, 12] },
-                hp: { epic: [20, 38] }
+                defense: { epic: [8, 10] },
+                antiCrit: { epic: [5, 7] },
+                hp: { epic: [12, 18] }
             }
         },
         {
@@ -492,8 +505,8 @@ const EquipmentConfig = {
             icon: '👢',
             description: '轻薄金属扣固定脚踝，跑动时几乎没有拖滞。',
             statRules: {
-                speed: { epic: [6, 9] },
-                dodge: { epic: [5, 9] },
+                speed: { epic: [4, 6] },
+                dodge: { epic: [4, 6] },
                 moveRange: { epic: [0, 1] }
             }
         },
@@ -505,9 +518,9 @@ const EquipmentConfig = {
             icon: '👢',
             description: '厚底军靴能承受爆裂冲击，适合压线推进。',
             statRules: {
-                speed: { epic: [5, 8] },
-                defense: { epic: [5, 8] },
-                antiCrit: { epic: [3, 6] }
+                speed: { epic: [4, 5] },
+                defense: { epic: [4, 5] },
+                antiCrit: { epic: [3, 4] }
             }
         },
         {
@@ -518,9 +531,9 @@ const EquipmentConfig = {
             icon: '👟',
             description: '软底材料经过特殊处理，落步轻而稳定。',
             statRules: {
-                speed: { epic: [6, 10] },
-                dodge: { epic: [6, 11] },
-                accuracy: { epic: [3, 7] }
+                speed: { epic: [5, 6] },
+                dodge: { epic: [5, 7] },
+                accuracy: { epic: [3, 4] }
             }
         },
         {
@@ -531,10 +544,10 @@ const EquipmentConfig = {
             icon: '⚔️',
             description: '刃背嵌入微型脉冲芯，挥斩时会留下短促电弧。',
             statRules: {
-                attack: { legendary: [24, 34] },
-                crit: { legendary: [8, 14] },
-                defensePen: { legendary: [7, 13] },
-                accuracy: { legendary: [4, 8] }
+                attack: { legendary: [16, 18] },
+                crit: { legendary: [4, 6] },
+                defensePen: { legendary: [4, 6] },
+                accuracy: { legendary: [2, 4] }
             }
         },
         {
@@ -545,9 +558,9 @@ const EquipmentConfig = {
             icon: '🪓',
             description: '斧柄内置低频震荡器，命中护甲时能制造裂隙。',
             statRules: {
-                attack: { legendary: [26, 36] },
-                defensePen: { legendary: [10, 16] },
-                antiCrit: { legendary: [3, 7] }
+                attack: { legendary: [15, 18] },
+                defensePen: { legendary: [5, 7] },
+                antiCrit: { legendary: [3, 5] }
             }
         },
         {
@@ -558,9 +571,9 @@ const EquipmentConfig = {
             icon: '🗡️',
             description: '刀身边缘有细微相位抖动，适合精准切入。',
             statRules: {
-                attack: { legendary: [22, 32] },
-                crit: { legendary: [10, 16] },
-                accuracy: { legendary: [8, 14] },
+                attack: { legendary: [14, 17] },
+                crit: { legendary: [5, 7] },
+                accuracy: { legendary: [4, 6] },
                 attackRange: { legendary: [0, 1] }
             }
         },
@@ -572,9 +585,9 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '护片之间流动着微弱电弧，可分散正面冲击。',
             statRules: {
-                hp: { legendary: [98, 150] },
-                defense: { legendary: [16, 24] },
-                antiCrit: { legendary: [8, 14] }
+                hp: { legendary: [65, 80] },
+                defense: { legendary: [12, 14] },
+                antiCrit: { legendary: [7, 10] }
             }
         },
         {
@@ -585,9 +598,9 @@ const EquipmentConfig = {
             icon: '🥋',
             description: '斗篷边缘藏有轻型磁轨纤维，转身时能卸开部分力道。',
             statRules: {
-                hp: { legendary: [86, 132] },
-                defense: { legendary: [14, 21] },
-                dodge: { legendary: [8, 13] }
+                hp: { legendary: [55, 70] },
+                defense: { legendary: [10, 13] },
+                dodge: { legendary: [7, 9] }
             }
         },
         {
@@ -598,10 +611,10 @@ const EquipmentConfig = {
             icon: '🧥',
             description: '赤色复合护壳包覆核心区域，兼顾承伤与机动。',
             statRules: {
-                hp: { legendary: [108, 160] },
-                defense: { legendary: [15, 23] },
-                dodge: { legendary: [5, 10] },
-                antiCrit: { legendary: [5, 10] }
+                hp: { legendary: [70, 85] },
+                defense: { legendary: [11, 13] },
+                dodge: { legendary: [4, 6] },
+                antiCrit: { legendary: [4, 6] }
             }
         },
         {
@@ -612,9 +625,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '隐藏式液压结构能稳住重心，承受连续重击。',
             statRules: {
-                defense: { legendary: [14, 21] },
-                antiCrit: { legendary: [13, 19] },
-                hp: { legendary: [58, 96] }
+                defense: { legendary: [10, 13] },
+                antiCrit: { legendary: [9, 12] },
+                hp: { legendary: [30, 40] }
             }
         },
         {
@@ -625,9 +638,9 @@ const EquipmentConfig = {
             icon: '👖',
             description: '镜面合金片排列紧密，能偏折一部分致命打击。',
             statRules: {
-                defense: { legendary: [13, 20] },
-                antiCrit: { legendary: [15, 22] },
-                dodge: { legendary: [5, 10] }
+                defense: { legendary: [9, 12] },
+                antiCrit: { legendary: [10, 13] },
+                dodge: { legendary: [4, 7] }
             }
         },
         {
@@ -638,10 +651,10 @@ const EquipmentConfig = {
             icon: '👖',
             description: '多点铆接的复合战裤，防护和灵活性都很稳定。',
             statRules: {
-                defense: { legendary: [12, 18] },
-                antiCrit: { legendary: [11, 17] },
-                hp: { legendary: [48, 86] },
-                dodge: { legendary: [5, 9] }
+                defense: { legendary: [9, 11] },
+                antiCrit: { legendary: [8, 11] },
+                hp: { legendary: [25, 35] },
+                dodge: { legendary: [4, 6] }
             }
         },
         {
@@ -652,8 +665,8 @@ const EquipmentConfig = {
             icon: '👢',
             description: '鞋底矢量片会在蹬地瞬间提供额外推力。',
             statRules: {
-                speed: { legendary: [9, 13] },
-                dodge: { legendary: [9, 15] },
+                speed: { legendary: [7, 9] },
+                dodge: { legendary: [7, 10] },
                 moveRange: { legendary: [0, 1] }
             }
         },
@@ -665,9 +678,9 @@ const EquipmentConfig = {
             icon: '👢',
             description: '微型电磁扣让步伐更稳定，适合快速抢占地形。',
             statRules: {
-                speed: { legendary: [8, 12] },
-                defense: { legendary: [7, 11] },
-                accuracy: { legendary: [7, 12] },
+                speed: { legendary: [6, 8] },
+                defense: { legendary: [5, 7] },
+                accuracy: { legendary: [5, 8] },
                 moveRange: { legendary: [0, 1] }
             }
         },
@@ -679,9 +692,9 @@ const EquipmentConfig = {
             icon: '👟',
             description: '吸音鞋底和短距助推模块让突袭更加隐蔽。',
             statRules: {
-                speed: { legendary: [10, 14] },
-                dodge: { legendary: [10, 16] },
-                accuracy: { legendary: [5, 10] }
+                speed: { legendary: [8, 10] },
+                dodge: { legendary: [8, 11] },
+                accuracy: { legendary: [4, 7] }
             }
         }
     ],
@@ -813,6 +826,13 @@ const EquipmentConfig = {
             return 0;
         }
         return Utils.randomInt(Number(range[0]) || 0, Number(range[1]) || 0);
+    },
+
+    getTemplateStatRange(templateId, rarity, statKey) {
+        const template = this.getTemplate(templateId);
+        const finalRarity = this.rarityOrder.includes(rarity) ? rarity : 'common';
+        const range = template?.statRules?.[statKey]?.[finalRarity];
+        return Array.isArray(range) && range.length >= 2 ? range : null;
     },
 
     templateSupportsRarity(template, rarity = 'common') {

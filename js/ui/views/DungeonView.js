@@ -10,6 +10,8 @@ class DungeonView {
         this.codexModal = null;
         this.activeCodexEnemyId = null;
         this.codexPortraitCache = new Set();
+        this.expandedCodexEntries = new Set();
+        this.codexAdvancedStatsExpanded = new Set();
     }
 
     show() {
@@ -252,23 +254,138 @@ class DungeonView {
 
     getMonsterCodexListMarkup(entries) {
         if (entries.length === 0) {
-            return '<div class="monster-codex-empty">当前分类暂无怪物</div>';
+            return '<div class="mcdx-empty">当前分类暂无怪物</div>';
         }
 
-        return entries.map(entry => `
-            <button type="button" class="monster-codex-list-item ${entry.rank} ${entry.unlocked ? 'is-unlocked' : 'is-locked'} ${(entry.codexKey || entry.id) === this.activeCodexEnemyId ? 'is-active' : ''}"
-                ${entry.unlocked ? `onclick="window.game.ui.dungeonView.selectMonsterCodexEntry('${entry.codexKey || entry.id}')"` : 'disabled'}>
-                ${this.getMonsterPortraitMarkup(entry, 'monster-codex-list-icon')}
-                <span class="monster-codex-list-main">
-                    <span class="monster-codex-list-name">${entry.unlocked ? entry.name : '未知目标'}</span>
-                    <span class="monster-codex-list-meta">${entry.unlocked ? `Lv.${entry.previewLevel} · ${entry.rankLabel}${entry.count ? ` ×${entry.count}` : ''}` : `需要 Lv.${entry.unlockLevel}`}</span>
-                </span>
-                <span class="monster-codex-list-status">${entry.unlocked ? '已识别' : '封锁'}</span>
-            </button>
-        `).join('');
+        return entries.map((entry) => this.renderCodexCard(entry)).join('');
+    }
+
+    renderCodexCard(entry) {
+        const key = entry.codexKey || entry.id;
+        const isExpanded = entry.unlocked && this.expandedCodexEntries.has(key);
+        const tags = this.getEnemyTagList(entry);
+        const status = entry.unlocked
+            ? (isExpanded ? '收起 ▲' : '展开 ▼')
+            : `需要 Lv.${entry.unlockLevel}`;
+        const headerOnClick = entry.unlocked
+            ? `onclick="window.game.ui.dungeonView.toggleCodexEntry('${key}')"`
+            : '';
+        const meta = entry.unlocked
+            ? `Lv.${entry.previewLevel} · ${entry.rankLabel}${entry.count ? ` ×${entry.count}` : ''}`
+            : '未识别目标';
+        const tagsMarkup = (entry.unlocked && tags.length)
+            ? `<div class="mcdx-card-tags">${tags.map((t) => `<span class="mcdx-tag mcdx-tag-${t.kind}">${t.label}</span>`).join('')}</div>`
+            : '';
+
+        return `
+            <div class="mcdx-card ${entry.rank} ${entry.unlocked ? 'is-unlocked' : 'is-locked'} ${isExpanded ? 'is-expanded' : ''}">
+                <button type="button" class="mcdx-card-head" ${headerOnClick} ${entry.unlocked ? '' : 'disabled'}>
+                    ${this.getMonsterPortraitMarkup(entry, 'mcdx-card-thumb')}
+                    <div class="mcdx-card-summary">
+                        <div class="mcdx-card-name-row">
+                            <span class="mcdx-card-name">${entry.unlocked ? entry.name : '未知目标'}</span>
+                            <span class="mcdx-rank-badge ${entry.rank}">${entry.rankLabel}</span>
+                        </div>
+                        <div class="mcdx-card-meta">${meta}</div>
+                        ${tagsMarkup}
+                    </div>
+                    <span class="mcdx-card-state">${status}</span>
+                </button>
+                ${isExpanded ? `<div class="mcdx-card-body">${this.getMonsterDetailContent(entry)}</div>` : ''}
+            </div>
+        `;
+    }
+
+    getEnemyTagList(entry) {
+        const stats = entry.stats || {};
+        const tags = [];
+        const range = Number(stats.attackRange) || 0;
+        if (range >= 4) tags.push({ kind: 'range', label: '远程' });
+        else if (range >= 2) tags.push({ kind: 'range', label: '中距离' });
+        else tags.push({ kind: 'range', label: '近战' });
+
+        const move = Number(stats.moveRange) || 0;
+        if (move >= 4) tags.push({ kind: 'mobility', label: '高机动' });
+        else if (move <= 1) tags.push({ kind: 'mobility', label: '迟缓' });
+
+        const skills = Array.isArray(entry.skills) ? entry.skills : (entry.skill ? [entry.skill] : []);
+        const desc = skills.map((s) => `${s?.name || ''} ${s?.description || ''}`).join(' ').toLowerCase();
+        if (/范围|aoe|群体|爆裂|冲击波/.test(desc)) tags.push({ kind: 'skill', label: '范围' });
+        if (/眩晕|减速|定身|束缚|沉默|控制/.test(desc)) tags.push({ kind: 'skill', label: '控制' });
+        if (/治疗|回复|护盾|增益|加血/.test(desc)) tags.push({ kind: 'skill', label: '支援' });
+        if (/燃烧|中毒|流血|灼烧|腐蚀|debuff|减益/.test(desc)) tags.push({ kind: 'skill', label: '持续伤害' });
+
+        return tags.slice(0, 3);
+    }
+
+    toggleCodexEntry(key) {
+        if (!key) return;
+        if (this.expandedCodexEntries.has(key)) {
+            this.expandedCodexEntries.delete(key);
+            this.codexAdvancedStatsExpanded.delete(key);
+        } else {
+            this.expandedCodexEntries.add(key);
+        }
+        this.activeCodexEnemyId = key;
+        this.refreshMonsterCodexModal();
+    }
+
+    toggleCodexAdvancedStats(key) {
+        if (!key) return;
+        if (this.codexAdvancedStatsExpanded.has(key)) {
+            this.codexAdvancedStatsExpanded.delete(key);
+        } else {
+            this.codexAdvancedStatsExpanded.add(key);
+        }
+        this.refreshMonsterCodexModal();
+        if (this.codexAdvancedStatsExpanded.has(key)) {
+            requestAnimationFrame(() => {
+                const list = document.querySelector('.mcdx-list');
+                const adv = document.querySelector('.mcdx-card.is-expanded .mcdx-stat-advanced');
+                if (list && adv) {
+                    const listRect = list.getBoundingClientRect();
+                    const advRect = adv.getBoundingClientRect();
+                    const delta = advRect.bottom - listRect.bottom + 12;
+                    if (delta > 0) list.scrollTop += delta;
+                }
+            });
+        }
     }
 
     getMonsterCodexModalContent() {
+        const entries = this.getCurrentCodexEntries();
+        this.ensureActiveCodexSelection();
+        const tabConfigs = this.getCodexTabConfigs();
+        const overview = this.getCodexOverview();
+        this.preloadMonsterCodexPortraits();
+        const title = this.codexDungeonId ? '本关怪物图鉴' : '怪物图鉴';
+        return `
+            <div class="mcdx-shell">
+                <div class="mcdx-header">
+                    <div class="mcdx-header-title">${title}</div>
+                    <div class="mcdx-header-progress">已识别 <strong>${overview.unlocked}</strong>/${overview.total}</div>
+                </div>
+                <div class="mcdx-tabs">
+                    ${tabConfigs.map((tab) => {
+                        const stats = this.getCodexTabStats(tab.key);
+                        return `
+                            <button type="button" class="mcdx-tab ${tab.key} ${this.activeCodexTab === tab.key ? 'is-active' : ''}"
+                                onclick="window.game.ui.dungeonView.switchCodexTab('${tab.key}', true)">
+                                <span class="mcdx-tab-label">${tab.label}</span>
+                                <span class="mcdx-tab-count">${stats.unlocked}/${stats.total}</span>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="mcdx-list">
+                    ${this.getMonsterCodexListMarkup(entries)}
+                </div>
+            </div>
+        `;
+    }
+
+
+    getMonsterCodexModalContent_LEGACY_UNUSED() {
         const entries = this.getCurrentCodexEntries();
         const activeEntry = this.ensureActiveCodexSelection();
         const tabConfigs = this.getCodexTabConfigs();
@@ -334,69 +451,127 @@ class DungeonView {
 
     getMonsterDetailContent(entry) {
         const stats = entry.stats || {};
-        const dungeonText = entry.dungeons.map(item => `${item.name} Lv.${item.level}`).join('、');
         const skills = Array.isArray(entry.skills) && entry.skills.length ? entry.skills : (entry.skill ? [entry.skill] : []);
-        const skillName = skills.length ? skills.map((skill) => skill.name || skill.id || '未命名技能').join(' / ') : '无';
-        const skillDescription = skills.length
-            ? skills.map((skill) => `${skill.name || skill.id || '技能'}：${skill.description || '暂无描述'}`).join('<br>')
-            : '该怪物暂无专属技能。';
-        const power = this.calculateMonsterPower(stats);
+        const key = entry.codexKey || entry.id;
+        const advancedExpanded = this.codexAdvancedStatsExpanded.has(key);
+        const combatTip = entry.combatTip
+            || (entry.config && entry.config.combatTip)
+            || this.getAutoCombatTip(entry);
+
+        const tagsRow = (() => {
+            const tags = this.getEnemyTagList(entry);
+            if (!tags.length) return '';
+            return `<div class="mcdx-detail-tags">${tags.map((t) => `<span class="mcdx-tag mcdx-tag-${t.kind}">${t.label}</span>`).join('')}</div>`;
+        })();
+
+        const skillsMarkup = skills.length
+            ? skills.map((skill) => {
+                const skillTags = this.getSkillTypeTags(skill);
+                const name = skill?.name || skill?.id || '未命名技能';
+                const desc = skill?.description || '暂无描述';
+                return `
+                    <div class="mcdx-skill-card">
+                        <div class="mcdx-skill-head">
+                            <span class="mcdx-skill-name">${name}</span>
+                            ${skillTags.map((t) => `<span class="mcdx-tag mcdx-tag-${t.kind}">${t.label}</span>`).join('')}
+                        </div>
+                        <div class="mcdx-skill-desc">${desc}</div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="mcdx-skill-empty">该怪物无专属技能</div>';
+
         return `
-            <div class="monster-detail-panel monster-detail-panel-inline ${entry.rank}">
-                <div class="monster-detail-header">
-                    <div class="monster-detail-icon-wrap">
-                        ${this.getMonsterPortraitMarkup(entry, `monster-detail-icon ${entry.rank}`)}
-                        <div class="monster-detail-threat">${this.getMonsterThreatLabel(entry.rank)}</div>
-                    </div>
-                    <div class="monster-detail-main">
-                        <div class="monster-detail-kicker">ENEMY FILE</div>
-                        <div class="monster-detail-name-row">
-                            <div class="monster-detail-name">${entry.name}</div>
-                            <span class="monster-rank-badge ${entry.rank}">${entry.rankLabel}</span>
+            <div class="mcdx-detail ${entry.rank}">
+                <div class="mcdx-detail-hero">
+                    ${this.getMonsterPortraitMarkup(entry, `mcdx-detail-portrait ${entry.rank}`)}
+                    <div class="mcdx-detail-hero-overlay">
+                        <div class="mcdx-detail-name-row">
+                            <span class="mcdx-detail-name">${entry.name}</span>
+                            <span class="mcdx-rank-badge ${entry.rank}">${entry.rankLabel}</span>
                         </div>
-                        <div class="monster-detail-tags">
-                            <span class="monster-rank-badge neutral">副本强度 Lv.${entry.previewLevel}</span>
-                            <span class="monster-rank-badge neutral">战术档案</span>
-                        </div>
-                        <div class="monster-detail-desc">${entry.description}</div>
-                    </div>
-                    <div class="monster-detail-power">
-                        <span>战力评估</span>
-                        <strong>${power}</strong>
+                        ${tagsRow}
                     </div>
                 </div>
-                <div class="monster-detail-intel-strip">
-                    <div class="monster-detail-intel-item">
-                        <span>出现副本</span>
-                        <strong>${dungeonText || '未知区域'}</strong>
-                    </div>
-                    <div class="monster-detail-intel-item">
-                        <span>攻击距离</span>
-                        <strong>${stats.attackRange || 0}</strong>
-                    </div>
-                    <div class="monster-detail-intel-item">
-                        <span>移动距离</span>
-                        <strong>${stats.moveRange || 0}</strong>
-                    </div>
+
+                <div class="mcdx-detail-desc">${entry.description || '该敌人暂无战术描述。'}</div>
+                ${combatTip ? `<div class="mcdx-detail-tip"><span class="mcdx-tip-icon">⚠</span><span class="mcdx-tip-text">${combatTip}</span></div>` : ''}
+
+                <div class="mcdx-stat-row">
+                    ${this.buildCoreStatCell('HP', stats.hp || 0)}
+                    ${this.buildCoreStatCell('ATK', stats.attack || 0)}
+                    ${this.buildCoreStatCell('DEF', stats.defense || 0)}
+                    ${this.buildCoreStatCell('SPD', stats.speed || 0)}
                 </div>
-                <div class="monster-detail-stats">
-                    ${this.buildMonsterStatItem('生命', `${stats.hp || 0}`, 'is-core')}
-                    ${this.buildMonsterStatItem('攻击', `${stats.attack || 0}`, 'is-core')}
-                    ${this.buildMonsterStatItem('防御', `${stats.defense || 0}`, 'is-core')}
-                    ${this.buildMonsterStatItem('速度', `${stats.speed || 0}`)}
-                    ${this.buildMonsterStatItem('暴击', `${stats.crit || 0}`)}
-                    ${this.buildMonsterStatItem('抗暴', `${stats.antiCrit || 0}`)}
-                    ${this.buildMonsterStatItem('破防', `${stats.defensePen || 0}`)}
-                    ${this.buildMonsterStatItem('命中', `${stats.accuracy || 0}`)}
-                    ${this.buildMonsterStatItem('闪避', `${stats.dodge || 0}`)}
+                <button type="button" class="mcdx-stat-toggle" onclick="window.game.ui.dungeonView.toggleCodexAdvancedStats('${key}')">
+                    ${advancedExpanded ? '收起详细数值 ▲' : '详细数值 ▼'}
+                </button>
+                ${advancedExpanded ? `
+                <div class="mcdx-stat-advanced">
+                    ${this.buildAdvancedStatCell('暴击', stats.crit || 0)}
+                    ${this.buildAdvancedStatCell('抗暴', stats.antiCrit || 0)}
+                    ${this.buildAdvancedStatCell('破防', stats.defensePen || 0)}
+                    ${this.buildAdvancedStatCell('命中', stats.accuracy || 0)}
+                    ${this.buildAdvancedStatCell('闪避', stats.dodge || 0)}
+                    ${this.buildAdvancedStatCell('攻距', stats.attackRange || 0)}
+                    ${this.buildAdvancedStatCell('移距', stats.moveRange || 0)}
                 </div>
-                <div class="monster-detail-skill">
-                    <div class="monster-detail-skill-kicker">SPECIAL SKILL</div>
-                    <div class="monster-detail-skill-title">${skillName}</div>
-                    <div class="monster-detail-skill-desc">${skillDescription}</div>
+                ` : ''}
+
+                <div class="mcdx-skill-section">
+                    <div class="mcdx-skill-title">⚡ 专属技能</div>
+                    ${skillsMarkup}
                 </div>
             </div>
         `;
+    }
+
+    buildCoreStatCell(label, value) {
+        return `
+            <div class="mcdx-stat-cell">
+                <span class="mcdx-stat-label">${label}</span>
+                <strong class="mcdx-stat-value">${value}</strong>
+            </div>
+        `;
+    }
+
+    buildAdvancedStatCell(label, value) {
+        return `
+            <div class="mcdx-stat-adv-cell">
+                <span>${label}</span>
+                <strong>${value}</strong>
+            </div>
+        `;
+    }
+
+    getSkillTypeTags(skill) {
+        const text = `${skill?.name || ''} ${skill?.description || ''}`.toLowerCase();
+        const tags = [];
+        if (/范围|aoe|群体|爆裂|冲击波/.test(text)) tags.push({ kind: 'skill', label: '范围' });
+        if (/眩晕|减速|定身|束缚|沉默|控制/.test(text)) tags.push({ kind: 'skill', label: '控制' });
+        if (/治疗|回复|护盾|增益/.test(text)) tags.push({ kind: 'skill', label: '支援' });
+        if (/燃烧|中毒|流血|灼烧|腐蚀|debuff|减益/.test(text)) tags.push({ kind: 'skill', label: '持续' });
+        if (/冲锋|位移|突进|拉扯|击退/.test(text)) tags.push({ kind: 'skill', label: '位移' });
+        return tags.slice(0, 2);
+    }
+
+    getAutoCombatTip(entry) {
+        const stats = entry.stats || {};
+        const range = Number(stats.attackRange) || 0;
+        const move = Number(stats.moveRange) || 0;
+        if (entry.rank === 'boss') {
+            return '高威胁领主，优先集火击杀，注意其专属技能节奏。';
+        }
+        if (range >= 4) {
+            return '远程单位，安排前排吸引仇恨后再切入。';
+        }
+        if (range <= 1 && move >= 4) {
+            return '高速近战，远程英雄保持距离避免被贴脸。';
+        }
+        if (entry.rank === 'elite') {
+            return '精英目标，建议集中输出尽快清除。';
+        }
+        return '';
     }
 
     openMonsterDetail(enemyId, dungeonId = null) {

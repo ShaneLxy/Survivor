@@ -1,0 +1,300 @@
+/* 战前剧情对话样式 */
+
+.story-dialogue-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: storyFadeIn 0.3s ease-out;
+}
+
+@keyframes storyFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.story-dialogue-container {
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    animation: storySlideUp 0.4s ease-out;
+}
+
+@keyframes storySlideUp {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 立绘 - 叠加在对话框上方 */
+.story-dialogue-avatar {
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    width: 280px;
+    height: 400px;
+    z-index: 2;
+    pointer-events: none;
+    animation: storyAvatarIn 0.5s ease-out;
+}
+
+@keyframes storyAvatarIn {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 右侧立绘 */
+.story-dialogue-container.avatar-right .story-dialogue-avatar {
+    left: auto;
+    right: 20px;
+}
+
+.story-dialogue-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: bottom center;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
+}
+
+.story-dialogue-avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 20px;
+    font-size: 72px;
+    font-weight: bold;
+    color: #7accd6;
+    text-shadow: 0 0 20px rgba(122, 204, 214, 0.8),
+                 0 0 40px rgba(122, 204, 214, 0.4);
+}
+
+/* 旁白模式（无立绘） */
+.story-dialogue-container.narrator-mode .story-dialogue-avatar {
+    display: none;
+}
+
+.story-dialogue-container.narrator-mode .story-dialogue-box {
+    padding-left: 24px;
+    padding-right: 24px;
+}
+
+/* 对话框 - 固定在底部 */
+.story-dialogue-box {
+    width: 100%;
+    background: linear-gradient(135deg, rgba(8, 14, 22, 0.85) 0%, rgba(18, 28, 42, 0.85) 100%);
+    border-top: 2px solid #7accd6;
+    padding: 20px 24px;
+    padding-bottom: 24px;
+    position: relative;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(122, 204, 214, 0.2);
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+}
+
+/* 左侧立绘时，对话框左侧留空 */
+.story-dialogue-container:not(.narrator-mode):not(.avatar-right) .story-dialogue-box {
+    padding-left: 320px;
+}
+
+/* 右侧立绘时，对话框右侧留空 */
+.story-dialogue-container.avatar-right .story-dialogue-box {
+    padding-right: 320px;
+}
+
+.story-dialogue-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        #7accd6 50%,
+        transparent 100%);
+    opacity: 0.5;
+}
+
+/* 角色名 */
+.story-dialogue-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #f6c96b;
+    margin-bottom: 12px;
+    text-shadow: 0 0 8px rgba(246, 201, 107, 0.4);
+    letter-spacing: 1px;
+}
+
+/* 对话文本 */
+.story-dialogue-text {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #e8eef2;
+    flex: 1;
+    min-height: 60px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* 跳过按钮 */
+.story-dialogue-skip {
+    position: absolute;
+    bottom: 20px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    background: rgba(122, 204, 214, 0.2);
+    border: 2px solid #7accd6;
+    border-radius: 50%;
+    color: #7accd6;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    animation: storySkipPulse 2s ease-in-out infinite;
+    z-index: 3;
+}
+
+@keyframes storySkipPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(122, 204, 214, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(122, 204, 214, 0);
+    }
+}
+
+.story-dialogue-skip:hover {
+    background: rgba(122, 204, 214, 0.3);
+    transform: scale(1.1);
+    box-shadow: 0 0 16px rgba(122, 204, 214, 0.6);
+}
+
+.story-dialogue-skip:active {
+    transform: scale(0.95);
+}
+
+/* 手机端优化 */
+@media (max-width: 768px) {
+    .story-dialogue-avatar {
+        width: 200px;
+        height: 280px;
+        left: 10px;
+    }
+
+    .story-dialogue-container.avatar-right .story-dialogue-avatar {
+        right: 10px;
+    }
+
+    .story-dialogue-box {
+        padding: 16px 18px;
+        padding-bottom: 20px;
+        min-height: 120px;
+    }
+
+    /* 左侧立绘时，对话框左侧留空 */
+    .story-dialogue-container:not(.narrator-mode):not(.avatar-right) .story-dialogue-box {
+        padding-left: 220px;
+    }
+
+    /* 右侧立绘时，对话框右侧留空 */
+    .story-dialogue-container.avatar-right .story-dialogue-box {
+        padding-right: 220px;
+    }
+
+    .story-dialogue-name {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+
+    .story-dialogue-text {
+        font-size: 14px;
+        line-height: 1.6;
+        min-height: 50px;
+    }
+
+    .story-dialogue-skip {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+        bottom: 16px;
+        right: 18px;
+    }
+}
+
+/* 极小屏幕优化 */
+@media (max-width: 480px) {
+    .story-dialogue-avatar {
+        width: 160px;
+        height: 220px;
+        left: 5px;
+    }
+
+    .story-dialogue-container.avatar-right .story-dialogue-avatar {
+        right: 5px;
+    }
+
+    .story-dialogue-box {
+        padding: 14px 16px;
+        padding-bottom: 18px;
+        min-height: 110px;
+    }
+
+    /* 左侧立绘时，对话框左侧留空 */
+    .story-dialogue-container:not(.narrator-mode):not(.avatar-right) .story-dialogue-box {
+        padding-left: 175px;
+    }
+
+    /* 右侧立绘时，对话框右侧留空 */
+    .story-dialogue-container.avatar-right .story-dialogue-box {
+        padding-right: 175px;
+    }
+
+    .story-dialogue-name {
+        font-size: 15px;
+        margin-bottom: 6px;
+    }
+
+    .story-dialogue-text {
+        font-size: 13px;
+        line-height: 1.5;
+        min-height: 45px;
+    }
+
+    .story-dialogue-skip {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+        bottom: 14px;
+        right: 16px;
+    }
+}

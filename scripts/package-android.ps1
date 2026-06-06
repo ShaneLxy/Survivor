@@ -45,6 +45,22 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $projectRoot 'android\app\build\outputs\apk\debug'
 }
 
+if ([string]::IsNullOrWhiteSpace($ServerUrl)) {
+    throw 'ServerUrl is required. Please provide a full API base URL such as https://example.com/api'
+}
+
+$normalizedServerUrl = $ServerUrl.Trim().TrimEnd('/')
+if ($normalizedServerUrl -notmatch '^https?://') {
+    throw "Invalid ServerUrl: $ServerUrl"
+}
+if ($normalizedServerUrl -notmatch '/api$') {
+    throw "ServerUrl must end with /api : $ServerUrl"
+}
+if ($normalizedServerUrl -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?/api$') {
+    throw 'ServerUrl cannot use localhost or 127.0.0.1 for a real Android device. Use a LAN IP or a public domain instead.'
+}
+$ServerUrl = $normalizedServerUrl
+
 if ($VersionCode -notmatch '^[1-9]\d*$') {
     throw 'VersionCode must be a positive integer string.'
 }
@@ -177,6 +193,28 @@ function Set-StagedBuildVersion {
     }
 }
 
+function Set-StagedRuntimeApiBaseUrl {
+    param([string]$BaseUrl)
+
+    if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+        return
+    }
+
+    $runtimeConfigPath = Join-Path $mobileWebRoot 'js\config\RuntimeConfig.js'
+    if (-not (Test-Path $runtimeConfigPath)) {
+        return
+    }
+
+    $normalizedBaseUrl = $BaseUrl.Trim().TrimEnd('/')
+    $content = Get-Content -LiteralPath $runtimeConfigPath -Raw -Encoding UTF8
+    $updated = [regex]::Replace(
+        $content,
+        "apiBaseUrl:\s*'[^']*'",
+        "apiBaseUrl: '$normalizedBaseUrl'"
+    )
+    Set-Content -LiteralPath $runtimeConfigPath -Value $updated -Encoding UTF8 -NoNewline
+}
+
 function Set-CapacitorPackageConfig {
     param(
         [string]$Path,
@@ -290,6 +328,7 @@ try {
     }
 
     Invoke-CheckedCommand -FilePath $powershell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'prepare-capacitor-web.ps1')) -WorkingDirectory $projectRoot
+    Set-StagedRuntimeApiBaseUrl -BaseUrl $ServerUrl
     Set-StagedBuildVersion -Version $BuildVersion
     Invoke-CheckedCommand -FilePath $npx -Arguments @('cap', 'sync', 'android') -WorkingDirectory $projectRoot
     Invoke-CheckedCommand -FilePath $powershell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'configure-capacitor-android.ps1')) -WorkingDirectory $projectRoot

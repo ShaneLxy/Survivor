@@ -152,6 +152,39 @@ class DungeonManager {
         };
     }
 
+    getUnlockedDungeonCount() {
+        const chapters = (window.DungeonChapterConfig || []).map((chapter) => ({
+            ...chapter,
+            dungeons: (chapter.dungeonIds || []).map((id) => this.getDungeon(id)).filter(Boolean)
+        })).filter((chapter) => chapter.dungeons.length > 0);
+
+        if (!chapters.length) {
+            return Math.max(1, Object.keys(this.completedDungeons || {}).length);
+        }
+
+        let unlocked = 0;
+        let chapterLocked = false;
+        for (const chapter of chapters) {
+            if (chapterLocked) {
+                break;
+            }
+            const stages = chapter.dungeons || [];
+            let previousCleared = true;
+            let allCleared = stages.length > 0;
+            for (const stage of stages) {
+                if (previousCleared) {
+                    unlocked += 1;
+                }
+                const cleared = this.isCompleted(stage.id);
+                allCleared = allCleared && cleared;
+                previousCleared = cleared;
+            }
+            chapterLocked = !allCleared;
+        }
+
+        return Math.max(1, unlocked);
+    }
+
     getSaveData() {
         return {
             completedDungeons: { ...this.completedDungeons },

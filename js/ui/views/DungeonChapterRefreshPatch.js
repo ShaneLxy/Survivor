@@ -419,7 +419,13 @@
         const clickHandler = chapterAccessibility.accessible && isActive
             ? `window.game.ui.dungeonView.openChapterStageModal('${chapter.id}')`
             : `window.game.ui.dungeonView.switchChapterTo('${chapter.id}')`;
-        const chapterBackground = chapter?.background || '';
+        // 同上：转绝对路径，避免 --chapter-card-bg 在 views.css 中解析到 /css/ 前缀
+        const toAbsolute = (path) => {
+            const str = String(path || '').trim();
+            if (!str || /^(?:https?:|data:|blob:|\/)/i.test(str)) return str;
+            return '/' + str.replace(/^\.\//, '');
+        };
+        const chapterBackground = toAbsolute(chapter?.background || '');
 
         return `
             <button type="button" class="dungeon-chapter-slide ${isActive ? 'is-active' : ''}" data-chapter-id="${chapter.id}" onclick="${clickHandler}">
@@ -556,7 +562,14 @@
         const selectedIndex = this.getSelectedChapterIndex(chapters);
         const prevChapter = this.getAdjacentChapter(-1);
         const nextChapter = this.getAdjacentChapter(1);
-        const background = selectedChapter?.background || window.GameSceneBackgrounds?.dungeon?.src || '';
+        // 路径标准化：用作 CSS 变量时，浏览器会按"相对于 CSS 文件位置"解析，
+        // 导致 assets/... 被错误解析为 /css/assets/...。统一转成绝对路径避免此问题。
+        const toAbsolute = (path) => {
+            const str = String(path || '').trim();
+            if (!str || /^(?:https?:|data:|blob:|\/)/i.test(str)) return str;
+            return '/' + str.replace(/^\.\//, '');
+        };
+        const background = toAbsolute(selectedChapter?.background || window.GameSceneBackgrounds?.dungeon?.src || '');
         const chapterSummary = selectedChapter ? this.getChapterTacticalSummary(selectedChapter) : null;
         const progressSummary = this.getChapterProgressSummary(chapters);
         const headerSubtitle = selectedChapter && chapterSummary

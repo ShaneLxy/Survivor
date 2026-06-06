@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试API响应 - storyDialogues</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #4CAF50;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 测试 API 响应 - storyDialogues 字段</h1>
+
+        <div class="step">
+            <h3>步骤 1: 测试 API 接口</h3>
+            <p>点击下面的按钮测试 <code>/gm/catalog/public</code> 接口是否返回 <code>storyDialogues</code> 字段</p>
+            <button onclick="testApiResponse()">测试 API 响应</button>
+            <div id="apiResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 2: 检查前端数据</h3>
+            <p>点击下面的按钮检查前端 <code>DungeonConfig.dungeons</code> 中是否有 <code>storyDialogues</code></p>
+            <button onclick="checkFrontendData()">检查前端数据</button>
+            <div id="frontendResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 3: 检查 DungeonManager</h3>
+            <p>点击下面的按钮检查 <code>dungeonManager.getDungeon()</code> 返回的数据</p>
+            <button onclick="checkDungeonManager()">检查 DungeonManager</button>
+            <div id="managerResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 4: 完整诊断</h3>
+            <p>运行完整的诊断流程，找出问题所在</p>
+            <button onclick="runFullDiagnostic()">运行完整诊断</button>
+            <div id="diagnosticResult"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testApiResponse() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = '<div class="result info">正在请求 API...</div>';
+
+            try {
+                const baseUrl = window.httpClient?.getBaseUrl?.() || 'http://localhost:3000';
+                const response = await fetch(`${baseUrl}/gm/catalog/public`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const dungeons = data.dungeons || [];
+                const dungeon001 = dungeons.find(d => d.id === 'dungeon_001');
+
+                let html = '<div class="result success">';
+                html += '<strong>✅ API 请求成功！</strong><br><br>';
+                html += `<strong>副本总数:</strong> ${dungeons.length}<br>`;
+                html += `<strong>dungeon_001 存在:</strong> ${dungeon001 ? '是' : '否'}<br>`;
+
+                if (dungeon001) {
+                    html += `<strong>dungeon_001.storyDialogues 存在:</strong> ${dungeon001.storyDialogues ? '是 ✅' : '否 ❌'}<br>`;
+
+                    if (dungeon001.storyDialogues) {
+                        html += `<strong>对话数量:</strong> ${dungeon001.storyDialogues.length}<br><br>`;
+                        html += '<strong>storyDialogues 内容:</strong><br>';
+                        html += JSON.stringify(dungeon001.storyDialogues, null, 2);
+                    } else {
+                        html += '<br><strong>⚠️ 问题：API 返回的数据中没有 storyDialogues 字段！</strong><br>';
+                        html += '这说明服务器端的修改可能没有生效，请检查：<br>';
+                        html += '1. 服务器是否已重启<br>';
+                        html += '2. 修改的代码是否正确保存<br>';
+                        html += '3. TypeScript 是否编译成功<br>';
+                    }
+                } else {
+                    html += '<br><strong>⚠️ 找不到 dungeon_001</strong>';
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><strong>❌ API 请求失败</strong><br><br>${error.message}</div>`;
+            }
+        }
+
+        function checkFrontendData() {
+            const resultDiv = document.getElementById('frontendResult');
+
+            try {
+                if (!window.DungeonConfig) {
+                    resultDiv.innerHTML = '<div class="result error">❌ window.DungeonConfig 不存在</div>';
+                    return;
+                }
+
+                const dungeons = window.DungeonConfig.dungeons || [];
+                const dungeon001 = dungeons.find(d => d.id === 'dungeon_001');
+
+                let html = '<div class="result ';
+
+                if (dungeon001?.storyDialogues) {
+                    html += 'success">';
+                    html += '<strong>✅ 前端数据正常！</strong><br><br>';
+                    html += `<strong>DungeonConfig.dungeons 总数:</strong> ${dungeons.length}<br>`;
+                    html += `<strong>dungeon_001.storyDialogues 存在:</strong> 是 ✅<br>`;
+                    html += `<strong>对话数量:</strong> ${dungeon001.storyDialogues.length}<br><br>`;
+                    html += '<strong>storyDialogues 内容:</strong><br>';
+                    html += JSON.stringify(dungeon001.storyDialogues, null, 2);
+                } else {
+                    html += 'warning">';
+                    html += '<strong>⚠️ 前端数据中没有 storyDialogues</strong><br><br>';
+                    html += `<strong>DungeonConfig.dungeons 总数:</strong> ${dungeons.length}<br>`;
+                    html += `<strong>dungeon_001 存在:</strong> ${dungeon001 ? '是' : '否'}<br>`;
+
+                    if (dungeon001) {
+                        html += '<br><strong>dungeon_001 的所有字段:</strong><br>';
+                        html += JSON.stringify(Object.keys(dungeon001), null, 2);
+                    }
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><strong>❌ 检查失败</strong><br><br>${error.message}</div>`;
+            }
+        }
+
+        function checkDungeonManager() {
+            const resultDiv = document.getElementById('managerResult');
+
+            try {
+                if (!window.dungeonManager) {
+                    resultDiv.innerHTML = '<div class="result error">❌ window.dungeonManager 不存在</div>';
+                    return;
+                }
+
+                const dungeon = window.dungeonManager.getDungeon('dungeon_001');
+
+                let html = '<div class="result ';
+
+                if (dungeon?.storyDialogues) {
+                    html += 'success">';
+                    html += '<strong>✅ DungeonManager 数据正常！</strong><br><br>';
+                    html += `<strong>dungeon.storyDialogues 存在:</strong> 是 ✅<br>`;
+                    html += `<strong>对话数量:</strong> ${dungeon.storyDialogues.length}<br><br>`;
+                    html += '<strong>storyDialogues 内容:</strong><br>';
+                    html += JSON.stringify(dungeon.storyDialogues, null, 2);
+                } else {
+                    html += 'error">';
+                    html += '<strong>❌ DungeonManager 返回的数据中没有 storyDialogues</strong><br><br>';
+                    html += `<strong>dungeon 存在:</strong> ${dungeon ? '是' : '否'}<br>`;
+
+                    if (dungeon) {
+                        html += '<br><strong>dungeon 的所有字段:</strong><br>';
+                        html += JSON.stringify(Object.keys(dungeon), null, 2);
+                    }
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><strong>❌ 检查失败</strong><br><br>${error.message}</div>`;
+            }
+        }
+
+        async function runFullDiagnostic() {
+            const resultDiv = document.getElementById('diagnosticResult');
+            resultDiv.innerHTML = '<div class="result info">正在运行完整诊断...</div>';
+
+            let report = '';
+            let issueFound = false;
+
+            // 步骤 1: 检查 API
+            report += '=== 步骤 1: 检查 API 响应 ===\n\n';
+            try {
+                const baseUrl = window.httpClient?.getBaseUrl?.() || 'http://localhost:3000';
+                const response = await fetch(`${baseUrl}/gm/catalog/public`);
+                const data = await response.json();
+                const dungeon001 = (data.dungeons || []).find(d => d.id === 'dungeon_001');
+
+                if (dungeon001?.storyDialogues) {
+                    report += '✅ API 返回的数据包含 storyDialogues\n';
+                    report += `   对话数量: ${dungeon001.storyDialogues.length}\n\n`;
+                } else {
+                    report += '❌ API 返回的数据不包含 storyDialogues\n';
+                    report += '   问题: 服务器端的修改没有生效\n';
+                    report += '   解决方案:\n';
+                    report += '   1. 确认服务器已重启\n';
+                    report += '   2. 检查 gm-catalog.service.ts 的修改是否保存\n';
+                    report += '   3. 检查 TypeScript 编译是否成功\n\n';
+                    issueFound = true;
+                }
+            } catch (error) {
+                report += `❌ API 请求失败: ${error.message}\n\n`;
+                issueFound = true;
+            }
+
+            // 步骤 2: 检查前端 DungeonConfig
+            report += '=== 步骤 2: 检查前端 DungeonConfig ===\n\n';
+            const dungeons = window.DungeonConfig?.dungeons || [];
+            const configDungeon = dungeons.find(d => d.id === 'dungeon_001');
+
+            if (configDungeon?.storyDialogues) {
+                report += '✅ DungeonConfig.dungeons 包含 storyDialogues\n';
+                report += `   对话数量: ${configDungeon.storyDialogues.length}\n\n`;
+            } else {
+                report += '❌ DungeonConfig.dungeons 不包含 storyDialogues\n';
+                report += '   问题: 前端数据同步有问题\n';
+                report += '   解决方案:\n';
+                report += '   1. 清除浏览器缓存\n';
+                report += '   2. 硬刷新页面 (Ctrl + F5)\n';
+                report += '   3. 检查 GmCatalogSyncPatch.js 的 stripCatalogMeta 方法\n\n';
+                issueFound = true;
+            }
+
+            // 步骤 3: 检查 DungeonManager
+            report += '=== 步骤 3: 检查 DungeonManager ===\n\n';
+            const managerDungeon = window.dungeonManager?.getDungeon('dungeon_001');
+
+            if (managerDungeon?.storyDialogues) {
+                report += '✅ dungeonManager.getDungeon() 返回 storyDialogues\n';
+                report += `   对话数量: ${managerDungeon.storyDialogues.length}\n\n`;
+            } else {
+                report += '❌ dungeonManager.getDungeon() 不返回 storyDialogues\n';
+                report += '   问题: DungeonManager 或 Dungeon 类有问题\n';
+                report += '   解决方案:\n';
+                report += '   1. 检查 DungeonManager.js 的 getDungeon 方法\n';
+                report += '   2. 检查 Dungeon 类的构造函数\n\n';
+                issueFound = true;
+            }
+
+            // 总结
+            report += '=== 诊断总结 ===\n\n';
+            if (!issueFound) {
+                report += '🎉 所有检查都通过了！storyDialogues 数据流转正常。\n';
+                report += '如果"回顾剧情"功能仍然不工作，请检查 BattleView.js 的 reviewStory() 方法。\n';
+            } else {
+                report += '⚠️ 发现问题，请按照上面的解决方案逐步排查。\n';
+            }
+
+            const className = issueFound ? 'warning' : 'success';
+            resultDiv.innerHTML = `<div class="result ${className}"><pre>${report}</pre></div>`;
+        }
+    </script>
+</body>
+</html>

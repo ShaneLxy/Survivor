@@ -35,6 +35,7 @@ class Dungeon {
         }));
         this.rewards = config.rewards || {};
         this.description = config.description;
+        this.storyDialogues = Array.isArray(config.storyDialogues) ? config.storyDialogues : null;
     }
 
     normalizeEnvironmentEffect(effect) {

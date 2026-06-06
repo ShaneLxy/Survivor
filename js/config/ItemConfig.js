@@ -382,6 +382,85 @@ const ItemConfig = {
             description: '可在招募中心进行1次装备10连打造',
             effect: { type: 'gacha', poolId: 'equipment_pool', count: 10 },
             stackLimit: 9999
+        },
+        hero_fragment_common_random: {
+            id: 'hero_fragment_common_random',
+            name: '普通英雄随机碎片',
+            icon: '碎',
+            type: 'consumable',
+            rarity: 'common',
+            description: '使用后随机获得 1 个普通品质英雄碎片。',
+            effect: { type: 'random_hero_fragment', rarity: 'common', count: 1 },
+            stackLimit: 9999
+        },
+        hero_fragment_rare_random: {
+            id: 'hero_fragment_rare_random',
+            name: '稀有英雄随机碎片',
+            icon: '碎',
+            type: 'consumable',
+            rarity: 'rare',
+            description: '使用后随机获得 1 个稀有品质英雄碎片。',
+            effect: { type: 'random_hero_fragment', rarity: 'rare', count: 1 },
+            stackLimit: 9999
+        },
+        hero_fragment_epic_random: {
+            id: 'hero_fragment_epic_random',
+            name: '史诗英雄随机碎片',
+            icon: '碎',
+            type: 'consumable',
+            rarity: 'epic',
+            description: '使用后随机获得 1 个史诗品质英雄碎片。',
+            effect: { type: 'random_hero_fragment', rarity: 'epic', count: 1 },
+            stackLimit: 9999
+        },
+        hero_fragment_legendary_random: {
+            id: 'hero_fragment_legendary_random',
+            name: '传说英雄随机碎片',
+            icon: '碎',
+            type: 'consumable',
+            rarity: 'legendary',
+            description: '使用后随机获得 1 个传说品质英雄碎片。',
+            effect: { type: 'random_hero_fragment', rarity: 'legendary', count: 1 },
+            stackLimit: 9999
+        },
+        hero_fragment_random: {
+            id: 'hero_fragment_random',
+            name: '英雄随机碎片',
+            icon: '碎',
+            type: 'consumable',
+            rarity: 'rare',
+            description: '使用后随机获得 1 个英雄碎片。',
+            effect: { type: 'random_hero_fragment', rarity: 'any', count: 1 },
+            stackLimit: 9999
+        },
+        welfare_privilege_card: {
+            id: 'welfare_privilege_card',
+            name: '卓越特权卡',
+            icon: '🪪',
+            type: 'consumable',
+            rarity: 'legendary',
+            description: '使用后立即激活"卓越特权"，无需观看广告，特权有效期 30 天。',
+            effect: { type: 'activate_month_card', cardId: 'welfare_month_card' },
+            stackLimit: 99
+        },
+        supreme_privilege_card: {
+            id: 'supreme_privilege_card',
+            name: '至尊特权卡',
+            icon: '👑',
+            type: 'consumable',
+            rarity: 'legendary',
+            description: '使用后立即激活"至尊特权"，无需观看广告，特权有效期 30 天。',
+            effect: { type: 'activate_month_card', cardId: 'supreme_month_card' },
+            stackLimit: 99
+        },
+        reforge_stone: {
+            id: 'reforge_stone',
+            name: '洗炼石',
+            icon: '🪨',
+            type: 'material',
+            rarity: 'rare',
+            description: '武器库洗炼装备时消耗的稀有矿石。装备品质越高，单次洗炼所需数量越多（普通×1 / 稀有×2 / 史诗×4 / 传说×8）。',
+            stackLimit: 9999
         }
     },
 
@@ -411,7 +490,13 @@ const ItemConfig = {
         hero_summon: 'assets/images/items/hero-summon.png',
         hero_recruit_ten_ticket: 'assets/images/items/hero-summon.png',
         weapon_forge_ticket: 'assets/images/items/hero-summon.png',
-        weapon_forge_ten_ticket: 'assets/images/items/hero-summon.png'
+        weapon_forge_ten_ticket: 'assets/images/items/hero-summon.png',
+        hero_fragment_common_random: 'assets/images/items/hero-summon.png',
+        hero_fragment_rare_random: 'assets/images/items/hero-summon.png',
+        hero_fragment_epic_random: 'assets/images/items/hero-summon.png',
+        hero_fragment_legendary_random: 'assets/images/items/hero-summon.png',
+        hero_fragment_random: 'assets/images/items/hero-summon.png',
+        reforge_stone: 'assets/images/items/stimulant.png'
     },
 
     getItemIconSrc(id) {

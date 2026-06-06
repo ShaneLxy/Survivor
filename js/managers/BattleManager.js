@@ -503,15 +503,19 @@ class BattleManager {
         return this.enemies.filter(unit => unit.isAlive() && unit.rank !== 'boss');
     }
 
+    getAliveFieldEnemies() {
+        return this.enemies.filter(unit => unit.isAlive());
+    }
+
     getRoundTriggeredBossWaves() {
         return this.pendingBossWaves.filter(wave => !wave.isSpawned && this.currentRound >= wave.spawnRound);
     }
 
     getClearTriggeredBossWaves() {
-        if (this.getAliveNonBossEnemies().length > 0) {
+        if (this.getAliveFieldEnemies().length > 0) {
             return [];
         }
-        return this.pendingBossWaves.filter(wave => !wave.isSpawned && wave.spawnOnClearBeforeRound && this.currentRound < wave.spawnRound);
+        return this.pendingBossWaves.filter(wave => !wave.isSpawned && wave.spawnOnClearBeforeRound);
     }
 
     async playBossEntranceEffect(payload) {
@@ -641,18 +645,37 @@ class BattleManager {
 
     getUnitStatPercentBonus(unit, statKey) {
         const tile = this.getSpecialTileAt(unit?.position);
+        let bonus = 0;
+        if (unit?.configId === 'hero_029') {
+            const instinct = this.getPoYuDesperateInstinctState(unit);
+            if (instinct) {
+                if (statKey === 'crit') {
+                    bonus += instinct.critBonus;
+                }
+            }
+        }
+        if (statKey === 'attackRange' && unit?.isAlive?.() && unit.isAlive()) {
+            const allies = this.getAllies?.(unit) || [];
+            for (const ally of allies) {
+                const aura = this.getProfessionSynergyAura(ally);
+                if (aura && aura.attackRangeBonus > 0 && ally.profession === unit.profession) {
+                    bonus += aura.attackRangeBonus;
+                    break;
+                }
+            }
+        }
         if (!tile || !unit || !statKey) {
-            return 0;
+            return bonus;
         }
         if (tile.type === 'swamp') {
             if (statKey === 'speed' || statKey === 'moveRange') {
-                return -0.3;
+                bonus += -0.3;
             }
         }
         if (tile.type === 'miasma' && statKey === 'defense') {
-            return -0.5;
+            bonus += -0.5;
         }
-        return 0;
+        return bonus;
     }
 
     getSpecialTileMoveRangeMultiplier(unit) {
@@ -815,6 +838,63 @@ class BattleManager {
         return !this.hasObstacleBetween(actor.position, position);
     }
 
+    isPositionTargetable(fromPosition, targetPosition, range) {
+        if (!fromPosition || !targetPosition || !this.isInsideBoard(fromPosition) || !this.isInsideBoard(targetPosition)) {
+            return false;
+        }
+        const normalizedRange = Math.max(0, Number(range) || 0);
+        const distance = this.distanceBetween(fromPosition, targetPosition);
+        if (distance <= 0 || distance > normalizedRange) {
+            return false;
+        }
+        if (this.isObstacleAt(targetPosition)) {
+            return false;
+        }
+        return !this.hasObstacleBetween(fromPosition, targetPosition);
+    }
+
+    getAttackPositionsNearTarget(actor, targetUnit) {
+        if (!actor || !targetUnit?.position) {
+            return [];
+        }
+        const positions = [];
+        const range = Math.max(1, Number(actor.attackRange) || 1);
+        for (let x = 0; x < this.scene.width; x++) {
+            for (let y = 0; y < this.scene.height; y++) {
+                const position = { x, y };
+                if (!this.isPositionTargetable(position, targetUnit.position, range)) {
+                    continue;
+                }
+                if (this.getPathDistance(actor.position, position, actor) !== Infinity) {
+                    positions.push(position);
+                }
+            }
+        }
+        return positions;
+    }
+
+    getNearestPathDistanceToCells(fromPosition, cells, actor) {
+        if (!fromPosition || !Array.isArray(cells) || cells.length === 0) {
+            return Infinity;
+        }
+        return cells.reduce((best, cell) => {
+            const distance = this.getPathDistance(fromPosition, cell, actor);
+            return Math.min(best, distance);
+        }, Infinity);
+    }
+
+    getUniqueExpiredEffects(effects = []) {
+        const seen = new Set();
+        return (Array.isArray(effects) ? effects : []).filter((effect) => {
+            const key = `${effect?.type || effect?.statusType || ''}:${effect?.name || effect?.statusName || ''}`;
+            if (seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        });
+    }
+
     getReachableCells(actor) {
         const moveRange = Math.max(1, Math.floor((Number(actor.moveRange) || 1) * this.getSpecialTileMoveRangeMultiplier(actor)));
         const cells = [];
@@ -859,6 +939,37 @@ class BattleManager {
         const reachableCells = this.getReachableCells(actor);
         if (!targetUnit?.position || reachableCells.length === 0) {
             return null;
+        }
+        const attackPositions = this.getAttackPositionsNearTarget(actor, targetUnit);
+        if (attackPositions.length > 0) {
+            const currentPathDistance = this.getNearestPathDistanceToCells(actor.position, attackPositions, actor);
+            reachableCells.sort((cellA, cellB) => {
+                const canAttackA = this.isPositionTargetable(cellA, targetUnit.position, actor.attackRange);
+                const canAttackB = this.isPositionTargetable(cellB, targetUnit.position, actor.attackRange);
+                if (canAttackA !== canAttackB) {
+                    return canAttackA ? -1 : 1;
+                }
+                const pathA = canAttackA ? 0 : this.getNearestPathDistanceToCells(cellA, attackPositions, actor);
+                const pathB = canAttackB ? 0 : this.getNearestPathDistanceToCells(cellB, attackPositions, actor);
+                if (pathA !== pathB) {
+                    return pathA - pathB;
+                }
+                const progressA = currentPathDistance - pathA;
+                const progressB = currentPathDistance - pathB;
+                if (progressA !== progressB) {
+                    return progressB - progressA;
+                }
+                const distanceA = this.distanceBetween(cellA, targetUnit.position);
+                const distanceB = this.distanceBetween(cellB, targetUnit.position);
+                if (distanceA !== distanceB) {
+                    return distanceA - distanceB;
+                }
+                return cellA.y - cellB.y || cellA.x - cellB.x;
+            });
+            if (this.getNearestPathDistanceToCells(reachableCells[0], attackPositions, actor) !== Infinity
+                || this.isPositionTargetable(reachableCells[0], targetUnit.position, actor.attackRange)) {
+                return reachableCells[0] || null;
+            }
         }
 
         reachableCells.sort((cellA, cellB) => {
@@ -905,6 +1016,48 @@ class BattleManager {
         };
     }
 
+    getActiveCharm(actor) {
+        if (!actor?.getStatusEffects) {
+            return null;
+        }
+        const charmEffect = actor.getStatusEffects().find(effect => effect.type === 'charm');
+        if (!charmEffect) {
+            return null;
+        }
+
+        const source = charmEffect.sourceUnitId ? this.findUnitById(charmEffect.sourceUnitId) : null;
+        const validSource = source?.isAlive?.() && source.isAlive();
+        if (!validSource) {
+            actor.removeStatusEffectsWhere?.(effect => effect.type === 'charm' && effect.sourceUnitId === charmEffect.sourceUnitId);
+            return null;
+        }
+
+        return { effect: charmEffect, source };
+    }
+
+    getCharmedAction(actor) {
+        const charm = this.getActiveCharm(actor);
+        if (!charm) {
+            return null;
+        }
+
+        const moveCell = this.chooseBestMoveToward(actor, charm.source);
+        if (moveCell && (moveCell.x !== actor.position.x || moveCell.y !== actor.position.y)) {
+            return {
+                type: 'move',
+                position: moveCell,
+                forcedByCharm: true,
+                charmSourceId: charm.source.id
+            };
+        }
+
+        return {
+            type: 'defend',
+            forcedByCharm: true,
+            charmSourceId: charm.source.id
+        };
+    }
+
     getSkillTargetCandidates(actor, skillIndex = 0, options = {}) {
         const ignoreUsable = options.ignoreUsable === true;
         const targetType = actor.getSkillTargetType?.(skillIndex) || 'enemy';
@@ -921,10 +1074,52 @@ class BattleManager {
         return targetPool.filter(target => target.isAlive() && this.isCellTargetable(actor, target.position, range));
     }
 
+    getPoYuBladeFlashContext(actor, skillIndex = 0) {
+        const skill = actor?.getSkill?.(skillIndex) || null;
+        const customEffect = skill?.customEffect || null;
+        if (!actor || customEffect?.type !== 'desperate_blade_flash') {
+            return null;
+        }
+        const currentHpPercent = Utils.clamp((Number(actor.hp) || 0) / Math.max(1, Number(actor.maxHp) || 1), 0, 1) * 100;
+        const desperateCast = currentHpPercent < (Number(customEffect.lowHpThresholdPercent) || 20);
+        return {
+            skill,
+            customEffect,
+            desperateCast,
+            range: desperateCast
+                ? Math.max(1, Number(customEffect.lowHpRange) || Number(skill.range) || 1)
+                : Math.max(1, Number(skill.range) || 1),
+            multiplier: desperateCast
+                ? Math.max(0, Number(customEffect.lowHpMultiplier) || Number(skill.multiplier) || 1)
+                : Math.max(0, Number(skill.multiplier) || 1),
+            healMissingHpRatioPerHit: desperateCast
+                ? Math.max(0, Number(customEffect.healMissingHpRatioPerHit) || 0)
+                : 0
+        };
+    }
+
+    getPoYuBladeFlashTargets(actor, skillIndex = 0) {
+        const context = this.getPoYuBladeFlashContext(actor, skillIndex);
+        if (!context) {
+            return [];
+        }
+        return this.getOpponents(actor).filter(target => target.isAlive() && this.isCellTargetable(actor, target.position, context.range));
+    }
+
     getSkillRangeCells(actor, skillIndex = 0, options = {}) {
         const targetType = actor.getSkillTargetType?.(skillIndex) || 'enemy';
         const range = Number(actor.getSkillRange?.(skillIndex));
         if (targetType === 'self') {
+            const bladeFlashContext = this.getPoYuBladeFlashContext(actor, skillIndex);
+            if (bladeFlashContext) {
+                if (!options.ignoreUsable && !this.canActorUseSkill(actor, skillIndex)) {
+                    return [];
+                }
+                const cells = this.getRawRangeCells(actor, bladeFlashContext.range);
+                return options.previewRaw
+                    ? cells
+                    : cells.filter(position => !this.hasObstacleBetween(actor.position, position));
+            }
             return [{ x: actor.position.x, y: actor.position.y }];
         }
         if (options.previewRaw) {
@@ -939,6 +1134,10 @@ class BattleManager {
     getSelectedSkillTargets(actor, primaryTarget, skillIndex = 0) {
         const targetType = actor.getSkillTargetType?.(skillIndex) || 'enemy';
         if (targetType === 'self') {
+            const bladeFlashTargets = this.getPoYuBladeFlashTargets(actor, skillIndex);
+            if (bladeFlashTargets.length > 0) {
+                return bladeFlashTargets;
+            }
             return [actor];
         }
         const candidates = this.getSkillTargetCandidates(actor, skillIndex);
@@ -1192,6 +1391,10 @@ class BattleManager {
                 result: attackResult
             });
 
+            if (attackResult.hit && attackResult.damage > 0) {
+                this.handleDamageReflect(target, actor, attackResult.damage);
+                this.handleCounterAttack(target, actor);
+            }
             if (!target.isAlive()) {
                 this.processDefeatedUnit(target, {
                     attacker: actor,
@@ -1202,6 +1405,28 @@ class BattleManager {
     }
 
     triggerKillPassives(actor, defeatedUnit, context = {}) {
+        if (actor?.configId === 'hero_029') {
+            const instinct = this.getPoYuDesperateInstinctState(actor);
+            const healRatio = Math.max(0, Number(instinct?.effect?.despairKillHealMaxHpRatio) || 0);
+            if (instinct?.despairActive && healRatio > 0) {
+                const actualHeal = actor.heal(Math.max(1, Math.floor(actor.maxHp * healRatio)));
+                if (actualHeal > 0) {
+                    this.addLog('heal', `${actor.name} 触发 ${instinct.effect?.name || '绝境本能'}，恢复 ${actualHeal} 点生命`);
+                    eventManager.emit('battleUnitAction', {
+                        attacker: actor,
+                        target: actor,
+                        damage: 0,
+                        actionType: 'status',
+                        result: {
+                            hit: true,
+                            heal: actualHeal,
+                            statusName: instinct.effect?.name || '绝境本能'
+                        }
+                    });
+                }
+            }
+        }
+
         const passiveEffects = actor?.getPassiveEffects?.('kill') || [];
         passiveEffects.forEach((passiveEffect) => {
             const healMissingHpRatio = Math.max(0, Number(passiveEffect?.selfHealMissingHpRatio) || 0);
@@ -1282,6 +1507,10 @@ class BattleManager {
                 result: chainResult
             });
 
+            if (chainResult.hit && chainResult.damage > 0) {
+                this.handleDamageReflect(chainTarget, actor, chainResult.damage);
+                this.handleCounterAttack(chainTarget, actor);
+            }
             if (!chainTarget.isAlive()) {
                 this.processDefeatedUnit(chainTarget, {
                     attacker: actor,
@@ -1299,15 +1528,16 @@ class BattleManager {
 
         const cleared = [];
         this.getAllUnits().forEach((unit) => {
-            const removedEffects = unit.removeStatusEffectsWhere?.(effect => effect.type === 'taunt' && effect.sourceUnitId === sourceUnit.id) || [];
+            const removedEffects = unit.removeStatusEffectsWhere?.(effect => (effect.type === 'taunt' || effect.type === 'charm') && effect.sourceUnitId === sourceUnit.id) || [];
             if (removedEffects.length > 0) {
+                const expiredEffects = this.getUniqueExpiredEffects(removedEffects);
                 cleared.push({ unit, removedEffects });
                 eventManager.emit('battleUnitAction', {
                     attacker: sourceUnit,
                     target: unit,
                     damage: 0,
                     actionType: 'status_expire',
-                    result: { expiredEffects: removedEffects }
+                    result: { expiredEffects }
                 });
             }
         });
@@ -1324,6 +1554,7 @@ class BattleManager {
         this.clearTauntsFromSource(unit);
         if (context?.attacker?.isAlive?.() && context.attacker.isAlive()) {
             this.triggerKillPassives(context.attacker, unit, context);
+            this.grantExtraActionOnKill(context.attacker);
         }
         return true;
     }
@@ -1343,6 +1574,9 @@ class BattleManager {
                 formationState
                 && formationState.effects?.[customEffect.requiredFormationType || 'defense']
             );
+        }
+        if (customEffect.type === 'desperate_blade_flash') {
+            return this.getPoYuBladeFlashTargets(actor, skillIndex).length > 0;
         }
         return true;
     }
@@ -1408,7 +1642,9 @@ class BattleManager {
         const modifiers = {
             attackPercentBonus: 0,
             defensePercentBonus: 0,
-            damageReduction: 0
+            damageReduction: 0,
+            skillDamageBonus: 0,
+            healBonus: 0
         };
         if (!unit?.isAlive?.() || !unit.isAlive()) {
             return modifiers;
@@ -1433,8 +1669,416 @@ class BattleManager {
             });
         });
 
+        if (unit.configId === 'hero_029') {
+            const instinct = this.getPoYuDesperateInstinctState(unit);
+            if (instinct) {
+                modifiers.attackPercentBonus += instinct.attackBonus;
+            }
+        }
+
+        const alliesAura = this.getAllies?.(unit) || [];
+        for (const ally of alliesAura) {
+            if (!ally.isAlive()) { continue; }
+            const synergy = this.getProfessionSynergyAura(ally);
+            if (synergy && synergy.skillDamageBonus > 0 && ally.profession === unit.profession) {
+                modifiers.skillDamageBonus = Math.max(modifiers.skillDamageBonus, synergy.skillDamageBonus);
+                modifiers.healBonus = Math.max(modifiers.healBonus, synergy.healBonus);
+            }
+            const teamDr = this.getTeamDamageReductionAura(ally);
+            if (teamDr > modifiers.damageReduction) {
+                modifiers.damageReduction = teamDr;
+            }
+        }
+
         modifiers.damageReduction = Utils.clamp(modifiers.damageReduction, 0, 0.95);
         return modifiers;
+    }
+
+    getPoYuDesperateInstinctState(unit) {
+        if (!unit?.isAlive?.() || !unit.isAlive() || unit.configId !== 'hero_029') {
+            return null;
+        }
+        const effect = unit.getPassiveEffects?.().find(item => item?.type === 'desperate_instinct');
+        if (!effect) {
+            return null;
+        }
+        const currentHpPercent = Utils.clamp((Number(unit.hp) || 0) / Math.max(1, Number(unit.maxHp) || 1), 0, 1) * 100;
+        const missingHpPercent = Math.max(0, 100 - currentHpPercent);
+        const stepDivisor = Math.max(1, Number(effect.stepDivisor) || 5);
+        const attackPerStep = Number(effect.attackPerStep) || 0;
+        const critPerStep = Number(effect.critPerStep) || 0;
+        return {
+            effect,
+            currentHpPercent,
+            missingHpPercent,
+            attackBonus: (missingHpPercent / stepDivisor) * attackPerStep,
+            critBonus: (missingHpPercent / stepDivisor) * critPerStep,
+            despairActive: currentHpPercent < (Number(effect.despairThresholdPercent) || 30)
+        };
+    }
+
+    getAttackContextModifiers(attacker, target, config = {}) {
+        const modifiers = {
+            defensePenBonus: 0
+        };
+        if (!attacker?.isAlive?.() || !attacker.isAlive()) {
+            return modifiers;
+        }
+        if (attacker.configId === 'hero_029') {
+            const instinct = this.getPoYuDesperateInstinctState(attacker);
+            if (instinct?.despairActive) {
+                modifiers.defensePenBonus += Math.max(0, Number(instinct.effect?.despairDefensePenBonus) || 0);
+            }
+        }
+        return modifiers;
+    }
+
+    tryPreventFatalDamage(unit, damage, attacker = null) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return false;
+        }
+        const effect = unit.getPassiveEffects?.().find(item => item?.type === 'fatal_survival_once');
+        if (!effect) {
+            return false;
+        }
+        unit.passiveState = unit.passiveState || {};
+        if (unit.passiveState.fatalSurvivalUsed) {
+            return false;
+        }
+        unit.passiveState.fatalSurvivalUsed = true;
+        unit.passiveState.pendingFatalRecovery = {
+            healRatio: Math.max(0, Number(effect.healRatio) || 0),
+            sourceName: effect.name || '不屈之刃',
+            skillIndexToReset: Number.isFinite(Number(effect.resetSkillIndex)) ? Number(effect.resetSkillIndex) : null,
+            damageReductionBuff: Math.max(0, Number(effect.teamDamageReduction) || 0),
+            turns: Math.max(1, Number(effect.teamDamageReductionDurationTurns) || 9999)
+        };
+        unit.hp = 1;
+        if (Number.isFinite(unit.passiveState.pendingFatalRecovery.skillIndexToReset)) {
+            const state = unit.getSkillState?.(unit.passiveState.pendingFatalRecovery.skillIndexToReset);
+            if (state) {
+                state.cooldownRemaining = 0;
+            }
+        }
+        const allies = this.getAllies(unit);
+        const teamBuff = effect.teamStatusEffect || {
+            type: 'battle_guard',
+            name: effect.teamStatusName || '不屈之刃',
+            effectType: 'stat_modifier',
+            durationTurns: unit.passiveState.pendingFatalRecovery.turns,
+            damageReduction: unit.passiveState.pendingFatalRecovery.damageReductionBuff,
+            countsAsDebuff: false,
+            stackMode: 'replace'
+        };
+        allies.forEach((ally) => {
+            ally.applyStatusEffects?.([teamBuff], unit);
+        });
+        this.addLog('control', `${unit.name} 触发 ${effect.name || '不屈之刃'}，生命锁定为1`);
+        eventManager.emit('battleUnitAction', {
+            attacker: attacker?.sourceUnitId ? this.findUnitById(attacker.sourceUnitId) || unit : unit,
+            target: unit,
+            damage: 0,
+            actionType: 'status',
+            result: {
+                hit: true,
+                statusName: effect.name || '不屈之刃'
+            }
+        });
+        return true;
+    }
+
+    tryDamageRedirect(unit, damage, attacker = null) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return damage;
+        }
+        const allies = this.getAllies(unit);
+        for (const ally of allies) {
+            if (ally.id === unit.id || !ally.isAlive()) {
+                continue;
+            }
+            const redirectEffect = ally.getPassiveEffects?.('ally_damage_redirect').find(eff =>
+                eff?.redirectRatio > 0
+            );
+            if (!redirectEffect) {
+                continue;
+            }
+            const redirectRatio = Utils.clamp(Number(redirectEffect.redirectRatio) || 0, 0, 1);
+            const redirectedAmount = Math.floor(damage * redirectRatio);
+            if (redirectedAmount <= 0) {
+                continue;
+            }
+            ally.takeDamage(redirectedAmount, attacker);
+            this.addLog('control', `${ally.name} 替 ${unit.name} 分担了 ${redirectedAmount} 点伤害`);
+            eventManager.emit('battleUnitAction', {
+                attacker: attacker?.sourceUnitId ? this.findUnitById(attacker.sourceUnitId) || unit : unit,
+                target: ally,
+                damage: redirectedAmount,
+                actionType: 'redirect',
+                result: {
+                    hit: true,
+                    redirectedFrom: unit.id,
+                    redirectedFromName: unit.name,
+                    statusName: redirectEffect.name || '伤害分担'
+                }
+            });
+            return damage - redirectedAmount;
+        }
+        return damage;
+    }
+
+    tryAllyFatalIntercept(unit, damage, attacker = null) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return false;
+        }
+        const allies = this.getAllies(unit);
+        for (const ally of allies) {
+            if (ally.id === unit.id || !ally.isAlive()) {
+                continue;
+            }
+            const interceptEffect = ally.getPassiveEffects?.('fatal_ally_intercept').find(eff =>
+                eff?.type === 'fatal_ally_intercept'
+            );
+            if (!interceptEffect) {
+                continue;
+            }
+            ally.passiveState = ally.passiveState || {};
+            const maxGlobalUses = Math.max(1, Number(interceptEffect.maxGlobalUses) || 2);
+            const totalUsed = ally.passiveState.fatalInterceptUsed || 0;
+            if (totalUsed >= maxGlobalUses) {
+                continue;
+            }
+            const allyUsedKey = `allyIntercepted_${unit.id}`;
+            if (ally.passiveState[allyUsedKey]) {
+                continue;
+            }
+            ally.passiveState.fatalInterceptUsed = totalUsed + 1;
+            ally.passiveState[allyUsedKey] = true;
+            const healRatio = Utils.clamp(Number(interceptEffect.healRatio) || 0.3, 0.05, 1);
+            const healAmount = Math.max(1, Math.floor(unit.maxHp * healRatio));
+            unit.hp = healAmount;
+            this.addLog('control', `${ally.name} 触发 ${interceptEffect.name || '复燃'}，将 ${unit.name} 从致命伤害中救回，恢复 ${healAmount} 点生命`);
+            eventManager.emit('battleUnitAction', {
+                attacker: ally,
+                target: unit,
+                damage: 0,
+                actionType: 'status',
+                result: {
+                    hit: true,
+                    heal: healAmount,
+                    statusName: interceptEffect.name || '复燃'
+                }
+            });
+            return true;
+        }
+        return false;
+    }
+
+    tryPreventFatalDamageExtended(unit, damage, attacker = null) {
+        if (this.tryAllyFatalIntercept(unit, damage, attacker)) {
+            return true;
+        }
+        return this.tryPreventFatalDamage(unit, damage, attacker);
+    }
+
+    getProfessionSynergyAura(unit) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return { skillDamageBonus: 0, healBonus: 0, attackRangeBonus: 0, count: 0 };
+        }
+        const auraEffect = unit.getPassiveEffects?.('profession_synergy').find(eff =>
+            eff?.type === 'profession_synergy'
+        );
+        if (!auraEffect) {
+            return { skillDamageBonus: 0, healBonus: 0, attackRangeBonus: 0, count: 0 };
+        }
+        const profession = auraEffect.profession || unit.profession;
+        if (!profession) {
+            return { skillDamageBonus: 0, healBonus: 0, attackRangeBonus: 0, count: 0 };
+        }
+        const allies = this.getAllies(unit);
+        const professionAllies = allies.filter(ally =>
+            ally.isAlive() && (ally.profession === profession || ally.id === unit.id)
+        );
+        const count = Math.min(professionAllies.length, Number(auraEffect.maxCount) || 4);
+        const skillDamagePerUnit = Number(auraEffect.skillDamagePerUnit) || 0;
+        const healPerUnit = Number(auraEffect.healPerUnit) || 0;
+        const attackRangeBonusPerUnit = Number(auraEffect.attackRangeBonusPerUnit) || 0;
+        return {
+            skillDamageBonus: count * skillDamagePerUnit,
+            healBonus: count * healPerUnit,
+            attackRangeBonus: count * attackRangeBonusPerUnit,
+            count
+        };
+    }
+
+    getTeamDamageReductionAura(unit) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return 0;
+        }
+        const auraEffect = unit.getPassiveEffects?.('team_damage_reduction').find(eff =>
+            eff?.type === 'team_damage_reduction' && eff?.reductionPerAlly > 0
+        );
+        if (!auraEffect) {
+            return 0;
+        }
+        const allies = this.getAllies(unit);
+        const livingAllies = allies.filter(ally => ally.isAlive());
+        return Utils.clamp(livingAllies.length * Number(auraEffect.reductionPerAlly) || 0, 0, Number(auraEffect.maxReduction) || 0.95);
+    }
+
+    getExtraActionOnKillState(unit) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return null;
+        }
+        const effect = unit.getPassiveEffects?.('extra_action_on_kill').find(eff =>
+            eff?.type === 'extra_action_on_kill'
+        );
+        if (!effect) {
+            return null;
+        }
+        unit.passiveState = unit.passiveState || {};
+        return {
+            effect,
+            maxPerTurn: Math.max(1, Number(effect.maxPerTurn) || 2),
+            usedThisTurn: Number(unit.passiveState.extraActionsThisTurn) || 0,
+            pending: Boolean(unit.passiveState.extraActionPending),
+            critGuaranteed: Boolean(effect.critGuaranteed === true && (unit.passiveState.extraActionsThisTurn || 0) >= 0)
+        };
+    }
+
+    grantExtraActionOnKill(unit) {
+        const state = this.getExtraActionOnKillState(unit);
+        if (!state) {
+            return false;
+        }
+        if (state.usedThisTurn >= state.maxPerTurn) {
+            return false;
+        }
+        unit.passiveState.extraActionsThisTurn = state.usedThisTurn + 1;
+        unit.passiveState.extraActionPending = true;
+        return true;
+    }
+
+    resetExtraActionState(unit) {
+        if (!unit) return;
+        unit.passiveState = unit.passiveState || {};
+        unit.passiveState.extraActionsThisTurn = 0;
+        unit.passiveState.extraActionPending = false;
+    }
+
+    handleCounterAttack(unit, sourceUnit) {
+        if (!unit?.isAlive?.() || !unit.isAlive() || !sourceUnit?.isAlive?.() || !sourceUnit.isAlive()) {
+            return null;
+        }
+        const counterEffect = unit.getPassiveEffects?.('hit').find(eff =>
+            eff?.type === 'counter_attack' && eff?.chance > 0
+        );
+        if (!counterEffect) {
+            return null;
+        }
+        const chance = Utils.clamp(Number(counterEffect.chance) || 0, 0, 1);
+        if (Math.random() > chance) {
+            return null;
+        }
+        unit.passiveState = unit.passiveState || {};
+        const maxPerRound = Math.max(1, Number(counterEffect.maxPerRound) || 1);
+        const counterCount = Number(unit.passiveState.counterAttacksThisRound) || 0;
+        if (counterCount >= maxPerRound) {
+            return null;
+        }
+        const distance = unit.distanceTo(sourceUnit);
+        if (distance > unit.attackRange) {
+            return null;
+        }
+        unit.passiveState.counterAttacksThisRound = counterCount + 1;
+        const multiplier = Number(counterEffect.multiplier) || 1;
+        const counterResult = unit.performConfiguredAttack(sourceUnit, {
+            multiplier,
+            canCrit: counterEffect.canCrit !== false,
+            defensePenBonus: Math.max(0, Number(counterEffect.defensePenBonus) || 0),
+            triggerName: counterEffect.name || '反击'
+        });
+        if (counterResult.hit && counterResult.damage > 0) {
+            this.addLog('damage', `${unit.name} 触发 ${counterEffect.name || '怒锤反击'}，对 ${sourceUnit.name} 造成 ${counterResult.damage} 点伤害`);
+        } else {
+            this.addLog('miss', `${unit.name} 触发 ${counterEffect.name || '怒锤反击'}，但被 ${sourceUnit.name} 闪避了`);
+        }
+        eventManager.emit('battleUnitAction', {
+            attacker: unit,
+            target: sourceUnit,
+            damage: counterResult.damage,
+            actionType: 'attack',
+            result: counterResult
+        });
+        if (!sourceUnit.isAlive()) {
+            this.processDefeatedUnit(sourceUnit, {
+                attacker: unit,
+                reason: 'counter_attack'
+            });
+        }
+        return counterResult;
+    }
+
+    handleDamageReflect(unit, sourceUnit, incomingDamage) {
+        if (!unit?.isAlive?.() || !unit.isAlive() || !sourceUnit?.isAlive?.() || !sourceUnit.isAlive()) {
+            return null;
+        }
+        if (incomingDamage <= 0) {
+            return null;
+        }
+        const reflectEffect = unit.getPassiveEffects?.('damaged').find(eff =>
+            eff?.type === 'damage_reflect' && eff?.reflectRatio > 0
+        );
+        if (!reflectEffect) {
+            return null;
+        }
+        const reflectRatio = Utils.clamp(Number(reflectEffect.reflectRatio) || 0, 0, 5);
+        let reflectedDamage = Math.floor(incomingDamage * reflectRatio);
+        const hpThreshold = Number(reflectEffect.hpThresholdPercent) || 0;
+        if (hpThreshold > 0) {
+            const hpPercent = (unit.hp / Math.max(1, unit.maxHp)) * 100;
+            if (hpPercent < hpThreshold && reflectEffect.belowThresholdMultiplier > 0) {
+                reflectedDamage = Math.floor(reflectedDamage * Number(reflectEffect.belowThresholdMultiplier));
+            }
+        }
+        if (reflectedDamage <= 0) {
+            return null;
+        }
+        const reflectResult = sourceUnit.takeDamage(reflectedDamage, { defensePen: 0 });
+        const debuffEffect = reflectEffect.statusEffects?.[0] || null;
+        if (debuffEffect && reflectResult > 0) {
+            sourceUnit.applyStatusEffects([debuffEffect], unit);
+        }
+        this.addLog('damage', `${unit.name} 反弹 ${reflectResult} 点伤害给 ${sourceUnit.name}`);
+        eventManager.emit('battleUnitAction', {
+            attacker: unit,
+            target: sourceUnit,
+            damage: reflectResult,
+            actionType: 'status',
+            result: {
+                hit: true,
+                statusName: reflectEffect.name || '反弹',
+                reflectiveDamage: reflectResult
+            }
+        });
+        return { reflectResult, reflectEffect };
+    }
+
+    handlePostDamageEffects(target, sourceUnit, damageResult) {
+        if (!target?.isAlive?.() || !sourceUnit?.isAlive?.()) {
+            return;
+        }
+        const damage = Number(damageResult?.damage) || 0;
+        if (target.isAlive() && damage > 0) {
+            this.handleDamageReflect(target, sourceUnit, damage);
+            this.handleCounterAttack(target, sourceUnit);
+        }
+        if (!target.isAlive() && sourceUnit.isAlive()) {
+            this.processDefeatedUnit(target, {
+                attacker: sourceUnit,
+                reason: damageResult?.useSkill ? 'skill' : 'attack'
+            });
+            this.grantExtraActionOnKill(sourceUnit);
+        }
     }
 
     normalizeFormationEffect(effect = {}) {
@@ -1570,19 +2214,114 @@ class BattleManager {
         return events;
     }
 
+    processHeroPassiveTurnStart(actor) {
+        const events = [];
+        if (!actor?.isAlive?.() || !actor.isAlive()) {
+            return events;
+        }
+
+        actor.passiveState = actor.passiveState || {};
+        const pendingFatalRecovery = actor.passiveState.pendingFatalRecovery;
+        if (pendingFatalRecovery && Number(pendingFatalRecovery.healRatio) > 0) {
+            const heal = actor.heal(Math.max(1, Math.floor(actor.maxHp * Number(pendingFatalRecovery.healRatio))));
+            if (heal > 0) {
+                events.push({
+                    type: 'passive_heal',
+                    heal,
+                    effectName: pendingFatalRecovery.sourceName || '不屈之刃'
+                });
+            }
+            delete actor.passiveState.pendingFatalRecovery;
+        }
+
+        const hpLossEffects = actor.getPassiveEffects?.().filter(effect => effect?.type === 'turn_start_hp_loss') || [];
+        hpLossEffects.forEach((effect) => {
+            const ratio = Math.max(0, Number(effect.maxHpLossRatio) || 0);
+            if (ratio <= 0) {
+                return;
+            }
+            const damage = actor.takeStatusDamage(Math.max(1, Math.floor(actor.maxHp * ratio)), true);
+            if (damage > 0) {
+                events.push({
+                    type: 'passive_self_damage',
+                    damage,
+                    effectName: effect.name || '刃嗜'
+                });
+            }
+        });
+
+        const healAllyEffects = actor.getPassiveEffects?.().filter(effect =>
+            (effect?.type === 'heal_lowest_ally' || (effect?.type === 'heal_over_time' && effect?.healTarget === 'lowest_hp_percent_ally'))
+        ) || [];
+        healAllyEffects.forEach((effect) => {
+            const healRatio = Math.max(0, Number(effect.healMissingHpRatio) || 0);
+            if (healRatio <= 0) {
+                return;
+            }
+            const allies = this.getAllies(actor);
+            const livingAllies = allies.filter(a => a.isAlive());
+            if (livingAllies.length === 0) {
+                return;
+            }
+            let lowestAlly = livingAllies[0];
+            let lowestRatio = lowestAlly.hp / Math.max(1, lowestAlly.maxHp);
+            livingAllies.forEach(a => {
+                const ratio = a.hp / Math.max(1, a.maxHp);
+                if (ratio < lowestRatio) {
+                    lowestRatio = ratio;
+                    lowestAlly = a;
+                }
+            });
+            const missingHp = Math.max(0, lowestAlly.maxHp - lowestAlly.hp);
+            const healAmount = Math.max(1, Math.floor(missingHp * healRatio));
+            const actualHeal = lowestAlly.heal(healAmount);
+            if (actualHeal > 0) {
+                const shieldFromLowHp = Number(effect.shieldIfLowHp) || 0;
+                if (shieldFromLowHp > 0 && (lowestAlly.hp / Math.max(1, lowestAlly.maxHp)) < 0.3) {
+                    lowestAlly.addShield?.(shieldFromLowHp, 2);
+                }
+                events.push({
+                    type: 'passive_heal_ally',
+                    heal: actualHeal,
+                    targetId: lowestAlly.id,
+                    targetName: lowestAlly.name,
+                    effectName: effect.name || '灯语'
+                });
+                this.addLog('heal', `${actor.name} 触发 ${effect.name || '灯语'}，为 ${lowestAlly.name} 恢复 ${actualHeal} 点生命`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: lowestAlly,
+                    damage: 0,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        heal: actualHeal,
+                        statusName: effect.name || '灯语'
+                    }
+                });
+            }
+        });
+
+        return events;
+    }
+
     chooseBestMove(actor) {
         const reachableCells = this.getReachableCells(actor);
         if (reachableCells.length === 0) {
             return null;
         }
         const opponents = this.getOpponents(actor);
+        const opponentPlans = opponents.map(target => ({
+            target,
+            attackPositions: this.getAttackPositionsNearTarget(actor, target)
+        })).filter(plan => plan.attackPositions.length > 0);
         const hpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
         const hasHealTile = (this.scene?.specialTiles || []).some(tile => tile?.type === 'heal');
-        const stayScore = this.evaluateMoveCell(actor, actor.position, opponents, hpRatio, hasHealTile);
+        const stayScore = this.evaluateMoveCell(actor, actor.position, opponents, hpRatio, hasHealTile, opponentPlans);
 
         const scored = reachableCells.map(cell => ({
             cell,
-            score: this.evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile)
+            score: this.evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile, opponentPlans)
         }));
 
         scored.sort((a, b) => {
@@ -1601,7 +2340,7 @@ class BattleManager {
         return best.cell;
     }
 
-    evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile = false) {
+    evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile = false, opponentPlans = null) {
         let score = 0;
         const tile = this.getSpecialTileAt(cell);
         if (tile) {
@@ -1618,10 +2357,26 @@ class BattleManager {
         }
 
         if (opponents && opponents.length > 0) {
-            const distances = opponents.map(target => this.distanceBetween(cell, target.position));
-            const minDist = Math.min(...distances);
+            const plans = Array.isArray(opponentPlans) && opponentPlans.length > 0
+                ? opponentPlans
+                : opponents.map(target => ({
+                    target,
+                    attackPositions: this.getAttackPositionsNearTarget(actor, target)
+                })).filter(plan => plan.attackPositions.length > 0);
+            let minDist = Infinity;
+            let canAttack = false;
             const attackRange = Math.max(1, Number(actor.attackRange) || 1);
-            const canAttack = minDist <= attackRange;
+            plans.forEach((plan) => {
+                if (this.isPositionTargetable(cell, plan.target.position, attackRange)) {
+                    canAttack = true;
+                    minDist = Math.min(minDist, 0);
+                    return;
+                }
+                minDist = Math.min(minDist, this.getNearestPathDistanceToCells(cell, plan.attackPositions, actor));
+            });
+            if (minDist === Infinity) {
+                minDist = Math.min(...opponents.map(target => this.distanceBetween(cell, target.position)));
+            }
             if (canAttack) {
                 score += 16;
             }
@@ -1695,6 +2450,23 @@ class BattleManager {
         let score = (Number(skill.multiplier) || 1) * 10;
         const customEffect = skill.customEffect || null;
         const isSelfTarget = target?.id === actor?.id;
+
+        if (customEffect?.type === 'desperate_blade_flash' && isSelfTarget) {
+            const bladeFlashContext = this.getPoYuBladeFlashContext(actor, skill.index);
+            const targets = this.getPoYuBladeFlashTargets(actor, skill.index);
+            if (!bladeFlashContext || targets.length === 0) {
+                return -1;
+            }
+            score += targets.length * 36;
+            if (bladeFlashContext.desperateCast) {
+                score += 24;
+            }
+            const focusScore = targets.reduce((total, entry) => {
+                const hpRatio = entry.maxHp > 0 ? entry.hp / entry.maxHp : 1;
+                return total + (1 - hpRatio) * 18;
+            }, 0);
+            return score + focusScore;
+        }
 
         if (skill.effectType === 'heal' && isSelfTarget) {
             const hpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
@@ -1811,6 +2583,11 @@ class BattleManager {
     }
 
     chooseAutoAction(actor) {
+        const charmedAction = this.getCharmedAction(actor);
+        if (charmedAction) {
+            return charmedAction;
+        }
+
         const tauntedAction = this.getTauntedAction(actor);
         if (tauntedAction) {
             return tauntedAction;
@@ -1846,7 +2623,16 @@ class BattleManager {
         return { type: 'defend' };
     }
 
+    isAutoBattleAllowed() {
+        // 卓越特权解锁后才可使用自动战斗
+        return Boolean(window.checkinManager?.isMonthCardActive?.('welfare_month_card'));
+    }
+
     isAutoBattleEnabled() {
+        // 运行时硬闸：未解锁卓越特权一律视为关闭，但不修改用户已存的偏好
+        if (!this.isAutoBattleAllowed()) {
+            return false;
+        }
         if (typeof this.autoBattleOverride === 'boolean') {
             return this.autoBattleOverride;
         }
@@ -1854,16 +2640,36 @@ class BattleManager {
     }
 
     setAutoBattleOverride(enabled = null) {
+        // 无权限时禁止开启 override；显式关闭仍允许
+        if (enabled === true && !this.isAutoBattleAllowed()) {
+            this.autoBattleOverride = null;
+            return false;
+        }
         this.autoBattleOverride = typeof enabled === 'boolean' ? enabled : null;
+        return true;
     }
 
     async waitForActionPresentation() {
+        const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+        const startedAt = now();
         if (window.battleView && typeof window.battleView.waitForActionQueueIdle === 'function') {
             await window.battleView.waitForActionQueueIdle();
+        }
+        const elapsed = now() - startedAt;
+        const minDelay = 180;
+        if (this.isBattling && elapsed < minDelay) {
+            await (typeof Utils !== 'undefined' && Utils.delay
+                ? Utils.delay(minDelay - elapsed)
+                : new Promise(resolve => setTimeout(resolve, minDelay - elapsed)));
         }
     }
 
     async resolveActionForActor(actor) {
+        const charmedAction = this.getCharmedAction(actor);
+        if (charmedAction) {
+            return charmedAction;
+        }
+
         const tauntedAction = this.getTauntedAction(actor);
         if (tauntedAction) {
             return tauntedAction;
@@ -1896,6 +2702,10 @@ class BattleManager {
                 return `${name}${Math.round(Math.abs((Number(effect.value) || 0) * 100))}%（持续${duration}回合）`;
             case 'stun':
                 return `${name}（持续${duration}回合）`;
+            case 'charm':
+                return effect.sourceName
+                    ? `${name}（来源：${effect.sourceName}，持续${duration}回合）`
+                    : `${name}（持续${duration}回合）`;
             case 'silence':
                 return `${name}（持续${duration}回合）`;
             case 'taunt':
@@ -2432,6 +3242,41 @@ class BattleManager {
     handleTurnStartEffects(actor, turnStartResult = {}) {
         const events = Array.isArray(turnStartResult?.events) ? turnStartResult.events : [];
         events.forEach((event) => {
+            if (event.type === 'passive_heal' && event.heal > 0) {
+                this.addLog('heal', `${actor.name} 触发${event.effectName || '被动'}，恢复 ${event.heal} 点生命`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: actor,
+                    damage: 0,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        heal: event.heal,
+                        statusName: event.effectName || '被动恢复'
+                    }
+                });
+                return;
+            }
+
+            if (event.type === 'passive_self_damage' && event.damage > 0) {
+                this.addLog('damage', `${actor.name} 受到${event.effectName || '被动'}影响，损失 ${event.damage} 点生命`);
+                eventManager.emit('battleUnitAction', {
+                    attacker: actor,
+                    target: actor,
+                    damage: event.damage,
+                    actionType: 'status',
+                    result: {
+                        hit: true,
+                        damage: event.damage,
+                        statusName: event.effectName || '被动损伤'
+                    }
+                });
+                if (!actor.isAlive()) {
+                    this.processDefeatedUnit(actor, { reason: 'passive_self_damage' });
+                }
+                return;
+            }
+
             if (event.type === 'formation_upkeep' && event.cost > 0) {
                 this.addLog('control', `${actor.name} 维持${event.effectName || '阵地'}，额外消耗 ${event.cost} 点生命`);
                 return;
@@ -2646,12 +3491,19 @@ class BattleManager {
         if (finalAction.type === 'move') {
             const reachable = this.getReachableCells(actor).some(cell => cell.x === finalAction.position?.x && cell.y === finalAction.position?.y);
             if (!reachable) {
-                return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, finalAction.forcedByCharm
+                    ? { type: 'defend', forcedByCharm: true, charmSourceId: finalAction.charmSourceId }
+                    : { type: 'defend' });
             }
             const fromPosition = { x: actor.position.x, y: actor.position.y };
             this.deactivateFormationByMovement(actor);
             actor.setPosition(finalAction.position);
-            this.addLog('move', `${actor.name} 移动到了 (${finalAction.position.x + 1}, ${finalAction.position.y + 1})`);
+            if (finalAction.forcedByCharm) {
+                const charmSource = finalAction.charmSourceId ? this.findUnitById(finalAction.charmSourceId) : null;
+                this.addLog('control', `${actor.name} 受魅惑牵引${charmSource ? `,向 ${charmSource.name}` : ''}移动到了 (${finalAction.position.x + 1}, ${finalAction.position.y + 1})`);
+            } else {
+                this.addLog('move', `${actor.name} 移动到了 (${finalAction.position.x + 1}, ${finalAction.position.y + 1})`);
+            }
             eventManager.emit('battleUnitMove', {
                 unit: actor,
                 fromPosition,
@@ -2708,6 +3560,11 @@ class BattleManager {
             const target = this.findUnitById(finalAction.targetId);
             const skillIndex = Number.isFinite(Number(finalAction.skillIndex)) ? Number(finalAction.skillIndex) : 0;
             const isSkill = finalAction.type === 'skill';
+            const charm = this.getActiveCharm(actor);
+            if (charm) {
+                const charmedAction = this.getCharmedAction(actor);
+                return this.executeAction(actor, charmedAction || { type: 'defend', forcedByCharm: true, charmSourceId: charm.source.id });
+            }
             const taunt = this.getActiveTaunt(actor);
             if (taunt && (isSkill || target?.id !== taunt.source.id)) {
                 const tauntedAction = this.getTauntedAction(actor);
@@ -2745,12 +3602,186 @@ class BattleManager {
                     this.emitStateChange();
                     return;
                 }
+                const bladeFlashContext = this.getPoYuBladeFlashContext(actor, skillIndex);
+                if (bladeFlashContext) {
+                    const targets = this.getPoYuBladeFlashTargets(actor, skillIndex);
+                    const hpCost = actor.consumeSkillCost(skillIndex);
+                    const skillLogs = [];
+                    const actionTargets = [];
+                    const defeatedTargets = [];
+
+                    if (!targets.length) {
+                        skillLogs.push(`${actor.name} 施放 ${skill?.name || '特技'}，但未命中任何敌人`);
+                    }
+
+                    targets.forEach((targetUnit) => {
+                        const attackResult = actor.performConfiguredAttack(targetUnit, {
+                            multiplier: bladeFlashContext.multiplier,
+                            canCrit: false,
+                            defensePenBonus: actor.getSkillDefensePenBonus(skillIndex),
+                            useSkill: true,
+                            skillIndex,
+                            skillName: skill?.name || null
+                        });
+                        if (!attackResult.hit) {
+                            skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，但被闪避了`);
+                            actionTargets.push({ target: targetUnit, result: attackResult });
+                            return;
+                        }
+
+                        const appliedEffects = this.applySkillStatusEffects(actor, targetUnit, skillIndex, attackResult);
+                        attackResult.appliedEffects = appliedEffects;
+                        const reactiveResults = this.applyReactiveEffects(targetUnit, 'damaged', {
+                            damage: attackResult.damage,
+                            sourceUnit: actor,
+                            reason: 'skill',
+                            attackResult
+                        });
+                        const damageTakenPassiveResults = this.triggerDamageTakenPassives(targetUnit, {
+                            damage: attackResult.damage,
+                            sourceUnit: actor,
+                            reason: 'skill',
+                            attackResult
+                        });
+                        attackResult.reactiveEffects = reactiveResults;
+                        attackResult.damageTakenPassives = damageTakenPassiveResults;
+                        if (attackResult.hit && attackResult.damage > 0) {
+                            this.handleDamageReflect(targetUnit, actor, attackResult.damage);
+                            this.handleCounterAttack(targetUnit, actor);
+                        }
+
+                        let selfHeal = 0;
+                        if (bladeFlashContext.healMissingHpRatioPerHit > 0) {
+                            const missingHp = Math.max(0, actor.maxHp - actor.hp);
+                            if (missingHp > 0) {
+                                selfHeal = actor.heal(Math.max(1, Math.floor(missingHp * bladeFlashContext.healMissingHpRatioPerHit)));
+                            }
+                        }
+                        attackResult.selfHeal = selfHeal;
+
+                        const statusText = appliedEffects.length > 0
+                            ? `，并施加${appliedEffects.map(effect => this.formatStatusDescription(effect)).join('、')}`
+                            : '';
+                        const healText = selfHeal > 0 ? `，并恢复自身 ${selfHeal} 点生命` : '';
+                        skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，造成 ${attackResult.damage} 点伤害${statusText}${healText}`);
+                        actionTargets.push({ target: targetUnit, result: attackResult });
+                        if (!targetUnit.isAlive()) {
+                            defeatedTargets.push(targetUnit);
+                        }
+                    });
+
+                    if (hpCost > 0) {
+                        skillLogs.push(`${actor.name} 额外消耗 ${hpCost} 点生命施放特技`);
+                    }
+                    skillLogs.forEach(message => this.addLog('damage', message));
+                    eventManager.emit('battleUnitAction', {
+                        attacker: actor,
+                        target: actor,
+                        damage: 0,
+                        actionType: 'skill',
+                        result: {
+                            skillIndex,
+                            skillName: skill?.name || null,
+                            hpCost,
+                            targets: actionTargets.map(entry => ({ id: entry.target.id, name: entry.target.name, ...entry.result }))
+                        }
+                    });
+                    await this.waitForActionPresentation();
+                    defeatedTargets.forEach((targetUnit) => {
+                        this.processDefeatedUnit(targetUnit, {
+                            attacker: actor,
+                            reason: 'skill'
+                        });
+                    });
+                    this.emitStateChange();
+                    return;
+                }
                 const targets = this.getSelectedSkillTargets(actor, target, skillIndex);
                 const hpCost = actor.consumeSkillCost(skillIndex);
                 const skillLogs = [];
                 const actionTargets = [];
                 const defeatedTargets = [];
                 const effectType = actor.getSkillState(skillIndex)?.effectType || 'damage';
+
+                if (effectType === 'group_heal' || effectType === 'cleanse' || effectType === 'group_grant_shield') {
+                    const allyTargets = (this.getAllies?.(actor) || []).filter(a => a.isAlive());
+                    const healRatioMaxHp = Number(skill?.healRatioMaxHp ?? skill?.multiplier ?? 0) || 0;
+                    const cleanseCount = Math.max(0, Number(skill?.cleanseCount) || 0);
+                    const shieldRatioMaxHp = Number(skill?.shieldRatioMaxHp) || 0;
+                    const shieldDuration = Math.max(1, Number(skill?.shieldDurationTurns) || 1);
+                    const allyStatusEffects = Array.isArray(skill?.allyStatusEffects) ? skill.allyStatusEffects : [];
+
+                    allyTargets.forEach((allyUnit) => {
+                        if (effectType === 'group_grant_shield' && shieldRatioMaxHp > 0) {
+                            const shieldSource = skill?.shieldSourceMaxHp ? actor : allyUnit;
+                            const shieldAmount = Math.floor(shieldSource.maxHp * shieldRatioMaxHp);
+                            const added = allyUnit.addShield?.(shieldAmount, shieldDuration) || 0;
+                            skillLogs.push(`${actor.name} 赋予 ${allyUnit.name} ${added} 点护盾`);
+                            actionTargets.push({ target: allyUnit, result: { hit: true, shield: added, useSkill: true, skillName: skill?.name || null } });
+                            return;
+                        }
+                        if (effectType === 'cleanse' && cleanseCount > 0) {
+                            const removed = allyUnit.cleanseDebuffs?.(cleanseCount) || [];
+                            const removedNames = removed.map(r => r.name || r.type || 'debuff').join('、');
+                            if (removed.length > 0) {
+                                skillLogs.push(`${actor.name} 驱散了 ${allyUnit.name} 的 ${removedNames}`);
+                            }
+                            if (healRatioMaxHp > 0) {
+                                const healAmount = Math.floor(allyUnit.maxHp * healRatioMaxHp);
+                                const actualHeal = allyUnit.heal(healAmount);
+                                if (actualHeal > 0) {
+                                    skillLogs.push(`${actor.name} 为 ${allyUnit.name} 恢复 ${actualHeal} 点生命`);
+                                }
+                                actionTargets.push({ target: allyUnit, result: { hit: true, heal: actualHeal, cleansed: removed.length, useSkill: true, skillName: skill?.name || null } });
+                            } else {
+                                actionTargets.push({ target: allyUnit, result: { hit: true, cleansed: removed.length, useSkill: true, skillName: skill?.name || null } });
+                            }
+                            if (allyStatusEffects.length > 0) {
+                                allyUnit.applyStatusEffects?.(allyStatusEffects, actor);
+                            }
+                            return;
+                        }
+                        if (effectType === 'group_heal') {
+                            let healAmount = 0;
+                            if (healRatioMaxHp > 0) {
+                                healAmount = Math.floor(allyUnit.maxHp * healRatioMaxHp);
+                            } else {
+                                healAmount = Math.floor(actor.getEffectiveAttack() * actor.attackCoefficient * (Number(skill?.multiplier) || 1));
+                            }
+                            const actualHeal = allyUnit.heal(healAmount);
+                            const cleansed = cleanseCount > 0 ? (allyUnit.cleanseDebuffs?.(cleanseCount) || []).length : 0;
+                            if (actualHeal > 0) {
+                                skillLogs.push(`${actor.name} 为 ${allyUnit.name} 恢复 ${actualHeal} 点生命`);
+                            }
+                            if (cleansed > 0) {
+                                skillLogs.push(`${actor.name} 驱散了 ${allyUnit.name} 的 ${cleansed} 个负面状态`);
+                            }
+                            if (allyStatusEffects.length > 0) {
+                                allyUnit.applyStatusEffects?.(allyStatusEffects, actor);
+                            }
+                            actionTargets.push({ target: allyUnit, result: { hit: true, heal: actualHeal, cleansed, useSkill: true, skillName: skill?.name || null } });
+                        }
+                    });
+                    if (hpCost > 0) {
+                        skillLogs.push(`${actor.name} 额外消耗 ${hpCost} 点生命施放特技`);
+                    }
+                    skillLogs.forEach(message => this.addLog('heal', message));
+                    eventManager.emit('battleUnitAction', {
+                        attacker: actor,
+                        target,
+                        damage: 0,
+                        actionType: 'skill',
+                        result: {
+                            skillIndex,
+                            skillName: skill?.name || null,
+                            hpCost,
+                            targets: actionTargets.map(entry => ({ id: entry.target.id, name: entry.target.name, ...entry.result }))
+                        }
+                    });
+                    await this.waitForActionPresentation();
+                    this.emitStateChange();
+                    return;
+                }
 
                 targets.forEach((targetUnit) => {
                     if (!targetUnit?.isAlive?.() || !targetUnit.isAlive()) {
@@ -2824,6 +3855,10 @@ class BattleManager {
                             });
                             attackResult.reactiveEffects = reactiveResults;
                             attackResult.damageTakenPassives = damageTakenPassiveResults;
+                            if (attackResult.hit && attackResult.damage > 0) {
+                                this.handleDamageReflect(targetUnit, actor, attackResult.damage);
+                                this.handleCounterAttack(targetUnit, actor);
+                            }
                             const statusText = appliedEffects.length > 0
                                 ? `，并施加${appliedEffects.map(effect => this.formatStatusDescription(effect)).join('、')}`
                                 : '';
@@ -2904,6 +3939,7 @@ class BattleManager {
                 });
                 attackResult.reactiveEffects = reactiveResults;
                 attackResult.damageTakenPassives = damageTakenPassiveResults;
+                this.handlePostDamageEffects(target, actor, attackResult);
                 const statusText = appliedEffects.length > 0
                     ? `，并施加${appliedEffects.map(effect => this.formatStatusDescription(effect)).join('、')}`
                     : '';
@@ -2915,12 +3951,6 @@ class BattleManager {
             }
             eventManager.emit('battleUnitAction', { attacker: actor, target, damage: attackResult.damage, actionType: finalAction.type, result: attackResult });
             await this.waitForActionPresentation();
-            if (!target.isAlive()) {
-                this.processDefeatedUnit(target, {
-                    attacker: actor,
-                    reason: finalAction.type
-                });
-            }
             this.emitStateChange();
             return;
         }
@@ -2934,6 +3964,18 @@ class BattleManager {
                 damage: 0,
                 actionType: 'defend',
                 result: { forcedByTaunt: true, statusName: '嘲讽' }
+            });
+            this.emitStateChange();
+            return;
+        } else if (finalAction.forcedByCharm) {
+            const source = finalAction.charmSourceId ? this.findUnitById(finalAction.charmSourceId) : null;
+            this.addLog('control', `${actor.name} 处于魅惑状态${source ? `,被 ${source.name} 牵引` : ''},无法行动`);
+            eventManager.emit('battleUnitAction', {
+                attacker: actor,
+                target: actor,
+                damage: 0,
+                actionType: 'defend',
+                result: { forcedByCharm: true, statusName: '魅惑' }
             });
             this.emitStateChange();
             return;
@@ -3063,6 +4105,7 @@ class BattleManager {
                 actor.resetTurnState();
                 this.currentActor = actor;
                 this.emitStateChange();
+                const passiveTurnStartEvents = this.processHeroPassiveTurnStart(actor);
                 const formationEvents = this.processFormationTurnStart(actor);
                 const warningEvents = this.processWarningSkillTurnStart(actor);
                 const specialTileEvents = this.getSpecialTileTriggerEffects(actor).map((effect) => {
@@ -3078,8 +4121,9 @@ class BattleManager {
                     return null;
                 }).filter(Boolean);
                 const turnStartResult = actor.processTurnStartEffects?.() || { preventedAction: false, events: [] };
-                if (formationEvents.length > 0 || warningEvents.length > 0 || specialTileEvents.length > 0) {
+                if (passiveTurnStartEvents.length > 0 || formationEvents.length > 0 || warningEvents.length > 0 || specialTileEvents.length > 0) {
                     turnStartResult.events = [
+                        ...passiveTurnStartEvents,
                         ...formationEvents,
                         ...warningEvents,
                         ...specialTileEvents,
@@ -3102,7 +4146,7 @@ class BattleManager {
                     continue;
                 }
                 if (turnStartResult.preventedAction) {
-                    const expiredEffects = actor.processTurnEndEffects?.() || [];
+                    const expiredEffects = this.getUniqueExpiredEffects(actor.processTurnEndEffects?.() || []);
                     if (expiredEffects.length > 0) {
                         eventManager.emit('battleUnitAction', {
                             attacker: actor,
@@ -3127,7 +4171,7 @@ class BattleManager {
                 }
                 await this.executeAction(actor, action);
                 await this.waitForActionPresentation();
-                const expiredEffects = actor.processTurnEndEffects?.() || [];
+                const expiredEffects = this.getUniqueExpiredEffects(actor.processTurnEndEffects?.() || []);
                 if (expiredEffects.length > 0) {
                     eventManager.emit('battleUnitAction', {
                         attacker: actor,
@@ -3138,6 +4182,41 @@ class BattleManager {
                     });
                     await this.waitForActionPresentation();
                 }
+
+                while (actor.passiveState?.extraActionPending && actor.isAlive() && this.isBattling) {
+                    const extraState = this.getExtraActionOnKillState(actor);
+                    if (!extraState || extraState.usedThisTurn <= 0) {
+                        actor.passiveState.extraActionPending = false;
+                        break;
+                    }
+                    actor.passiveState.extraActionPending = false;
+                    const extraAction = await this.resolveActionForActor(actor);
+                    if (!this.isBattling) break;
+                    const extraAttackTarget = extraAction?.type === 'attack'
+                        ? extraAction
+                        : { type: 'attack', targetId: extraAction?.targetId || this.getOpponents(actor)[0]?.id || '', forcedByTaunt: extraAction?.forcedByTaunt, forcedByCharm: extraAction?.forcedByCharm };
+                    if (extraState.critGuaranteed !== undefined) {
+                        extraAttackTarget._critGuaranteed = extraState.critGuaranteed;
+                    }
+                    await this.executeAction(actor, extraAttackTarget);
+                    await this.waitForActionPresentation();
+                    const extraExpiredEffects = this.getUniqueExpiredEffects(actor.processTurnEndEffects?.() || []);
+                    if (extraExpiredEffects.length > 0) {
+                        eventManager.emit('battleUnitAction', {
+                            attacker: actor,
+                            target: actor,
+                            damage: 0,
+                            actionType: 'status_expire',
+                            result: { expiredEffects: extraExpiredEffects }
+                        });
+                        await this.waitForActionPresentation();
+                    }
+                    if (this.checkBattleEnd()) return this.result;
+                    if (actor.passiveState.extraActionPending === undefined) {
+                        actor.passiveState.extraActionPending = false;
+                    }
+                }
+                this.resetExtraActionState(actor);
                 actor.progress = 0;
                 this.currentActor = null;
                 this.emitStateChange();

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.taptap.sdk.login" >
+
+    <uses-sdk android:minSdkVersion="21" />
+
+    <queries>
+        <package android:name="com.taptap.global" />
+        <package android:name="com.taptap.global.lite" />
+        <package android:name="com.taptap" />
+
+        <intent>
+            <action android:name="com.taptap.sdk.action" />
+
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent>
+        <intent>
+            <action android:name="com.taptap.global.sdk.action" />
+
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent>
+    </queries>
+
+    <application>
+        <activity
+            android:name="com.taptap.sdk.login.impl.ui.activity.TapTapLoginActivity"
+            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="behind"
+            android:theme="@style/TapFullScreenTheme" />
+    </application>
+
+</manifest>

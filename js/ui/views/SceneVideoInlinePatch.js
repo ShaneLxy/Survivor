@@ -8,6 +8,16 @@
             return;
         }
 
+        if (typeof video.__sceneRetryCleanup === 'function') {
+            video.__sceneRetryCleanup();
+        }
+        if (video.__sceneMediaListeners) {
+            video.removeEventListener('loadedmetadata', video.__sceneMediaListeners.tryPlay);
+            video.removeEventListener('canplay', video.__sceneMediaListeners.tryPlay);
+            video.removeEventListener('pause', video.__sceneMediaListeners.onPause);
+            delete video.__sceneMediaListeners;
+        }
+
         const source = video.querySelector('source');
         const mediaSrc = video.getAttribute('data-mobile-fallback-src') || video.getAttribute('poster');
         if (!mediaSrc) {
@@ -82,6 +92,12 @@
         if (typeof video.__sceneRetryCleanup === 'function') {
             video.__sceneRetryCleanup();
         }
+        if (video.__sceneMediaListeners) {
+            video.removeEventListener('loadedmetadata', video.__sceneMediaListeners.tryPlay);
+            video.removeEventListener('canplay', video.__sceneMediaListeners.tryPlay);
+            video.removeEventListener('pause', video.__sceneMediaListeners.onPause);
+            delete video.__sceneMediaListeners;
+        }
 
         video.muted = true;
         video.defaultMuted = true;
@@ -126,23 +142,16 @@
             });
         }
 
+        const onPause = () => {
+            if (!video.ended && document.visibilityState === 'visible') {
+                tryPlay();
+            }
+        };
+
         video.addEventListener('loadedmetadata', tryPlay, { passive: true });
         video.addEventListener('canplay', tryPlay, { passive: true });
-
-        video.addEventListener('pause', () => {
-            if (!video.ended && document.visibilityState === 'visible') {
-                const retryPromise = video.play?.();
-                if (retryPromise && typeof retryPromise.catch === 'function') {
-                    retryPromise.catch(() => {
-                        if (isAndroidAppMode()) {
-                            bindOneShotPlaybackRetries(video);
-                            return;
-                        }
-                        replaceSceneVideoWithImage(video.parentElement);
-                    });
-                }
-            }
-        }, { passive: true });
+        video.addEventListener('pause', onPause, { passive: true });
+        video.__sceneMediaListeners = { tryPlay, onPause };
     };
 
     const patchSceneVideoPlayback = (ViewClass) => {

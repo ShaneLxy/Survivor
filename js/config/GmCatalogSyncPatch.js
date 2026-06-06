@@ -35,6 +35,7 @@
             this.applyItems(catalog?.items);
             this.ensureGachaTicketItems();
             this.applyEquipment(catalog?.equipment);
+            this.applyHeroes(catalog?.heroes);
             this.applyEnemySkills(catalog?.enemySkills);
             this.applyEnemies(catalog?.enemies);
             this.applyGachaPools(catalog?.gachaPools);
@@ -245,6 +246,55 @@
             });
         },
 
+        applyHeroes(heroes) {
+            if (!Array.isArray(heroes) || !window.HeroConfig) {
+                return;
+            }
+
+            const currentHeroes =
+                Array.isArray(window.UnitCatalogLoader?.data?.heroes) && window.UnitCatalogLoader.data.heroes.length > 0
+                    ? window.UnitCatalogLoader.data.heroes
+                    : (Array.isArray(window.HeroConfig.heroes) ? window.HeroConfig.heroes : []);
+            const byId = new Map(
+                currentHeroes
+                    .filter(entry => entry?.id)
+                    .map(entry => [entry.id, { ...entry }])
+            );
+
+            heroes.forEach(entry => {
+                if (!entry?.id) {
+                    return;
+                }
+                const current = byId.get(entry.id) || {};
+                const nextHero = {
+                    ...current,
+                    ...this.stripCatalogMeta(entry),
+                    baseStats: {
+                        ...(current.baseStats || {}),
+                        ...(entry.baseStats || {})
+                    }
+                };
+                if (Array.isArray(entry.skills)) {
+                    nextHero.skills = entry.skills.map(skill => ({ ...skill }));
+                }
+                if (nextHero.skill && typeof nextHero.skill === 'object') {
+                    nextHero.skill = { ...nextHero.skill };
+                }
+                byId.set(entry.id, nextHero);
+            });
+
+            const nextHeroes = Array.from(byId.values());
+            if (window.UnitCatalogLoader?.data) {
+                window.UnitCatalogLoader.data.heroes = nextHeroes;
+            }
+            window.HeroConfig.heroes = nextHeroes.map(entry => ({ ...entry }));
+            window.heroManager?.refreshAllHeroes?.();
+            window.game?.ui?.heroView?.refresh?.();
+            window.game?.ui?.gachaView?.refresh?.();
+            window.game?.ui?.itemGrid?.refresh?.();
+            window.game?.ui?.topBar?.refreshAccountStatus?.();
+        },
+
         applyGachaPools(pools) {
             if (!window.GachaConfig || !Array.isArray(pools)) {
                 return;
@@ -380,6 +430,19 @@
                 nextBuilding.levels = Array.isArray(nextBuilding.levels)
                     ? nextBuilding.levels.map(level => ({ ...level }))
                     : [];
+                if (nextBuilding.id === 'building_shelter') {
+                    nextBuilding.levels = nextBuilding.levels.map(level => ({
+                        ...level,
+                        backgroundVideo: '',
+                        backgroundImage: 'assets/media/shelter/shelter_bg.png',
+                        backgroundPoster: 'assets/media/shelter/shelter_bg.png',
+                        mobileFallbackSrc: 'assets/media/shelter/shelter_bg.png'
+                    }));
+                }
+                if (nextBuilding.id === 'building_well') {
+                    nextBuilding.id = 'building_armory';
+                    nextBuilding.name = nextBuilding.name || '武器库';
+                }
                 const current = byId.get(entry.id);
                 if (current) {
                     Object.keys(current).forEach(key => delete current[key]);

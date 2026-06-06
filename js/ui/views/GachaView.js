@@ -15,6 +15,8 @@ class GachaView {
 
     show() {
         this.visible = true;
+        // 每次进入招募中心默认显示英雄招募，不延续上次的卡池选择
+        this.activePoolId = 'hero_pool';
         this.render();
     }
 
@@ -157,6 +159,7 @@ class GachaView {
                 name: item.name,
                 displayName: this.truncateShowcaseName(item.name, 10),
                 image: item.iconSrc || '',
+                previewImage: EquipmentConfig.getRecruitPreviewIconSrc?.(item.id) || item.iconSrc || '',
                 icon: item.icon || '⚒️',
                 rarity: item.rarities.find((rarity) => recruitRarities.has(rarity)) || 'rare',
                 slot: EquipmentConfig.getSlotName(item.slot)
@@ -281,10 +284,12 @@ class GachaView {
     }
 
     renderForgeShowcaseVisual(item, slot, isActive) {
+        // banner 立绘优先用招募专用大图 (equipmentMain/),fallback 到通用图 (equipment/)
+        const bannerSrc = item?.previewImage || item?.image || '';
         return `
             <div class="recruit-forge-equipment-art recruit-showcase-visual ${isActive ? 'is-active' : ''}" data-recruit-showcase-visual="${slot}" aria-label="${item?.name || ''}">
-                <img src="${item?.image || ''}" alt="${item?.name || ''}" class="recruit-forge-equipment-image ${item?.image ? '' : 'is-hidden'}">
-                <span class="recruit-forge-equipment-icon ${item?.image ? 'is-hidden' : ''}">${item?.icon || '⚒️'}</span>
+                <img src="${bannerSrc}" alt="${item?.name || ''}" class="recruit-forge-equipment-image ${bannerSrc ? '' : 'is-hidden'}" onerror="this.onerror=null;this.src='${(item?.image || '').replace(/'/g, '\\\'')}'">
+                <span class="recruit-forge-equipment-icon ${bannerSrc ? 'is-hidden' : ''}">${item?.icon || '⚒️'}</span>
             </div>
         `;
     }
@@ -674,13 +679,22 @@ class GachaView {
             forgeVisual.setAttribute('aria-label', item.name || '');
         }
         if (forgeImage) {
-            forgeImage.src = item.image || '';
+            // banner 轮播切换时也用 equipmentMain 路径,与 renderForgeShowcaseVisual 一致
+            const bannerSrc = item.previewImage || item.image || '';
+            forgeImage.src = bannerSrc;
             forgeImage.alt = item.name || '';
-            forgeImage.classList.toggle('is-hidden', !item.image);
+            // 同步注入 onerror fallback,运行时也保持兜底
+            forgeImage.onerror = () => {
+                forgeImage.onerror = null;
+                if (item.image && forgeImage.src !== item.image) {
+                    forgeImage.src = item.image;
+                }
+            };
+            forgeImage.classList.toggle('is-hidden', !bannerSrc);
         }
         if (forgeIcon) {
             forgeIcon.textContent = item.icon || '⚒️';
-            forgeIcon.classList.toggle('is-hidden', Boolean(item.image));
+            forgeIcon.classList.toggle('is-hidden', Boolean(item.previewImage || item.image));
         }
     }
 

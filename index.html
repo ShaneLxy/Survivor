@@ -7,6 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>&#20113;&#22659;</title>
+    <!-- 占位 favicon，避免浏览器自动请求 /favicon.ico 触发 404 -->
+    <link rel="icon" href="data:,">
+
     <style>
         html,
         body {
@@ -25,16 +28,82 @@
         body.app-boot-hidden #toast-container {
             display: none !important;
         }
+
+        /* ===== 启动健康忠告 splash ===== */
+        #boot-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        #boot-splash.is-hiding {
+            opacity: 0;
+        }
+        #boot-splash-inner {
+            text-align: center;
+            color: rgba(255, 246, 224, 0.86);
+            font-size: 14px;
+            line-height: 2;
+            letter-spacing: 0.04em;
+            user-select: none;
+        }
+        #boot-splash-title {
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.32em;
+            color: rgba(246, 201, 107, 0.78);
+            margin-bottom: 18px;
+            text-shadow: 0 0 8px rgba(246, 201, 107, 0.28);
+        }
+        @media (max-width: 360px) {
+            #boot-splash-inner { font-size: 12px; line-height: 1.9; }
+        }
     </style>
-    <script>window.__SURVIVOR_BUILD_VERSION__ = '2026.05.21.6';</script>
-    <script src="js/ui/MobileViewportPatch.js?v=2026.05.16.11"></script>
-    <link rel="stylesheet" href="css/reset.css?v=2026.05.16.11">
-    <link rel="stylesheet" href="css/common.css?v=2026.05.19.1">
-    <link rel="stylesheet" href="css/components.css?v=2026.05.22.3">
-    <link rel="stylesheet" href="css/views.css?v=2026.05.22.1">
-    <link rel="stylesheet" href="css/animations.css?v=2026.05.16.11">
+    <script>window.__SURVIVOR_BUILD_VERSION__ = '2026.06.07.267';</script>
+    <script src="js/ui/MobileViewportPatch.js?v=2026.06.07.267"></script>
+    <link rel="stylesheet" href="css/reset.css?v=2026.06.07.267">
+    <link rel="stylesheet" href="css/common.css?v=2026.06.07.267">
+    <link rel="stylesheet" href="css/components.css?v=2026.06.07.267">
+    <link rel="stylesheet" href="css/story-dialogue.css?v=2026.06.07.267">
+    <link rel="stylesheet" href="css/battle-pause-modal.css?v=2026.06.07.267">
+    <link rel="stylesheet" href="css/views.css?v=2026.06.07.267">
+    <link rel="stylesheet" href="css/animations.css?v=2026.06.07.267">
 </head>
 <body class="app-boot-hidden">
+    <div id="boot-splash">
+        <div id="boot-splash-inner">
+            <div id="boot-splash-title">健康游戏忠告</div>
+            <div>抵制不良游戏，拒绝盗版游戏。</div>
+            <div>注意自我保护，谨防受骗上当。</div>
+            <div>适度游戏益脑，沉迷游戏伤身。</div>
+            <div>合理安排时间，享受健康生活。</div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            // 启动忠告显示 1.8 秒后渐隐，0.5 秒动画完成后移除节点
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    var splash = document.getElementById('boot-splash');
+                    if (!splash) return;
+                    splash.classList.add('is-hiding');
+                    setTimeout(function() {
+                        if (splash && splash.parentNode) {
+                            splash.parentNode.removeChild(splash);
+                        }
+                    }, 520);
+                }, 1800);
+            });
+        })();
+    </script>
+
     <div id="app">
         <div id="top-bar" class="top-bar"></div>
         <div id="main-display" class="main-display"></div>
@@ -48,110 +117,130 @@
     <div id="modal-container"></div>
     <div id="toast-container"></div>
 
-    <script src="js/core/EventManager.js?v=2026.05.16.11"></script>
-    <script src="js/core/SaveManager.js?v=2026.05.16.11"></script>
-    <script src="js/core/AudioManager.js?v=2026.05.16.11"></script>
-    <script src="js/core/Utils.js?v=2026.05.16.11"></script>
+    <script src="js/core/EventManager.js?v=2026.06.07.267"></script>
+    <script src="js/core/SaveManager.js?v=2026.06.07.267"></script>
+    <script src="js/core/AudioManager.js?v=2026.06.07.267"></script>
+    <script src="js/core/Utils.js?v=2026.06.07.267"></script>
 
-    <script src="js/config/RuntimeConfig.js?v=2026.05.16.11"></script>
-    <script src="js/api/HttpClient.js?v=2026.05.16.11"></script>
-    <script src="js/api/AuthApi.js?v=2026.05.16.11"></script>
-    <script src="js/api/SaveApi.js?v=2026.05.16.11"></script>
-    <script src="js/api/MailApi.js?v=2026.05.16.11"></script>
-    <script src="js/api/CdkeyApi.js?v=2026.05.16.11"></script>
-    <script src="js/api/VersionApi.js?v=2026.05.16.11"></script>
-    <script src="js/services/AuthService.js?v=2026.05.16.11"></script>
-    <script src="js/services/SaveSyncService.js?v=2026.05.16.11"></script>
-    <script src="js/services/VersionCheckService.js?v=2026.05.16.11"></script>
+    <script src="js/config/RuntimeConfig.js?v=2026.06.07.267"></script>
+    <script src="js/api/HttpClient.js?v=2026.06.07.267"></script>
+    <script src="js/api/AuthApi.js?v=2026.06.07.267"></script>
+    <script src="js/api/SaveApi.js?v=2026.06.07.267"></script>
+    <script src="js/api/MailApi.js?v=2026.06.07.267"></script>
+    <script src="js/api/CdkeyApi.js?v=2026.06.07.267"></script>
+    <script src="js/api/VersionApi.js?v=2026.06.07.267"></script>
+    <script src="js/services/AuthService.js?v=2026.06.07.267"></script>
+    <script src="js/services/SaveSyncService.js?v=2026.06.07.267"></script>
+    <script src="js/services/VersionCheckService.js?v=2026.06.07.267"></script>
+    <script src="js/services/TapTapUpdateService.js?v=2026.06.07.267"></script>
 
-    <script src="js/config/VersionManager.js?v=2026.05.16.11"></script>
-    <script src="js/config/GameConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/AudioConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/UnitCatalogLoader.js?v=2026.05.19.4"></script>
-    <script src="js/config/ResourceVisualConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/SceneMediaConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/SceneMediaConfigPatch.js?v=2026.05.16.11"></script>
-    <script src="js/config/HeroConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/EquipmentConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/BattleSceneConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/DungeonConfig.js?v=2026.05.19.4"></script>
-    <script src="js/config/BuildingConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/ItemConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/GachaConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/ShopConfig.js?v=2026.05.16.11"></script>
-    <script src="js/config/GmCatalogSyncPatch.js?v=2026.05.19.4"></script>
+    <script src="js/config/VersionManager.js?v=2026.06.07.267"></script>
+    <script src="js/config/GameConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/AudioConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/UnitCatalogLoader.js?v=2026.06.07.267"></script>
+    <script src="js/config/ResourceVisualConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/SceneMediaConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/SceneMediaConfigPatch.js?v=2026.06.07.267"></script>
+    <script src="js/config/HeroConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/EquipmentConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/BattleSceneConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/DungeonConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/BuildingConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/ItemConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/GachaConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/ShopConfig.js?v=2026.06.07.267"></script>
+    <script src="js/config/GmCatalogSyncPatch.js?v=2026.06.07.267"></script>
 
-    <script src="js/models/BattleUnit.js?v=2026.05.20.1"></script>
-    <script src="js/models/Equipment.js?v=2026.05.16.11"></script>
-    <script src="js/models/Hero.js?v=2026.05.16.11"></script>
-    <script src="js/models/Building.js?v=2026.05.16.11"></script>
-    <script src="js/models/Item.js?v=2026.05.16.11"></script>
-    <script src="js/models/Dungeon.js?v=2026.05.19.2"></script>
+    <script src="js/models/BattleUnit.js?v=2026.06.07.267"></script>
+    <script src="js/models/Equipment.js?v=2026.06.07.267"></script>
+    <script src="js/models/Hero.js?v=2026.06.07.267"></script>
+    <script src="js/models/Building.js?v=2026.06.07.267"></script>
+    <script src="js/models/Item.js?v=2026.06.07.267"></script>
+    <script src="js/models/Dungeon.js?v=2026.06.07.267"></script>
 
-    <script src="js/managers/HeroManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/ShelterManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/DungeonManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/BattleManager.js?v=2026.05.21.3"></script>
-    <script src="js/managers/ItemManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/GachaManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/CheckinManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/MailManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/TaskManager.js?v=2026.05.16.11"></script>
-    <script src="js/managers/TaskManagerPatch.js?v=2026.05.16.11"></script>
-    <script src="js/managers/ShelterManagerPatch.js?v=2026.05.16.11"></script>
-    <script src="js/managers/TutorialManager.js?v=2026.05.16.11"></script>
+    <script src="js/managers/HeroManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/ShelterManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/DungeonManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/BattleManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/ItemManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/GachaManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/CheckinManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/MailManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/TaskManager.js?v=2026.06.07.267"></script>
+    <script src="js/managers/TaskManagerPatch.js?v=2026.06.07.267"></script>
+    <script src="js/managers/ShelterManagerPatch.js?v=2026.06.07.267"></script>
+    <script src="js/managers/TutorialManager.js?v=2026.06.07.267"></script>
 
-    <script src="js/ui/components/Button.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/Modal.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/Toast.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/ProgressBar.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/ItemCard.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/HeroCard.js?v=2026.05.22.1"></script>
-    <script src="js/ui/components/Pagination.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/RareRewardReveal.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/RewardModal.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/EquipmentEnhanceModal.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/EquipmentStarModal.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/FloatingMenu.js?v=2026.05.16.11"></script>
-    <script src="js/ui/components/PlayerPowerTicker.js?v=2026.05.16.11"></script>
+    <script src="js/ui/components/Button.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/Modal.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/Toast.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/ProgressBar.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/ItemCard.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/BuildingIcon.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/HeroCard.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/Pagination.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/RareRewardReveal.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/RewardModal.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/EquipmentEnhanceModal.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/EquipmentStarModal.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/EquipmentReforgeModal.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/FloatingMenu.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/PlayerPowerTicker.js?v=2026.06.07.267"></script>
 
-    <script src="js/ui/views/TopBar.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/TabBar.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ItemGrid.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ItemGridInteractionPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ItemGridBatchUsePatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterView.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterViewPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterScenePatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterInteractionPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterCompactPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterCompactRefreshPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterMailboxPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/HeroView.js?v=2026.05.22.1"></script>
-    <script src="js/ui/views/DungeonView.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/SceneVideoInlinePatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShelterPolishPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/DungeonViewPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/DungeonProgressPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/DungeonChapterPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/DungeonChapterRefreshPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/BattleView.js?v=2026.05.21.5"></script>
-    <script src="js/ui/views/BattleViewPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/BattleFlowPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/BattleBoardFitPatch.js?v=2026.05.19.2"></script>
-    <script src="js/ui/views/BattleBoardResponsivePatch.js?v=2026.05.20.2"></script>
-    <script src="js/ui/views/GachaView.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/BackpackView.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/ShopView.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/CheckinView.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/TaskView.js?v=2026.05.22.1"></script>
-    <script src="js/ui/views/TaskViewLayoutPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/TaskTutorialPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/TabBarPatch.js?v=2026.05.16.11"></script>
-    <script src="js/ui/views/LoginView.js?v=2026.05.16.11"></script>
+    <script src="js/ui/views/TopBar.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/TabBar.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ItemGrid.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ItemGridInteractionPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ItemGridBatchUsePatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterViewPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterScenePatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterInteractionPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterCompactPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterCompactRefreshPatch.js?v=2026.06.07.267"></script>
+    <!-- 避难所塔防动态场景 -->
+    <script src="js/ui/shelter-td/Pool.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/AssetLoader.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/ParticleSystem.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/ProjectileSystem.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/ResourceDrop.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/EnemyManager.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/DefenseSystem.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/Building.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/ShelterTDScene.js?v=2026.06.07.267"></script>
+    <script src="js/ui/shelter-td/ShelterTDIntegrationPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterMailboxPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/HeroView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/DungeonView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/SceneVideoInlinePatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterPolishPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShelterArmoryPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/DungeonViewPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/DungeonProgressPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/DungeonChapterPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/DungeonChapterRefreshPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/components/StoryDialogue.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BattleView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BattleViewPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BattleStoryPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BattleFlowPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BattleBoardFitPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BattleBoardResponsivePatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/GachaView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/GachaViewPolishPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/BackpackView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/ShopView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/CheckinView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/TaskView.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/TaskViewLayoutPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/TaskTutorialPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/TabBarPatch.js?v=2026.06.07.267"></script>
+    <script src="js/ui/views/LoginView.js?v=2026.06.07.267"></script>
 
-    <script src="js/main.js?v=2026.05.16.11"></script>
-    <script src="js/GamePatch.js?v=2026.05.16.11"></script>
-    <script src="js/TutorialGamePatch.js?v=2026.05.16.11"></script>
+    <script src="js/main.js?v=2026.06.07.267"></script>
+    <script src="js/GamePatch.js?v=2026.06.07.267"></script>
+    <script src="js/TutorialGamePatch.js?v=2026.06.07.267"></script>
 </body>
 </html>
+
+

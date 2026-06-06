@@ -1,0 +1,12 @@
+# keep class names and method names used by reflection by InAppPurchaseEventManager
+-keep public class com.android.vending.billing.IInAppBillingService {
+    public <methods>;
+}
+-keep public class com.android.vending.billing.IInAppBillingService$Stub {
+    public <methods>;
+}
+-keep public class com.android.vending.billing.IInAppBillingService {
+    public static com.android.vending.billing.IInAppBillingService asInterface(android.os.IBinder);
+    public android.os.Bundle getSkuDetails(int, java.lang.String, java.lang.String, android.os.Bundle);
+}
+-keep class com.android.billingclient.api.** {*;}

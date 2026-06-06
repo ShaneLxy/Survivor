@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>战斗暂停页面测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .test-button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #4a4a4a;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #5a5a5a;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #333;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .warning { color: #fbbf24; }
+    </style>
+</head>
+<body>
+    <h1>🔍 战斗暂停页面诊断工具</h1>
+
+    <div class="test-section">
+        <h2>步骤 1: 检查文件是否存在</h2>
+        <button class="test-button" onclick="checkFiles()">检查文件</button>
+        <div id="fileResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤 2: 检查CSS是否加载</h2>
+        <button class="test-button" onclick="checkCSS()">检查CSS</button>
+        <div id="cssResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤 3: 检查BattleView代码</h2>
+        <button class="test-button" onclick="checkBattleView()">检查代码</button>
+        <div id="codeResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤 4: 预览新样式</h2>
+        <button class="test-button" onclick="previewNewStyle()">预览样式</button>
+        <div id="previewResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤 5: 清除缓存建议</h2>
+        <div class="result">
+<strong>如果上面的检查都通过，但游戏中还是旧样式，请尝试：</strong>
+
+1. <strong>Chrome/Edge:</strong>
+   - 按 Ctrl + Shift + Delete
+   - 选择"缓存的图片和文件"
+   - 点击"清除数据"
+   - 或者：F12 → Network 标签 → 勾选"Disable cache" → 刷新
+
+2. <strong>Firefox:</strong>
+   - 按 Ctrl + Shift + Delete
+   - 选择"缓存"
+   - 点击"立即清除"
+
+3. <strong>无痕模式测试:</strong>
+   - Ctrl + Shift + N (Chrome/Edge)
+   - Ctrl + Shift + P (Firefox)
+   - 在无痕窗口中打开游戏
+
+4. <strong>修改版本号:</strong>
+   - 如果还是不行，可能需要修改 index.html 中的版本号
+   - 将 ?v=2026.05.31.1 改为 ?v=2026.05.31.2
+        </div>
+    </div>
+
+    <script>
+        async function checkFiles() {
+            const result = document.getElementById('fileResult');
+            result.innerHTML = '正在检查文件...';
+
+            const files = [
+                'css/battle-pause-modal.css',
+                'js/ui/views/BattleView.js',
+                'index.html'
+            ];
+
+            let output = '';
+            for (const file of files) {
+                try {
+                    const response = await fetch(file + '?t=' + Date.now(), { method: 'HEAD' });
+                    if (response.ok) {
+                        output += `<span class="success">✅ ${file} - 存在</span>\n`;
+                    } else {
+                        output += `<span class="error">❌ ${file} - 不存在 (${response.status})</span>\n`;
+                    }
+                } catch (error) {
+                    output += `<span class="error">❌ ${file} - 请求失败: ${error.message}</span>\n`;
+                }
+            }
+
+            result.innerHTML = output;
+        }
+
+        async function checkCSS() {
+            const result = document.getElementById('cssResult');
+            result.innerHTML = '正在检查CSS...';
+
+            try {
+                const response = await fetch('css/battle-pause-modal.css?t=' + Date.now());
+                const css = await response.text();
+
+                let output = '';
+                if (css.includes('.battle-pause-modal')) {
+                    output += '<span class="success">✅ CSS文件包含 .battle-pause-modal 类</span>\n';
+                } else {
+                    output += '<span class="error">❌ CSS文件不包含 .battle-pause-modal 类</span>\n';
+                }
+
+                if (css.includes('.battle-pause-btn-card')) {
+                    output += '<span class="success">✅ CSS文件包含 .battle-pause-btn-card 类</span>\n';
+                } else {
+                    output += '<span class="error">❌ CSS文件不包含 .battle-pause-btn-card 类</span>\n';
+                }
+
+                output += `\n<span class="warning">CSS文件大小: ${css.length} 字节</span>\n`;
+                output += `\n前100个字符:\n${css.substring(0, 100)}...`;
+
+                result.innerHTML = output;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ 无法加载CSS: ${error.message}</span>`;
+            }
+        }
+
+        async function checkBattleView() {
+            const result = document.getElementById('codeResult');
+            result.innerHTML = '正在检查代码...';
+
+            try {
+                const response = await fetch('js/ui/views/BattleView.js?t=' + Date.now());
+                const code = await response.text();
+
+                let output = '';
+                if (code.includes('battle-pause-btn-card')) {
+                    output += '<span class="success">✅ BattleView.js 包含新的按钮代码</span>\n';
+                } else {
+                    output += '<span class="error">❌ BattleView.js 不包含新的按钮代码</span>\n';
+                }
+
+                if (code.includes("className: 'battle-pause-modal'")) {
+                    output += '<span class="success">✅ BattleView.js 包含 battle-pause-modal className</span>\n';
+                } else {
+                    output += '<span class="error">❌ BattleView.js 不包含 battle-pause-modal className</span>\n';
+                }
+
+                result.innerHTML = output;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ 无法加载BattleView.js: ${error.message}</span>`;
+            }
+        }
+
+        function previewNewStyle() {
+            const result = document.getElementById('previewResult');
+
+            const html = `
+                <link rel="stylesheet" href="css/battle-pause-modal.css?t=${Date.now()}">
+                <link rel="stylesheet" href="css/components.css">
+
+                <div style="margin-top: 20px;">
+                    <div class="modal-overlay" style="position: relative; height: 600px;">
+                        <div class="modal-content battle-pause-modal">
+                            <div class="modal-header">
+                                <div class="modal-title">游戏暂停</div>
+                            </div>
+                            <div class="modal-body">
+                                <div class="battle-pause-btn-card btn-story">
+                                    <div class="battle-pause-btn-icon">📖</div>
+                                    <div class="battle-pause-btn-text">
+                                        <div class="battle-pause-btn-title">回顾剧情</div>
+                                        <div class="battle-pause-btn-desc">重新观看本关卡的剧情对话</div>
+                                    </div>
+                                </div>
+                                <div class="battle-pause-btn-card btn-skip">
+                                    <div class="battle-pause-btn-icon">⏭️</div>
+                                    <div class="battle-pause-btn-text">
+                                        <div class="battle-pause-btn-title">跳过战斗</div>
+                                        <div class="battle-pause-btn-desc">直接结束战斗并获得奖励</div>
+                                    </div>
+                                </div>
+                                <div class="battle-pause-btn-card btn-resume">
+                                    <div class="battle-pause-btn-icon">▶️</div>
+                                    <div class="battle-pause-btn-text">
+                                        <div class="battle-pause-btn-title">返回战斗</div>
+                                        <div class="battle-pause-btn-desc">继续当前战斗</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            result.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

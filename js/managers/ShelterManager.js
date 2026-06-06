@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 避难所管理器 - 单例模式
  */
 class ShelterManager {
@@ -17,7 +17,11 @@ class ShelterManager {
         this.legacyWaterToConvert = 0;
         if (saveData?.buildings?.length) {
             this.buildings = saveData.buildings.map(buildingData => {
-                const config = BuildingConfig.getBuildingConfig(buildingData.id);
+                const normalizedBuildingId = buildingData.id === 'building_well' ? 'building_armory' : buildingData.id;
+                if (normalizedBuildingId === 'building_farm' || normalizedBuildingId === 'building_mine') {
+                    return null;
+                }
+                const config = BuildingConfig.getBuildingConfig(normalizedBuildingId);
                 return config ? new Building(config, buildingData.level || 1) : null;
             }).filter(Boolean);
 
@@ -49,7 +53,7 @@ class ShelterManager {
     }
 
     createInitialBuildings() {
-        const initialBuildingIds = ['building_shelter', 'building_farm', 'building_mine', 'building_well', 'building_training_ground'];
+        const initialBuildingIds = ['building_shelter', 'building_armory', 'building_training_ground'];
         this.buildings = [];
         initialBuildingIds.forEach(id => {
             const config = BuildingConfig.getBuildingConfig(id);
@@ -123,7 +127,7 @@ class ShelterManager {
     }
 
     ensureDefaultBuildings() {
-        const requiredBuildingIds = ['building_shelter', 'building_farm', 'building_mine', 'building_well', 'building_training_ground'];
+        const requiredBuildingIds = ['building_shelter', 'building_armory', 'building_training_ground'];
         const existingIds = new Set(this.buildings.map((building) => building.id));
         requiredBuildingIds.forEach((id) => {
             if (existingIds.has(id)) {
@@ -141,13 +145,40 @@ class ShelterManager {
     }
 
     getShelterEnergyBonus() {
-        const shelter = this.getBuilding('building_shelter');
-        return Math.max(0, Number(shelter?.effect?.type === 'energyBonus' ? shelter.effect.value : 0) || 0);
+        return 0;
     }
 
     getTrainingGroundStatBonus() {
         const trainingGround = this.getBuilding('building_training_ground');
         return Math.max(0, Number(trainingGround?.effect?.type === 'statBonus' ? trainingGround.effect.value : 0) || 0);
+    }
+
+    getArmoryReforgeRules() {
+        const armory = this.getBuilding('building_armory');
+        if (!armory) {
+            return { level: 0, unlockedStats: [], bonus: 0 };
+        }
+        const config = BuildingConfig.getBuildingConfig('building_armory');
+        const levels = Array.isArray(config?.levels) ? config.levels : [];
+        const unlockedStats = new Set();
+        let bonus = 0;
+
+        levels
+            .filter(level => Number(level.level || 0) <= Number(armory.level || 0))
+            .forEach(level => {
+                (Array.isArray(level.reforgeUnlockStats) ? level.reforgeUnlockStats : []).forEach(statKey => {
+                    if (statKey) {
+                        unlockedStats.add(String(statKey));
+                    }
+                });
+                bonus = Math.max(bonus, Math.max(0, Number(level.reforgeBonus) || 0));
+            });
+
+        return {
+            level: Number(armory.level) || 0,
+            unlockedStats: [...unlockedStats],
+            bonus
+        };
     }
 
     applyBuildingEffects() {
@@ -270,7 +301,7 @@ class ShelterManager {
 const shelterManager = new ShelterManager();
 window.shelterManager = shelterManager;
 
-ShelterManager.PRODUCTION_BUILDING_IDS = ['building_farm', 'building_mine', 'building_well'];
+ShelterManager.PRODUCTION_BUILDING_IDS = ['building_shelter'];
 ShelterManager.MAX_PRODUCTION_SECONDS = 12 * 3600;
 
 ShelterManager.prototype.getResourceInfo = function(type) {
@@ -320,6 +351,227 @@ ShelterManager.prototype.ensureProductionTimers = function(seedTimestamp = Date.
         const currentValue = Number(this.productionTimers[buildingId]) || 0;
         this.productionTimers[buildingId] = currentValue > 0 ? currentValue : seedTimestamp;
     });
+};
+
+ShelterManager.prototype.ensureTdIdleState = function(seedTimestamp = Date.now()) {
+    if (!this.tdIdleState) {
+        this.tdIdleState = {};
+    }
+    const todayKey = this.getTdIdleDateKey(seedTimestamp);
+    this.tdIdleState.lastCollectAt = Number(this.tdIdleState.lastCollectAt) || seedTimestamp;
+    this.tdIdleState.chestReadyAt = Number(this.tdIdleState.chestReadyAt) || seedTimestamp;
+    this.tdIdleState.chestStored = Math.max(0, Math.min(2, Number(this.tdIdleState.chestStored) || 0));
+    this.tdIdleState.tapDate = this.tdIdleState.tapDate || todayKey;
+    this.tdIdleState.tapCount = Math.max(0, Math.min(200, Number(this.tdIdleState.tapCount) || 0));
+    this.tdIdleState.lastTapAt = Number(this.tdIdleState.lastTapAt) || 0;
+    if (this.tdIdleState.tapDate !== todayKey) {
+        this.tdIdleState.tapDate = todayKey;
+        this.tdIdleState.tapCount = 0;
+        this.tdIdleState.lastTapAt = 0;
+    }
+};
+
+ShelterManager.prototype.getTdIdleDateKey = function(timestamp = Date.now()) {
+    const date = new Date(Number(timestamp) || Date.now());
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+ShelterManager.prototype.getTdTapBonusMultiplier = function(now = Date.now()) {
+    this.ensureTdIdleState(now);
+    return 1 + Math.floor((Number(this.tdIdleState.tapCount) || 0) / 20) * 0.01;
+};
+
+ShelterManager.prototype.recordTdTap = function(now = Date.now()) {
+    this.ensureTdIdleState(now);
+    if (this.tdIdleState.tapDate !== this.getTdIdleDateKey(now)) {
+        this.tdIdleState.tapDate = this.getTdIdleDateKey(now);
+        this.tdIdleState.tapCount = 0;
+        this.tdIdleState.lastTapAt = 0;
+    }
+    const lastTapAt = Number(this.tdIdleState.lastTapAt) || 0;
+    if (lastTapAt > 0 && now - lastTapAt < 1000) {
+        return {
+            success: false,
+            reason: 'cooldown',
+            tapCount: this.tdIdleState.tapCount,
+            bonusPercent: Math.floor(this.tdIdleState.tapCount / 20)
+        };
+    }
+    if ((Number(this.tdIdleState.tapCount) || 0) >= 200) {
+        return {
+            success: false,
+            reason: 'limit',
+            tapCount: this.tdIdleState.tapCount,
+            bonusPercent: Math.floor(this.tdIdleState.tapCount / 20)
+        };
+    }
+    this.tdIdleState.tapCount += 1;
+    this.tdIdleState.lastTapAt = now;
+    return {
+        success: true,
+        reason: 'counted',
+        tapCount: this.tdIdleState.tapCount,
+        bonusPercent: Math.floor(this.tdIdleState.tapCount / 20)
+    };
+};
+
+ShelterManager.prototype.getTdIdleProgressMultiplier = function() {
+    const unlocked = Math.max(1, Number(window.dungeonManager?.getUnlockedDungeonCount?.()) || 1);
+    return 1 + Math.max(0, unlocked - 1) * 0.05;
+};
+
+ShelterManager.prototype.calculateTdIdleRewards = function(seconds, now = Date.now()) {
+    this.ensureTdIdleState(now);
+    const cappedSeconds = Math.min(Math.max(0, Number(seconds) || 0), ShelterManager.MAX_PRODUCTION_SECONDS);
+    const hours = cappedSeconds / 3600;
+    const building = this.getBuilding('building_shelter');
+    const outputs = Array.isArray(building?.effect?.outputs) ? building.effect.outputs : [];
+    const progressMultiplier = this.getTdIdleProgressMultiplier();
+    const tapMultiplier = this.getTdTapBonusMultiplier(now);
+    const rewards = outputs.map((output) => {
+        const amount = Math.floor((Number(output.amountPerHour) || 0) * hours * progressMultiplier * tapMultiplier);
+        if (amount <= 0) return null;
+        return {
+            type: output.type || 'resource',
+            id: output.id,
+            amount
+        };
+    }).filter(Boolean);
+    return {
+        seconds: cappedSeconds,
+        hours: Math.round(hours * 10) / 10,
+        progressMultiplier,
+        tapMultiplier,
+        rewards
+    };
+};
+
+ShelterManager.prototype.getTdChestStatus = function(now = Date.now()) {
+    this.ensureTdIdleState(now);
+    let chestReadyAt = Number(this.tdIdleState.chestReadyAt) || now;
+    let chestStored = Math.max(0, Math.min(2, Number(this.tdIdleState.chestStored) || 0));
+    while (chestStored < 2 && now - chestReadyAt >= 3600000) {
+        chestStored += 1;
+        chestReadyAt += 3600000;
+    }
+    this.tdIdleState.chestStored = chestStored;
+    this.tdIdleState.chestReadyAt = chestReadyAt;
+    const nextSeconds = chestStored >= 2 ? 0 : Math.max(0, Math.ceil((chestReadyAt + 3600000 - now) / 1000));
+    return {
+        stored: chestStored,
+        capacity: 2,
+        nextSeconds,
+        ready: chestStored > 0
+    };
+};
+
+ShelterManager.prototype.rollTdChestReward = function() {
+    // 优先使用 GM 下发的补给箱奖池配置，兜底回硬编码
+    const shelterConfig = BuildingConfig.getBuildingConfig('building_shelter');
+    const gmPool = shelterConfig?.chestRewardPool;
+    const pool = (Array.isArray(gmPool) && gmPool.length ? gmPool : null) || [
+        { kind: 'resource', id: 'diamond', min: 18, max: 36, weight: 34 },
+        { kind: 'item', id: 'ad_skip_card', min: 1, max: 2, weight: 24 },
+        { kind: 'item', id: 'hero_summon', min: 1, max: 1, weight: 16 },
+        { kind: 'item', id: 'weapon_forge_ticket', min: 1, max: 1, weight: 16 },
+        { kind: 'fragment', heroRarity: 'common', min: 8, max: 16, weight: 10 }
+    ];
+    const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * total;
+    let selected = pool[0];
+    for (const entry of pool) {
+        roll -= entry.weight;
+        if (roll <= 0) {
+            selected = entry;
+            break;
+        }
+    }
+    const amount = selected.min >= selected.max
+        ? selected.min
+        : (selected.min + Math.floor(Math.random() * (selected.max - selected.min + 1)));
+    if (selected.kind === 'fragment') {
+        const heroes = HeroConfig.getAllHeroes()
+            .filter((hero) => (hero?.rarity || 'common') === selected.heroRarity);
+        const hero = heroes[Math.floor(Math.random() * heroes.length)] || heroes[0];
+        return {
+            type: 'fragment',
+            id: hero?.id || 'hero_common',
+            amount,
+            heroId: hero?.id || 'hero_common'
+        };
+    }
+    return {
+        type: selected.kind,
+        id: selected.id,
+        amount
+    };
+};
+
+ShelterManager.prototype.collectTdIdleRewards = function(now = Date.now()) {
+    this.ensureTdIdleState(now);
+    const elapsedSeconds = Math.min(
+        ShelterManager.MAX_PRODUCTION_SECONDS,
+        Math.max(0, Math.floor((now - (Number(this.tdIdleState.lastCollectAt) || now)) / 1000))
+    );
+    if (elapsedSeconds < 3600) {
+        return { success: false, message: '资源累计满一小时后才能收取', elapsedSeconds };
+    }
+
+    const normal = this.calculateTdIdleRewards(elapsedSeconds, now);
+    if (!normal.rewards.length) {
+        return { success: false, message: '当前暂无可收取收益', elapsedSeconds };
+    }
+
+    const chestStatus = this.getTdChestStatus(now);
+    let chestReward = null;
+    if (chestStatus.stored > 0) {
+        chestReward = this.rollTdChestReward();
+    }
+
+    const itemRewards = [
+        ...normal.rewards.filter((reward) => reward.type === 'item').map((reward) => ({ id: reward.id, count: reward.amount || 1 })),
+        ...(chestReward?.type === 'item' ? [{ id: chestReward.id, count: chestReward.amount || 1 }] : [])
+    ];
+    const inventoryCheck = itemManager.canAddItemBundle(itemRewards);
+    if (!inventoryCheck.success) {
+        return { success: false, message: inventoryCheck.message || '背包容量达到上限', elapsedSeconds };
+    }
+
+    normal.rewards.forEach((reward) => {
+        if (reward.type === 'item') itemManager.addItem(reward.id, reward.amount);
+        else this.addResource(reward.id, reward.amount);
+    });
+    if (chestReward) {
+        if (chestReward.type === 'item') itemManager.addItem(chestReward.id, chestReward.amount);
+        else if (chestReward.type === 'resource') this.addResource(chestReward.id, chestReward.amount);
+        else if (chestReward.type === 'fragment') heroManager.addFragments(chestReward.heroId, chestReward.amount);
+        this.tdIdleState.chestStored = Math.max(0, (Number(this.tdIdleState.chestStored) || 0) - 1);
+    }
+
+    this.tdIdleState.lastCollectAt = now;
+    this.productionTimers = this.productionTimers || {};
+    ShelterManager.PRODUCTION_BUILDING_IDS.forEach((buildingId) => {
+        this.productionTimers[buildingId] = now;
+    });
+
+    eventManager.emit('shelterProductionCollect', {
+        buildingId: 'monitor',
+        hours: normal.hours,
+        rewards: normal.rewards,
+        chestReward
+    });
+
+    return {
+        success: true,
+        elapsedSeconds,
+        hours: normal.hours,
+        rewards: normal.rewards,
+        chestReward,
+        tapBonusPercent: Math.floor(((normal.tapMultiplier || 1) - 1) * 100)
+    };
 };
 
 ShelterManager.prototype.getProductionBuildings = function() {
@@ -430,7 +682,13 @@ ShelterManager.prototype.init = function(saveData) {
     this.productionTimers = {
         ...(saveData?.productionTimers || {})
     };
-    this.ensureProductionTimers(Number(saveData?.offlineTime) || Date.now());
+    // Fallback: use tdIdleState.lastCollectAt or the original offlineTime
+    const fallbackSeed = Number(saveData?.tdIdleState?.lastCollectAt) || Number(saveData?.offlineTime) || Date.now();
+    this.ensureProductionTimers(fallbackSeed);
+    this.tdIdleState = {
+        ...(saveData?.tdIdleState || {})
+    };
+    this.ensureTdIdleState(Number(saveData?.offlineTime) || Date.now());
     this.applyBuildingEffects();
 };
 
@@ -439,8 +697,7 @@ ShelterManager.prototype.getSaveData = function() {
     const saveData = originalShelterGetSaveData.call(this);
     return {
         ...saveData,
-        productionTimers: { ...(this.productionTimers || {}) }
+        productionTimers: { ...(this.productionTimers || {}) },
+        tdIdleState: { ...(this.tdIdleState || {}) }
     };
 };
-
-shelterManager.ensureProductionTimers();

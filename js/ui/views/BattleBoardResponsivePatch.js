@@ -188,9 +188,8 @@
 
         const snapshot = battleManager.getSnapshot();
         const sceneWidth = Math.max(1, Number(snapshot?.scene?.width) || 1);
-        const index = y * sceneWidth + x;
-        const cell = board.children[index];
-        if (index < 0 || !cell) {
+        const sceneHeight = Math.max(1, Number(snapshot?.scene?.height) || 1);
+        if (x < 0 || y < 0 || x >= sceneWidth || y >= sceneHeight) {
             return null;
         }
 
@@ -200,11 +199,13 @@
             return null;
         }
 
-        const cellRect = cell.getBoundingClientRect();
+        const metrics = this.getTerrainCellMetrics(board, sceneWidth, sceneHeight);
+        const cellRect = this.getTerrainCellRect(metrics, x, y, 1);
+        const boardRect = board.getBoundingClientRect();
         const layerRect = animationLayer.getBoundingClientRect();
         return {
-            left: cellRect.left - layerRect.left,
-            top: cellRect.top - layerRect.top,
+            left: boardRect.left - layerRect.left + cellRect.x,
+            top: boardRect.top - layerRect.top + cellRect.y,
             width: cellRect.width,
             height: cellRect.height
         };

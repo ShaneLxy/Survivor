@@ -122,10 +122,21 @@
                         }
                         const result = itemManager.useItem(item.id);
                         if (result.success) {
-                            Toast.success(result.message);
-                            this.refresh();
-                            window.game.save();
-                            modal.close();
+                            const finalize = () => {
+                                this.refresh();
+                                window.game.save();
+                                modal.close();
+                            };
+                            if (Array.isArray(result.rewards) && result.rewards.length > 0) {
+                                RewardModal.show({
+                                    title: item.name,
+                                    rewards: result.rewards,
+                                    summaryText: result.message || '使用成功'
+                                }).then(() => finalize());
+                            } else {
+                                Toast.success(result.message);
+                                finalize();
+                            }
                         } else {
                             Toast.error(result.message);
                         }

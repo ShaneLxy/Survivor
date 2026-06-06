@@ -7,12 +7,72 @@ class LoginView {
         this.isSubmitting = false;
         this.element = null;
         this.guestLoginModal = null;
+        this.announcementModal = null;
         this.sessionNotice = '';
         this.versionPolicy = null;
+        this.operationConfig = { gameStatus: 'unknown', announcements: [] };
+        this.serverStatus = 'loading';
+        this.serverStatusText = '获取服务器状态...';
+        this.activeAnnouncementIndex = 0;
+        this.operationFetchToken = 0;
+        this.operationConfigLoaded = false;
+        this.operationConfigLoadingPromise = null;
 
         this.KEY_ACCOUNT = 'survivor_remember_account';
         this.KEY_PASSWORD = 'survivor_remember_password';
         this.KEY_REMEMBER_PWD = 'survivor_remember_pwd_checked';
+        this.KEY_READ_ANNOUNCEMENTS = 'survivor_read_announcements';
+
+        this._announcementTouch = null;
+    }
+
+    _getReadAnnouncementIds() {
+        try {
+            const raw = localStorage.getItem(this.KEY_READ_ANNOUNCEMENTS);
+            if (!raw) return new Set();
+            const arr = JSON.parse(raw);
+            return new Set(Array.isArray(arr) ? arr : []);
+        } catch (e) {
+            return new Set();
+        }
+    }
+
+    _markAnnouncementRead(id) {
+        if (!id) return;
+        const set = this._getReadAnnouncementIds();
+        if (set.has(id)) return;
+        set.add(id);
+        try {
+            localStorage.setItem(this.KEY_READ_ANNOUNCEMENTS, JSON.stringify(Array.from(set).slice(-50)));
+        } catch (e) { /* noop */ }
+        this._updateAnnouncementBadge();
+    }
+
+    _getUnreadAnnouncementCount() {
+        const list = this.operationConfig.announcements || [];
+        if (list.length === 0) return 0;
+        const readSet = this._getReadAnnouncementIds();
+        return list.filter((item) => !readSet.has(item.id)).length;
+    }
+
+    _updateAnnouncementBadge() {
+        if (!this.element) return;
+        const btn = this.element.querySelector('#btn-login-announcement');
+        if (!btn) return;
+        const count = this._getUnreadAnnouncementCount();
+        let badge = btn.querySelector('.login-announcement-badge');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'login-announcement-badge';
+                btn.appendChild(badge);
+            }
+            badge.textContent = count > 9 ? '9+' : String(count);
+            btn.classList.add('has-unread');
+        } else {
+            if (badge) badge.remove();
+            btn.classList.remove('has-unread');
+        }
     }
 
     show() {
@@ -20,7 +80,12 @@ class LoginView {
         document.body?.classList.remove('app-boot-hidden');
         this._ensureContainer();
         this.mode = 'login';
+        if (!this.operationConfigLoaded) {
+            this._setOperationStatus('loading', '获取服务器状态...');
+        }
         this.render();
+        this._loadOperationConfig();
+        this._triggerTapTapUpdateCheck();
         this._fadeIn();
         window.audioManager?.playSceneBgm?.('login');
 
@@ -43,8 +108,11 @@ class LoginView {
 
     hide() {
         this.sessionNotice = '';
+        this._stopRecClock();
         this.guestLoginModal?.close?.();
         this.guestLoginModal = null;
+        this.announcementModal?.close?.();
+        this.announcementModal = null;
         if (this.element) {
             this.element.classList.add('login-fade-out');
             setTimeout(() => {
@@ -79,6 +147,211 @@ class LoginView {
             this.element.classList.remove('login-fade-out');
             this.element.classList.add('login-fade-in');
         }
+    }
+
+    _setOperationStatus(status, text) {
+        this.serverStatus = status;
+        this.serverStatusText = text;
+        this._updateOperationStatusUI();
+    }
+
+    _updateOperationStatusUI() {
+        if (!this.element) return;
+        const statusEl = this.element.querySelector('#login-server-status');
+        if (statusEl) {
+            statusEl.classList.toggle('is-normal', this.serverStatus === 'normal');
+            statusEl.classList.toggle('is-loading', this.serverStatus === 'loading');
+            statusEl.classList.toggle('is-maintenance', this.serverStatus !== 'normal' && this.serverStatus !== 'loading');
+            const textEl = statusEl.querySelector('.login-server-status-text') || statusEl.querySelector('span:last-child');
+            if (textEl) textEl.textContent = this.serverStatusText;
+        }
+        const canLogin = this._canLoginByOperation();
+        const tapTapButton = this.element.querySelector('#btn-taptap-login');
+        if (tapTapButton) {
+            tapTapButton.disabled = !canLogin || this.isSubmitting;
+        }
+        const guestButton = this.element.querySelector('#btn-guest-login');
+        if (guestButton) {
+            guestButton.disabled = !canLogin;
+            guestButton.classList.toggle('is-disabled', !canLogin);
+        }
+    }
+
+    _isLoginBlockedByOperation() {
+        return !this._canLoginByOperation();
+    }
+
+    _canLoginByOperation() {
+        return this.serverStatus === 'normal';
+    }
+
+    _getOperationRequestCandidates() {
+        const candidates = [];
+        const seen = new Set();
+        const pushBase = (baseUrl) => {
+            const normalizedBase = String(baseUrl || '').trim().replace(/\/+$/, '');
+            if (!normalizedBase || seen.has(normalizedBase)) return;
+            seen.add(normalizedBase);
+            candidates.push({
+                baseUrl: normalizedBase,
+                url: `${normalizedBase}/health/operation`
+            });
+        };
+
+        const runtimeConfig = window.__SURVIVOR_RUNTIME_CONFIG__ || {};
+        const runtimeBaseUrl = String(runtimeConfig.apiBaseUrl || '').trim().replace(/\/+$/, '');
+        const currentBaseUrl = String(window.httpClient?.getBaseUrl?.() || '').trim().replace(/\/+$/, '');
+        const sameOriginBaseUrl = /^https?:$/i.test(location.protocol)
+            ? `${location.origin.replace(/\/+$/, '')}/api`
+            : '';
+        const isNativeApp = Boolean(window.Capacitor && (
+            typeof window.Capacitor.isNativePlatform === 'function'
+                ? window.Capacitor.isNativePlatform()
+                : true
+        ));
+        const isLocalWeb = !isNativeApp && (
+            location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+        );
+
+        if (isNativeApp) {
+            pushBase(runtimeBaseUrl);
+            pushBase(currentBaseUrl);
+        } else {
+            pushBase(currentBaseUrl);
+            pushBase(runtimeBaseUrl);
+        }
+        pushBase(sameOriginBaseUrl);
+
+        if (isLocalWeb) {
+            pushBase('http://127.0.0.1:9000/api');
+            pushBase('http://localhost:9000/api');
+            pushBase('http://127.0.0.1:3000/api');
+            pushBase('http://localhost:3000/api');
+        }
+
+        if (candidates.length === 0) {
+            candidates.push({ baseUrl: '', url: '/api/health/operation' });
+        }
+
+        return candidates;
+    }
+
+    async _requestOperationConfig(signal) {
+        const candidates = this._getOperationRequestCandidates();
+        let lastError = null;
+
+        for (const candidate of candidates) {
+            if (signal?.aborted) {
+                break;
+            }
+            const controller = typeof AbortController === 'function' ? new AbortController() : null;
+            const timeoutId = controller
+                ? window.setTimeout(() => controller.abort(), 2200)
+                : 0;
+            let abortHandler = null;
+            try {
+                if (controller && signal?.addEventListener) {
+                    abortHandler = () => controller.abort();
+                    signal.addEventListener('abort', abortHandler, { once: true });
+                }
+                const requestOptions = { cache: 'no-store' };
+                if (controller) {
+                    requestOptions.signal = controller.signal;
+                } else if (signal) {
+                    requestOptions.signal = signal;
+                }
+                const response = await fetch(candidate.url, requestOptions);
+                window.serverClock?.updateFromResponse?.(response);
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload?.message || `请求失败：${response.status}`);
+                }
+                if (candidate.baseUrl && window.httpClient?.setBaseUrl) {
+                    window.httpClient.setBaseUrl(candidate.baseUrl);
+                }
+                return payload?.config || payload || {};
+            } catch (error) {
+                lastError = error;
+                console.warn('[LoginView] operation endpoint failed:', candidate.url, error?.message || error);
+                if (signal?.aborted) {
+                    break;
+                }
+            } finally {
+                if (timeoutId) {
+                    window.clearTimeout(timeoutId);
+                }
+                if (abortHandler && signal?.removeEventListener) {
+                    signal.removeEventListener('abort', abortHandler);
+                }
+            }
+        }
+
+        throw lastError || new Error('获取服务器状态失败');
+    }
+
+    async _loadOperationConfig() {
+        if (this.operationConfigLoadingPromise) {
+            return this.operationConfigLoadingPromise;
+        }
+
+        const requestToken = ++this.operationFetchToken;
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const timeout = window.setTimeout(() => controller?.abort?.(), 8000);
+
+        if (!this.operationConfigLoaded) {
+            this._setOperationStatus('loading', '获取服务器状态...');
+        }
+
+        this.operationConfigLoadingPromise = (async () => {
+            try {
+                const config = await this._requestOperationConfig(controller ? controller.signal : undefined);
+                if (requestToken !== this.operationFetchToken) {
+                    return;
+                }
+                this.operationConfig = this._normalizeOperationConfig(config);
+                this.operationConfigLoaded = true;
+                this._setOperationStatus(
+                    this.operationConfig.gameStatus === 'normal' ? 'normal' : 'maintenance',
+                    this.operationConfig.gameStatus === 'normal' ? '正常' : '维护中'
+                );
+            } catch (error) {
+                if (requestToken !== this.operationFetchToken) {
+                    return;
+                }
+                this.operationConfig = { gameStatus: 'maintenance', announcements: [] };
+                this.operationConfigLoaded = true;
+                this._setOperationStatus('maintenance', '维护中');
+            } finally {
+                window.clearTimeout(timeout);
+                this.operationConfigLoadingPromise = null;
+                this._updateOperationStatusUI();
+                this._updateAnnouncementBadge();
+            }
+        })();
+
+        return this.operationConfigLoadingPromise;
+    }
+    _normalizeOperationConfig(config) {
+        const announcements = Array.isArray(config?.announcements) ? config.announcements : [];
+        const allowedTypes = new Set(['update', 'activity', 'maintenance', 'notice']);
+        return {
+            gameStatus: String(config?.gameStatus || '').trim() === 'normal' ? 'normal' : 'maintenance',
+            announcements: announcements
+                .slice(0, 3)
+                .map((entry, index) => {
+                    const rawType = String(entry?.type || '').trim().toLowerCase();
+                    return {
+                        id: String(entry?.id || `announcement_${index + 1}`).trim(),
+                        title: String(entry?.title || '').trim(),
+                        content: String(entry?.content || '').trim(),
+                        type: allowedTypes.has(rawType) ? rawType : 'notice',
+                        publishedAt: String(entry?.publishedAt || entry?.publishTime || '').trim(),
+                        order: Number.isFinite(Number(entry?.order)) ? Number(entry.order) : index + 1
+                    };
+                })
+                .filter((entry) => entry.title || entry.content)
+                .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+        };
     }
 
     _setGameChromeVisible(visible) {
@@ -121,7 +394,57 @@ class LoginView {
 
     _renderVersionBadge() {
         const version = window.VersionManager?.buildVersion || window.__SURVIVOR_BUILD_VERSION__ || 'dev';
-        return `<div class="login-version-badge">版本 ${this._escapeAttr(version)}</div>`;
+        return `<div class="login-version-badge">v${this._escapeAttr(version)}</div>`;
+    }
+
+    _renderHudTopBar() {
+        const announcements = this.operationConfig.announcements || [];
+        const broadcast = announcements.length > 0
+            ? `> 信号侦测：${announcements[0].title || '终端公告'}`
+            : '> // SYSTEM ONLINE  ::  AWAITING IDENTITY VERIFICATION';
+        return `
+            <div class="login-hud-topbar">
+                <div class="login-hud-left">
+                    <span class="login-hud-status-dot" aria-hidden="true"></span>
+                    ${this._renderVersionBadge()}
+                </div>
+                <div class="login-hud-broadcast" aria-live="polite">
+                    <div class="login-hud-broadcast-track">
+                        <span>${this._escapeAttr(broadcast)}</span>
+                        <span aria-hidden="true">${this._escapeAttr(broadcast)}</span>
+                    </div>
+                </div>
+                <button class="login-announcement-button" id="btn-login-announcement" type="button">
+                    <span class="login-announcement-button-icon" aria-hidden="true"></span>
+                    <span class="login-announcement-button-text">公告</span>
+                </button>
+            </div>
+            <div class="login-hud-bottomline" aria-hidden="true"></div>
+            <div class="login-rec-stamp" id="login-rec-stamp" aria-hidden="true">
+                <span class="login-rec-dot"></span>
+                <span class="login-rec-text">REC 00:00 末日纪元</span>
+            </div>
+        `;
+    }
+
+    _startRecClock() {
+        this._stopRecClock();
+        const update = () => {
+            const el = document.querySelector('#login-rec-stamp .login-rec-text');
+            if (!el) return;
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            el.textContent = `REC ${pad(d.getHours())}:${pad(d.getMinutes())} 末日纪元`;
+        };
+        update();
+        this._recClockTimer = window.setInterval(update, 30000);
+    }
+
+    _stopRecClock() {
+        if (this._recClockTimer) {
+            window.clearInterval(this._recClockTimer);
+            this._recClockTimer = null;
+        }
     }
 
     _renderVersionPolicyNotice() {
@@ -146,42 +469,223 @@ class LoginView {
         `;
     }
 
+    _renderAnnouncementContent() {
+        const announcements = this.operationConfig.announcements || [];
+        const activeIndex = announcements.length > 0
+            ? Math.max(0, Math.min(this.activeAnnouncementIndex, announcements.length - 1))
+            : 0;
+        const active = announcements[activeIndex] || null;
+        const readSet = this._getReadAnnouncementIds();
+        const tabs = announcements.length === 0
+            ? '<button class="login-announcement-tab is-empty" type="button" disabled>暂无</button>'
+            : announcements.map((item, index) => {
+                const isActive = index === activeIndex;
+                const isUnread = !readSet.has(item.id);
+                return `
+                    <button class="login-announcement-tab type-${item.type} ${isActive ? 'active' : ''} ${isUnread ? 'is-unread' : ''}" data-announcement-index="${index}" type="button">
+                        <span class="login-announcement-tab-type" aria-hidden="true"></span>
+                        <span class="login-announcement-tab-title">${this._escapeAttr(item.title || `公告${index + 1}`)}</span>
+                    </button>
+                `;
+            }).join('');
+
+        const typeLabelMap = {
+            update: '版本更新',
+            activity: '活动',
+            maintenance: '维护',
+            notice: '公告'
+        };
+
+        const detail = active ? `
+            <div class="login-announcement-meta">
+                <span class="login-announcement-badge-tag type-${active.type}">${typeLabelMap[active.type] || '公告'}</span>
+                ${active.publishedAt ? `<span class="login-announcement-time">${this._escapeAttr(active.publishedAt)}</span>` : ''}
+            </div>
+            <h3>${this._escapeAttr(active.title || '公告')}</h3>
+            <div class="login-announcement-text">${this._escapeAttr(active.content || '暂无公告内容')}</div>
+        ` : '<div class="login-announcement-empty">// SIGNAL LOST —— 暂无公告</div>';
+
+        return `
+            <div class="login-announcement-shell">
+                <div class="login-announcement-scanline" aria-hidden="true"></div>
+                <div class="login-announcement-tabs" role="tablist">${tabs}</div>
+                <div class="login-announcement-detail" id="login-announcement-detail">
+                    ${detail}
+                </div>
+            </div>
+        `;
+    }
+
+    openAnnouncementModal() {
+        if (this.announcementModal?.isShown()) {
+            this.announcementModal.setContent(this._renderAnnouncementContent());
+        } else {
+            this.announcementModal = new Modal({
+                title: '终端通讯 // BROADCAST',
+                className: 'login-announcement-modal',
+                overlayClassName: 'login-announcement-overlay',
+                content: this._renderAnnouncementContent(),
+                onClose: () => {
+                    this.announcementModal = null;
+                    this._announcementTouch = null;
+                    this._updateAnnouncementBadge();
+                }
+            });
+            this.announcementModal.show();
+        }
+        this._bindAnnouncementModalEvents();
+        this._markActiveAnnouncementRead();
+    }
+
+    _markActiveAnnouncementRead() {
+        const list = this.operationConfig.announcements || [];
+        const active = list[this.activeAnnouncementIndex];
+        if (active) this._markAnnouncementRead(active.id);
+    }
+
+    _bindAnnouncementModalEvents() {
+        const root = this.announcementModal?.element;
+        if (!root) return;
+
+        root.querySelectorAll('[data-announcement-index]').forEach((button) => {
+            button.addEventListener('click', () => {
+                this.activeAnnouncementIndex = Number(button.dataset.announcementIndex) || 0;
+                this.announcementModal?.setContent(this._renderAnnouncementContent());
+                this._bindAnnouncementModalEvents();
+                this._markActiveAnnouncementRead();
+            });
+        });
+
+        // 左右滑动切换公告（已取消下滑关闭手势）
+        const overlay = this.announcementModal?.overlay;
+        const sheet = root;
+        if (!overlay || !sheet) return;
+
+        const announcements = this.operationConfig.announcements || [];
+
+        const onStart = (e) => {
+            const t = e.touches ? e.touches[0] : e;
+            this._announcementTouch = {
+                startX: t.clientX,
+                startY: t.clientY,
+                startedAt: Date.now(),
+                axis: null
+            };
+        };
+
+        const onMove = (e) => {
+            if (!this._announcementTouch) return;
+            const t = e.touches ? e.touches[0] : e;
+            const dx = t.clientX - this._announcementTouch.startX;
+            const dy = t.clientY - this._announcementTouch.startY;
+            if (!this._announcementTouch.axis) {
+                if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                    this._announcementTouch.axis = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x';
+                }
+            }
+        };
+
+        const onEnd = (e) => {
+            if (!this._announcementTouch) return;
+            const touch = this._announcementTouch;
+            this._announcementTouch = null;
+
+            const t = e.changedTouches ? e.changedTouches[0] : e;
+            const dx = t.clientX - touch.startX;
+
+            if (touch.axis === 'x' && announcements.length > 1) {
+                const threshold = 60;
+                if (dx < -threshold && this.activeAnnouncementIndex < announcements.length - 1) {
+                    this.activeAnnouncementIndex += 1;
+                    this.announcementModal?.setContent(this._renderAnnouncementContent());
+                    this._bindAnnouncementModalEvents();
+                    this._markActiveAnnouncementRead();
+                } else if (dx > threshold && this.activeAnnouncementIndex > 0) {
+                    this.activeAnnouncementIndex -= 1;
+                    this.announcementModal?.setContent(this._renderAnnouncementContent());
+                    this._bindAnnouncementModalEvents();
+                    this._markActiveAnnouncementRead();
+                }
+            }
+        };
+
+        const detail = sheet.querySelector('#login-announcement-detail');
+        if (detail) {
+            detail.addEventListener('touchstart', onStart, { passive: true });
+            detail.addEventListener('touchmove', onMove, { passive: true });
+            detail.addEventListener('touchend', onEnd);
+        }
+
+        // 点击 overlay 空白处关闭
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) this.announcementModal?.close?.();
+        });
+    }
+
+    _renderHealthAdvice() {
+        return `
+            <div class="game-health-advice login-health-advice">
+                <div>抵制不良游戏，拒绝盗版游戏。</div>
+                <div>注意自我保护，谨防受骗上当。</div>
+                <div>适度游戏益脑，沉迷游戏伤身。</div>
+                <div>合理安排时间，享受健康生活。</div>
+            </div>
+        `;
+    }
+
     _renderLogin(savedAccount, savedPwd, rememberChecked) {
+        const loginDisabled = this._isLoginBlockedByOperation();
         const tapTapLoginButton = this._canUseTapTapLogin() ? `
-                    <button class="login-btn login-btn-taptap login-entry-btn" id="btn-taptap-login" onclick="window.loginView.handleTapTapLogin()">
+                    <button class="login-btn login-btn-taptap login-entry-btn" id="btn-taptap-login" onclick="window.loginView.handleTapTapLogin()" ${loginDisabled ? 'disabled' : ''}>
                         <span class="btn-text">TapTap &#30331;&#24405;</span>
                         <span class="btn-loading" style="display:none;">TapTap &#25480;&#26435;&#20013;...</span>
                     </button>
+        ` : '';
+        const guestLoginButton = this._shouldShowGuestLogin() ? `
+                    <div class="login-entry-actions">
+                        <button class="login-guest-link" id="btn-guest-login" type="button" ${loginDisabled ? 'disabled' : ''}>
+                            &#28216;&#23458;&#30331;&#24405;
+                        </button>
+                    </div>
         ` : '';
 
         this.element.innerHTML = `
             <div class="login-backdrop">
                 <div class="login-particles"></div>
                 <div class="login-grid-overlay"></div>
+                <div class="login-glitch-bar" aria-hidden="true"></div>
             </div>
-            ${this._renderVersionBadge()}
+            ${this._renderHudTopBar()}
             <div class="login-container">
-                ${this._renderNotice()}
-                ${this._renderVersionPolicyNotice()}
+                <div class="login-top-stack">
+                    ${this._renderNotice()}
+                    ${this._renderVersionPolicyNotice()}
+                </div>
                 <div class="login-logo">
-                    <h1 class="login-title">&#20113;&#22659;</h1>
-                    <p class="login-subtitle">YUNJING</p>
+                    <h1 class="login-title glitch" data-text="&#20113;&#22659;">&#20113;&#22659;</h1>
+                    <p class="login-subtitle">// YUNJING.SYS &#8226; v2.0.7</p>
+                </div>
+
+                <div class="login-server-status ${this.serverStatus === 'normal' ? 'is-normal' : ''}" id="login-server-status">
+                    <span class="login-server-status-dot"></span>
+                    <span class="login-server-status-text">${this._escapeAttr(this.serverStatusText)}</span>
                 </div>
 
                 <div class="login-form-panel login-form-panel-hidden" id="login-form-panel" aria-hidden="true"></div>
 
                 <div class="login-entry-panel">
                     ${tapTapLoginButton}
-                    <div class="login-entry-actions">
-                        <button class="login-guest-link" id="btn-guest-login" type="button">
-                            &#28216;&#23458;&#30331;&#24405;
-                        </button>
-                    </div>
+                    ${guestLoginButton}
                 </div>
             </div>
+            ${this._renderHealthAdvice()}
         `;
 
         this._bindLoginEntryEvents();
+        const announcementButton = document.getElementById('btn-login-announcement');
+        if (announcementButton) {
+            announcementButton.addEventListener('click', () => this.openAnnouncementModal());
+        }
         const noticeButton = document.getElementById('login-session-notice-btn');
         if (noticeButton) {
             noticeButton.addEventListener('click', () => {
@@ -197,6 +701,8 @@ class LoginView {
                 }
             });
         }
+        this._startRecClock();
+        this._updateAnnouncementBadge();
     }
 
     _bindLoginEntryEvents() {
@@ -209,6 +715,9 @@ class LoginView {
         const openGuestLogin = (event) => {
             event?.preventDefault?.();
             event?.stopPropagation?.();
+            if (!this._canLoginByOperation()) {
+                return;
+            }
             const now = Date.now();
             if (now - handledAt < 350) {
                 return;
@@ -261,6 +770,10 @@ class LoginView {
 
     openGuestLoginModal() {
         if (this.isSubmitting) return;
+        if (!this._canLoginByOperation()) {
+            Toast?.info?.('服务器维护中，请稍后再试');
+            return;
+        }
 
         const savedAccount = localStorage.getItem(this.KEY_ACCOUNT) || '';
         const savedPwd = localStorage.getItem(this.KEY_PASSWORD) || '';
@@ -306,13 +819,16 @@ class LoginView {
             <div class="login-backdrop">
                 <div class="login-particles"></div>
                 <div class="login-grid-overlay"></div>
+                <div class="login-glitch-bar" aria-hidden="true"></div>
             </div>
-            ${this._renderVersionBadge()}
+            ${this._renderHudTopBar()}
             <div class="login-container">
-                ${this._renderVersionPolicyNotice()}
+                <div class="login-top-stack">
+                    ${this._renderVersionPolicyNotice()}
+                </div>
                 <div class="login-logo">
-                    <h1 class="login-title">&#20113;&#22659;</h1>
-                    <p class="login-subtitle">YUNJING</p>
+                    <h1 class="login-title glitch" data-text="&#20113;&#22659;">&#20113;&#22659;</h1>
+                    <p class="login-subtitle">// YUNJING.SYS &#8226; v2.0.7</p>
                 </div>
 
                 <div class="login-form-panel" id="register-form-panel">
@@ -362,6 +878,7 @@ class LoginView {
                     </div>
                 </div>
             </div>
+            ${this._renderHealthAdvice()}
         `;
 
         const confirmInput = document.getElementById('reg-password-confirm');
@@ -369,6 +886,10 @@ class LoginView {
             confirmInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter') this.handleRegister();
             });
+        }
+        const announcementButton = document.getElementById('btn-login-announcement');
+        if (announcementButton) {
+            announcementButton.addEventListener('click', () => this.openAnnouncementModal());
         }
         const versionButton = document.getElementById('login-version-notice-btn');
         if (versionButton) {
@@ -378,6 +899,8 @@ class LoginView {
                 }
             });
         }
+        this._startRecClock();
+        this._updateAnnouncementBadge();
     }
 
     switchToRegister() {
@@ -388,18 +911,93 @@ class LoginView {
     switchToLogin() {
         this.mode = 'login';
         this.render();
+        this._loadOperationConfig();
     }
 
     _getTapTapPlugin() {
         return window.Capacitor?.Plugins?.TapTapAuth || null;
     }
 
+    _triggerTapTapUpdateCheck() {
+        const service = window.tapTapUpdateService;
+        if (!service || typeof service.checkOnLogin !== 'function') {
+            return;
+        }
+        if (!service.isSupported?.()) {
+            return;
+        }
+        try {
+            // Fire-and-forget：SDK 自己弹原生对话框，登录页不阻塞渲染
+            Promise.resolve(service.checkOnLogin()).catch((error) => {
+                console.warn('[LoginView] TapTap update check failed:', error?.message || error);
+            });
+        } catch (error) {
+            console.warn('[LoginView] TapTap update check threw:', error?.message || error);
+        }
+    }
+
+    _getTapTapCompliancePlugin() {
+        return window.Capacitor?.Plugins?.TapTapCompliance || null;
+    }
+
     _canUseTapTapLogin() {
         return Boolean(this._getTapTapPlugin()?.login);
     }
 
+    _isNativeApp() {
+        return Boolean(window.Capacitor && (
+            typeof window.Capacitor.isNativePlatform === 'function'
+                ? window.Capacitor.isNativePlatform()
+                : true
+        ));
+    }
+
+    _shouldShowGuestLogin() {
+        if (!this._isNativeApp()) {
+            return true;
+        }
+        return localStorage.getItem('survivor_allow_guest_login') === 'true';
+    }
+
+    _getTapTapUserIdentifier(tapTapResult) {
+        return String(tapTapResult?.unionId || tapTapResult?.openId || '').trim();
+    }
+
+    async _verifyTapTapCompliance(tapTapResult) {
+        const compliancePlugin = this._getTapTapCompliancePlugin();
+        if (!this._isNativeApp() || !compliancePlugin?.startup) {
+            return;
+        }
+
+        const userIdentifier = this._getTapTapUserIdentifier(tapTapResult);
+        if (!userIdentifier) {
+            throw new Error('TapTap 防沉迷认证缺少用户标识');
+        }
+
+        await this._withTimeout(
+            compliancePlugin.startup({ userIdentifier }),
+            20000,
+            'TapTap 防沉迷认证超时，请重试'
+        );
+    }
+
+    _withTimeout(promise, timeoutMs, message) {
+        let timer = null;
+        const timeout = new Promise((_, reject) => {
+            timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+        });
+        return Promise.race([promise, timeout]).finally(() => {
+            window.clearTimeout(timer);
+        });
+    }
+
     async handleLogin() {
         if (this.isSubmitting) return;
+        if (!this._canLoginByOperation()) {
+            this._showError('login-error', '服务器维护中，请稍后再试');
+            this._shakePanel();
+            return;
+        }
         if (window.versionCheckService?.isBlocked?.()) {
             this._showError('login-error', '当前版本已停止支持，请先更新客户端');
             this._shakePanel();
@@ -453,6 +1051,10 @@ class LoginView {
 
     async handleTapTapLogin() {
         if (this.isSubmitting) return;
+        if (!this._canLoginByOperation()) {
+            Toast?.info?.('服务器维护中，请稍后再试');
+            return;
+        }
         if (window.versionCheckService?.isBlocked?.()) {
             this._showError('login-error', '\u5f53\u524d\u7248\u672c\u5df2\u505c\u6b62\u652f\u6301\uff0c\u8bf7\u5148\u66f4\u65b0\u5ba2\u6237\u7aef');
             this._shakePanel();
@@ -471,8 +1073,14 @@ class LoginView {
         this.isSubmitting = true;
 
         try {
-            const tapTapResult = await tapTapPlugin.login();
+            const tapTapResult = await this._withTimeout(
+                tapTapPlugin.login(),
+                20000,
+                'TapTap 授权超时，请重试'
+            );
+            await this._verifyTapTapCompliance(tapTapResult || {});
             await authService.tapTapLogin(tapTapResult || {});
+            authService.setTapTapComplianceActive?.(true);
             localStorage.removeItem(this.KEY_PASSWORD);
             localStorage.removeItem(this.KEY_REMEMBER_PWD);
             window.game?.showGameLoadingOverlay?.({
@@ -485,9 +1093,14 @@ class LoginView {
             eventManager.emit('loginSuccess');
         } catch (err) {
             const msg = err?.message || '\u0054\u0061\u0070\u0054\u0061\u0070 \u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5';
+            Toast?.error?.(msg);
             this._showError('login-error', msg);
             this._shakePanel();
         } finally {
+            const tapTapButton = document.getElementById('btn-taptap-login');
+            if (tapTapButton) {
+                tapTapButton.disabled = false;
+            }
             this._setLoading('btn-taptap-login', false);
             this.isSubmitting = false;
         }
@@ -559,8 +1172,19 @@ class LoginView {
     _showError(elementId, message) {
         const el = document.getElementById(elementId);
         if (el) {
-            el.textContent = message;
+            const codeMap = {
+                'login-error': 'ERR_AUTH_001',
+                'register-error': 'ERR_REG_002'
+            };
+            const code = codeMap[elementId] || 'ERR_SYS_999';
+            el.innerHTML = `<span class="login-error-code">[${code}]</span> <span class="login-error-msg"></span>`;
+            const msgEl = el.querySelector('.login-error-msg');
+            if (msgEl) msgEl.textContent = message;
             el.style.display = 'block';
+            // 重触发故障动画
+            el.classList.remove('is-flash');
+            void el.offsetWidth;
+            el.classList.add('is-flash');
         }
     }
 
@@ -581,7 +1205,8 @@ class LoginView {
     _setLoading(btnId, loading) {
         const btn = document.getElementById(btnId);
         if (!btn) return;
-        btn.disabled = loading;
+        const blockedByStatus = (btnId === 'btn-login' || btnId === 'btn-taptap-login') && !this._canLoginByOperation();
+        btn.disabled = loading || blockedByStatus;
         const textEl = btn.querySelector('.btn-text');
         const loadEl = btn.querySelector('.btn-loading');
         if (textEl) textEl.style.display = loading ? 'none' : '';

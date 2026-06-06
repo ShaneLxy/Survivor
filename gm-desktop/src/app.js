@@ -1,11 +1,12 @@
 ﻿const state = {
-  baseUrl: localStorage.getItem('survivor_gm_base_url') || 'https://mom-wed-engaging-laura.trycloudflare.com/api',
-  gmSecret: localStorage.getItem('survivor_gm_secret') || 'survivor_gm_secret',
+  baseUrl: localStorage.getItem('survivor_gm_base_url') || 'http://localhost:3000/api',
+  gmSecret: localStorage.getItem('survivor_gm_secret') || 'Qp9ZxK3mLvBnH4tYjC7wRfDsE2uA8oFiNgMxV5kJ6yT0aBrLcWqHePsUiZdGoXv',
   view: 'catalog',
   catalogType: 'items',
-  catalog: { resources: [], items: [], equipment: [], enemySkills: [], gachaPools: [], shelterBuildings: [], dungeonChapters: [], dungeons: [], shopItems: [], welfareGifts: [], enemies: [], quests: [], achievements: [] },
+  catalog: { resources: [], items: [], equipment: [], heroes: [], enemySkills: [], gachaPools: [], shelterBuildings: [], dungeonChapters: [], dungeons: [], shopItems: [], welfareGifts: [], enemies: [], quests: [], achievements: [] },
   selectedEntry: null,
   selectedEnemy: null,
+  selectedHero: null,
   selectedPool: null,
   selectedDungeon: null,
   selectedDungeonMode: 'stage',
@@ -18,12 +19,14 @@
   welfareGiftRewards: [],
   pickerTarget: 'mail',
   cdkeys: [],
+  operationConfig: { gameStatus: 'normal', announcements: [] },
   packageRunning: false,
   packageLastOutputPath: ''
 };
 
 const viewMeta = {
   enemy: ['怪物信息', '维护怪物名称、介绍和立绘资源，具体属性在关卡中配置'],
+  hero: ['\u82f1\u96c4\u7ba1\u7406', '\u7ef4\u62a4\u82f1\u96c4\u57fa\u7840\u8d44\u6599\uff0c\u5305\u62ec\u540d\u79f0\u3001\u54c1\u8d28\u3001\u804c\u4e1a\u3001\u57fa\u7840\u5c5e\u6027\u3001\u4ecb\u7ecd\u4e0e\u7279\u6280\u6587\u6848'],
   shop: ['商城配置', '配置商城页面中出售的商品、价格、限购和发放内容'],
   welfare: ['福利礼包', '配置福利页横向礼包的名称、描述、排序和奖励内容'],
   catalog: ['资源目录', '查询和维护资源、道具、装备配置'],
@@ -33,7 +36,7 @@ const viewMeta = {
   mail: ['玩家邮件', '向玩家 ID 或全体玩家发送系统邮件'],
   cdkey: ['CDKEY', '批量创建、查询、修改兑换码'],
   package: ['打包模块', '选择正式或测试版本并生成 Android 安装包'],
-  settings: ['连接设置', '配置服务端地址和 GM 密钥']
+  settings: ['连接设置', '配置服务端地址、GM 密钥、游戏状态和公告']
 };
 
 const catalogConfig = {
@@ -59,6 +62,20 @@ const raritySortOrder = {
   common: 1
 };
 
+const heroBaseStatFields = [
+  ['hp', '#heroStatHp'],
+  ['attack', '#heroStatAttack'],
+  ['defense', '#heroStatDefense'],
+  ['speed', '#heroStatSpeed'],
+  ['crit', '#heroStatCrit'],
+  ['antiCrit', '#heroStatAntiCrit'],
+  ['defensePen', '#heroStatDefensePen'],
+  ['accuracy', '#heroStatAccuracy'],
+  ['dodge', '#heroStatDodge'],
+  ['attackRange', '#heroStatAttackRange'],
+  ['moveRange', '#heroStatMoveRange']
+];
+
 const dungeonEnvironmentEffectOptions = new Set(['none', 'smoke', 'poison_fog', 'dust_smoke', 'rain', 'storm_night', 'snow', 'ash']);
 
 const gachaEntryTypeLabels = {
@@ -72,7 +89,7 @@ const gachaEntryTypeLabels = {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const DEFAULT_PACKAGE_APPLICATION_ID = 'com.survivor.game';
+const DEFAULT_PACKAGE_APPLICATION_ID = 'game.taptap.yunjing.game';
 const DEFAULT_PACKAGE_APP_NAME = '云境Paradise';
 const DEFAULT_PACKAGE_OUTPUT_DIR = 'E:\\AIGame\\Survivor\\android\\app\\build\\outputs\\apk\\debug';
 const EXPANDED_SELECT_SIZE = 12;
@@ -127,9 +144,24 @@ function bindEvents() {
   $('#deleteEnemyBtn').addEventListener('click', deleteEnemyOverride);
   $('#enemyArtSrc').addEventListener('input', updateEnemyImagePreviewFromForm);
   $('#pickEnemyImageBtn').addEventListener('click', pickEnemyImageFile);
+  $('#heroSearchInput').addEventListener('input', renderHeroList);
+  $('#heroForm').addEventListener('submit', saveHeroEntry);
+  $('#heroPortrait').addEventListener('input', updateHeroImagePreviewFromForm);
+  $('#heroCardPortrait').addEventListener('input', updateHeroImagePreviewFromForm);
 
   $('#settingsForm').addEventListener('submit', saveSettings);
   $('#resetSettingsBtn').addEventListener('click', resetSettings);
+  $('#gameStatusInput').addEventListener('change', () => {
+    state.operationConfig.gameStatus = $('#gameStatusInput').value === 'maintenance' ? 'maintenance' : 'normal';
+  });
+  $('#addAnnouncementBtn').addEventListener('click', () => {
+    const rows = readAnnouncementRows();
+    if (rows.length >= 3) {
+      showToast('公告最多配置 3 条');
+      return;
+    }
+    renderAnnouncementEditor([...rows, createBlankAnnouncement()]);
+  });
   $('#testConnectionBtn').addEventListener('click', testConnection);
   $('#refreshAllBtn').addEventListener('click', refreshAll);
   $('#packageForm').addEventListener('submit', startAndroidPackage);
@@ -232,6 +264,10 @@ function bindEvents() {
   $('#dungeonBossWaves').addEventListener('input', () => {
     $('#dungeonBossWaves').dataset.dirty = 'true';
   });
+  $('#addStoryDialogueBtn').addEventListener('click', () => {
+    renderStoryDialogueRows([...readStoryDialogueEntries(), createBlankStoryDialogueEntry()]);
+  });
+  $('#previewStoryDialogueBtn').addEventListener('click', previewStoryDialogue);
   $('#loadDungeonBatchBtn').addEventListener('click', loadDungeonBatchJson);
   $('#saveDungeonBatchBtn').addEventListener('click', saveDungeonBatch);
 }
@@ -313,6 +349,7 @@ async function refreshAll() {
   if (!connected) {
     return;
   }
+  await loadOperationConfig();
   await loadCatalog();
   if (state.view === 'cdkey') {
     await loadCdkeys();
@@ -363,6 +400,13 @@ function setView(view) {
     renderEnemyList();
     renderEnemyEditor(state.selectedEnemy);
   }
+  if (view === 'hero') {
+    if (!state.selectedHero && (state.catalog.heroes || []).length) {
+      state.selectedHero = state.catalog.heroes[0];
+    }
+    renderHeroList();
+    renderHeroEditor(state.selectedHero);
+  }
   if (view === 'shop') {
     renderShopItems();
     renderShopEditor(state.selectedShopItem);
@@ -406,25 +450,116 @@ function syncCatalogSegmentsForView(view) {
 function syncSettingsInputs() {
   $('#apiBaseUrlInput').value = state.baseUrl;
   $('#gmSecretInput').value = state.gmSecret;
+  $('#gameStatusInput').value = state.operationConfig.gameStatus || 'normal';
+  renderAnnouncementEditor(state.operationConfig.announcements || []);
 }
 
-function saveSettings(event) {
+async function saveSettings(event) {
   event.preventDefault();
   state.baseUrl = normalizeBaseUrl($('#apiBaseUrlInput').value);
   state.gmSecret = $('#gmSecretInput').value.trim();
   localStorage.setItem('survivor_gm_base_url', state.baseUrl);
   localStorage.setItem('survivor_gm_secret', state.gmSecret);
-  showToast('设置已保存');
-  refreshAll();
+  try {
+    await saveOperationConfig();
+    showToast('设置已保存');
+    refreshAll();
+  } catch (error) {
+    showToast(`设置保存失败：${error.message}`);
+  }
 }
 
 function resetSettings() {
   state.baseUrl = 'http://127.0.0.1:9000/api';
-  state.gmSecret = 'survivor_gm_secret';
+  state.gmSecret = 'Qp9ZxK3mLvBnH4tYjC7wRfDsE2uA8oFiNgMxV5kJ6yT0aBrLcWqHePsUiZdGoXv';
   localStorage.setItem('survivor_gm_base_url', state.baseUrl);
   localStorage.setItem('survivor_gm_secret', state.gmSecret);
   syncSettingsInputs();
   showToast('已恢复默认连接');
+}
+
+async function loadOperationConfig() {
+  try {
+    const result = await api('/gm/operation');
+    state.operationConfig = normalizeOperationConfig(result.config || result);
+    syncSettingsInputs();
+  } catch (error) {
+    showToast(`运营配置加载失败：${error.message}`);
+  }
+}
+
+async function saveOperationConfig() {
+  const nextConfig = {
+    gameStatus: $('#gameStatusInput').value === 'maintenance' ? 'maintenance' : 'normal',
+    announcements: readAnnouncementRows()
+  };
+  const result = await api('/gm/operation', {
+    method: 'PUT',
+    body: nextConfig
+  });
+  state.operationConfig = normalizeOperationConfig(result.config || nextConfig);
+  syncSettingsInputs();
+}
+
+function normalizeOperationConfig(config) {
+  return {
+    gameStatus: config?.gameStatus === 'maintenance' ? 'maintenance' : 'normal',
+    announcements: Array.isArray(config?.announcements)
+      ? config.announcements.slice(0, 3).map((entry, index) => ({
+        id: String(entry?.id || `announcement_${index + 1}`).trim(),
+        title: String(entry?.title || '').trim(),
+        content: String(entry?.content || '').trim(),
+        order: Number.isFinite(Number(entry?.order)) ? Number(entry.order) : index + 1
+      }))
+      : []
+  };
+}
+
+function escapeAnnouncementText(value) {
+  return String(value || '').replace(/\r/g, '');
+}
+
+function createBlankAnnouncement() {
+  return {
+    id: generateRowId(),
+    title: '',
+    content: '',
+    order: 1
+  };
+}
+
+function readAnnouncementRows() {
+  return $$('.announcement-editor-row').map((row, index) => ({
+    id: row.dataset.announcementId || generateRowId(),
+    title: row.querySelector('[data-field="title"]')?.value.trim() || '',
+    content: escapeAnnouncementText(row.querySelector('[data-field="content"]')?.value || '').trim(),
+    order: index + 1
+  })).filter((entry) => entry.title || entry.content).slice(0, 3);
+}
+
+function renderAnnouncementEditor(rows = []) {
+  const list = $('#announcementEditorList');
+  if (!list) return;
+  const normalizedRows = Array.isArray(rows) ? rows.slice(0, 3) : [];
+  if (normalizedRows.length === 0) {
+    list.innerHTML = '<div class="announcement-editor-empty">暂无公告，点击“新增公告”添加。</div>';
+    return;
+  }
+  list.innerHTML = normalizedRows.map((entry, index) => `
+    <div class="announcement-editor-row" data-announcement-id="${escapeAttr(entry.id || generateRowId())}">
+      <div class="announcement-editor-index">公告 ${index + 1}</div>
+      <input class="text-input" data-field="title" maxlength="24" value="${escapeAttr(entry.title || '')}" placeholder="公告标题">
+      <textarea class="textarea-input" data-field="content" rows="5" maxlength="5000" placeholder="公告内容">${escapeHtml(entry.content || '')}</textarea>
+      <button class="ghost-button announcement-delete-btn" data-delete-announcement type="button">删除</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('[data-delete-announcement]').forEach((button) => {
+    button.addEventListener('click', () => {
+      button.closest('.announcement-editor-row')?.remove();
+      const nextRows = readAnnouncementRows();
+      renderAnnouncementEditor(nextRows);
+    });
+  });
 }
 
 function bindPackageLogStream() {
@@ -522,10 +657,22 @@ function validatePackageOptions(options) {
     return '版本编码必须大于 0';
   }
   if (!/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(options.applicationId)) {
-    return '应用包名格式不正确，例如 com.survivor.game';
+    return '应用包名格式不正确，例如 game.taptap.yunjing.game';
   }
   if (!options.appName) {
     return '请填写应用名称';
+  }
+  if (!options.serverUrl) {
+    return '请填写服务器 API 地址';
+  }
+  if (!/^https?:\/\/.+/i.test(options.serverUrl)) {
+    return '服务器 API 地址必须以 http:// 或 https:// 开头';
+  }
+  if (!/\/api\/?$/i.test(options.serverUrl)) {
+    return '服务器 API 地址必须以 /api 结尾';
+  }
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/api\/?$/i.test(options.serverUrl)) {
+    return '手机真机无法访问 localhost 或 127.0.0.1，请改成电脑局域网 IP 或公网域名';
   }
   if (!options.outputDir) {
     return '请填写输出目录';
@@ -655,6 +802,7 @@ async function loadCatalog() {
       resources: catalog.resources || [],
       items: catalog.items || [],
       equipment: catalog.equipment || [],
+      heroes: catalog.heroes || [],
       enemySkills: catalog.enemySkills || [],
       gachaPools: catalog.gachaPools || [],
       shelterBuildings: catalog.shelterBuildings || [],
@@ -671,9 +819,16 @@ async function loadCatalog() {
     state.selectedEnemy = state.selectedEnemy?.id
       ? ((state.catalog.enemies || []).find((entry) => entry.id === state.selectedEnemy.id) || null)
       : null;
+    state.selectedHero = state.selectedHero?.id
+      ? ((state.catalog.heroes || []).find((entry) => entry.id === state.selectedHero.id) || null)
+      : (state.catalog.heroes?.[0] || null);
     renderEnemyList();
+    renderHeroList();
     if (state.view === 'enemy') {
       renderEnemyEditor(state.selectedEnemy);
+    }
+    if (state.view === 'hero') {
+      renderHeroEditor(state.selectedHero);
     }
     renderReferenceDatalists();
     renderGachaPools();
@@ -1498,6 +1653,452 @@ async function deleteCatalogOverride() {
   }
 }
 
+function renderHeroList() {
+  const list = $('#heroList');
+  if (!list) return;
+  const keyword = $('#heroSearchInput')?.value?.trim().toLowerCase() || '';
+  const rows = [...(state.catalog.heroes || [])]
+    .filter((entry) => {
+      const text = `${entry.id || ''} ${entry.name || ''} ${entry.description || ''} ${entry.profession || ''}`.toLowerCase();
+      return !keyword || text.includes(keyword);
+    })
+    .sort((left, right) => {
+      const rarityGap = (raritySortOrder[right?.rarity] || 0) - (raritySortOrder[left?.rarity] || 0);
+      if (rarityGap !== 0) return rarityGap;
+      const nameCompare = String(left?.name || left?.id || '').localeCompare(String(right?.name || right?.id || ''), 'zh-Hans-CN-u-co-pinyin');
+      if (nameCompare !== 0) return nameCompare;
+      return String(left?.id || '').localeCompare(String(right?.id || ''), 'en');
+    });
+
+  list.innerHTML = rows.length ? rows.map((entry) => `
+    <button class="catalog-row ${state.selectedHero?.id === entry.id ? 'active' : ''}" data-hero-id="${escapeAttr(entry.id)}" type="button">
+      ${renderThumb({ ...entry, portrait: entry.cardPortrait || entry.portrait || '' })}
+      <span>
+        <span class="row-title">${escapeHtml(entry.name || entry.id)}</span>
+        <span class="row-meta">${escapeHtml([entry.id, entry.profession].filter(Boolean).join(' · '))}</span>
+      </span>
+      ${renderRarity(entry)}
+    </button>
+  `).join('') : '<div class="empty-state">\u6ca1\u6709\u5339\u914d\u7684\u82f1\u96c4</div>';
+
+  list.querySelectorAll('[data-hero-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.selectedHero = rows.find((entry) => entry.id === button.dataset.heroId) || null;
+      renderHeroList();
+      renderHeroEditor(state.selectedHero);
+    });
+  });
+}
+
+function renderHeroEditor(entry) {
+  const effective = entry || {};
+  const hasEntry = Boolean(entry?.id);
+  const primarySkill = Array.isArray(effective.skills) && effective.skills.length > 0
+    ? effective.skills[0] || {}
+    : (effective.skill || {});
+  $('#heroEditorTitle').textContent = hasEntry ? (entry.name || entry.id) : '\u9009\u62e9\u4e00\u540d\u82f1\u96c4';
+  $('#heroEditorMeta').textContent = hasEntry
+    ? `${entry.id} \u00b7 \u82f1\u96c4\u57fa\u7840\u8d44\u6599`
+    : '\u4ece\u5de6\u4fa7\u5217\u8868\u9009\u62e9\u82f1\u96c4\u540e\u5373\u53ef\u4fee\u6539';
+  $('#heroEditorSource').textContent = hasEntry
+    ? (entry.source === 'gm' ? 'GM\u6539\u52a8' : '\u57fa\u7840\u914d\u7f6e')
+    : 'base';
+  $('#heroId').value = effective.id || '';
+  $('#heroName').value = effective.name || '';
+  $('#heroRarity').value = effective.rarity || 'common';
+  $('#heroProfession').value = effective.profession || '';
+  $('#heroPortrait').value = effective.portrait || '';
+  $('#heroCardPortrait').value = effective.cardPortrait || '';
+  $('#heroDescription').value = effective.description || '';
+  $('#heroSkillName').value = primarySkill?.name || '';
+  $('#heroSkillDescription').value = primarySkill?.description || '';
+  heroBaseStatFields.forEach(([key, selector]) => {
+    const input = $(selector);
+    if (input) {
+      const value = effective.baseStats?.[key];
+      input.value = value === undefined || value === null ? '' : String(value);
+    }
+  });
+  $('#saveHeroBtn').disabled = !hasEntry;
+  renderHeroExtraTextSections(effective);
+  updateHeroImagePreview(effective);
+}
+
+/**
+ * 渲染英雄编辑器里"全部文字字段"动态容器:
+ * - 全部主动技能(skills[i].name / description) ※[0] 与上方旧字段重复显示,以新输入为准
+ * - 全部被动(passiveEffects[i].name / description / targetDescription)
+ * - 全部普攻附加(basicAttackEffects[i].name)
+ * - 全部反应技(reactiveEffects[i].name)
+ * - 特技体系 specialTraits.{name, summary}
+ * - specialTraits.traits[i].{name, description}
+ * - specialTraits.track[i].{label, description}
+ * - specialTraits.stages[i].{title, description}
+ * - specialTraits.battleGrowth.{skills|passiveEffects|basicAttackEffects|reactiveEffects}[i].stages[j].description
+ *
+ * 命名 input id 用约定前缀,save 时按约定收集。
+ */
+function renderHeroExtraTextSections(effective) {
+  const container = $('#heroExtraTextSections');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!effective || !effective.id) {
+    return;
+  }
+
+  const sectionFragments = [];
+
+  const skills = Array.isArray(effective.skills) ? effective.skills : [];
+  if (skills.length > 0) {
+    sectionFragments.push(renderTextListBlock({
+      title: '主动技能文字',
+      idPrefix: 'heroSkillText',
+      items: skills,
+      fields: [
+        { key: 'name', label: '名称', type: 'input' },
+        { key: 'description', label: '描述', type: 'textarea' }
+      ],
+      labelOf: (item, i) => `技能 ${i + 1}${item?.name ? ` · ${item.name}` : ''}`
+    }));
+  }
+
+  const passives = Array.isArray(effective.passiveEffects) ? effective.passiveEffects : [];
+  if (passives.length > 0) {
+    sectionFragments.push(renderTextListBlock({
+      title: '被动文字',
+      idPrefix: 'heroPassiveText',
+      items: passives,
+      fields: [
+        { key: 'name', label: '名称', type: 'input' },
+        { key: 'description', label: '描述', type: 'textarea', optional: true },
+        { key: 'targetDescription', label: '目标说明', type: 'input', optional: true }
+      ],
+      labelOf: (item, i) => `被动 ${i + 1}${item?.name ? ` · ${item.name}` : ''}`
+    }));
+  }
+
+  const basicAttacks = Array.isArray(effective.basicAttackEffects) ? effective.basicAttackEffects : [];
+  if (basicAttacks.length > 0) {
+    sectionFragments.push(renderTextListBlock({
+      title: '普攻附加文字',
+      idPrefix: 'heroBasicAtkText',
+      items: basicAttacks,
+      fields: [{ key: 'name', label: '名称', type: 'input' }],
+      labelOf: (item, i) => `普攻附加 ${i + 1}${item?.name ? ` · ${item.name}` : ''}`
+    }));
+  }
+
+  const reactives = Array.isArray(effective.reactiveEffects) ? effective.reactiveEffects : [];
+  if (reactives.length > 0) {
+    sectionFragments.push(renderTextListBlock({
+      title: '反应技文字',
+      idPrefix: 'heroReactiveText',
+      items: reactives,
+      fields: [{ key: 'name', label: '名称', type: 'input' }],
+      labelOf: (item, i) => `反应技 ${i + 1}${item?.name ? ` · ${item.name}` : ''}`
+    }));
+  }
+
+  const specialTraits = effective.specialTraits || null;
+  if (specialTraits) {
+    sectionFragments.push(renderSpecialTraitsBlock(specialTraits));
+  }
+
+  container.innerHTML = sectionFragments.join('');
+}
+
+function renderTextListBlock({ title, idPrefix, items, fields, labelOf }) {
+  const rowsHtml = items.map((item, i) => {
+    const fieldsHtml = fields.map((field) => {
+      const value = item?.[field.key];
+      const safeValue = value === undefined || value === null ? '' : String(value);
+      const inputId = `${idPrefix}_${i}_${field.key}`;
+      const escapedValue = safeValue.replace(/"/g, '&quot;');
+      if (field.type === 'textarea') {
+        return `
+          <label class="wide">
+            <span>${field.label}${field.optional ? '（可选）' : ''}</span>
+            <textarea id="${inputId}" data-text-input class="textarea-input" rows="3">${escapeHtml(safeValue)}</textarea>
+          </label>`;
+      }
+      return `
+        <label class="wide">
+          <span>${field.label}${field.optional ? '（可选）' : ''}</span>
+          <input id="${inputId}" data-text-input class="text-input" value="${escapedValue}">
+        </label>`;
+    }).join('');
+    return `
+      <div class="reward-block" style="margin-top:8px;">
+        <div class="block-title"><span>${labelOf(item, i)}</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;">${fieldsHtml}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="reward-block">
+      <div class="block-title"><span>${title}</span></div>
+      ${rowsHtml}
+    </div>`;
+}
+
+function renderSpecialTraitsBlock(specialTraits) {
+  const traits = Array.isArray(specialTraits.traits) ? specialTraits.traits : [];
+  const track = Array.isArray(specialTraits.track) ? specialTraits.track : [];
+  const stages = Array.isArray(specialTraits.stages) ? specialTraits.stages : [];
+  const growth = specialTraits.battleGrowth || null;
+
+  const traitsHtml = traits.length > 0 ? renderTextListBlock({
+    title: '特技条目',
+    idPrefix: 'heroTraitText',
+    items: traits,
+    fields: [
+      { key: 'name', label: '名称', type: 'input' },
+      { key: 'description', label: '描述', type: 'textarea' }
+    ],
+    labelOf: (item, i) => `特技 ${i + 1}${item?.name ? ` · ${item.name}` : ''}`
+  }) : '';
+
+  const trackHtml = track.length > 0 ? renderTextListBlock({
+    title: '升星轨道（track）',
+    idPrefix: 'heroTrackText',
+    items: track,
+    fields: [
+      { key: 'label', label: '节点标签', type: 'input' },
+      { key: 'description', label: '节点描述', type: 'textarea' }
+    ],
+    labelOf: (item, i) => `节点 ${i + 1}（stage=${item?.stage ?? '?'}）`
+  }) : '';
+
+  const stagesHtml = stages.length > 0 ? renderTextListBlock({
+    title: '阶段说明（stages）',
+    idPrefix: 'heroStageText',
+    items: stages,
+    fields: [
+      { key: 'title', label: '标题', type: 'input', optional: true },
+      { key: 'description', label: '描述', type: 'textarea' }
+    ],
+    labelOf: (item, i) => `阶段 ${i + 1}（stage=${item?.stage ?? '?'}）`
+  }) : '';
+
+  const summaryName = (specialTraits.name === undefined ? '' : String(specialTraits.name || '')).replace(/"/g, '&quot;');
+  const summaryText = specialTraits.summary === undefined ? '' : String(specialTraits.summary || '');
+
+  const growthHtml = growth ? renderBattleGrowthBlock(growth) : '';
+
+  return `
+    <div class="reward-block">
+      <div class="block-title"><span>特技体系（specialTraits）</span></div>
+      <label class="wide">
+        <span>体系名称</span>
+        <input id="heroSpecialTraitsName" data-text-input class="text-input" value="${summaryName}">
+      </label>
+      <label class="wide">
+        <span>体系总览</span>
+        <textarea id="heroSpecialTraitsSummary" data-text-input class="textarea-input" rows="3">${escapeHtml(summaryText)}</textarea>
+      </label>
+      ${traitsHtml}
+      ${trackHtml}
+      ${stagesHtml}
+      ${growthHtml}
+    </div>`;
+}
+
+function renderBattleGrowthBlock(growth) {
+  const renderGroup = (groupKey, items, label) => {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    const rows = items.map((entry, entryIdx) => {
+      const stages = Array.isArray(entry?.stages) ? entry.stages : [];
+      if (stages.length === 0) return '';
+      const stageRows = stages.map((stage, stageIdx) => {
+        const desc = stage?.description === undefined ? '' : String(stage.description || '');
+        const inputId = `heroGrowthText_${groupKey}_${entryIdx}_${stageIdx}_description`;
+        return `
+          <label class="wide">
+            <span>${label} #${entryIdx + 1} · stage=${stage?.stage ?? '?'}</span>
+            <textarea id="${inputId}" data-text-input class="textarea-input" rows="2">${escapeHtml(desc)}</textarea>
+          </label>`;
+      }).join('');
+      return stageRows;
+    }).join('');
+    return rows;
+  };
+
+  const skillRows = renderGroup('skills', growth.skills, '技能成长');
+  const passiveRows = renderGroup('passiveEffects', growth.passiveEffects, '被动成长');
+  const basicRows = renderGroup('basicAttackEffects', growth.basicAttackEffects, '普攻附加成长');
+  const reactiveRows = renderGroup('reactiveEffects', growth.reactiveEffects, '反应技成长');
+
+  if (!skillRows && !passiveRows && !basicRows && !reactiveRows) return '';
+
+  return `
+    <div class="reward-block" style="margin-top:8px;">
+      <div class="block-title"><span>战斗成长描述（battleGrowth）</span></div>
+      ${skillRows}${passiveRows}${basicRows}${reactiveRows}
+    </div>`;
+}
+
+function escapeHtml(text) {
+  return String(text || '').replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch] || ch));
+}
+
+/**
+ * 从动态表单收集所有文字补丁,产出 payload 子字段(skillTexts / passiveEffectTexts / ...)。
+ */
+function collectHeroExtraTextPayload(currentHero) {
+  if (!currentHero || !currentHero.id) return {};
+  const payload = {};
+
+  const collectListTexts = (items, idPrefix, fields) => {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    return items.map((_, i) => {
+      const obj = {};
+      fields.forEach((field) => {
+        const el = $(`#${idPrefix}_${i}_${field.key}`);
+        if (el) {
+          obj[field.key] = el.value;
+        }
+      });
+      return obj;
+    });
+  };
+
+  const skillTexts = collectListTexts(currentHero.skills, 'heroSkillText', [
+    { key: 'name' }, { key: 'description' }
+  ]);
+  if (skillTexts) payload.skillTexts = skillTexts;
+
+  const passiveTexts = collectListTexts(currentHero.passiveEffects, 'heroPassiveText', [
+    { key: 'name' }, { key: 'description' }, { key: 'targetDescription' }
+  ]);
+  if (passiveTexts) payload.passiveEffectTexts = passiveTexts;
+
+  const basicAtkTexts = collectListTexts(currentHero.basicAttackEffects, 'heroBasicAtkText', [
+    { key: 'name' }
+  ]);
+  if (basicAtkTexts) payload.basicAttackEffectTexts = basicAtkTexts;
+
+  const reactiveTexts = collectListTexts(currentHero.reactiveEffects, 'heroReactiveText', [
+    { key: 'name' }
+  ]);
+  if (reactiveTexts) payload.reactiveEffectTexts = reactiveTexts;
+
+  const specialTraits = currentHero.specialTraits || null;
+  if (specialTraits) {
+    const stt = {};
+    const nameEl = $('#heroSpecialTraitsName');
+    const summaryEl = $('#heroSpecialTraitsSummary');
+    if (nameEl) stt.name = nameEl.value;
+    if (summaryEl) stt.summary = summaryEl.value;
+    const traitTexts = collectListTexts(specialTraits.traits, 'heroTraitText', [
+      { key: 'name' }, { key: 'description' }
+    ]);
+    if (traitTexts) stt.traits = traitTexts;
+    const trackTexts = collectListTexts(specialTraits.track, 'heroTrackText', [
+      { key: 'label' }, { key: 'description' }
+    ]);
+    if (trackTexts) stt.track = trackTexts;
+    const stageTexts = collectListTexts(specialTraits.stages, 'heroStageText', [
+      { key: 'title' }, { key: 'description' }
+    ]);
+    if (stageTexts) stt.stages = stageTexts;
+
+    if (specialTraits.battleGrowth) {
+      const growth = specialTraits.battleGrowth;
+      const growthTexts = {};
+      ['skills', 'passiveEffects', 'basicAttackEffects', 'reactiveEffects'].forEach((groupKey) => {
+        const items = Array.isArray(growth[groupKey]) ? growth[groupKey] : [];
+        if (items.length === 0) return;
+        const groupArr = items.map((entry, entryIdx) => {
+          const stages = Array.isArray(entry?.stages) ? entry.stages : [];
+          if (stages.length === 0) return null;
+          return {
+            stages: stages.map((_, stageIdx) => {
+              const el = $(`#heroGrowthText_${groupKey}_${entryIdx}_${stageIdx}_description`);
+              return el ? { description: el.value } : {};
+            })
+          };
+        });
+        growthTexts[groupKey] = groupArr;
+      });
+      if (Object.keys(growthTexts).length > 0) stt.battleGrowth = growthTexts;
+    }
+
+    if (Object.keys(stt).length > 0) payload.specialTraitTexts = stt;
+  }
+
+  return payload;
+}
+
+function readHeroBaseStatsFromForm(fallback = {}) {
+  return heroBaseStatFields.reduce((acc, [key, selector]) => {
+    const input = $(selector);
+    const raw = input?.value?.trim?.() || '';
+    const value = raw === '' ? Number(fallback?.[key]) : Number(raw);
+    if (Number.isFinite(value)) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+}
+
+function updateHeroImagePreviewFromForm() {
+  updateHeroImagePreview({
+    portrait: $('#heroPortrait').value.trim(),
+    cardPortrait: $('#heroCardPortrait').value.trim(),
+    name: $('#heroName').value.trim(),
+    id: $('#heroId').value.trim()
+  });
+}
+
+function updateHeroImagePreview(entry) {
+  const preview = $('#heroImagePreview');
+  if (!preview) return;
+  const src = resolveAssetSrc(entry.cardPortrait || entry.portrait || '');
+  if (src) {
+    preview.innerHTML = `<img src="${escapeAttr(src)}" alt="${escapeAttr(entry.name || entry.id || 'hero')}">`;
+    return;
+  }
+  preview.textContent = entry.name || entry.id || 'IMG';
+}
+
+async function saveHeroEntry(event) {
+  event.preventDefault();
+  const current = state.selectedHero;
+  const id = $('#heroId').value.trim() || current?.id || '';
+  if (!id || !current?.id) {
+    showToast('\u8bf7\u5148\u4ece\u5217\u8868\u4e2d\u9009\u62e9\u82f1\u96c4');
+    return;
+  }
+
+  const payload = {
+    id,
+    category: 'hero',
+    name: $('#heroName').value.trim(),
+    rarity: $('#heroRarity').value || current.rarity || 'common',
+    profession: $('#heroProfession').value.trim(),
+    professionIcon: null,
+    portrait: $('#heroPortrait').value.trim(),
+    cardPortrait: $('#heroCardPortrait').value.trim(),
+    description: $('#heroDescription').value.trim(),
+    baseStats: readHeroBaseStatsFromForm(current.baseStats || {}),
+    primarySkillName: $('#heroSkillName').value.trim(),
+    primarySkillDescription: $('#heroSkillDescription').value.trim(),
+    ...collectHeroExtraTextPayload(current)
+  };
+
+  try {
+    await api(`/gm/catalog/heroes/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: payload
+    });
+    showToast('\u82f1\u96c4\u8d44\u6599\u5df2\u4fdd\u5b58');
+    await loadCatalog();
+    state.selectedHero = (state.catalog.heroes || []).find((entry) => entry.id === id) || null;
+    renderHeroEditor(state.selectedHero);
+  } catch (error) {
+    showToast(`\u82f1\u96c4\u8d44\u6599\u4fdd\u5b58\u5931\u8d25\uff1a${error.message}`);
+  }
+}
+
 function renderEnemyList() {
   const list = $('#enemyList');
   if (!list) return;
@@ -1619,11 +2220,45 @@ async function pickEnemyImageFile() {
   try {
     const filePath = await window.gmDesktop?.pickImageFile?.();
     if (!filePath) return;
-    $('#enemyArtSrc').value = filePath;
+    const relativePath = toRelativeAssetPath(filePath);
+    $('#enemyArtSrc').value = relativePath;
+
+    // 仅在"新建怪物"时自动填充 ID(编辑已有怪物时 ID 输入框是 disabled 的,不覆盖)
+    const idInput = $('#enemyId');
+    if (idInput && !idInput.disabled && !idInput.value.trim()) {
+      const derivedId = deriveEnemyIdFromPath(filePath);
+      if (derivedId) idInput.value = derivedId;
+    }
+
     updateEnemyImagePreviewFromForm();
   } catch (error) {
     showToast(`选择图片失败：${error.message}`);
   }
+}
+
+// 把 OS 绝对路径转成项目内相对路径(如 assets/media/enemys/foo.png)
+// 若路径不在项目 assets 目录内,则返回归一化的原路径
+function toRelativeAssetPath(absPath) {
+  if (!absPath) return '';
+  const normalized = String(absPath).replace(/\\/g, '/');
+  const idx = normalized.toLowerCase().lastIndexOf('/assets/');
+  if (idx >= 0) {
+    return normalized.slice(idx + 1); // 切掉前导 '/'
+  }
+  // 已经是 assets/ 开头的相对路径
+  if (/^assets\//i.test(normalized)) return normalized;
+  // 既不是绝对路径下的 assets,也不是 assets 开头,原样返回(去 file:// 前缀)
+  return normalized.replace(/^file:\/+/i, '');
+}
+
+// 从文件路径推导怪物 ID:enemy_<文件名去后缀>
+function deriveEnemyIdFromPath(p) {
+  if (!p) return '';
+  const normalized = String(p).replace(/\\/g, '/');
+  const base = normalized.split('/').pop() || '';
+  const stem = base.replace(/\.[^.]+$/, '');
+  if (!stem) return '';
+  return `enemy_${stem}`;
 }
 
 function updateEnemyImagePreviewFromForm() {
@@ -2626,17 +3261,24 @@ function renderShelterBuildings() {
 
 function getShelterBuildingOutputSummary(building) {
   const level1 = (building?.levels || []).find((entry) => Number(entry?.level) === 1) || (building?.levels || [])[0] || {};
+  const outputs = Array.isArray(level1.outputs) ? level1.outputs : [];
+  if (outputs.length) {
+    return outputs.map((output) => `${formatRewardDisplay(output.id)} ${Number(output.amountPerHour) || 0}/h`).join(' / ');
+  }
+  if (String(building?.id || '').trim() === 'building_shelter') {
+    return '无产出';
+  }
   if (level1.energyBonus !== undefined) {
     return `体力上限 +${Number(level1.energyBonus) || 0}`;
   }
   if (level1.statBonus !== undefined) {
     return `英雄属性 +${Math.round((Number(level1.statBonus) || 0) * 100)}%`;
   }
-  const outputs = Array.isArray(level1.outputs) ? level1.outputs : [];
-  if (!outputs.length) {
-    return '无产出';
+  if (Array.isArray(level1.reforgeUnlockStats) || level1.reforgeBonus !== undefined) {
+    const stats = (Array.isArray(level1.reforgeUnlockStats) ? level1.reforgeUnlockStats : []).join(' / ') || '无';
+    return `洗炼属性 ${stats} · 额外 +${Number(level1.reforgeBonus) || 0}`;
   }
-  return outputs.map((output) => `${formatRewardDisplay(output.id)} ${Number(output.amountPerHour) || 0}/h`).join(' / ');
+  return '无产出';
 }
 
 function resolveShelterOutputType(id) {
@@ -2653,13 +3295,17 @@ function resolveShelterOutputType(id) {
 function getShelterBuildingMode(building) {
   const id = String(building?.id || '').trim();
   if (id === 'building_shelter') {
-    return 'energy';
+    return 'production';
+  }
+  if (id === 'building_armory') {
+    return 'armory';
   }
   if (id === 'building_training_ground') {
     return 'stat';
   }
   const firstLevel = Array.isArray(building?.levels) ? building.levels[0] : null;
   if (firstLevel?.energyBonus !== undefined) return 'energy';
+  if (Array.isArray(firstLevel?.reforgeUnlockStats) || firstLevel?.reforgeBonus !== undefined) return 'armory';
   if (firstLevel?.statBonus !== undefined) return 'stat';
   return 'production';
 }
@@ -2667,7 +3313,9 @@ function getShelterBuildingMode(building) {
 function getShelterBuildingModeLabel(building) {
   const mode = getShelterBuildingMode(building);
   if (mode === 'energy') return '体力建筑';
+  if (mode === 'armory') return '武器建筑';
   if (mode === 'stat') return '属性建筑';
+  if (String(building?.id || '').trim() === 'building_shelter') return '核心产出建筑';
   return '产出建筑';
 }
 
@@ -2677,8 +3325,8 @@ function isShelterCoreBuildingId(id) {
 
 function getDefaultShelterLevelMedia(levelNumber) {
   return {
-    backgroundVideo: 'assets/media/house.mp4',
-    backgroundImage: 'assets/media/house_poster.png',
+    backgroundVideo: '',
+    backgroundImage: 'assets/media/shelter/shelter_bg.png',
   };
 }
 
@@ -2717,6 +3365,7 @@ function renderShelterBuildingEditor(building) {
   renderShelterBuildingLevelRows((effective.levels || []).length ? effective.levels : [createBlankShelterBuildingLevel()], effective);
   $('#deleteShelterBuildingBtn').disabled = !hasGmOverride;
   updateShelterBuildingImagePreview(effective);
+  renderShelterChestPoolEditor(effective);
 }
 
 function createBlankShelterBuilding() {
@@ -2770,6 +3419,8 @@ function createBlankShelterBuildingLevel(level = 1) {
   return {
     level,
     outputs: [createBlankShelterOutput()],
+    reforgeUnlockStats: [],
+    reforgeBonus: 0,
     upgradeCost: { gold: 0 },
   };
 }
@@ -2791,6 +3442,29 @@ function renderShelterBuildingMediaRows(level, buildingId) {
       <label class="field-inline-label">
         <span>降级静态图地址</span>
         <input class="text-input code-input" data-field="backgroundImage" value="${escapeAttr(backgroundImage)}" placeholder="assets/media/shelter/level-${levelNumber}.png">
+      </label>
+    </div>
+  `;
+}
+
+function renderShelterTdRows(level, buildingId) {
+  if (!isShelterCoreBuildingId(buildingId)) {
+    return '';
+  }
+  const td = level?.td || {};
+  return `
+    <div class="shelter-level-media-grid">
+      <label class="field-inline-label">
+        <span>武器伤害倍率</span>
+        <input class="text-input" data-field="tdWeaponDamageMultiplier" type="number" min="0.1" step="0.01" value="${escapeAttr(td.weaponDamageMultiplier ?? 1)}" placeholder="1">
+      </label>
+      <label class="field-inline-label">
+        <span>武器攻速倍率</span>
+        <input class="text-input" data-field="tdWeaponAttackSpeedMultiplier" type="number" min="0.1" step="0.01" value="${escapeAttr(td.weaponAttackSpeedMultiplier ?? 0.5)}" placeholder="0.5">
+      </label>
+      <label class="field-inline-label">
+        <span>怪物生成倍率</span>
+        <input class="text-input" data-field="tdEnemySpawnMultiplier" type="number" min="0.1" step="0.01" value="${escapeAttr(td.enemySpawnMultiplier ?? 1)}" placeholder="1">
       </label>
     </div>
   `;
@@ -2835,6 +3509,195 @@ function renderShelterBuildingOutputRows(level, levelIndex, buildingMode) {
   `;
 }
 
+function renderShelterBuildingArmoryRows(level) {
+  const unlocked = Array.isArray(level.reforgeUnlockStats) ? level.reforgeUnlockStats.join(', ') : '';
+  return `
+    <div class="shelter-output-editor">
+      <div class="editable-table">
+        <div class="editable-row shelter-output-row">
+          <label class="field-inline-label">
+            <span>解锁洗炼属性</span>
+            <input class="text-input" data-field="reforgeUnlockStats" value="${escapeAttr(unlocked)}" placeholder="defense, hp, attack">
+          </label>
+          <label class="field-inline-label">
+            <span>洗炼额外加成</span>
+            <input class="text-input" data-field="reforgeBonus" type="number" min="0" value="${escapeAttr(level.reforgeBonus ?? 0)}" placeholder="0">
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ──────────────────────── 补给箱奖池编辑器 ────────────────────────
+
+function createBlankChestPoolEntry(kind = 'resource', id = 'diamond', min = 1, max = 10, weight = 10) {
+  return { kind, id, min, max, weight };
+}
+
+function getChestPoolKindLabel(kind) {
+  const map = { resource: '资源奖励', item: '道具奖励', fragment: '英雄碎片' };
+  return map[kind] || kind;
+}
+
+function renderShelterChestPoolEditor(building) {
+  const root = $('#shelterChestPoolEditor');
+  if (!root) return;
+  const buildingId = String(building?.id || '').trim();
+  if (buildingId !== 'building_shelter') {
+    root.style.display = 'none';
+    return;
+  }
+  root.style.display = '';
+
+  const pool = Array.isArray(building.chestRewardPool) && building.chestRewardPool.length
+    ? building.chestRewardPool
+    : getDefaultChestRewardPool();
+  const totalWeight = pool.reduce((sum, entry) => sum + Math.max(0, Number(entry.weight) || 0), 0);
+
+  const rowsHtml = pool.map((entry, index) => {
+    const kind = String(entry.kind || 'resource').trim();
+    const entryId = kind === 'fragment' ? '' : String(entry.id || '').trim();
+    const heroRarity = kind === 'fragment' ? String(entry.heroRarity || 'common').trim() : '';
+    const minVal = Math.max(0, Number(entry.min) || 0);
+    const maxVal = Math.max(0, Number(entry.max) || 0);
+    const weight = Math.max(0, Number(entry.weight) || 0);
+    const pct = totalWeight > 0 ? ((weight / totalWeight) * 100).toFixed(1) : '0.0';
+    const isLast = index === pool.length - 1;
+
+    const idSelectHtml = kind === 'fragment'
+      ? `<label class="field-inline-label">
+           <span>英雄品质</span>
+           <select class="select-input" data-field="heroRarity">
+             <option value="common" ${heroRarity === 'common' ? 'selected' : ''}>普通</option>
+             <option value="rare" ${heroRarity === 'rare' ? 'selected' : ''}>稀有</option>
+             <option value="epic" ${heroRarity === 'epic' ? 'selected' : ''}>史诗</option>
+             <option value="legendary" ${heroRarity === 'legendary' ? 'selected' : ''}>传说</option>
+           </select>
+         </label>`
+      : `<label class="field-inline-label">
+           <span>奖励 ID</span>
+           <select class="select-input" data-field="chestPoolId">
+             ${renderRewardSelectOptions(entryId, '请选择资源或道具')}
+           </select>
+         </label>`;
+
+    return `
+      <div class="chest-pool-entry" data-chest-pool-index="${index}" style="${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:12px;margin-bottom:12px;'}">
+        <div class="editable-row shelter-output-row chest-pool-row-top" style="margin-bottom:8px;">
+          <label class="field-inline-label">
+            <span>类型</span>
+            <select class="select-input" data-field="chestPoolKind">
+              <option value="resource" ${kind === 'resource' ? 'selected' : ''}>资源</option>
+              <option value="item" ${kind === 'item' ? 'selected' : ''}>道具</option>
+              <option value="fragment" ${kind === 'fragment' ? 'selected' : ''}>碎片</option>
+            </select>
+          </label>
+          ${idSelectHtml}
+          <label class="field-inline-label" style="min-width:80px;">
+            <span>权重 (${pct}%)</span>
+            <input class="text-input" data-field="chestPoolWeight" type="number" min="0" value="${escapeAttr(weight)}" placeholder="10">
+          </label>
+          <button class="icon-button" data-remove-chest-pool="${index}" type="button" title="移除">-</button>
+        </div>
+        <div class="editable-row shelter-output-row chest-pool-row-bottom">
+          <label class="field-inline-label">
+            <span>最小数量</span>
+            <input class="text-input" data-field="chestPoolMin" type="number" min="0" value="${escapeAttr(minVal)}" placeholder="1">
+          </label>
+          <label class="field-inline-label">
+            <span>最大数量</span>
+            <input class="text-input" data-field="chestPoolMax" type="number" min="0" value="${escapeAttr(maxVal)}" placeholder="1">
+          </label>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="block-title">
+      <span>补给箱奖池</span>
+      <button id="addChestPoolEntryBtn" class="ghost-button" type="button">添加奖励项</button>
+    </div>
+    <div class="editable-table" id="shelterChestPoolRows">
+      ${rowsHtml}
+    </div>
+    <div class="shelter-output-editor-meta" style="font-size:11px;color:#888;margin-top:4px;">
+      总权重 ${totalWeight}（各项出率 = 自身权重 ÷ 总权重，总权重越大单格概率越低）
+    </div>
+  `;
+
+  bindChestPoolEvents();
+}
+
+function getDefaultChestRewardPool() {
+  return [
+    { kind: 'resource', id: 'diamond', min: 18, max: 36, weight: 34 },
+    { kind: 'item', id: 'ad_skip_card', min: 1, max: 2, weight: 24 },
+    { kind: 'item', id: 'hero_summon', min: 1, max: 1, weight: 16 },
+    { kind: 'item', id: 'weapon_forge_ticket', min: 1, max: 1, weight: 16 },
+    { kind: 'fragment', heroRarity: 'common', min: 8, max: 16, weight: 10 },
+  ];
+}
+
+function bindChestPoolEvents() {
+  const addBtn = $('#addChestPoolEntryBtn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      const building = state.selectedShelterBuilding || {};
+      const pool = readShelterChestPool();
+      pool.push(createBlankChestPoolEntry());
+      const updated = { ...building, chestRewardPool: pool };
+      renderShelterChestPoolEditor(updated);
+    });
+  }
+
+  document.querySelectorAll('[data-remove-chest-pool]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = parseInt(button.dataset.removeChestPool, 10);
+      if (Number.isNaN(index)) return;
+      const building = state.selectedShelterBuilding || {};
+      const pool = readShelterChestPool();
+      pool.splice(index, 1);
+      const updated = { ...building, chestRewardPool: pool };
+      renderShelterChestPoolEditor(updated);
+    });
+  });
+
+  // 类型切换时重新渲染以显示正确 ID/品质选择器
+  document.querySelectorAll('[data-field="chestPoolKind"]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const building = state.selectedShelterBuilding || {};
+      const pool = readShelterChestPool();
+      const updated = { ...building, chestRewardPool: pool };
+      renderShelterChestPoolEditor(updated);
+    });
+  });
+}
+
+function readShelterChestPool() {
+  return [...document.querySelectorAll('#shelterChestPoolRows .chest-pool-entry')].map((entryEl) => {
+    const kindSelect = entryEl.querySelector('[data-field="chestPoolKind"]');
+    const kind = kindSelect?.value?.trim() || 'resource';
+
+    const entry = {
+      kind,
+      min: Math.max(0, Number(entryEl.querySelector('[data-field="chestPoolMin"]')?.value) || 0),
+      max: Math.max(0, Number(entryEl.querySelector('[data-field="chestPoolMax"]')?.value) || 0),
+      weight: Math.max(0, Number(entryEl.querySelector('[data-field="chestPoolWeight"]')?.value) || 0),
+    };
+
+    if (kind === 'fragment') {
+      entry.heroRarity = entryEl.querySelector('[data-field="heroRarity"]')?.value?.trim() || 'common';
+    } else {
+      const idSelect = entryEl.querySelector('[data-field="chestPoolId"]');
+      entry.id = parseRewardInput(idSelect?.value) || idSelect?.value?.trim() || '';
+    }
+
+    return entry;
+  }).filter((entry) => entry.kind === 'fragment' ? entry.heroRarity : entry.id);
+}
+
 function renderShelterBuildingLevelRows(levels, building = state.selectedShelterBuilding || null) {
   const root = $('#shelterBuildingLevelRows');
   if (!root) return;
@@ -2865,6 +3728,12 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
               <input class="text-input" data-field="statBonus" type="number" min="0" step="0.01" value="${escapeAttr(level.statBonus ?? 0)}" placeholder="0.05">
             </label>
           ` : ''}
+          ${buildingMode === 'armory' ? `
+            <label class="field-inline-label">
+              <span>洗炼额外加成</span>
+              <input class="text-input" data-field="reforgeBonus" type="number" min="0" value="${escapeAttr(level.reforgeBonus ?? 0)}" placeholder="0">
+            </label>
+          ` : ''}
           <label class="field-inline-label shelter-cost-field">
             <span>升级消耗 JSON</span>
             <input class="text-input code-input" data-field="upgradeCost" value="${escapeAttr(stringifyInlineJson(level.upgradeCost || {}))}" placeholder='{"gold":100,"wood":20}'>
@@ -2872,6 +3741,8 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
           <button class="icon-button" data-remove-level="${Number(level.level) || 1}" type="button">-</button>
         </div>
         ${renderShelterBuildingMediaRows(level, buildingId)}
+        ${renderShelterTdRows(level, buildingId)}
+        ${buildingMode === 'armory' ? renderShelterBuildingArmoryRows(level) : ''}
         ${renderShelterBuildingOutputRows(level, levelIndex, buildingMode)}
       </div>
     </div>
@@ -2938,6 +3809,11 @@ function readShelterBuildingLevels() {
         backgroundVideo: row.querySelector('[data-field="backgroundVideo"]')?.value,
         backgroundImage: row.querySelector('[data-field="backgroundImage"]')?.value,
       }));
+      entry.td = {
+        weaponDamageMultiplier: Math.max(0.1, Number(row.querySelector('[data-field="tdWeaponDamageMultiplier"]')?.value) || 1),
+        weaponAttackSpeedMultiplier: Math.max(0.1, Number(row.querySelector('[data-field="tdWeaponAttackSpeedMultiplier"]')?.value) || 0.5),
+        enemySpawnMultiplier: Math.max(0.1, Number(row.querySelector('[data-field="tdEnemySpawnMultiplier"]')?.value) || 1),
+      };
     }
     if (buildingMode === 'energy') {
       entry.energyBonus = Math.max(0, Number(row.querySelector('[data-field="energyBonus"]')?.value) || 0);
@@ -2945,6 +3821,14 @@ function readShelterBuildingLevels() {
     }
     if (buildingMode === 'stat') {
       entry.statBonus = Math.max(0, Number(row.querySelector('[data-field="statBonus"]')?.value) || 0);
+      return entry;
+    }
+    if (buildingMode === 'armory') {
+      entry.reforgeBonus = Math.max(0, Number(row.querySelector('[data-field="reforgeBonus"]')?.value) || 0);
+      entry.reforgeUnlockStats = String(row.querySelector('[data-field="reforgeUnlockStats"]')?.value || '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
       return entry;
     }
     entry.outputs = [...row.querySelectorAll('.shelter-output-row')].map((outputRow) => {
@@ -2996,6 +3880,19 @@ async function saveShelterBuilding(event) {
     levels,
   };
 
+  // 补给箱奖池（仅避难所核心建筑）
+  if (isShelterCoreBuildingId(id)) {
+    try {
+      const chestPool = readShelterChestPool();
+      if (Array.isArray(chestPool) && chestPool.length) {
+        payload.chestRewardPool = chestPool;
+      }
+    } catch (error) {
+      showToast(`补给箱奖池读取失败：${error.message}`);
+      return;
+    }
+  }
+
   const mode = getShelterBuildingMode({ id, levels });
   if (mode === 'energy') {
     payload.levels = payload.levels.map((level) => ({
@@ -3009,6 +3906,27 @@ async function saveShelterBuilding(event) {
       level: level.level,
       statBonus: Math.max(0, Number(level.statBonus) || 0),
       upgradeCost: level.upgradeCost || {},
+    }));
+  } else if (mode === 'armory') {
+    payload.levels = payload.levels.map((level) => ({
+      level: level.level,
+      reforgeUnlockStats: Array.isArray(level.reforgeUnlockStats) ? level.reforgeUnlockStats : [],
+      reforgeBonus: Math.max(0, Number(level.reforgeBonus) || 0),
+      upgradeCost: level.upgradeCost || {},
+    }));
+  } else {
+    payload.levels = payload.levels.map((level) => ({
+      level: level.level,
+      outputs: Array.isArray(level.outputs) ? level.outputs : [],
+      upgradeCost: level.upgradeCost || {},
+      ...(isShelterCoreBuildingId(id) ? {
+        ...getShelterLevelMediaPayload(level),
+        td: {
+          weaponDamageMultiplier: Math.max(0.1, Number(level.td?.weaponDamageMultiplier) || 1),
+          weaponAttackSpeedMultiplier: Math.max(0.1, Number(level.td?.weaponAttackSpeedMultiplier) || 0.5),
+          enemySpawnMultiplier: Math.max(0.1, Number(level.td?.enemySpawnMultiplier) || 1),
+        },
+      } : {}),
     }));
   }
 
@@ -3225,6 +4143,7 @@ function renderDungeonEditor(dungeon) {
   renderRewardRangeRows('#stageRewardRows', rewards.items || [], true);
   renderDungeonEnemyRows(effective.initialEnemies || effective.enemies || []);
   renderDungeonBossRows(effective.bossWaves || []);
+  renderStoryDialogueRows(effective.storyDialogues || []);
   setDungeonEditorMode(isChapterMode);
 }
 
@@ -3253,6 +4172,7 @@ function setDungeonEditorMode(isChapterMode) {
   setClosestBlockVisible('#stageRewardRows', !isChapterMode);
   setClosestBlockVisible('#dungeonEnemyRows', !isChapterMode);
   setClosestBlockVisible('#dungeonBossRows', !isChapterMode);
+  setClosestBlockVisible('#storyDialogueRows', !isChapterMode);
   const form = $('#dungeonForm');
   if (form) {
     form.dataset.mode = isChapterMode ? 'chapter' : 'stage';
@@ -3445,7 +4365,7 @@ function renderDungeonEnemyRows(enemies) {
       <select class="select-input" data-field="rank">${renderRankOptions(enemy.rank || 'normal')}</select>
       <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(enemy.count || 1)}" placeholder="数量">
       <div class="positions-cell"><input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(enemy.positions || enemy.spawnPositions || []))}" placeholder="出生点 2,3;2,4"><button class="board-edit-btn" data-row-board="enemy" type="button" title="用棋盘编辑器设置出生点">🖼</button></div>
-      <input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(enemy)))}" placeholder="技能，可逗号分隔">
+      <div class="skills-cell"><input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(enemy)))}" placeholder="技能，可逗号分隔"><button class="board-edit-btn" data-row-skill="enemy" type="button" title="从技能列表中勾选">🎯</button></div>
       <input class="text-input" data-field="hp" type="number" min="1" value="${escapeAttr(enemy.stats?.hp ?? enemy.overrideStats?.hp ?? '')}" placeholder="生命">
       <input class="text-input" data-field="attack" type="number" min="1" value="${escapeAttr(enemy.stats?.attack ?? enemy.overrideStats?.attack ?? '')}" placeholder="攻击">
       <input class="text-input" data-field="attackRange" type="number" min="1" value="${escapeAttr(enemy.stats?.attackRange ?? enemy.overrideStats?.attackRange ?? '')}" placeholder="攻击距离">
@@ -3473,6 +4393,12 @@ function renderDungeonEnemyRows(enemies) {
     button.addEventListener('click', () => {
       const rowEl = button.closest('.editable-row');
       if (rowEl) window.openBoardEditorForRow(rowEl, 'enemy');
+    });
+  });
+  root.querySelectorAll('[data-row-skill="enemy"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rowEl = button.closest('.editable-row');
+      if (rowEl) window.openSkillPickerForRow(rowEl, 'enemy');
     });
   });
   root.querySelectorAll('input, select').forEach((field) => {
@@ -3528,7 +4454,7 @@ function renderDungeonBossRows(waves) {
       <select class="select-input" data-field="rank">${renderRankOptions(entry.rank || 'boss')}</select>
       <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(entry.count || 1)}" placeholder="数量">
       <div class="positions-cell"><input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(entry.positions || entry.spawnPositions || []))}" placeholder="出生点"><button class="board-edit-btn" data-row-board="boss" type="button" title="用棋盘编辑器设置出生点">🖼</button></div>
-      <input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(entry)))}" placeholder="技能，可逗号分隔">
+      <div class="skills-cell"><input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(entry)))}" placeholder="技能，可逗号分隔"><button class="board-edit-btn" data-row-skill="boss" type="button" title="从技能列表中勾选">🎯</button></div>
       <input class="text-input" data-field="hp" type="number" min="1" value="${escapeAttr(entry.stats?.hp ?? entry.overrideStats?.hp ?? '')}" placeholder="生命">
       <input class="text-input" data-field="attack" type="number" min="1" value="${escapeAttr(entry.stats?.attack ?? entry.overrideStats?.attack ?? '')}" placeholder="攻击">
       <input class="text-input" data-field="attackRange" type="number" min="1" value="${escapeAttr(entry.stats?.attackRange ?? entry.overrideStats?.attackRange ?? '')}" placeholder="攻击距离">
@@ -3556,6 +4482,12 @@ function renderDungeonBossRows(waves) {
     button.addEventListener('click', () => {
       const rowEl = button.closest('.editable-row');
       if (rowEl) window.openBoardEditorForRow(rowEl, 'boss');
+    });
+  });
+  root.querySelectorAll('[data-row-skill="boss"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rowEl = button.closest('.editable-row');
+      if (rowEl) window.openSkillPickerForRow(rowEl, 'boss');
     });
   });
   root.querySelectorAll('input, select').forEach((field) => {
@@ -3737,6 +4669,10 @@ async function saveDungeon(event) {
   const currentBattlefield = state.selectedDungeon?.battlefield || {};
   const chapter = getSelectedChapter();
   const chapterId = state.selectedChapterKey || chapter?.id || state.selectedDungeon?.chapterId || '';
+
+  // 读取剧情对话
+  const storyDialogues = readStoryDialogueEntries();
+
   const payload = {
     id,
     name: $('#dungeonName').value.trim(),
@@ -3761,6 +4697,7 @@ async function saveDungeon(event) {
     },
     initialEnemies,
     bossWaves,
+    storyDialogues: storyDialogues.length > 0 ? storyDialogues : undefined,
     rewards: {
       gold: {
         min: Number($('#dungeonGoldMin').value) || 0,
@@ -4571,7 +5508,403 @@ function escapeAttr(value) {
   window.openBoardEditorForRow = openBoardEditorForRow;
 }());
 
+// ===== 敌人技能选择器 =====
+(function () {
+  let activeRowEl = null;
+  let activeRowKind = 'enemy';
+  let checkedIds = new Set();
+  let keyword = '';
 
+  function openSkillPickerForRow(rowEl, kind) {
+    if (!rowEl) return;
+    const skillInput = rowEl.querySelector('[data-field="skillIds"]');
+    if (!skillInput) return;
 
+    activeRowEl = rowEl;
+    activeRowKind = kind || 'enemy';
+    keyword = '';
+    checkedIds = new Set(parseEnemySkillListInput(skillInput.value || ''));
 
+    const subtitle = $('#skillPickerSubtitle');
+    if (subtitle) {
+      const rowIndex = Number(rowEl.dataset.enemyIndex ?? rowEl.dataset.bossIndex ?? 0) + 1;
+      const label = kind === 'boss' ? 'BOSS' : '敌人';
+      subtitle.textContent = `${label} · 第 ${rowIndex} 行`;
+      subtitle.hidden = false;
+    }
 
+    const searchInput = $('#skillPickerSearch');
+    if (searchInput) searchInput.value = '';
+
+    renderSkillPickerList();
+    updateSkillPickerCount();
+    $('#skillPickerOverlay').style.display = 'flex';
+    if (searchInput) {
+      setTimeout(() => searchInput.focus(), 50);
+    }
+  }
+
+  function renderSkillPickerList() {
+    const list = $('#skillPickerList');
+    if (!list) return;
+    const allSkills = state.catalog.enemySkills || [];
+    const lower = keyword.toLowerCase();
+    const filtered = lower
+      ? allSkills.filter((skill) => {
+          const haystack = `${skill.id || ''} ${skill.name || ''} ${skill.description || ''}`.toLowerCase();
+          return haystack.includes(lower);
+        })
+      : allSkills;
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="skill-picker-empty">没有匹配的技能</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map((skill) => {
+      const checked = checkedIds.has(skill.id);
+      const name = escapeHtml(skill.name || skill.id || '');
+      const description = escapeHtml(skill.description || '');
+      const id = escapeAttr(skill.id);
+      return `
+        <label class="skill-picker-row ${checked ? 'is-checked' : ''}" data-skill-id="${id}">
+          <input type="checkbox" ${checked ? 'checked' : ''}>
+          <div>
+            <div class="skill-picker-row-name">${name}</div>
+            <div class="skill-picker-row-id">${escapeHtml(skill.id || '')}</div>
+          </div>
+          <div class="skill-picker-row-desc">${description || '<span style="opacity:0.5">无描述</span>'}</div>
+        </label>
+      `;
+    }).join('');
+
+    list.querySelectorAll('.skill-picker-row').forEach((row) => {
+      const skillId = row.dataset.skillId;
+      const checkbox = row.querySelector('input[type="checkbox"]');
+      row.addEventListener('change', () => {
+        if (checkbox.checked) {
+          checkedIds.add(skillId);
+          row.classList.add('is-checked');
+        } else {
+          checkedIds.delete(skillId);
+          row.classList.remove('is-checked');
+        }
+        updateSkillPickerCount();
+      });
+    });
+  }
+
+  function updateSkillPickerCount() {
+    const el = $('#skillPickerCount');
+    if (el) el.textContent = `已选 ${checkedIds.size} 个`;
+  }
+
+  function confirmSkillPicker() {
+    if (!activeRowEl) {
+      closeSkillPicker();
+      return;
+    }
+    const skillInput = activeRowEl.querySelector('[data-field="skillIds"]');
+    if (skillInput) {
+      const validIds = (state.catalog.enemySkills || [])
+        .map((s) => s.id)
+        .filter((id) => checkedIds.has(id));
+      skillInput.value = formatEnemySkillListDisplay(validIds);
+      skillInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    closeSkillPicker();
+  }
+
+  function closeSkillPicker() {
+    $('#skillPickerOverlay').style.display = 'none';
+    activeRowEl = null;
+    checkedIds = new Set();
+    keyword = '';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    $('#skillPickerClose')?.addEventListener('click', closeSkillPicker);
+    $('#skillPickerCancel')?.addEventListener('click', closeSkillPicker);
+    $('#skillPickerConfirm')?.addEventListener('click', confirmSkillPicker);
+    $('#skillPickerOverlay')?.addEventListener('click', (event) => {
+      if (event.target === $('#skillPickerOverlay')) closeSkillPicker();
+    });
+    $('#skillPickerSearch')?.addEventListener('input', (event) => {
+      keyword = event.target.value || '';
+      renderSkillPickerList();
+    });
+  });
+
+  window.openSkillPickerForRow = openSkillPickerForRow;
+}());
+
+// ==================== 剧情对话编辑器 ====================
+
+function createBlankStoryDialogueEntry() {
+  return {
+    speaker: '',
+    speakerName: '',
+    avatarType: 'hero',
+    position: 'left',
+    text: ''
+  };
+}
+
+function readStoryDialogueEntries() {
+  const container = $('#storyDialogueRows');
+  if (!container) return [];
+
+  const rows = [...container.querySelectorAll('.editable-row')];
+  return rows.map((row) => {
+    return {
+      speaker: row.querySelector('[data-field="speaker"]')?.value?.trim() || '',
+      speakerName: row.querySelector('[data-field="speakerName"]')?.value?.trim() || '',
+      avatarType: row.querySelector('[data-field="avatarType"]')?.value || 'hero',
+      position: row.querySelector('[data-field="position"]')?.value || 'left',
+      text: row.querySelector('[data-field="text"]')?.value?.trim() || ''
+    };
+  }).filter((entry) => entry.text); // 只保留有文本内容的对话
+}
+
+function renderStoryDialogueRows(entries) {
+  const container = $('#storyDialogueRows');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!entries || entries.length === 0) {
+    container.innerHTML = '<div class="editable-table-empty">还没有添加剧情对话</div>';
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    const row = document.createElement('div');
+    row.className = 'editable-row';
+
+    // 构建说话者选项列表
+    const speakerOptions = buildSpeakerOptions(entry.avatarType || 'hero', entry.speaker || '');
+
+    row.innerHTML = `
+      <div class="editable-row-index">${index + 1}</div>
+      <div class="editable-row-fields">
+        <label>
+          <span>说话者</span>
+          <select data-field="speaker" class="select-input speaker-select" data-row-index="${index}">
+            <option value="">-- 请选择 --</option>
+            ${speakerOptions}
+          </select>
+        </label>
+        <label>
+          <span>显示名称</span>
+          <input type="text" data-field="speakerName" class="text-input" value="${escapeHtml(entry.speakerName || '')}" placeholder="角色名">
+        </label>
+        <label>
+          <span>立绘类型</span>
+          <select data-field="avatarType" class="select-input avatar-type-select" data-row-index="${index}">
+            <option value="hero" ${entry.avatarType === 'hero' ? 'selected' : ''}>玩家英雄</option>
+            <option value="enemy" ${entry.avatarType === 'enemy' ? 'selected' : ''}>敌人</option>
+            <option value="none" ${entry.avatarType === 'none' ? 'selected' : ''}>无(旁白)</option>
+          </select>
+        </label>
+        <label>
+          <span>立绘位置</span>
+          <select data-field="position" class="select-input">
+            <option value="left" ${entry.position === 'left' ? 'selected' : ''}>左侧</option>
+            <option value="right" ${entry.position === 'right' ? 'selected' : ''}>右侧</option>
+          </select>
+        </label>
+        <label class="wide">
+          <span>对话文本</span>
+          <textarea data-field="text" class="textarea-input" rows="2" placeholder="输入对话内容...">${escapeHtml(entry.text || '')}</textarea>
+        </label>
+      </div>
+      <div class="editable-row-actions">
+        <button type="button" class="icon-button" onclick="moveStoryDialogueRow(this, -1)" title="上移">↑</button>
+        <button type="button" class="icon-button" onclick="moveStoryDialogueRow(this, 1)" title="下移">↓</button>
+        <button type="button" class="icon-button danger" onclick="removeStoryDialogueRow(this)" title="删除">×</button>
+      </div>
+    `;
+    container.appendChild(row);
+
+    // 绑定立绘类型变化事件
+    const avatarTypeSelect = row.querySelector('.avatar-type-select');
+    if (avatarTypeSelect) {
+      avatarTypeSelect.addEventListener('change', (e) => {
+        const speakerSelect = row.querySelector('.speaker-select');
+        if (speakerSelect) {
+          const currentValue = speakerSelect.value;
+          const newAvatarType = e.target.value;
+          speakerSelect.innerHTML = `<option value="">-- 请选择 --</option>${buildSpeakerOptions(newAvatarType, currentValue)}`;
+        }
+      });
+    }
+
+    // 绑定说话者选择事件，自动填充显示名称
+    const speakerSelect = row.querySelector('.speaker-select');
+    const speakerNameInput = row.querySelector('[data-field="speakerName"]');
+    if (speakerSelect && speakerNameInput) {
+      speakerSelect.addEventListener('change', (e) => {
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        const speakerName = selectedOption.dataset.name || '';
+        if (speakerName && !speakerNameInput.value) {
+          speakerNameInput.value = speakerName;
+        }
+      });
+    }
+  });
+}
+
+function buildSpeakerOptions(avatarType, currentValue) {
+  let options = '';
+
+  if (avatarType === 'hero') {
+    // 获取所有英雄
+    const heroes = (state.catalog?.heroes || []).sort((a, b) => {
+      return (a.name || a.id).localeCompare(b.name || b.id, 'zh-CN');
+    });
+
+    heroes.forEach(hero => {
+      const selected = hero.id === currentValue ? 'selected' : '';
+      const displayText = `${hero.name || hero.id} (${hero.id})`;
+      options += `<option value="${escapeHtml(hero.id)}" data-name="${escapeHtml(hero.name || '')}" ${selected}>${escapeHtml(displayText)}</option>`;
+    });
+  } else if (avatarType === 'enemy') {
+    // 获取所有敌人
+    const enemies = (state.catalog?.enemies || []).sort((a, b) => {
+      return (a.name || a.id).localeCompare(b.name || b.id, 'zh-CN');
+    });
+
+    enemies.forEach(enemy => {
+      const selected = enemy.id === currentValue ? 'selected' : '';
+      const displayText = `${enemy.name || enemy.id} (${enemy.id})`;
+      options += `<option value="${escapeHtml(enemy.id)}" data-name="${escapeHtml(enemy.name || '')}" ${selected}>${escapeHtml(displayText)}</option>`;
+    });
+  }
+
+  return options;
+}
+
+function moveStoryDialogueRow(button, direction) {
+  const row = button.closest('.editable-row');
+  if (!row) return;
+
+  const entries = readStoryDialogueEntries();
+  const rows = [...row.parentElement.querySelectorAll('.editable-row')];
+  const index = rows.indexOf(row);
+
+  if (index < 0) return;
+  const newIndex = index + direction;
+
+  if (newIndex < 0 || newIndex >= entries.length) return;
+
+  // 交换位置
+  [entries[index], entries[newIndex]] = [entries[newIndex], entries[index]];
+  renderStoryDialogueRows(entries);
+}
+
+function removeStoryDialogueRow(button) {
+  const row = button.closest('.editable-row');
+  if (!row) return;
+
+  const entries = readStoryDialogueEntries();
+  const rows = [...row.parentElement.querySelectorAll('.editable-row')];
+  const index = rows.indexOf(row);
+
+  if (index >= 0) {
+    entries.splice(index, 1);
+    renderStoryDialogueRows(entries);
+  }
+}
+
+function previewStoryDialogue() {
+  const entries = readStoryDialogueEntries();
+
+  if (!entries || entries.length === 0) {
+    showToast('请先添加剧情对话');
+    return;
+  }
+
+  // 将数据转换为StoryDialogue组件需要的格式
+  const dialogues = entries.map((entry) => ({
+    speaker: entry.speaker,
+    speakerName: entry.speakerName || '未命名',
+    avatarType: entry.avatarType,
+    position: entry.position,
+    text: entry.text
+  }));
+
+  // 创建预览窗口
+  const previewWindow = window.open('', 'StoryDialoguePreview', 'width=1200,height=800');
+  if (!previewWindow) {
+    showToast('无法打开预览窗口，请检查浏览器弹窗设置');
+    return;
+  }
+
+  previewWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>剧情对话预览</title>
+      <link rel="stylesheet" href="../css/story-dialogue.css">
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          background: #1a1a2e;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .preview-bg {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .preview-hint {
+          color: #7accd6;
+          font-size: 18px;
+          text-align: center;
+          padding: 20px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="preview-bg">
+        <div class="preview-hint">剧情对话预览<br><small>点击对话框或按空格键继续</small></div>
+      </div>
+      <script src="../js/ui/components/StoryDialogue.js"></script>
+      <script>
+        const dialogues = ${JSON.stringify(dialogues)};
+
+        window.addEventListener('load', () => {
+          setTimeout(() => {
+            new StoryDialogue(dialogues, {
+              typingSpeed: 50,
+              onComplete: () => {
+                document.querySelector('.preview-hint').textContent = '预览完成';
+                setTimeout(() => window.close(), 1000);
+              }
+            });
+          }, 500);
+        });
+      </script>
+    </body>
+    </html>
+  `);
+  previewWindow.document.close();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+window.moveStoryDialogueRow = moveStoryDialogueRow;
+window.removeStoryDialogueRow = removeStoryDialogueRow;

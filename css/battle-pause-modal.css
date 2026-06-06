@@ -1,0 +1,294 @@
+/* 战斗暂停页面样式 */
+
+.battle-pause-modal .modal-content {
+    max-width: 400px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+.battle-pause-modal .modal-header {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.battle-pause-modal .modal-title {
+    font-size: 20px;
+    color: #f6c96b;
+    text-shadow: 0 0 10px rgba(246, 201, 107, 0.4);
+    letter-spacing: 2px;
+}
+
+.battle-pause-modal .modal-body {
+    padding: 0;
+}
+
+.battle-pause-modal .modal-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 0;
+}
+
+/* 暂停按钮样式 */
+.battle-pause-btn-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(51, 65, 85, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%);
+    border: 2px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.battle-pause-btn-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.battle-pause-btn-card:hover::before {
+    left: 100%;
+}
+
+.battle-pause-btn-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(148, 163, 184, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.battle-pause-btn-card:active {
+    transform: translateY(0);
+}
+
+/* 未解锁卓越特权时，自动战斗按钮灰显 */
+.battle-pause-btn-card.is-disabled {
+    opacity: 0.45;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+
+.battle-pause-btn-card.is-disabled:hover {
+    transform: none;
+    border-color: rgba(148, 163, 184, 0.2);
+    box-shadow: none;
+}
+
+.battle-pause-btn-card.is-disabled:hover::before {
+    left: -100%;
+}
+
+/* 按钮图标 */
+.battle-pause-btn-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(51, 65, 85, 0.8);
+    border: 2px solid rgba(148, 163, 184, 0.3);
+}
+
+.battle-pause-btn-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* 按钮文本 */
+.battle-pause-btn-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.battle-pause-btn-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #e2e8f0;
+}
+
+.battle-pause-btn-desc {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+/* 不同类型按钮的颜色 */
+
+/* 回顾剧情 - 蓝色 */
+.battle-pause-btn-card.btn-story {
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.battle-pause-btn-card.btn-story:hover {
+    border-color: rgba(59, 130, 246, 0.6);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.2) 100%);
+}
+
+.battle-pause-btn-card.btn-story .battle-pause-btn-icon {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+}
+
+/* 跳过战斗 - 红色 */
+.battle-pause-btn-card.btn-skip {
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.battle-pause-btn-card.btn-skip:hover {
+    border-color: rgba(239, 68, 68, 0.6);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+}
+
+.battle-pause-btn-card.btn-skip .battle-pause-btn-icon {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #f87171;
+}
+
+/* 返回战斗 - 绿色 */
+.battle-pause-btn-card.btn-resume {
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.battle-pause-btn-card.btn-resume:hover {
+    border-color: rgba(34, 197, 94, 0.6);
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(22, 163, 74, 0.2) 100%);
+}
+
+.battle-pause-btn-card.btn-resume .battle-pause-btn-icon {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+}
+
+/* 自动战斗切换 - 熄灭状态（默认） */
+.battle-pause-btn-card.btn-auto {
+    border-color: rgba(148, 163, 184, 0.2);
+    opacity: 0.7;
+}
+
+.battle-pause-btn-card.btn-auto:hover {
+    opacity: 1;
+    border-color: rgba(251, 146, 60, 0.4);
+}
+
+.battle-pause-btn-card.btn-auto .battle-pause-btn-icon {
+    background: rgba(71, 85, 105, 0.4);
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #94a3b8;
+    transition: all 0.25s ease;
+}
+
+.battle-pause-btn-card.btn-auto .battle-pause-btn-title {
+    color: #cbd5e1;
+    transition: color 0.25s ease;
+}
+
+.battle-pause-btn-card.btn-auto .battle-pause-btn-desc {
+    color: #64748b;
+    transition: color 0.25s ease;
+}
+
+/* 自动战斗切换 - 常亮状态（开启） */
+.battle-pause-btn-card.btn-auto.is-active {
+    opacity: 1;
+    border-color: rgba(251, 146, 60, 0.7);
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.18) 0%, rgba(234, 88, 12, 0.18) 100%);
+    box-shadow: 0 0 18px rgba(251, 146, 60, 0.25),
+                inset 0 0 12px rgba(251, 146, 60, 0.08);
+}
+
+.battle-pause-btn-card.btn-auto.is-active:hover {
+    border-color: rgba(251, 146, 60, 0.9);
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.25) 0%, rgba(234, 88, 12, 0.25) 100%);
+    box-shadow: 0 0 24px rgba(251, 146, 60, 0.4),
+                inset 0 0 16px rgba(251, 146, 60, 0.1);
+}
+
+.battle-pause-btn-card.btn-auto.is-active .battle-pause-btn-icon {
+    background: rgba(251, 146, 60, 0.25);
+    border-color: rgba(251, 146, 60, 0.6);
+    color: #fb923c;
+    box-shadow: 0 0 12px rgba(251, 146, 60, 0.4);
+    animation: autoBattlePulse 2s ease-in-out infinite;
+}
+
+.battle-pause-btn-card.btn-auto.is-active .battle-pause-btn-title {
+    color: #fb923c;
+    text-shadow: 0 0 8px rgba(251, 146, 60, 0.4);
+}
+
+.battle-pause-btn-card.btn-auto.is-active .battle-pause-btn-desc {
+    color: #fdba74;
+}
+
+@keyframes autoBattlePulse {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(251, 146, 60, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(251, 146, 60, 0.7);
+    }
+}
+
+/* 设置按钮 - 紫色 */
+.battle-pause-btn-card.btn-settings {
+    border-color: rgba(168, 85, 247, 0.3);
+}
+
+.battle-pause-btn-card.btn-settings:hover {
+    border-color: rgba(168, 85, 247, 0.6);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%);
+}
+
+.battle-pause-btn-card.btn-settings .battle-pause-btn-icon {
+    background: rgba(168, 85, 247, 0.2);
+    border-color: rgba(168, 85, 247, 0.4);
+    color: #c084fc;
+}
+
+/* 手机端优化 */
+@media (max-width: 480px) {
+    .battle-pause-modal .modal-content {
+        max-width: calc(100vw - 40px);
+    }
+
+    .battle-pause-btn-card {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .battle-pause-btn-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .battle-pause-btn-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .battle-pause-btn-title {
+        font-size: 15px;
+    }
+
+    .battle-pause-btn-desc {
+        font-size: 11px;
+    }
+}

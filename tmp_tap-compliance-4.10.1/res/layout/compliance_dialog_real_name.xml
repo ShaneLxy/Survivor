@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="335dp"
+    android:layout_height="320dp"
+    android:background="@drawable/compliance_bg_white_radius_8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <include
+            android:id="@+id/include_title_bar"
+            layout="@layout/compliance_dialog_common_title_bar"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/tv_real_name_tips"
+                style="@style/compliance_common_text_style"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:ellipsize="end"
+                tools:maxLines="3"
+                tools:text="为响应国家相关规定，游戏用户须通过国家网络游戏防沉迷实名认证系统的身份认证。您提供的真实身份信息将受到严格保护，仅用于防沉迷及未成年人限制充值功能的实现，不会用于其他用途，请放心填写，身份信息提交后不可进行更改。如使用非大陆身份证件，可联系游戏官方协助处理。"
+                tools:visibility="visible" />
+
+            <EditText
+                android:id="@+id/et_user_real_name"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:layout_below="@id/tv_real_name_tips"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/compliance_shape_bg_edit_text_18dp"
+                android:hint="真实姓名"
+                android:imeOptions="flagNoExtractUi|flagNoFullscreen"
+                android:inputType="text"
+                android:paddingHorizontal="12dp"
+                android:singleLine="true"
+                android:textColor="@color/compliance_color_222222"
+                android:textColorHint="@color/compliance_color_bfbfbf"
+                android:textCursorDrawable="@drawable/compliance_edit_cursor"
+                android:textSize="12dp"
+                tools:visibility="visible" />
+
+            <EditText
+                android:id="@+id/et_user_identification"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:layout_below="@id/et_user_real_name"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/compliance_shape_bg_edit_text_18dp"
+                android:digits="0123456789Xx"
+                android:hint="真实身份证号码"
+                android:imeOptions="flagNoExtractUi|flagNoFullscreen"
+                android:inputType="text"
+                android:paddingHorizontal="12dp"
+                android:singleLine="true"
+                android:textColor="@color/compliance_color_222222"
+                android:textColorHint="@color/compliance_color_bfbfbf"
+                android:textCursorDrawable="@drawable/compliance_edit_cursor"
+                android:textSize="12dp"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/tv_function_button"
+                android:layout_width="match_parent"
+                android:layout_height="36dp"
+                android:layout_below="@id/et_user_identification"
+                android:layout_alignParentBottom="true"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/compliance_real_name_submit_bg"
+                android:gravity="center"
+                android:text="提交"
+                android:textColor="@android:color/white"
+                android:textSize="12dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_user_authorization_verifying_tips"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_above="@id/tv_function_button"
+                android:layout_marginHorizontal="20dp"
+                android:textColor="@color/compliance_color_888888"
+                android:textSize="12dp"
+                android:visibility="gone"
+                tools:text="国家网络游戏防沉迷实名认证系统 正在审核 你的实名信息，为了满足相关部门要求，保护你的合法权益，还请耐心等待。在认证通过前，你将暂时无法体验游戏。" />
+
+            <LinearLayout
+                android:id="@+id/ll_detail_tips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/tv_real_name_tips"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="6.5dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="7dp"
+                    android:layout_gravity="center_horizontal"
+                    android:src="@drawable/icon_triangle" />
+
+                <TextView
+                    android:id="@+id/tv_detail_information_tips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/compliance_shape_solid_black_bg_12dp"
+                    android:padding="12dp"
+                    android:scrollbars="vertical"
+                    android:textColor="@android:color/white"
+                    android:textSize="12dp"
+                    tools:text="为响应国家相关规定，游戏用户须通过国家网络游戏防沉迷实名认证系统的身份认证。您提供的真实身份信息将受到严格保护，仅用于防沉迷及未成年人限制充值功能的实现，不会用于其他用途，请放心填写，身份信息提交后不可进行更改。如使用非大陆身份证件，可联系游戏官方协助处理。为响应国家相关规定，游戏用户须通过国家网络游戏防沉迷实名认证系统的身份认证。您提供的真实身份信息将受到严格保护，仅用于防沉迷及未成年人限制充值功能的实现，不会用于其他用途，请放心填写，身份信息提交后不可进行更改。如使用非大陆身份证件，可联系游戏官方协助处理。" />
+
+            </LinearLayout>
+        </RelativeLayout>
+
+    </LinearLayout>
+</ScrollView>

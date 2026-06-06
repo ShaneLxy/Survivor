@@ -29,6 +29,10 @@
         <span class="nav-icon">※</span>
         <span>怪物信息</span>
       </button>
+      <button class="nav-item" data-view="hero" type="button">
+        <span class="nav-icon">H</span>
+        <span>&#x82F1;&#x96C4;&#x7BA1;&#x7406;</span>
+      </button>
       <button class="nav-item" data-view="gacha" type="button">
         <span class="nav-icon">◎</span>
         <span>招募奖池</span>
@@ -325,6 +329,100 @@
         </div>
       </section>
 
+      <section id="heroView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>&#x82F1;&#x96C4;&#x5217;&#x8868;</h2>
+            </div>
+            <input id="heroSearchInput" class="text-input" type="search" placeholder="&#x641C;&#x7D22;&#x82F1;&#x96C4;&#x540D;&#x79F0; / ID">
+            <div id="heroList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="heroEditorTitle">&#x9009;&#x62E9;&#x4E00;&#x540D;&#x82F1;&#x96C4;</h2>
+                <p id="heroEditorMeta">&#x4EC5;&#x7EF4;&#x62A4;&#x57FA;&#x7840;&#x8D44;&#x6599;&#xFF0C;&#x4E0D;&#x4FEE;&#x6539;&#x590D;&#x6742;&#x6280;&#x80FD;&#x903B;&#x8F91;</p>
+              </div>
+              <span id="heroEditorSource" class="source-chip">base</span>
+            </div>
+            <form id="heroForm" class="form-grid">
+              <label>
+                <span>&#x82F1;&#x96C4; ID</span>
+                <input id="heroId" class="text-input" disabled>
+              </label>
+              <label>
+                <span>&#x540D;&#x79F0;</span>
+                <input id="heroName" class="text-input">
+              </label>
+              <label>
+                <span>&#x54C1;&#x8D28;</span>
+                <select id="heroRarity" class="select-input">
+                  <option value="common">&#x666E;&#x901A;</option>
+                  <option value="rare">&#x7A00;&#x6709;</option>
+                  <option value="epic">&#x53F2;&#x8BD7;</option>
+                  <option value="legendary">&#x4F20;&#x8BF4;</option>
+                </select>
+              </label>
+              <label>
+                <span>&#x804C;&#x4E1A;</span>
+                <input id="heroProfession" class="text-input" placeholder="defender / psionic / raider">
+              </label>
+              <label class="wide">
+                <span>&#x7ACB;&#x7ED8;&#x8DEF;&#x5F84;</span>
+                <input id="heroPortrait" class="text-input">
+              </label>
+              <label class="wide">
+                <span>&#x5361;&#x9762;&#x5C0F;&#x56FE;&#x8DEF;&#x5F84;</span>
+                <input id="heroCardPortrait" class="text-input">
+              </label>
+              <div class="image-preview-wrap wide">
+                <div id="heroImagePreview" class="image-preview">IMG</div>
+              </div>
+              <label class="wide">
+                <span>&#x4ECB;&#x7ECD;</span>
+                <textarea id="heroDescription" class="textarea-input" rows="4"></textarea>
+              </label>
+              <!-- 第一特技(兼容旧字段) -->
+              <label class="wide">
+                <span>&#x7B2C;&#x4E00;&#x7279;&#x6280;&#x540D;&#x79F0;</span>
+                <input id="heroSkillName" class="text-input">
+              </label>
+              <label class="wide">
+                <span>&#x7B2C;&#x4E00;&#x7279;&#x6280;&#x63CF;&#x8FF0;</span>
+                <textarea id="heroSkillDescription" class="textarea-input" rows="4"></textarea>
+              </label>
+
+              <!-- 全部主动技能 / 被动 / 普攻附加 / 反应技 / 特技体系 / 战斗成长 文字字段(动态生成) -->
+              <div id="heroExtraTextSections" class="wide" style="display:flex;flex-direction:column;gap:14px;"></div>
+
+              <div class="wide reward-block">
+                <div class="block-title">
+                  <span>&#x57FA;&#x7840;&#x5C5E;&#x6027;</span>
+                </div>
+                <div class="hero-stats-grid">
+                  <label><span>&#x751F;&#x547D;</span><input id="heroStatHp" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x653B;&#x51FB;</span><input id="heroStatAttack" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x9632;&#x5FA1;</span><input id="heroStatDefense" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x901F;&#x5EA6;</span><input id="heroStatSpeed" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x66B4;&#x51FB;</span><input id="heroStatCrit" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x6297;&#x66B4;</span><input id="heroStatAntiCrit" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x7834;&#x9632;</span><input id="heroStatDefensePen" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x547D;&#x4E2D;</span><input id="heroStatAccuracy" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x95EA;&#x907F;</span><input id="heroStatDodge" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x653B;&#x51FB;&#x8DDD;&#x79BB;</span><input id="heroStatAttackRange" class="text-input" type="number" min="0"></label>
+                  <label><span>&#x79FB;&#x52A8;&#x8DDD;&#x79BB;</span><input id="heroStatMoveRange" class="text-input" type="number" min="0"></label>
+                </div>
+              </div>
+              <div class="form-actions wide">
+                <button id="saveHeroBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;&#x82F1;&#x96C4;&#x8D44;&#x6599;</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
       <section id="gachaView" class="view">
         <div class="catalog-layout">
           <section class="panel catalog-list-panel">
@@ -449,6 +547,7 @@
                   <button id="addShelterBuildingLevelBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x7B49;&#x7EA7;</button>
                 </div>
               </div>
+              <div id="shelterChestPoolEditor" class="wide nested-editor"></div>
               <div class="form-actions wide">
                 <button id="saveShelterBuildingBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;&#x5EFA;&#x7B51;</button>
                 <button id="deleteShelterBuildingBtn" class="danger-button" type="button">&#x64A4;&#x9500; GM &#x6539;&#x52A8;</button>
@@ -795,6 +894,20 @@
                 <textarea id="dungeonBossWaves" class="textarea-input code-input" rows="6"></textarea>
               </div>
 
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>&#x5267;&#x60C5;&#x5BF9;&#x8BDD;&#xFF08;&#x9996;&#x901A;&#x524D;&#x64AD;&#x653E;&#xFF09;</span>
+                  <div class="inline-tools">
+                    <button id="addStoryDialogueBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x5BF9;&#x8BDD;</button>
+                    <button id="previewStoryDialogueBtn" class="ghost-button" type="button">&#x9884;&#x89C8;&#x6548;&#x679C;</button>
+                  </div>
+                </div>
+                <div id="storyDialogueRows" class="editable-table"></div>
+                <div class="story-dialogue-hint" style="font-size:12px;color:#888;margin-top:8px;">
+                  &#x652F;&#x6301;&#x591A;&#x8F6E;&#x5BF9;&#x8BDD;&#xFF0C;&#x53EF;&#x914D;&#x7F6E;&#x89D2;&#x8272;&#x540D;&#x3001;&#x7ACB;&#x7ED8;&#x7C7B;&#x578B;&#x3001;&#x5BF9;&#x8BDD;&#x6587;&#x672C;&#x7B49;
+                </div>
+              </div>
+
               <label class="wide">
                 <span>&#x6279;&#x91CF; JSON</span>
                 <textarea id="dungeonBatchJson" class="textarea-input code-input" rows="10"></textarea>
@@ -1022,7 +1135,7 @@
             </label>
             <label>
               <span>应用包名</span>
-              <input id="packageApplicationId" class="text-input" value="com.survivor.game">
+              <input id="packageApplicationId" class="text-input" value="game.taptap.yunjing.game">
             </label>
             <label>
               <span>应用名称</span>
@@ -1033,8 +1146,8 @@
               <input id="packageBuildVersion" class="text-input" placeholder="留空则自动使用当前时间">
             </label>
             <label>
-              <span>服务器地址备注</span>
-              <input id="packageServerUrl" class="text-input" placeholder="例如测试服或正式服 API 地址">
+              <span>服务器 API 地址</span>
+              <input id="packageServerUrl" class="text-input" placeholder="必须填写完整地址，例如 https://example.com/api 或 http://192.168.1.10:9000/api">
             </label>
             <label>
               <span>输出目录</span>
@@ -1102,6 +1215,18 @@
               <span>GM Secret</span>
               <input id="gmSecretInput" class="text-input" type="password">
             </label>
+            <label class="wide">
+              <span>游戏状态</span>
+              <select id="gameStatusInput" class="select-input">
+                <option value="normal">正常</option>
+                <option value="maintenance">维护中</option>
+              </select>
+            </label>
+            <div class="wide block-title">
+              <span>公告配置</span>
+              <button id="addAnnouncementBtn" class="ghost-button" type="button">新增公告（最多3条）</button>
+            </div>
+            <div id="announcementEditorList" class="announcement-editor-list wide"></div>
             <div class="form-actions wide">
               <button class="primary-button" type="submit">保存设置</button>
               <button id="resetSettingsBtn" class="ghost-button" type="button">恢复默认</button>
@@ -1176,6 +1301,27 @@
       <div class="board-editor-footer">
         <button class="ghost-button" id="boardEditorCancel" type="button">取消</button>
         <button class="primary-button" id="boardEditorConfirm" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 技能选择弹窗 -->
+  <div id="skillPickerOverlay" class="board-editor-overlay" style="display:none;" aria-modal="true" role="dialog">
+    <div class="board-editor-dialog skill-picker-dialog">
+      <div class="board-editor-header">
+        <span><span>选择敌人技能</span><span id="skillPickerSubtitle" class="board-editor-subtitle"></span></span>
+        <button class="board-editor-close" id="skillPickerClose" type="button">&#x2715;</button>
+      </div>
+      <div class="board-editor-body skill-picker-body">
+        <div class="skill-picker-toolbar">
+          <input id="skillPickerSearch" class="text-input" type="search" placeholder="搜索技能名称 / 描述">
+          <span id="skillPickerCount" class="skill-picker-count">已选 0 个</span>
+        </div>
+        <div id="skillPickerList" class="skill-picker-list"></div>
+      </div>
+      <div class="board-editor-footer">
+        <button class="ghost-button" id="skillPickerCancel" type="button">取消</button>
+        <button class="primary-button" id="skillPickerConfirm" type="button">确认</button>
       </div>
     </div>
   </div>

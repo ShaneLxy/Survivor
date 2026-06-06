@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# TapTap SDK keep rules (login / compliance / update)
+# 见 https://developer.taptap.cn/docs/sdk/update/qa/
+-keep class com.tds.** { *; }
+-keep class com.taptap.** { *; }
+-keep class com.tapsdk.** { *; }
+-keep class tds.androidx.** { *; }
