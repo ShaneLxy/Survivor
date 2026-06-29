@@ -148,8 +148,17 @@ const ShopConfig = {
         if (!item) {
             return '';
         }
+        if (item.iconSrc) {
+            return item.iconSrc;
+        }
+        const resourceIconSrc = (typeof ResourceVisualConfig !== 'undefined'
+            ? ResourceVisualConfig.get(item.giveItem)?.src
+            : '') || '';
+        if (resourceIconSrc) {
+            return resourceIconSrc;
+        }
         if (item.type === 'resource') {
-            return (typeof ResourceVisualConfig !== 'undefined' ? ResourceVisualConfig.get(item.giveItem)?.src : '') || '';
+            return resourceIconSrc;
         }
         if (item.type === 'consumable') {
             return ItemConfig.getItemConfig(item.giveItem)?.iconSrc || '';

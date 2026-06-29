@@ -1,24 +1,26 @@
-/**
- * 战前剧情对话组件
- * 支持打字机效果、多轮对话、立绘显示
- */
 class StoryDialogue {
     constructor(dialogues = [], options = {}) {
         this.dialogues = dialogues;
         this.currentIndex = 0;
+        this.currentSegments = [];
+        this.currentSegmentIndex = 0;
         this.isTyping = false;
         this.typingTimer = null;
         this.currentText = '';
         this.fullText = '';
         this.onComplete = options.onComplete || (() => {});
         this.onSkip = options.onSkip || (() => {});
-        this.typingSpeed = options.typingSpeed || 60; // 每个字的延迟（毫秒）
+        this.backgroundImage = String(options.backgroundImage || '').trim();
+        this.typingSpeed = options.typingSpeed || 60;
+        this.segmentCharLimit = Math.max(1, Number(options.segmentCharLimit) || 50);
 
         this.container = null;
         this.textElement = null;
         this.avatarElement = null;
         this.nameElement = null;
-        this.skipButton = null;
+        this.nextButton = null;
+        this.skipAllButton = null;
+        this.overlay = null;
 
         this.init();
     }
@@ -32,39 +34,45 @@ class StoryDialogue {
     }
 
     createElements() {
-        // 创建遮罩层
         const overlay = document.createElement('div');
         overlay.className = 'story-dialogue-overlay';
+        if (this.backgroundImage) {
+            const absoluteBackground = /^(?:https?:|data:|blob:|\/)/i.test(this.backgroundImage)
+                ? this.backgroundImage
+                : `/${this.backgroundImage.replace(/^\.\//, '')}`;
+            overlay.classList.add('has-scene-background');
+            overlay.style.setProperty('--story-dialogue-bg', `url("${absoluteBackground}")`);
+        }
 
-        // 创建对话框容器
         this.container = document.createElement('div');
         this.container.className = 'story-dialogue-container';
 
-        // 创建立绘容器
         this.avatarElement = document.createElement('div');
         this.avatarElement.className = 'story-dialogue-avatar';
 
-        // 创建对话框
         const dialogueBox = document.createElement('div');
         dialogueBox.className = 'story-dialogue-box';
 
-        // 角色名
+        this.skipAllButton = document.createElement('button');
+        this.skipAllButton.className = 'story-dialogue-skip-all';
+        this.skipAllButton.textContent = 'SKIP';
+        this.skipAllButton.title = '跳过全部剧情';
+
         this.nameElement = document.createElement('div');
         this.nameElement.className = 'story-dialogue-name';
 
-        // 对话文本
         this.textElement = document.createElement('div');
         this.textElement.className = 'story-dialogue-text';
 
-        // 跳过按钮
-        this.skipButton = document.createElement('button');
-        this.skipButton.className = 'story-dialogue-skip';
-        this.skipButton.innerHTML = '▶';
-        this.skipButton.title = '点击继续';
+        this.nextButton = document.createElement('button');
+        this.nextButton.className = 'story-dialogue-skip';
+        this.nextButton.innerHTML = '&#9654;';
+        this.nextButton.title = '点击继续';
 
+        dialogueBox.appendChild(this.skipAllButton);
         dialogueBox.appendChild(this.nameElement);
         dialogueBox.appendChild(this.textElement);
-        dialogueBox.appendChild(this.skipButton);
+        dialogueBox.appendChild(this.nextButton);
 
         this.container.appendChild(this.avatarElement);
         this.container.appendChild(dialogueBox);
@@ -76,24 +84,28 @@ class StoryDialogue {
     }
 
     bindEvents() {
-        // 跳过按钮点击
-        this.skipButton.addEventListener('click', (e) => {
+        this.nextButton.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.handleSkip();
+            this.handleAdvance();
         });
 
-        // 点击屏幕任意空白处（整个遮罩层）都可以跳过
-        // 注意：避免触摸/鼠标事件双触发 —— 同一次点击只响应一次
+        this.skipAllButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.skip();
+        });
+
         const handleOverlayTap = (e) => {
-            // 跳过按钮自己已绑定 click 并 stopPropagation，不会冒泡到这里
-            // 这里保留一道防御，避免极端情况下 skipButton 也被算入
-            if (e.target === this.skipButton || this.skipButton.contains(e.target)) {
+            if (
+                e.target === this.nextButton
+                || this.nextButton.contains(e.target)
+                || e.target === this.skipAllButton
+                || this.skipAllButton.contains(e.target)
+            ) {
                 return;
             }
-            this.handleSkip();
+            this.handleAdvance();
         };
 
-        // 使用 pointerup 一次性覆盖鼠标 / 触摸 / 触控笔；若浏览器不支持则退回 click
         if ('onpointerup' in window) {
             this.overlay.addEventListener('pointerup', handleOverlayTap);
         } else {
@@ -101,14 +113,54 @@ class StoryDialogue {
         }
     }
 
-    handleSkip() {
-        if (this.isTyping) {
-            // 第一次点击：显示完整文本
-            this.completeCurrentText();
-        } else {
-            // 第二次点击：进入下一句
-            this.nextDialogue();
+    splitTextIntoSegments(text) {
+        const source = String(text || '').trim();
+        if (!source) {
+            return [''];
         }
+
+        const segments = [];
+        const punctuationPattern = /[。！？；，、\n]/;
+        let remaining = source;
+
+        while (remaining.length > this.segmentCharLimit) {
+            const chunk = remaining.slice(0, this.segmentCharLimit);
+            let splitIndex = -1;
+            for (let i = chunk.length - 1; i >= 0; i -= 1) {
+                if (punctuationPattern.test(chunk[i])) {
+                    splitIndex = i + 1;
+                    break;
+                }
+            }
+            if (splitIndex <= 0) {
+                splitIndex = this.segmentCharLimit;
+            }
+            segments.push(remaining.slice(0, splitIndex).trim());
+            remaining = remaining.slice(splitIndex).trim();
+        }
+
+        if (remaining.length > 0 || segments.length === 0) {
+            segments.push(remaining);
+        }
+
+        return segments.filter(segment => segment.length > 0);
+    }
+
+    handleAdvance() {
+        if (this.isTyping) {
+            this.completeCurrentText();
+            return;
+        }
+        this.advanceToNextPart();
+    }
+
+    advanceToNextPart() {
+        if (this.currentSegmentIndex + 1 < this.currentSegments.length) {
+            this.currentSegmentIndex += 1;
+            this.showCurrentSegment();
+            return;
+        }
+        this.showDialogue(this.currentIndex + 1);
     }
 
     showDialogue(index) {
@@ -118,16 +170,17 @@ class StoryDialogue {
         }
 
         this.currentIndex = index;
+        this.currentSegmentIndex = 0;
         const dialogue = this.dialogues[index];
 
-        // 更新角色名
         this.nameElement.textContent = dialogue.speakerName || '';
-
-        // 更新立绘
         this.updateAvatar(dialogue);
+        this.currentSegments = this.splitTextIntoSegments(dialogue.text || '');
+        this.showCurrentSegment();
+    }
 
-        // 开始打字机效果
-        this.fullText = dialogue.text || '';
+    showCurrentSegment() {
+        this.fullText = this.currentSegments[this.currentSegmentIndex] || '';
         this.currentText = '';
         this.textElement.textContent = '';
         this.startTyping();
@@ -138,7 +191,6 @@ class StoryDialogue {
         this.avatarElement.className = 'story-dialogue-avatar';
 
         if (!dialogue.avatarType || dialogue.avatarType === 'none') {
-            // 旁白模式，不显示立绘
             this.avatarElement.style.display = 'none';
             this.container.classList.add('narrator-mode');
             return;
@@ -147,7 +199,6 @@ class StoryDialogue {
         this.avatarElement.style.display = 'block';
         this.container.classList.remove('narrator-mode');
 
-        // 根据位置调整布局
         if (dialogue.position === 'right') {
             this.container.classList.add('avatar-right');
             this.container.classList.remove('avatar-left');
@@ -156,17 +207,12 @@ class StoryDialogue {
             this.container.classList.remove('avatar-right');
         }
 
-        // 获取立绘
         let portraitSrc = null;
-
         if (dialogue.avatarType === 'hero') {
-            // 根据 speaker 字段匹配英雄立绘
             if (dialogue.speaker) {
-                // 如果指定了 speaker（如 "hero_001"），使用该英雄的立绘
                 const heroConfig = HeroConfig.getHeroConfig(dialogue.speaker);
                 portraitSrc = heroConfig?.portrait || heroConfig?.cardPortrait || heroConfig?.iconSrc;
             } else {
-                // 如果没有指定 speaker，使用玩家队伍第一个英雄的立绘（兜底逻辑）
                 const firstHero = heroManager?.team?.[0] ? heroManager.getHero(heroManager.team[0]) : null;
                 if (firstHero) {
                     const heroConfig = HeroConfig.getHeroConfig(firstHero.configId);
@@ -174,7 +220,6 @@ class StoryDialogue {
                 }
             }
         } else if (dialogue.avatarType === 'enemy' && dialogue.speaker) {
-            // 使用敌人立绘
             const enemyConfig = DungeonConfig.getEnemyConfig(dialogue.speaker);
             portraitSrc = enemyConfig?.portrait;
         }
@@ -184,30 +229,31 @@ class StoryDialogue {
             img.src = portraitSrc;
             img.alt = dialogue.speakerName || '';
             this.avatarElement.appendChild(img);
-        } else {
-            // 没有立绘时显示占位符
-            const placeholder = document.createElement('div');
-            placeholder.className = 'story-dialogue-avatar-placeholder';
-            placeholder.textContent = dialogue.speakerName?.[0] || '?';
-            this.avatarElement.appendChild(placeholder);
+            return;
         }
+
+        const placeholder = document.createElement('div');
+        placeholder.className = 'story-dialogue-avatar-placeholder';
+        placeholder.textContent = dialogue.speakerName?.[0] || '?';
+        this.avatarElement.appendChild(placeholder);
     }
 
     startTyping() {
         this.isTyping = true;
-        this.skipButton.title = '点击显示全部';
+        this.nextButton.title = '点击显示全部';
         let charIndex = 0;
 
         const typeNextChar = () => {
             if (charIndex < this.fullText.length) {
                 this.currentText += this.fullText[charIndex];
                 this.textElement.textContent = this.currentText;
-                charIndex++;
+                charIndex += 1;
                 this.typingTimer = setTimeout(typeNextChar, this.typingSpeed);
-            } else {
-                this.isTyping = false;
-                this.skipButton.title = '点击继续';
+                return;
             }
+            this.isTyping = false;
+            this.typingTimer = null;
+            this.nextButton.title = '点击继续';
         };
 
         typeNextChar();
@@ -221,11 +267,7 @@ class StoryDialogue {
         this.currentText = this.fullText;
         this.textElement.textContent = this.currentText;
         this.isTyping = false;
-        this.skipButton.title = '点击继续';
-    }
-
-    nextDialogue() {
-        this.showDialogue(this.currentIndex + 1);
+        this.nextButton.title = '点击继续';
     }
 
     complete() {
@@ -241,6 +283,7 @@ class StoryDialogue {
     destroy() {
         if (this.typingTimer) {
             clearTimeout(this.typingTimer);
+            this.typingTimer = null;
         }
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);

@@ -496,6 +496,22 @@
     font-size: 13px;
 }
 
+.player-info-account-id {
+    gap: 6px;
+}
+
+.player-info-account-value {
+    min-width: 0;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-info-copy-id-btn {
+    padding: 3px 8px;
+}
+
 .player-info-avatar-large {
     width: 84px;
     height: 84px;
@@ -830,7 +846,8 @@
 }
 
 .hero-view .hero-card[data-rarity="legendary"]::before {
-    animation-duration: 2.4s;
+    animation-name: hero-card-legendary-aura;
+    animation-duration: 3s;
 }
 
 .hero-view .hero-card::after {
@@ -892,10 +909,12 @@
 }
 
 .hero-view:not(.hero-view-secondary) .hero-grid .hero-card[data-rarity="legendary"]::before {
-    animation-duration: 2.4s;
+    animation-name: hero-card-home-legendary-aura;
+    animation-duration: 3s;
 }
 
-.hero-view .hero-card[data-rarity="epic"] {
+.hero-view .hero-card[data-rarity="epic"],
+.hero-view .hero-card[data-rarity="legendary"] {
     background:
         linear-gradient(180deg, rgba(10, 8, 8, 0) 42%, rgba(16, 10, 10, 0.82) 78%, rgba(10, 8, 8, 0.96) 100%),
         radial-gradient(130% 80% at 50% 0%, rgba(120, 54, 36, 0.24) 0%, rgba(15, 18, 26, 0) 60%),
@@ -907,32 +926,68 @@
         0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-.hero-view .hero-card[data-rarity="epic"]:hover {
+.hero-view .hero-card[data-rarity="epic"]:hover,
+.hero-view .hero-card[data-rarity="legendary"]:hover {
     box-shadow:
         inset 0 1px 0 rgba(255, 244, 224, 0.1),
         inset 0 0 20px rgba(120, 54, 36, 0.2),
         0 12px 24px rgba(0, 0, 0, 0.48);
 }
 
-.hero-view .hero-card[data-rarity="epic"].selected {
+.hero-view .hero-card[data-rarity="epic"].selected,
+.hero-view .hero-card[data-rarity="legendary"].selected {
     box-shadow:
         inset 0 1px 0 rgba(255, 244, 224, 0.12),
         inset 0 0 24px rgba(120, 54, 36, 0.24),
         0 14px 26px rgba(0, 0, 0, 0.48) !important;
 }
 
+.hero-view .hero-card[data-rarity="legendary"] {
+    background:
+        linear-gradient(180deg, rgba(22, 16, 4, 0) 40%, rgba(30, 22, 6, 0.84) 78%, rgba(14, 10, 3, 0.98) 100%),
+        radial-gradient(140% 84% at 50% 0%, rgba(255, 215, 96, 0.32) 0%, rgba(255, 186, 48, 0.12) 26%, rgba(15, 18, 26, 0) 62%),
+        linear-gradient(180deg, #302109 0%, #0b0906 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 248, 214, 0.1),
+        inset 0 0 24px rgba(255, 209, 92, 0.18),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.44),
+        0 8px 20px rgba(0, 0, 0, 0.42);
+}
+
+.hero-view .hero-card[data-rarity="legendary"]:hover {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 250, 224, 0.16),
+        inset 0 0 28px rgba(255, 214, 96, 0.28),
+        0 12px 24px rgba(0, 0, 0, 0.5);
+}
+
+.hero-view .hero-card[data-rarity="legendary"].selected {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 250, 224, 0.18),
+        inset 0 0 30px rgba(255, 214, 96, 0.3),
+        0 14px 26px rgba(0, 0, 0, 0.5) !important;
+}
+
+.hero-view .hero-card[data-rarity="legendary"].selected::before {
+    animation: hero-card-legendary-aura 3s ease-in-out infinite;
+}
+
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card[data-rarity="legendary"].selected::before {
+    animation: hero-card-home-legendary-aura 3s ease-in-out infinite;
+}
+
 @keyframes hero-card-legendary-aura {
     0%, 100% {
         box-shadow:
-            inset 0 0 0 0.8px rgba(236, 201, 140, 0.1),
-            inset 0 0 8px -3px rgba(120, 54, 36, 0.06),
-            inset 0 0 20px -16px rgba(236, 201, 140, 0.03);
+            inset 0 0 0 0.9px rgba(255, 244, 176, 0.16),
+            inset 0 0 10px -3px rgba(255, 214, 96, 0.12),
+            inset 0 0 24px -16px rgba(255, 244, 176, 0.08);
     }
     50% {
         box-shadow:
-            inset 0 0 0 2.4px rgba(161, 88, 58, 0.74),
-            inset 0 0 36px -3px rgba(161, 88, 58, 0.48),
-            inset 0 0 64px -10px rgba(236, 201, 140, 0.24);
+            inset 0 0 0 2.4px rgba(255, 220, 108, 0.88),
+            inset 0 0 40px -3px rgba(255, 214, 96, 0.62),
+            inset 0 0 72px -10px rgba(255, 244, 176, 0.34);
     }
 }
 
@@ -980,15 +1035,15 @@
 @keyframes hero-card-home-legendary-aura {
     0%, 100% {
         box-shadow:
-            inset 0 0 0 0.9px rgba(236, 201, 140, 0.12),
-            inset 0 0 10px -3px rgba(120, 54, 36, 0.08),
-            inset 0 0 24px -16px rgba(236, 201, 140, 0.04);
+            inset 0 0 0 0.9px rgba(255, 244, 176, 0.18),
+            inset 0 0 12px -3px rgba(255, 214, 96, 0.14),
+            inset 0 0 28px -16px rgba(255, 244, 176, 0.1);
     }
     50% {
         box-shadow:
-            inset 0 0 0 2.8px rgba(161, 88, 58, 0.8),
-            inset 0 0 42px -3px rgba(161, 88, 58, 0.56),
-            inset 0 0 76px -10px rgba(236, 201, 140, 0.28);
+            inset 0 0 0 2.8px rgba(255, 220, 108, 0.92),
+            inset 0 0 48px -3px rgba(255, 214, 96, 0.68),
+            inset 0 0 84px -10px rgba(255, 244, 176, 0.4);
     }
 }
 
@@ -1036,6 +1091,56 @@
             inset 0 0 0 1.2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.42)),
             inset 0 0 20px -2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.34));
     }
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+    .hero-view .hero-card {
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.05),
+            inset 0 0 10px var(--hero-card-rarity-glow, rgba(255, 210, 139, 0.08)),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.34),
+            0 5px 12px rgba(0, 0, 0, 0.26);
+    }
+
+    .hero-view .hero-card::before,
+    .hero-view:not(.hero-view-secondary) .hero-grid .hero-card::before {
+        animation: none;
+        box-shadow:
+            inset 0 0 0 1.15px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.34)),
+            inset 0 0 12px -2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.18));
+        opacity: 0.82;
+    }
+
+    .hero-view .hero-card:hover,
+    .hero-view .hero-card.selected {
+        transform: none;
+    }
+
+    .hero-view .hero-card:hover::before,
+    .hero-view .hero-card.selected::before {
+        animation: none;
+        box-shadow:
+            inset 0 0 0 1.2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.42)),
+            inset 0 0 14px -2px var(--hero-card-rarity-soft, rgba(255, 210, 139, 0.24));
+    }
+}
+
+.hero-view .hero-card::before,
+.hero-view .hero-card:hover::before,
+.hero-view .hero-card.selected::before,
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card::before,
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card:hover::before,
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card.selected::before {
+    animation: none !important;
+}
+
+.hero-view .hero-card::before,
+.hero-view .hero-card:hover::before,
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card::before,
+.hero-view:not(.hero-view-secondary) .hero-grid .hero-card:hover::before {
+    box-shadow:
+        inset 0 0 0 1px var(--hero-card-rarity-edge, rgba(255, 210, 139, 0.22)),
+        inset 0 0 14px -2px var(--hero-card-rarity-edge, rgba(255, 210, 139, 0.16));
 }
 
 .hero-view .hero-card.selected .hero-team-badge {
@@ -1112,6 +1217,10 @@
     object-position: center 14%;
     position: relative;
     z-index: 2;
+    /* 防止 DOM 重建时图片还没解码完那一帧透出白色:
+       portrait 容器自带深色 linear-gradient,这里 img 加同色背景兜底,
+       即便切换 src 时浏览器留出一帧空白也是深色,无白闪。 */
+    background-color: rgba(12, 14, 20, 0.85);
 }
 
 .hero-card > .hero-avatar-portrait .hero-avatar-image {
@@ -3071,7 +3180,7 @@ html.is-short-height .hero-preview-modal.hero-command-modal-shell .hero-team-gri
     bottom: 92px;
     width: min(92vw, 460px);
     transform: translateX(-50%) translateY(26px) scale(0.96);
-    z-index: 16000;
+    z-index: 2147483000;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.22s ease, transform 0.22s ease;
@@ -3623,7 +3732,7 @@ html.is-short-height .hero-preview-modal.hero-command-modal-shell .hero-team-gri
 .rare-reward-reveal-overlay {
     position: fixed;
     inset: 0;
-    z-index: 12000;
+    z-index: 30000;
     overflow: hidden;
     touch-action: manipulation;
 }

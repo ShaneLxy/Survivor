@@ -115,6 +115,10 @@ class CheckinView {
         return entry?.kind === 'monthCard' || String(entry?.id || '').includes('month_card');
     }
 
+    isCheckinCycleEntry(entry) {
+        return String(entry?.kind || '').trim() === 'checkinCycle';
+    }
+
     isBrokenText(value) {
         const text = String(value ?? '').trim();
         if (!text) {
@@ -213,7 +217,7 @@ class CheckinView {
 
     getWelfareGiftConfigs() {
         const gifts = this.getRawWelfareConfigs()
-            .filter(entry => !this.isMonthCardEntry(entry))
+            .filter(entry => !this.isMonthCardEntry(entry) && !this.isCheckinCycleEntry(entry))
             .map(entry => ({
                 ...this.withWelfareFallback(entry),
                 adLimits: this.normalizeGiftAdLimits(entry?.adLimits),
@@ -249,8 +253,8 @@ class CheckinView {
 
     render() {
         const status = checkinManager.getCheckinStatus();
-        const bonusRewards = CheckinManager.REWARDS;
-        const dailyRewards = CheckinManager.DAILY_REWARDS;
+        const bonusRewards = Array.isArray(status.rewards) ? status.rewards : [];
+        const dailyRewards = Array.isArray(status.dailyRewards) ? status.dailyRewards : [];
         const welfareGifts = this.getWelfareGiftConfigs();
         const monthCards = this.getMonthCardConfigs();
         const cycleProgress = Math.round((status.claimedDay / bonusRewards.length) * 100);
@@ -579,7 +583,7 @@ class CheckinView {
                 return;
             }
             if (reward.type === 'item') {
-                itemManager.addItem(reward.id, count);
+                itemManager.grantItemReward(reward.id, count);
                 return;
             }
             if (reward.type === 'fragment') {

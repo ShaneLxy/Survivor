@@ -8,6 +8,10 @@ class MailManager {
         this.localMails = [];
         this.refreshTimer = null;
         this.refreshInterval = 30000;
+        // 默认请求"已领取/已过期"两类各最近 5 封,降低带宽
+        this.recentLimit = 5;
+        // 服务端返回的截断元数据,供 UI 显示"显示最近 N 封 / 共 M 封"
+        this.meta = null;
         MailManager.instance = this;
     }
 
@@ -85,12 +89,44 @@ class MailManager {
         return 'item';
     }
 
-    setMails(mails) {
+    setMails(mails, meta = null) {
         this.mails = (Array.isArray(mails) ? mails : [])
             .map((mail) => this.normalizeMail(mail))
             .filter(Boolean);
-        eventManager.emit('mailUpdate', { type: 'refresh', total: this.mails.length });
+        this.meta = this.normalizeMeta(meta);
+        eventManager.emit('mailUpdate', { type: 'refresh', total: this.mails.length, meta: this.meta });
         return this.getAllMails();
+    }
+
+    /**
+     * 规整服务端返回的 meta;不完整或缺失字段时给安全默认值
+     */
+    normalizeMeta(meta) {
+        if (!meta || typeof meta !== 'object') {
+            return null;
+        }
+        return {
+            claimableCount: Math.max(0, Number(meta.claimableCount) || 0),
+            claimedTotal: Math.max(0, Number(meta.claimedTotal) || 0),
+            claimedShown: Math.max(0, Number(meta.claimedShown) || 0),
+            expiredTotal: Math.max(0, Number(meta.expiredTotal) || 0),
+            expiredShown: Math.max(0, Number(meta.expiredShown) || 0)
+        };
+    }
+
+    getMeta() {
+        return this.meta;
+    }
+
+    /**
+     * 是否有"被截断的"已领取/已过期邮件 — UI 据此显示 "显示最近 N 封 / 共 M 封"
+     */
+    isClaimedTruncated() {
+        return Boolean(this.meta && this.meta.claimedTotal > this.meta.claimedShown);
+    }
+
+    isExpiredTruncated() {
+        return Boolean(this.meta && this.meta.expiredTotal > this.meta.expiredShown);
     }
 
     async refresh(options = {}) {
@@ -99,8 +135,8 @@ class MailManager {
         }
 
         try {
-            const response = await MailApi.list();
-            return this.setMails(response?.mails || []);
+            const response = await MailApi.list({ recent: this.recentLimit });
+            return this.setMails(response?.mails || [], response?.meta || null);
         } catch (error) {
             if (!options.silent) {
                 console.warn('[MailManager] refresh failed:', error);
@@ -371,7 +407,12 @@ class MailManager {
             }
         }
         if (response?.success) {
+            if (!response.mail) {
+                mail.claimedAt = Date.now();
+                mail.readAt = mail.readAt || Date.now();
+            }
             this.applyRewards(response.rewards);
+            eventManager.emit('mailUpdate', { mailId, type: 'claim' });
         }
         return response;
     }
@@ -409,9 +450,9 @@ class MailManager {
             return { success: false, message: '\u8bf7\u5148\u767b\u5f55' };
         }
 
-        const response = await MailApi.claimAll();
+        const response = await MailApi.claimAll({ recent: this.recentLimit });
         if (Array.isArray(response?.mails)) {
-            this.setMails(response.mails);
+            this.setMails(response.mails, response?.meta || null);
         }
         if (response?.success) {
             claimLocalMails();

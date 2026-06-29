@@ -21,6 +21,20 @@ $ns = New-Object System.Xml.XmlNamespaceManager($manifestXml.NameTable)
 $ns.AddNamespace('android', $namespaceUri)
 
 $applicationNode = $manifestXml.manifest.application
+$cleartextAttr = $applicationNode.Attributes.GetNamedItem('android:usesCleartextTraffic')
+if (-not $cleartextAttr) {
+    $cleartextAttr = $manifestXml.CreateAttribute('android', 'usesCleartextTraffic', $namespaceUri)
+    $applicationNode.Attributes.Append($cleartextAttr) | Out-Null
+}
+$cleartextAttr.Value = 'true'
+
+$networkSecurityAttr = $applicationNode.Attributes.GetNamedItem('android:networkSecurityConfig')
+if (-not $networkSecurityAttr) {
+    $networkSecurityAttr = $manifestXml.CreateAttribute('android', 'networkSecurityConfig', $namespaceUri)
+    $applicationNode.Attributes.Append($networkSecurityAttr) | Out-Null
+}
+$networkSecurityAttr.Value = '@xml/network_security_config'
+
 $activityNode = $applicationNode.activity | Where-Object { $_.'android:name' -eq '.MainActivity' -or $_.name -eq '.MainActivity' } | Select-Object -First 1
 if (-not $activityNode) {
     $activityNode = $applicationNode.activity | Select-Object -First 1

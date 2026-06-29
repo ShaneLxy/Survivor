@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>底部 Tab 图标 + 红点预览</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: #121212;
+    color: #ddd;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    min-height: 100vh;
+}
+h1 { font-size: 20px; margin: 0 0 6px; }
+.hint { color: #888; font-size: 13px; margin-bottom: 24px; text-align: center; max-width: 500px;}
+.label-block {
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 14px 0 8px;
+    width: 360px;
+}
+
+.phone {
+    width: 360px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.phone-screen {
+    height: 140px;
+    background: radial-gradient(circle at 30% 20%, #2a2a3a 0%, #1a1a1a 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a4a4a;
+    font-size: 13px;
+}
+
+/* ===== 复刻 TabBar 样式 ===== */
+.tab-bar {
+    height: 56px;
+    background: linear-gradient(0deg, #2a2a2a 0%, #1f1f1f 100%);
+    border-top: 2px solid #3a3a3a;
+    display: flex;
+    gap: 0;
+    flex-shrink: 0;
+}
+.tab-item {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    border: none;
+    color: #808080;
+    padding: 5px;
+    position: relative;
+    font-family: inherit;
+}
+.tab-item:hover { background: rgba(255, 255, 255, 0.05); }
+.tab-item.active { color: #ffd700; background: rgba(255, 215, 0, 0.1); }
+.tab-icon {
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+.tab-label { font-size: 9px; }
+
+.tab-svg-icon {
+    width: 22px;
+    height: 22px;
+    display: block;
+    transition: filter 0.2s ease, transform 0.15s ease;
+}
+.tab-item.active .tab-svg-icon {
+    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.55));
+    transform: translateY(-1px);
+}
+
+/* ===== 红点样式 ===== */
+.tab-red-dot {
+    position: absolute;
+    top: 4px;
+    right: 18%;
+    min-width: 8px;
+    height: 8px;
+    padding: 0;
+    box-sizing: border-box;
+    background: #ff3b30;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 999px;
+    color: #fff;
+    font-size: 0;
+    line-height: 1;
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(255, 59, 48, 0.6);
+    animation: tab-red-dot-pulse 1.6s ease-in-out infinite;
+}
+.tab-red-dot.has-number {
+    top: 2px;
+    right: 14%;
+    min-width: 16px;
+    height: 14px;
+    padding: 0 4px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 12px;
+    border-radius: 8px;
+    animation: none;
+}
+@keyframes tab-red-dot-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 4px rgba(255, 59, 48, 0.55); }
+    50% { transform: scale(1.25); box-shadow: 0 0 10px rgba(255, 59, 48, 0.9); }
+}
+
+/* ===== 单独的图标对比展示 ===== */
+.icon-gallery {
+    margin-top: 32px;
+    width: 360px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.icon-cell {
+    background: #1d1d1d;
+    border: 1px solid #2c2c2c;
+    border-radius: 8px;
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #b0b0b0;
+}
+.icon-cell.is-golden { color: #ffd700; }
+.icon-cell .name {
+    font-size: 11px;
+    color: #777;
+}
+.icon-cell.is-golden .name {
+    color: #d4a900;
+}
+
+/* ===== 控制面板 ===== */
+.controls {
+    margin-top: 24px;
+    background: #1d1d1d;
+    border: 1px solid #2c2c2c;
+    border-radius: 12px;
+    padding: 16px 18px;
+    width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.controls h2 { font-size: 12px; margin: 0 0 4px; color: #aaa; letter-spacing: 0.5px; text-transform: uppercase; }
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+}
+.row label { flex: 1; }
+.row input[type="number"] {
+    width: 60px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-family: inherit;
+    text-align: center;
+}
+.row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+.preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.preset-row button {
+    flex: 1;
+    background: #2a2a2a;
+    color: #ddd;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.preset-row button:hover { background: #333; border-color: #555; }
+</style>
+</head>
+<body>
+
+<h1>底部 Tab 图标 + 红点预览</h1>
+<div class="hint">点击 tab 切换 active 状态查看金色高亮 / 调控件触发红点</div>
+
+<div class="phone">
+    <div class="phone-screen">— 游戏内容区域 —</div>
+    <div id="tab-bar" class="tab-bar"></div>
+</div>
+
+<div class="label-block">图标默认色 / 选中金色对比</div>
+<div class="icon-gallery" id="icon-gallery"></div>
+<div class="icon-gallery" id="icon-gallery-gold"></div>
+
+<div class="controls">
+    <h2>红点触发条件</h2>
+
+    <div class="row">
+        <label>邮箱:可领取邮件数 (避难所 Tab)</label>
+        <input id="mail-count" type="number" min="0" max="200" value="3">
+    </div>
+
+    <div class="row">
+        <label>任务:已完成未领数 (任务 Tab)</label>
+        <input id="task-count" type="number" min="0" max="200" value="1">
+    </div>
+
+    <div class="row">
+        <label>福利:今日未签到</label>
+        <input id="checkin-today" type="checkbox" checked>
+    </div>
+
+    <div class="row">
+        <label>福利:已激活月卡待领</label>
+        <input id="card-count" type="number" min="0" max="2" value="0">
+    </div>
+
+    <h2 style="margin-top:8px">预设场景</h2>
+    <div class="preset-row">
+        <button data-preset="none">全无</button>
+        <button data-preset="all">三处都有</button>
+        <button data-preset="mail-only">仅邮件</button>
+        <button data-preset="card-only">仅月卡</button>
+    </div>
+</div>
+
+<script>
+const SVG_ATTRS = 'width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="tab-svg-icon" aria-hidden="true"';
+
+const ICONS = {
+    shelter: `<svg ${SVG_ATTRS}>
+        <path d="M3 11.5 L12 4 L21 11.5"/>
+        <path d="M5 10 V20.5 H19 V10"/>
+        <path d="M10 20.5 V14 H14 V20.5"/>
+        <path d="M16 7.5 V4.5 H17.8 V8.5"/>
+    </svg>`,
+    hero: `<svg ${SVG_ATTRS}>
+        <path d="M12 3 L20 5.5 V12 C20 16.5 12 21 12 21 C12 21 4 16.5 4 12 V5.5 Z"/>
+        <path d="M9 12 L11 14 L15 10"/>
+    </svg>`,
+    recruit: `<svg ${SVG_ATTRS}>
+        <circle cx="11.5" cy="9" r="3.2"/>
+        <path d="M5.5 21 V18 C5.5 14.8 7.8 13 11.5 13 C13.5 13 15.1 13.5 16.3 14.4"/>
+        <path d="M18.5 4.5 L19.2 6.3 L21 7 L19.2 7.7 L18.5 9.5 L17.8 7.7 L16 7 L17.8 6.3 Z" fill="currentColor" stroke="none"/>
+        <path d="M18.5 13.5 L19 14.7 L20.2 15.2 L19 15.7 L18.5 17 L18 15.7 L16.8 15.2 L18 14.7 Z" fill="currentColor" stroke="none"/>
+    </svg>`,
+    dungeon: `<svg ${SVG_ATTRS}>
+        <path d="M3 20.5 V11.5 H5 V8.5 H7 V11.5 H10 V14 H14 V11.5 H17 V8.5 H19 V11.5 H21 V20.5 Z"/>
+        <path d="M10.5 20.5 V16 H13.5 V20.5"/>
+    </svg>`,
+    shop: `<svg ${SVG_ATTRS}>
+        <path d="M5.5 9 L4.5 20.5 H19.5 L18.5 9 Z"/>
+        <path d="M8.5 9 V7 C8.5 5.1 10 3.5 12 3.5 C14 3.5 15.5 5.1 15.5 7 V9"/>
+    </svg>`,
+    task: `<svg ${SVG_ATTRS}>
+        <path d="M6 5.5 H18 V20.5 H6 Z"/>
+        <path d="M9.5 4 H14.5 V6.5 H9.5 Z"/>
+        <path d="M9 13 L11 15 L15 10.5"/>
+    </svg>`,
+    checkin: `<svg ${SVG_ATTRS}>
+        <path d="M3.5 9 H20.5 V12.5 H3.5 Z"/>
+        <path d="M5 12.5 V20.5 H19 V12.5"/>
+        <path d="M12 9 V20.5"/>
+        <path d="M12 9 C9 9 7 7.5 7 5.8 C7 4.5 8 3.8 9 4 C10.5 4.3 11.5 6.5 12 9 Z" fill="currentColor" fill-opacity="0.18"/>
+        <path d="M12 9 C15 9 17 7.5 17 5.8 C17 4.5 16 3.8 15 4 C13.5 4.3 12.5 6.5 12 9 Z" fill="currentColor" fill-opacity="0.18"/>
+    </svg>`
+};
+
+const TABS = [
+    { id: 'shelter', name: '避难所' },
+    { id: 'hero',    name: '英雄' },
+    { id: 'recruit', name: '招募' },
+    { id: 'dungeon', name: '副本' },
+    { id: 'shop',    name: '商城' },
+    { id: 'task',    name: '任务' },
+    { id: 'checkin', name: '福利' }
+];
+let active = 'shelter';
+
+function renderTabs() {
+    const root = document.getElementById('tab-bar');
+    root.innerHTML = '';
+    TABS.forEach(tab => {
+        const btn = document.createElement('button');
+        btn.className = 'tab-item';
+        btn.dataset.tab = tab.id;
+        if (tab.id === active) btn.classList.add('active');
+        btn.innerHTML = `
+            <span class="tab-icon">${ICONS[tab.id]}</span>
+            <span class="tab-label">${tab.name}</span>
+        `;
+        btn.addEventListener('click', () => { active = tab.id; renderTabs(); applyDots(); });
+        root.appendChild(btn);
+    });
+}
+
+function renderGallery() {
+    const root = document.getElementById('icon-gallery');
+    const gold = document.getElementById('icon-gallery-gold');
+    root.innerHTML = '';
+    gold.innerHTML = '';
+    TABS.forEach(tab => {
+        const cell = document.createElement('div');
+        cell.className = 'icon-cell';
+        cell.innerHTML = `${ICONS[tab.id]}<span class="name">${tab.name}</span>`;
+        root.appendChild(cell);
+
+        const goldCell = document.createElement('div');
+        goldCell.className = 'icon-cell is-golden';
+        goldCell.innerHTML = `${ICONS[tab.id]}<span class="name">${tab.name}</span>`;
+        gold.appendChild(goldCell);
+    });
+}
+
+function setDot(tabId, visible, count) {
+    const btn = document.querySelector(`.tab-item[data-tab="${tabId}"]`);
+    if (!btn) return;
+    let dot = btn.querySelector('.tab-red-dot');
+    if (!visible) { if (dot) dot.remove(); return; }
+    if (!dot) {
+        dot = document.createElement('span');
+        dot.className = 'tab-red-dot';
+        btn.appendChild(dot);
+    }
+    const showNumber = Number.isFinite(count) && count > 0;
+    if (showNumber) {
+        dot.classList.add('has-number');
+        dot.textContent = count > 99 ? '99+' : String(count);
+    } else {
+        dot.classList.remove('has-number');
+        dot.textContent = '';
+    }
+}
+
+function applyDots() {
+    const mail = +document.getElementById('mail-count').value;
+    const task = +document.getElementById('task-count').value;
+    const checkinAvail = document.getElementById('checkin-today').checked;
+    const cardCount = +document.getElementById('card-count').value;
+
+    setDot('shelter', mail > 0, mail);
+    setDot('task', task > 0, task);
+    setDot('checkin', checkinAvail || cardCount > 0);
+}
+
+['mail-count','task-count','checkin-today','card-count'].forEach(id => {
+    document.getElementById(id).addEventListener('input', applyDots);
+});
+
+document.querySelectorAll('.preset-row button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const preset = btn.dataset.preset;
+        const set = (m, t, c, k) => {
+            document.getElementById('mail-count').value = m;
+            document.getElementById('task-count').value = t;
+            document.getElementById('checkin-today').checked = c;
+            document.getElementById('card-count').value = k;
+            applyDots();
+        };
+        if (preset === 'none') set(0, 0, false, 0);
+        if (preset === 'all') set(3, 2, true, 1);
+        if (preset === 'mail-only') set(5, 0, false, 0);
+        if (preset === 'card-only') set(0, 0, false, 1);
+    });
+});
+
+renderTabs();
+renderGallery();
+applyDots();
+</script>
+
+</body>
+</html>

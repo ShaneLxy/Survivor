@@ -137,7 +137,12 @@ class TaskManager {
         if (this.eventsBound) {
             return;
         }
-        TaskManager.EVENT_DEFINITIONS.forEach((def) => {
+        const eventDefinitions = [
+            ...TaskManager.EVENT_DEFINITIONS,
+            { event: 'battleCommand', conditions: ['commandType', 'battleMode'] },
+            { event: 'battleSpecialTileEnter', conditions: ['tileType', 'battleMode'] }
+        ];
+        eventDefinitions.forEach((def) => {
             eventManager.on(def.event, (payload) => this.handleEvent(def.event, payload || {}));
         });
         this.eventsBound = true;
@@ -164,6 +169,8 @@ class TaskManager {
             title: String(entry?.title || '').trim(),
             description: String(entry?.description || '').trim(),
             period: entry?.period || defaultPeriod,
+            category: String(entry?.category || '').trim(),
+            sortOrder: Number.isFinite(Number(entry?.sortOrder)) ? Number(entry.sortOrder) : 0,
             target: Math.max(1, Math.floor(Number(entry?.target) || 1)),
             trigger: {
                 event: String(trigger?.event || '').trim(),
@@ -309,8 +316,15 @@ class TaskManager {
         const rewardEntries = [];
         (rewards || []).forEach((reward) => {
             if (reward.type === 'item') {
-                itemManager.addItem(reward.id, reward.count);
-                rewardEntries.push(RewardModal.createItemReward(reward.id, reward.count));
+                const result = itemManager.grantItemReward(reward.id, reward.count);
+                rewardEntries.push(...(result.rewards || []));
+                return;
+            }
+            if (reward.type === 'fragment') {
+                const itemConfig = ItemConfig.getItemConfig(reward.id);
+                const heroConfigId = itemConfig?.fragmentHeroId || reward.heroId || String(reward.id || '').replace(/_fragment$/, '');
+                heroManager.addFragments(heroConfigId, reward.count);
+                rewardEntries.push(RewardModal.createFragmentReward(heroConfigId, reward.count));
                 return;
             }
             shelterManager.addResource(reward.id, reward.count);

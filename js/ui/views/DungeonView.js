@@ -308,14 +308,67 @@ class DungeonView {
         if (move >= 4) tags.push({ kind: 'mobility', label: '高机动' });
         else if (move <= 1) tags.push({ kind: 'mobility', label: '迟缓' });
 
-        const skills = Array.isArray(entry.skills) ? entry.skills : (entry.skill ? [entry.skill] : []);
-        const desc = skills.map((s) => `${s?.name || ''} ${s?.description || ''}`).join(' ').toLowerCase();
+        const abilities = this.getEnemyAbilityEntries(entry);
+        const desc = abilities.map((ability) => `${ability?.name || ''} ${ability?.description || ''}`).join(' ').toLowerCase();
         if (/范围|aoe|群体|爆裂|冲击波/.test(desc)) tags.push({ kind: 'skill', label: '范围' });
         if (/眩晕|减速|定身|束缚|沉默|控制/.test(desc)) tags.push({ kind: 'skill', label: '控制' });
         if (/治疗|回复|护盾|增益|加血/.test(desc)) tags.push({ kind: 'skill', label: '支援' });
         if (/燃烧|中毒|流血|灼烧|腐蚀|debuff|减益/.test(desc)) tags.push({ kind: 'skill', label: '持续伤害' });
 
         return tags.slice(0, 3);
+    }
+
+    getEnemyAbilityEntries(entry) {
+        const abilities = [];
+        const activeSkills = Array.isArray(entry.skills) && entry.skills.length ? entry.skills : (entry.skill ? [entry.skill] : []);
+        activeSkills.forEach((skill) => {
+            if (!skill) return;
+            abilities.push({
+                kind: 'active',
+                typeLabel: '主动',
+                name: skill.name || skill.id || '未命名技能',
+                description: skill.description || '暂无描述',
+                raw: skill
+            });
+        });
+
+        const basicAttackEffects = Array.isArray(entry.basicAttackEffects) ? entry.basicAttackEffects : [];
+        basicAttackEffects.forEach((effect) => {
+            if (!effect) return;
+            abilities.push({
+                kind: 'basic',
+                typeLabel: '普攻',
+                name: effect.name || '普攻效果',
+                description: effect.description || '该效果会在普攻命中后触发。',
+                raw: effect
+            });
+        });
+
+        const passiveEffects = Array.isArray(entry.passiveEffects) ? entry.passiveEffects : [];
+        passiveEffects.forEach((effect) => {
+            if (!effect) return;
+            abilities.push({
+                kind: 'passive',
+                typeLabel: '被动',
+                name: effect.name || '被动技能',
+                description: effect.description || '该效果会在战斗中持续生效。',
+                raw: effect
+            });
+        });
+
+        const reactiveEffects = Array.isArray(entry.reactiveEffects) ? entry.reactiveEffects : [];
+        reactiveEffects.forEach((effect) => {
+            if (!effect) return;
+            abilities.push({
+                kind: 'reactive',
+                typeLabel: '反应',
+                name: effect.name || '反应效果',
+                description: effect.description || '满足条件时自动触发。',
+                raw: effect
+            });
+        });
+
+        return abilities;
     }
 
     toggleCodexEntry(key) {
@@ -451,7 +504,7 @@ class DungeonView {
 
     getMonsterDetailContent(entry) {
         const stats = entry.stats || {};
-        const skills = Array.isArray(entry.skills) && entry.skills.length ? entry.skills : (entry.skill ? [entry.skill] : []);
+        const abilities = this.getEnemyAbilityEntries(entry);
         const key = entry.codexKey || entry.id;
         const advancedExpanded = this.codexAdvancedStatsExpanded.has(key);
         const combatTip = entry.combatTip
@@ -464,22 +517,23 @@ class DungeonView {
             return `<div class="mcdx-detail-tags">${tags.map((t) => `<span class="mcdx-tag mcdx-tag-${t.kind}">${t.label}</span>`).join('')}</div>`;
         })();
 
-        const skillsMarkup = skills.length
-            ? skills.map((skill) => {
-                const skillTags = this.getSkillTypeTags(skill);
-                const name = skill?.name || skill?.id || '未命名技能';
-                const desc = skill?.description || '暂无描述';
+        const skillsMarkup = abilities.length
+            ? abilities.map((ability) => {
+                const skillTags = this.getSkillTypeTags(ability);
+                const name = ability?.name || '未命名技能';
+                const desc = ability?.description || '暂无描述';
                 return `
                     <div class="mcdx-skill-card">
                         <div class="mcdx-skill-head">
                             <span class="mcdx-skill-name">${name}</span>
+                            <span class="mcdx-tag mcdx-tag-skill">${ability.typeLabel || '技能'}</span>
                             ${skillTags.map((t) => `<span class="mcdx-tag mcdx-tag-${t.kind}">${t.label}</span>`).join('')}
                         </div>
                         <div class="mcdx-skill-desc">${desc}</div>
                     </div>
                 `;
             }).join('')
-            : '<div class="mcdx-skill-empty">该怪物无专属技能</div>';
+            : '<div class="mcdx-skill-empty">该怪物无战斗技能</div>';
 
         return `
             <div class="mcdx-detail ${entry.rank}">
@@ -519,7 +573,7 @@ class DungeonView {
                 ` : ''}
 
                 <div class="mcdx-skill-section">
-                    <div class="mcdx-skill-title">⚡ 专属技能</div>
+                    <div class="mcdx-skill-title">⚡ 战斗技能</div>
                     ${skillsMarkup}
                 </div>
             </div>
@@ -639,6 +693,7 @@ class DungeonView {
     }
 
     consumeEnergyForDungeon(dungeon) {
+        window.game.settleEnergyRecovery?.();
         if (window.game.player.energy < dungeon.energyCost) {
             Toast.error(`体力不足，需要 ${dungeon.energyCost}`);
             return false;
@@ -675,6 +730,7 @@ class DungeonView {
         this.codexModal = null;
         Modal.closeAll();
         window.game.save();
+        saveSyncService.uploadCurrentSave?.({ force: true });
         eventManager.emit('enterBattle', { dungeonId, sceneId: dungeon.sceneId });
     }
 

@@ -139,8 +139,8 @@
             }
 
             window.game?.refreshRuntimeUI?.();
-            await this.showMailboxRewards(result.rewards, result.message);
             setDetailView(mailId);
+            await this.showMailboxRewards(result.rewards, result.message);
         });
     };
 
@@ -148,6 +148,7 @@
         const visibleMails = mailManager.getVisibleMails();
         const expiredMails = mailManager.getExpiredMails();
         const claimableCount = visibleMails.filter((mail) => mailManager.canClaim(mail)).length;
+        const meta = mailManager.getMeta?.() || null;
 
         if (visibleMails.length === 0 && expiredMails.length === 0) {
             return `
@@ -160,6 +161,17 @@
                 </div>
             `;
         }
+
+        // 服务端只返回"已领取"最近 N 封,如果实际更多,在主列表底部提示
+        const claimedTruncated = mailManager.isClaimedTruncated?.();
+        const claimedHint = claimedTruncated
+            ? `<div class="mailbox-list-hint">已领取仅显示最近 ${meta.claimedShown} 封 / 共 ${meta.claimedTotal} 封</div>`
+            : '';
+
+        // 已过期块的总数:优先用 meta.expiredTotal(服务端真实总数),
+        // 退化到本地 expiredMails.length(兼容老客户端 / meta 缺失)
+        const expiredTotal = meta?.expiredTotal ?? expiredMails.length;
+        const expiredTruncated = mailManager.isExpiredTruncated?.();
 
         return `
             <div class="mailbox-screen mailbox-screen-list">
@@ -174,15 +186,17 @@
                 </div>
                 <div class="mailbox-list mailbox-list-vertical">
                     ${visibleMails.map((mail) => this.getMailboxPreviewMarkup(mail)).join('')}
-                    ${expiredMails.length > 0 ? `
+                    ${claimedHint}
+                    ${expiredTotal > 0 ? `
                         <div class="mailbox-expired-block">
                             <button type="button" class="mailbox-expired-toggle" data-mail-action="toggle-expired">
-                                <span>已过期邮件 ${expiredMails.length} 封</span>
+                                <span>已过期邮件 ${expiredTotal} 封</span>
                                 <span>${this.mailboxShowExpired ? '收起' : '展开'}</span>
                             </button>
                             ${this.mailboxShowExpired ? `
                                 <div class="mailbox-expired-list">
                                     ${expiredMails.map((mail) => this.getMailboxPreviewMarkup(mail)).join('')}
+                                    ${expiredTruncated ? `<div class="mailbox-list-hint">仅显示最近 ${meta.expiredShown} 封 / 共 ${meta.expiredTotal} 封</div>` : ''}
                                 </div>
                             ` : ''}
                         </div>

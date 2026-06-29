@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MailService } from './mail.service';
 
@@ -8,13 +8,16 @@ export class MailController {
   constructor(private readonly mailService: MailService) {}
 
   @Get()
-  list(@Req() req: any) {
-    return this.mailService.listMails(req.user.id);
+  list(@Req() req: any, @Query('recent') recent?: string) {
+    // recent 是字符串,委托给 service 做规整(支持 null / 非法 / 上限保护)
+    const parsed = recent !== undefined ? Number(recent) : undefined;
+    return this.mailService.listMails(req.user.id, { recent: parsed });
   }
 
   @Post('claim-all')
-  claimAll(@Req() req: any) {
-    return this.mailService.claimAll(req.user.id);
+  claimAll(@Req() req: any, @Query('recent') recent?: string) {
+    const parsed = recent !== undefined ? Number(recent) : undefined;
+    return this.mailService.claimAll(req.user.id, { recent: parsed });
   }
 
   @Post(':mailId/read')

@@ -296,12 +296,13 @@ class GachaManager {
                     const hero = new Hero(config, 1);
                     heroManager.addHero(hero);
                     addedHeroes.push(hero);
-                    rewards.push(RewardModal.createHeroReward(result.configId));
+                    rewards.push(RewardModal.createHeroReward(result.configId, { playMvpVoiceOnReveal: true }));
                 } else {
                     const fragmentCount = this.calculateDuplicateReward(result.rarity);
                     heroManager.addFragments(result.configId, fragmentCount);
                     rewards.push(RewardModal.createFragmentReward(result.configId, fragmentCount, {
-                        description: `重复英雄自动转化为 ${fragmentCount} 个 ${config?.name || '该英雄'} 碎片`
+                        description: `重复英雄自动转化为 ${fragmentCount} 个 ${config?.name || '该英雄'} 碎片`,
+                        playMvpVoiceOnReveal: true
                     }));
                 }
                 return;

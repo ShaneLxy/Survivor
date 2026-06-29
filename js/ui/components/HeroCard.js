@@ -102,7 +102,7 @@ class HeroCard {
             common: '#a0a0a0',
             rare: '#a335ee',
             epic: '#d6a85a',
-            legendary: '#ff8000'
+            legendary: '#ffcc00'
         };
         return colors[rarity] || colors.common;
     }
@@ -112,7 +112,7 @@ class HeroCard {
             common:    { soft: 'rgba(160, 160, 160, 0.42)', glow: 'rgba(160, 160, 160, 0.22)', edge: 'rgba(160, 160, 160, 0.18)' },
             rare:      { soft: 'rgba(163, 53, 238, 0.62)',  glow: 'rgba(163, 53, 238, 0.30)', edge: 'rgba(163, 53, 238, 0.22)' },
             epic:      { soft: 'rgba(161, 88, 58, 0.48)',   glow: 'rgba(120, 54, 36, 0.18)',  edge: 'rgba(236, 201, 140, 0.18)' },
-            legendary: { soft: 'rgba(255, 128, 0, 0.65)',   glow: 'rgba(255, 128, 0, 0.34)',  edge: 'rgba(255, 128, 0, 0.24)' }
+            legendary: { soft: 'rgba(255, 204, 0, 0.66)', glow: 'rgba(255, 215, 96, 0.36)', edge: 'rgba(255, 244, 176, 0.34)' }
         };
         return palette[rarity] || palette.common;
     }

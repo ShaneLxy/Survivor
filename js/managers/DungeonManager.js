@@ -72,6 +72,9 @@ class DungeonManager {
                     description: enemyConfig.description || '',
                     skills: enemyConfig.skills ? enemyConfig.skills.map(skill => ({ ...skill })) : [],
                     skill: enemyConfig.skill ? { ...enemyConfig.skill } : null,
+                    passiveEffects: Array.isArray(enemyConfig.passiveEffects) ? enemyConfig.passiveEffects.map(effect => ({ ...effect })) : [],
+                    basicAttackEffects: Array.isArray(enemyConfig.basicAttackEffects) ? enemyConfig.basicAttackEffects.map(effect => ({ ...effect })) : [],
+                    reactiveEffects: Array.isArray(enemyConfig.reactiveEffects) ? enemyConfig.reactiveEffects.map(effect => ({ ...effect })) : [],
                     unlockLevel: dungeon.level,
                     dungeons: []
                 };

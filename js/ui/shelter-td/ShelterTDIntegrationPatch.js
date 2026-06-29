@@ -37,12 +37,14 @@
         const rewards = (result?.rewards || []).map((reward) => reward.type === 'item'
             ? RewardModal.createItemReward(reward.id, reward.amount)
             : RewardModal.createResourceReward(reward.id, reward.amount));
-        if (result?.chestReward) {
-            const reward = result.chestReward;
+        const chestRewards = Array.isArray(result?.chestRewards)
+            ? result.chestRewards
+            : (result?.chestReward ? [result.chestReward] : []);
+        chestRewards.forEach((reward) => {
             if (reward.type === 'item') rewards.push(RewardModal.createItemReward(reward.id, reward.amount, { description: '稀有补给' }));
             else if (reward.type === 'resource') rewards.push(RewardModal.createResourceReward(reward.id, reward.amount, { description: '稀有补给' }));
             else if (reward.type === 'fragment') rewards.push(RewardModal.createFragmentReward(reward.heroId, reward.amount, { description: '稀有补给' }));
-        }
+        });
         return rewards;
     }
 

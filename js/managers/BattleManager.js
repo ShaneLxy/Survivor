@@ -11,19 +11,49 @@ class BattleManager {
         this.pendingBossWaves = [];
         this.scene = this.resolveSceneConfig('standard_9x9');
         this.specialTileWarnings = [];
-        this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = false;
         this.result = null;
         this.currentActor = null;
         this.decisionProvider = null;
         this.autoBattleOverride = null;
-        this.maxRounds = 200;
+        this.maxRounds = 999;
         this.isBossEntrancePlaying = false;
         this.battleItemUsage = {};
         this.formationStates = [];
         this.environmentEffect = 'none';
+        this.terrainRuntimeState = this.createEmptyTerrainRuntimeState();
+        this.heroVoiceLastPlayedAt = {};
+        this.battleStats = this.createEmptyBattleStats();
+        this.processedDeathUnitIds = new Set();
+        this.battleStatsUnsubscribe = null;
+        this.boardCacheVersion = 0;
+        this.boardCache = this.createEmptyBoardCache();
+        this.pendingStateChangeFrame = null;
         BattleManager.instance = this;
+    }
+
+    createEmptyBoardCache() {
+        return {
+            obstacleMap: null,
+            obstacleKey: '',
+            specialTileMap: null,
+            specialTileKey: '',
+            unitMap: null,
+            unitKey: '',
+            pathDistance: new Map(),
+            lineObstacle: new Map(),
+            rawRange: new Map()
+        };
+    }
+
+    invalidateBoardCache() {
+        this.boardCacheVersion += 1;
+        this.boardCache = this.createEmptyBoardCache();
+    }
+
+    getCellKey(position) {
+        return `${position?.x ?? ''},${position?.y ?? ''}`;
     }
 
     initBattle({ heroes, enemies, bossWaves = [], sceneId = 'standard_9x9', battlefield = null, environmentEffect = 'none' }) {
@@ -33,13 +63,13 @@ class BattleManager {
             id: wave.id || `boss_wave_${index + 1}`,
             spawnRound: Number(wave.spawnRound) || DungeonConfig.defaultBossSpawnRound,
             spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound !== false,
+            guardianKey: String(wave.guardianKey || wave.guardian?.key || wave.guardian?.enemyKey || '').trim(),
             bosses: [...(wave.bosses || [])],
             isSpawned: false
         }));
         this.scene = this.resolveSceneConfig(sceneId, battlefield);
         this.environmentEffect = this.normalizeEnvironmentEffect(environmentEffect || battlefield?.environmentEffect);
         this.specialTileWarnings = [];
-        this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = true;
         this.result = null;
@@ -47,6 +77,12 @@ class BattleManager {
         this.autoBattleOverride = null;
         this.isBossEntrancePlaying = false;
         this.formationStates = [];
+        this.heroVoiceLastPlayedAt = {};
+        this.processedDeathUnitIds = new Set();
+        this.invalidateBoardCache();
+        this.terrainRuntimeState = this.createEmptyTerrainRuntimeState();
+        this.teardownBattleStats();
+        this.battleStats = this.createEmptyBattleStats();
         this.battleItemUsage = {
             stimulant: {
                 maxUses: Math.min(2, itemManager.getItemCount('stimulant')),
@@ -55,6 +91,9 @@ class BattleManager {
         };
         this.placeUnits();
         this.initializeProgress();
+        this.initializeTerrainRuntimeState();
+        this.syncTerrainStateForAllUnits();
+        this.setupBattleStats();
         this.addLog('battle', '战斗开始！');
         this.emitStateChange();
         eventManager.emit('battleStart', this.getSnapshot());
@@ -62,6 +101,579 @@ class BattleManager {
 
     setDecisionProvider(provider) {
         this.decisionProvider = provider;
+    }
+
+    createEmptyBattleStats() {
+        return {
+            startedAt: 0,
+            finishedAt: 0,
+            heroOrder: [],
+            heroEntries: {}
+        };
+    }
+
+    createEmptyTerrainRuntimeState() {
+        return {
+            unitStates: {},
+            miasmaSources: []
+        };
+    }
+
+    createTerrainUnitState() {
+        return {
+            healStreak: 0,
+            fireMomentumStacks: 0,
+            swampAttackPrimed: false
+        };
+    }
+
+    initializeTerrainRuntimeState() {
+        this.terrainRuntimeState = this.createEmptyTerrainRuntimeState();
+        const tiles = Array.isArray(this.scene?.specialTiles) ? this.scene.specialTiles : [];
+        this.terrainRuntimeState.miasmaSources = tiles
+            .filter(tile => tile?.type === 'miasma')
+            .map((tile, index) => ({
+                id: `miasma_source_${tile.id || index + 1}`,
+                originX: tile.x,
+                originY: tile.y,
+                spreadCount: 0,
+                maxSpreadCount: 2,
+                expandRounds: [15, 30],
+                lastExpandedRound: 0,
+                tileName: tile.name || this.getSpecialTileTypeLabel('miasma')
+            }));
+    }
+
+    getTerrainUnitState(unitOrId, createIfMissing = true) {
+        const unitId = typeof unitOrId === 'string' ? unitOrId : unitOrId?.id;
+        if (!unitId) {
+            return createIfMissing ? this.createTerrainUnitState() : null;
+        }
+        if (!this.terrainRuntimeState || typeof this.terrainRuntimeState !== 'object') {
+            this.terrainRuntimeState = this.createEmptyTerrainRuntimeState();
+        }
+        if (!this.terrainRuntimeState.unitStates) {
+            this.terrainRuntimeState.unitStates = {};
+        }
+        if (!this.terrainRuntimeState.unitStates[unitId] && createIfMissing) {
+            this.terrainRuntimeState.unitStates[unitId] = this.createTerrainUnitState();
+        }
+        return this.terrainRuntimeState.unitStates[unitId] || null;
+    }
+
+    syncTerrainStateForAllUnits() {
+        this.getAllUnits().forEach((unit) => {
+            if (!unit?.id) {
+                return;
+            }
+            this.terrainRuntimeState.unitStates[unit.id] = this.createTerrainUnitState();
+            if (unit.position) {
+                this.handleTerrainPositionChange(unit, null, unit.position);
+            }
+        });
+    }
+
+    handleTerrainPositionChange(unit, fromPosition = null, toPosition = null) {
+        this.invalidateBoardCache();
+        if (!unit?.id) {
+            return;
+        }
+        const state = this.getTerrainUnitState(unit);
+        const fromTile = fromPosition ? this.getSpecialTileAt(fromPosition) : null;
+        const toTile = toPosition ? this.getSpecialTileAt(toPosition) : null;
+        const fromType = fromTile?.type || '';
+        const toType = toTile?.type || '';
+
+        if (fromType === 'heal' && toType !== 'heal') {
+            state.healStreak = 0;
+        } else if (fromType !== 'heal' && toType === 'heal') {
+            state.healStreak = 0;
+        }
+
+        if (toType === 'swamp' && fromType !== 'swamp') {
+            state.swampAttackPrimed = true;
+        } else if (toType !== 'swamp') {
+            state.swampAttackPrimed = false;
+        }
+
+    }
+
+    recordBattleCommandAchievement(actor, commandType, action = {}) {
+        if (!actor || actor.camp !== 'hero' || !commandType) {
+            return;
+        }
+        if (this.isAutoBattleEnabled() || action?.reason === 'timeout' || action?.reason === 'fallback' || action?.forcedByTaunt || action?.forcedByCharm) {
+            return;
+        }
+        eventManager.emit('battleCommand', {
+            unit: actor,
+            unitId: actor.id,
+            commandType,
+            battleMode: 'manual'
+        });
+    }
+
+    recordSpecialTileEnterAchievement(actor, position, action = {}) {
+        if (!actor || actor.camp !== 'hero' || this.isAutoBattleEnabled()) {
+            return;
+        }
+        if (action?.reason === 'timeout' || action?.reason === 'fallback' || action?.forcedByTaunt || action?.forcedByCharm) {
+            return;
+        }
+        const tile = this.getSpecialTileAt(position);
+        const tileType = tile?.type || '';
+        if (!['heal', 'fire', 'swamp', 'miasma'].includes(tileType)) {
+            return;
+        }
+        eventManager.emit('battleSpecialTileEnter', {
+            unit: actor,
+            unitId: actor.id,
+            tileType,
+            battleMode: 'manual'
+        });
+    }
+
+    getHealTileStageConfig(streak = 0) {
+        const stage = Math.max(1, Number(streak) || 1);
+        if (stage === 1) {
+            return { stage, mode: 'heal', ratio: 0.2 };
+        }
+        if (stage === 2) {
+            return { stage, mode: 'heal', ratio: 0.15 };
+        }
+        if (stage === 3) {
+            return { stage, mode: 'heal', ratio: 0.08 };
+        }
+        if (stage === 4) {
+            return { stage, mode: 'damage', ratio: 0.05 };
+        }
+        return { stage, mode: 'damage', ratio: 0.1 };
+    }
+
+    getProjectedHealTileStage(unit, position) {
+        if (!unit?.id || !position) {
+            return 0;
+        }
+        const tile = this.getSpecialTileAt(position);
+        if (tile?.type !== 'heal') {
+            return 0;
+        }
+        const currentTile = this.getSpecialTileAt(unit.position);
+        const state = this.getTerrainUnitState(unit, false);
+        const currentStreak = Math.max(0, Number(state?.healStreak) || 0);
+        return currentTile?.type === 'heal' ? currentStreak + 1 : 1;
+    }
+
+    getProjectedHealTileOutcome(unit, position) {
+        const tile = this.getSpecialTileAt(position);
+        if (tile?.type !== 'heal') {
+            return null;
+        }
+        const stage = this.getProjectedHealTileStage(unit, position);
+        const stageConfig = this.getHealTileStageConfig(stage || 1);
+        return {
+            stage,
+            ...stageConfig
+        };
+    }
+
+    isHealTileBacklashPosition(unit, position = unit?.position) {
+        return this.getProjectedHealTileOutcome(unit, position)?.mode === 'damage';
+    }
+
+    getUnitTerrainStatusEffects(unit) {
+        if (!unit?.id) {
+            return [];
+        }
+        const state = this.getTerrainUnitState(unit, false);
+        if (!state) {
+            return [];
+        }
+        const effects = [];
+        const currentTile = this.getSpecialTileAt(unit.position);
+        if (currentTile?.type === 'heal') {
+            const healStage = Math.max(1, Number(state.healStreak) || 1);
+            const healStageConfig = this.getHealTileStageConfig(healStage);
+            if (healStageConfig.mode === 'heal') {
+                const remainingHealRounds = Math.max(0, 4 - healStage);
+                effects.push({
+                    id: `terrain_heal_cycle_${unit.id}`,
+                    type: 'terrain_heal_cycle',
+                    name: '治疗地格',
+                    effectType: 'terrain_state',
+                    countsAsDebuff: false,
+                    isBuff: true,
+                    stackCount: remainingHealRounds,
+                    remainingTurns: remainingHealRounds,
+                    ratio: healStageConfig.ratio,
+                    stage: healStage
+                });
+            } else {
+                effects.push({
+                    id: `terrain_heal_backlash_${unit.id}`,
+                    type: 'terrain_heal_backlash',
+                    name: '地格反噬',
+                    effectType: 'terrain_state',
+                    countsAsDebuff: true,
+                    isBuff: false,
+                    remainingTurns: 1,
+                    ratio: healStageConfig.ratio,
+                    stage: healStage
+                });
+            }
+        }
+        const fireMomentumStacks = Math.max(0, Number(state.fireMomentumStacks) || 0);
+        if (fireMomentumStacks > 0) {
+            const isOnFireTile = this.getSpecialTileAt(unit.position)?.type === 'fire';
+            effects.push({
+                id: `terrain_fire_momentum_${unit.id}`,
+                type: 'terrain_fire_momentum',
+                name: '燃势',
+                effectType: 'terrain_state',
+                countsAsDebuff: false,
+                stackCount: fireMomentumStacks,
+                isBuff: true,
+                activeWhileOnFire: isOnFireTile,
+                damagePercentBonus: fireMomentumStacks * 0.1
+            });
+        }
+        return effects;
+    }
+
+    processTerrainRoundStart() {
+        if (!Array.isArray(this.terrainRuntimeState?.miasmaSources) || this.terrainRuntimeState.miasmaSources.length === 0) {
+            return [];
+        }
+        const events = [];
+        this.terrainRuntimeState.miasmaSources.forEach((source) => {
+            if (!source || source.spreadCount >= source.maxSpreadCount) {
+                return;
+            }
+            const expandRounds = Array.isArray(source.expandRounds) ? source.expandRounds : [];
+            const nextExpandRound = Math.max(1, Number(expandRounds[source.spreadCount]) || 0);
+            if (!nextExpandRound) {
+                source.spreadCount = source.maxSpreadCount;
+                return;
+            }
+            if (this.currentRound < nextExpandRound || source.lastExpandedRound === this.currentRound) {
+                return;
+            }
+            const nextRing = source.spreadCount + 1;
+            const tiles = this.buildMiasmaSpreadTiles(source, nextRing);
+            source.spreadCount = nextRing;
+            source.lastExpandedRound = this.currentRound;
+            if (!tiles.length) {
+                return;
+            }
+            this.scene.specialTiles.push(...tiles);
+            this.invalidateBoardCache();
+            this.addLog('control', `${source.tileName || '瘴气地格'} 扩散，新增 ${tiles.length} 个地格`);
+            events.push({
+                type: 'miasma_expand',
+                sourceId: source.id,
+                ring: nextRing,
+                tiles
+            });
+        });
+        return events;
+    }
+
+    buildMiasmaSpreadTiles(source, radius = 1) {
+        const spreadIndex = Math.max(1, Number(radius) || 1);
+        const minDistance = spreadIndex === 1 ? 1 : 3;
+        const maxDistance = spreadIndex === 1 ? 2 : 4;
+        const candidates = [];
+        for (let y = source.originY - maxDistance; y <= source.originY + maxDistance; y++) {
+            for (let x = source.originX - maxDistance; x <= source.originX + maxDistance; x++) {
+                const position = { x, y };
+                const distance = this.distanceBetween({ x: source.originX, y: source.originY }, position);
+                if (!this.isInsideBoard(position) || distance < minDistance || distance > maxDistance) {
+                    continue;
+                }
+                if (this.isObstacleAt(position)) {
+                    continue;
+                }
+                if (this.getSpecialTileAt(position)) {
+                    continue;
+                }
+                candidates.push(position);
+            }
+        }
+        return Utils.shuffle(candidates).slice(0, 2).map((position, index) => ({
+            id: `${source.id}_spread_${spreadIndex}_${index + 1}`,
+            type: 'miasma',
+            name: this.getSpecialTileTypeLabel('miasma'),
+            icon: this.getSpecialTileIcon('miasma'),
+            x: position.x,
+            y: position.y,
+            value: 0,
+            generatedBy: source.id
+        }));
+    }
+
+    setupBattleStats() {
+        this.battleStats = this.createEmptyBattleStats();
+        this.battleStats.startedAt = Date.now();
+        (this.heroes || []).forEach((unit) => {
+            if (!unit?.id) {
+                return;
+            }
+            this.battleStats.heroOrder.push(unit.id);
+            this.battleStats.heroEntries[unit.id] = {
+                heroId: unit.id,
+                name: unit.name || unit.id,
+                damage: 0,
+                heal: 0,
+                takenDamage: 0
+            };
+        });
+        this.battleStatsUnsubscribe = eventManager.on('battleUnitAction', (data) => {
+            this.updateBattleStatsFromAction(data);
+        });
+    }
+
+    teardownBattleStats() {
+        if (typeof this.battleStatsUnsubscribe === 'function') {
+            this.battleStatsUnsubscribe();
+        }
+        this.battleStatsUnsubscribe = null;
+    }
+
+    isHeroBattleStatsUnit(unit) {
+        return Boolean(unit && unit.camp === 'hero' && unit.id);
+    }
+
+    ensureBattleStatsEntry(unit) {
+        if (!this.isHeroBattleStatsUnit(unit)) {
+            return null;
+        }
+        if (!this.battleStats?.heroEntries) {
+            this.battleStats = this.createEmptyBattleStats();
+        }
+        if (!Array.isArray(this.battleStats.heroOrder)) {
+            this.battleStats.heroOrder = [];
+        }
+        if (!this.battleStats.heroEntries[unit.id]) {
+            this.battleStats.heroEntries[unit.id] = {
+                heroId: unit.id,
+                name: unit.name || unit.id,
+                damage: 0,
+                heal: 0,
+                takenDamage: 0
+            };
+        }
+        if (!this.battleStats.heroOrder.includes(unit.id)) {
+            this.battleStats.heroOrder.push(unit.id);
+        }
+        return this.battleStats.heroEntries[unit.id];
+    }
+
+    extractBattleStatsDamage(result = {}, actionData = {}) {
+        const amount = result?.damage ?? result?.reflectiveDamage ?? actionData?.damage ?? 0;
+        return Math.max(0, Number(amount) || 0);
+    }
+
+    extractBattleStatsHeal(result = {}, actionData = {}) {
+        const directHeal = Math.max(0, Number(result?.heal) || 0);
+        if (directHeal > 0) {
+            return directHeal;
+        }
+        const effect = result?.effect || actionData?.result?.effect || null;
+        if (effect && (effect.type === 'heal' || effect.type === 'revive')) {
+            return Math.max(0, Number(effect.value) || 0);
+        }
+        return 0;
+    }
+
+    recordBattleStatsDamage(sourceUnit, targetUnit, amount, options = {}) {
+        const sourceDamage = Math.max(0, Number(options?.sourceDamage ?? amount) || 0);
+        const targetDamage = Math.max(0, Number(options?.targetDamage ?? amount) || 0);
+        if (sourceDamage <= 0 && targetDamage <= 0) {
+            return;
+        }
+        if (sourceDamage > 0 && this.isHeroBattleStatsUnit(sourceUnit) && targetUnit && targetUnit.camp !== 'hero') {
+            const sourceEntry = this.ensureBattleStatsEntry(sourceUnit);
+            if (sourceEntry) {
+                sourceEntry.damage += sourceDamage;
+            }
+        }
+        if (targetDamage > 0 && this.isHeroBattleStatsUnit(targetUnit)) {
+            const targetEntry = this.ensureBattleStatsEntry(targetUnit);
+            if (targetEntry) {
+                targetEntry.takenDamage += targetDamage;
+            }
+        }
+    }
+
+    recordBattleStatsHeal(sourceUnit, targetUnit, amount) {
+        const heal = Math.max(0, Number(amount) || 0);
+        if (heal <= 0) {
+            return;
+        }
+        if (!this.isHeroBattleStatsUnit(sourceUnit) || !this.isHeroBattleStatsUnit(targetUnit)) {
+            return;
+        }
+        const sourceEntry = this.ensureBattleStatsEntry(sourceUnit);
+        if (sourceEntry) {
+            sourceEntry.heal += heal;
+        }
+    }
+
+    shouldIgnoreBattleStatsAction(actionData = {}) {
+        if (actionData?.ignoreBattleStats) {
+            return true;
+        }
+        const result = actionData?.result || {};
+        const statusType = String(result?.statusType || '').trim();
+        return statusType === 'terrain_heal_cycle'
+            || statusType === 'terrain_heal_backlash'
+            || statusType === 'terrain_fire_momentum';
+    }
+
+    updateBattleStatsFromAction(actionData = {}) {
+        if (!this.isBattling || !this.battleStats?.heroEntries) {
+            return;
+        }
+        if (this.shouldIgnoreBattleStatsAction(actionData)) {
+            return;
+        }
+        const attacker = actionData?.attacker || null;
+        const fallbackTarget = actionData?.target || null;
+        const result = actionData?.result || {};
+        const isRedirectAction = actionData?.actionType === 'redirect';
+        if (Array.isArray(result.targets) && result.targets.length > 0) {
+            result.targets.forEach((entry) => {
+                const targetUnit = this.findUnitById(entry?.id) || (fallbackTarget?.id === entry?.id ? fallbackTarget : null);
+                const damage = this.extractBattleStatsDamage(entry, actionData);
+                const targetDamage = isRedirectAction
+                    ? damage
+                    : Math.max(0, Number(entry?.damageToTarget ?? entry?.targetDamage ?? damage) || 0);
+                const heal = this.extractBattleStatsHeal(entry, actionData);
+                if (damage > 0 || targetDamage > 0) {
+                    this.recordBattleStatsDamage(attacker, targetUnit, damage, {
+                        sourceDamage: isRedirectAction ? 0 : damage,
+                        targetDamage
+                    });
+                }
+                if (heal > 0) {
+                    this.recordBattleStatsHeal(attacker, targetUnit, heal);
+                }
+                const selfHeal = Math.max(0, Number(entry?.selfHeal) || 0);
+                if (selfHeal > 0) {
+                    this.recordBattleStatsHeal(attacker, attacker, selfHeal);
+                }
+                const customHeal = Math.max(0, Number(entry?.customEffectResult?.heal) || 0);
+                if (customHeal > 0) {
+                    this.recordBattleStatsHeal(attacker, attacker, customHeal);
+                }
+            });
+        } else {
+            const damage = this.extractBattleStatsDamage(result, actionData);
+            const targetDamage = isRedirectAction
+                ? damage
+                : Math.max(0, Number(result?.damageToTarget ?? result?.targetDamage ?? damage) || 0);
+            const heal = this.extractBattleStatsHeal(result, actionData);
+            if (damage > 0 || targetDamage > 0) {
+                this.recordBattleStatsDamage(attacker, fallbackTarget, damage, {
+                    sourceDamage: isRedirectAction ? 0 : damage,
+                    targetDamage
+                });
+            }
+            if (heal > 0) {
+                this.recordBattleStatsHeal(attacker, fallbackTarget, heal);
+            }
+        }
+
+        const selfHeal = Math.max(0, Number(result?.selfHeal) || 0);
+        if (selfHeal > 0) {
+            this.recordBattleStatsHeal(attacker, attacker, selfHeal);
+        }
+        const customHeal = Math.max(0, Number(result?.customEffectResult?.heal) || 0);
+        if (customHeal > 0) {
+            this.recordBattleStatsHeal(attacker, attacker, customHeal);
+        }
+    }
+
+    getBattleStatsSummary() {
+        const stats = this.battleStats?.heroEntries || {};
+        const order = Array.isArray(this.battleStats?.heroOrder) ? this.battleStats.heroOrder : [];
+        const baseEntries = order.map((heroId) => {
+            const unit = this.findUnitById(heroId) || this.heroes.find(hero => hero?.id === heroId) || null;
+            const raw = stats[heroId] || {
+                heroId,
+                name: unit?.name || heroId,
+                damage: 0,
+                heal: 0,
+                takenDamage: 0
+            };
+            return {
+                heroId,
+                unit,
+                name: unit?.name || raw.name || heroId,
+                damage: Math.max(0, Number(raw.damage) || 0),
+                heal: Math.max(0, Number(raw.heal) || 0),
+                takenDamage: Math.max(0, Number(raw.takenDamage) || 0),
+                isAlive: unit?.isAlive?.() !== false
+            };
+        });
+        const totals = baseEntries.reduce((summary, entry) => {
+            summary.damage += entry.damage;
+            summary.heal += entry.heal;
+            summary.takenDamage += entry.takenDamage;
+            return summary;
+        }, { damage: 0, heal: 0, takenDamage: 0 });
+        const entries = baseEntries.map((entry) => {
+            const damageShare = totals.damage > 0 ? entry.damage / totals.damage : 0;
+            const healShare = totals.heal > 0 ? entry.heal / totals.heal : 0;
+            const takenDamageShare = totals.takenDamage > 0 ? entry.takenDamage / totals.takenDamage : 0;
+            return {
+                ...entry,
+                damageShare,
+                healShare,
+                takenDamageShare,
+                mvpScore: entry.damage * 0.5 + entry.heal * 0.3 + entry.takenDamage * 0.2
+            };
+        });
+        let mvpHeroId = null;
+        let bestEntry = null;
+        entries.forEach((entry) => {
+            if (!bestEntry) {
+                bestEntry = entry;
+                mvpHeroId = entry.heroId;
+                return;
+            }
+            if (entry.mvpScore > bestEntry.mvpScore) {
+                bestEntry = entry;
+                mvpHeroId = entry.heroId;
+                return;
+            }
+            if (entry.mvpScore === bestEntry.mvpScore && entry.damage > bestEntry.damage) {
+                bestEntry = entry;
+                mvpHeroId = entry.heroId;
+            }
+        });
+        return {
+            startedAt: this.battleStats?.startedAt || 0,
+            finishedAt: this.battleStats?.finishedAt || 0,
+            totals,
+            mvpHeroId,
+            entries: entries.map((entry) => ({
+                ...entry,
+                isMvp: entry.heroId === mvpHeroId
+            }))
+        };
+    }
+
+    finalizeBattleStats(result = this.result) {
+        if (!this.battleStats) {
+            this.battleStats = this.createEmptyBattleStats();
+        }
+        this.battleStats.finishedAt = Date.now();
+        const summary = this.getBattleStatsSummary();
+        if (result && typeof result === 'object') {
+            result.battleStats = summary;
+        }
+        return summary;
     }
 
     normalizeEnvironmentEffect(effect) {
@@ -78,10 +690,16 @@ class BattleManager {
             storm: 'storm_night',
             stormnight: 'storm_night',
             heavy_rain: 'storm_night',
-            lightning_rain: 'storm_night'
+            lightning_rain: 'storm_night',
+            ember: 'ash',
+            embers: 'ash',
+            cinder: 'ash',
+            cinders: 'ash',
+            ashes: 'ash',
+            black_ash: 'ash'
         };
         const normalized = aliases[type] || type;
-        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night'].includes(normalized) ? normalized : 'none';
+        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night', 'ash'].includes(normalized) ? normalized : 'none';
     }
 
     resolveSceneConfig(sceneId = 'standard_9x9', battlefield = null) {
@@ -348,10 +966,10 @@ class BattleManager {
 
     getSpecialTileDescription(type) {
         const descriptions = {
-            heal: '回合开始时,恢复已损失生命值的 5%。',
-            fire: '回合开始时,受到当前生命值 10% 的火焰伤害。',
-            swamp: '速度与移动距离 -30%,移动消耗增加。',
-            miasma: '防御力 -50%,在此格上更易受到伤害。'
+            heal: '回合开始时,按驻留回合恢复20%/15%/8%已损生命,久留后会转为反噬。',
+            fire: '回合开始时,受到当前生命值10%的火焰伤害,并积累燃势;离开后首攻消耗燃势增伤。',
+            swamp: '速度与移动距离-30%;从沼泽发起的首次攻击会附带减速。',
+            miasma: '防御力-50%,第15回合与第30回合各向外扩散一圈,之后停止扩散。'
         };
         return descriptions[type] || '';
     }
@@ -427,13 +1045,33 @@ class BattleManager {
     }
 
     findSpawnPosition(spawnConfig, occupiedKeys = new Set()) {
-        const configuredPositions = Array.isArray(spawnConfig?.positions) ? spawnConfig.positions : [];
-        for (const position of configuredPositions) {
-            if (this.isSpawnPositionAvailable(position, occupiedKeys)) {
+        const pickRandom = (positions) => positions.length
+            ? positions[Math.floor(Math.random() * positions.length)]
+            : null;
+        const configuredPositions = (Array.isArray(spawnConfig?.positions) ? spawnConfig.positions : [])
+            .map(position => this.normalizeSpawnPositionEntry(position, this.scene.width, this.scene.height))
+            .filter(Boolean);
+
+        for (let radius = 0; radius <= 3; radius++) {
+            const candidates = [];
+            configuredPositions.forEach((origin) => {
+                for (let y = origin.y - radius; y <= origin.y + radius; y++) {
+                    for (let x = origin.x - radius; x <= origin.x + radius; x++) {
+                        const position = { x, y };
+                        const distance = Math.abs(origin.x - x) + Math.abs(origin.y - y);
+                        if (distance <= radius && this.isSpawnPositionAvailable(position, occupiedKeys)) {
+                            candidates.push(position);
+                        }
+                    }
+                }
+            });
+            const position = pickRandom(candidates);
+            if (position) {
                 return position;
             }
         }
 
+        const rowCandidates = [];
         for (let rowOffset = 0; rowOffset < this.scene.height; rowOffset++) {
             const y = spawnConfig.startRow + rowOffset * spawnConfig.direction;
             if (y < 0 || y >= this.scene.height) {
@@ -442,21 +1080,25 @@ class BattleManager {
             for (let x = 0; x < this.scene.width; x++) {
                 const position = { x, y };
                 if (this.isSpawnPositionAvailable(position, occupiedKeys)) {
-                    return position;
+                    rowCandidates.push(position);
                 }
+            }
+            if (rowCandidates.length > 0) {
+                return pickRandom(rowCandidates);
             }
         }
 
+        const fallbackCandidates = [];
         for (let y = 0; y < this.scene.height; y++) {
             for (let x = 0; x < this.scene.width; x++) {
                 const position = { x, y };
                 if (this.isSpawnPositionAvailable(position, occupiedKeys)) {
-                    return position;
+                    fallbackCandidates.push(position);
                 }
             }
         }
 
-        return null;
+        return pickRandom(fallbackCandidates);
     }
 
     isSpawnPositionAvailable(position, occupiedKeys = new Set()) {
@@ -484,6 +1126,8 @@ class BattleManager {
                 : this.findSpawnPosition(spawnConfig, occupiedKeys);
             if (position) {
                 unit.setPosition(position);
+                this.getTerrainUnitState(unit);
+                this.handleTerrainPositionChange(unit, null, position);
                 occupiedKeys.add(`${position.x},${position.y}`);
             }
             unit.setBattleContext?.(this);
@@ -492,6 +1136,7 @@ class BattleManager {
                 this.enemies.push(unit);
             }
         });
+        this.invalidateBoardCache();
     }
 
 
@@ -518,6 +1163,23 @@ class BattleManager {
         return this.pendingBossWaves.filter(wave => !wave.isSpawned && wave.spawnOnClearBeforeRound);
     }
 
+    findBossWaveGuardian(wave) {
+        const key = String(wave?.guardianKey || '').trim();
+        if (!key) {
+            return null;
+        }
+        return this.enemies.find(unit => unit?.entryKey === key || unit?.key === key) || null;
+    }
+
+    resolveBossGuardianState(wave) {
+        const key = String(wave?.guardianKey || '').trim();
+        if (!key) {
+            return { key, unit: null, alive: false, enabled: false };
+        }
+        const unit = this.findBossWaveGuardian(wave);
+        return { key, unit, alive: Boolean(unit?.isAlive?.()), enabled: true };
+    }
+
     async playBossEntranceEffect(payload) {
         this.isBossEntrancePlaying = true;
         this.emitStateChange();
@@ -536,8 +1198,24 @@ class BattleManager {
             return false;
         }
 
-        const bosses = [];
+        const spawnableWaves = [];
         normalizedWaves.forEach((wave) => {
+            const guardian = this.resolveBossGuardianState(wave);
+            if (guardian.enabled && !guardian.alive) {
+                wave.isSpawned = true;
+                this.addLog('boss', `${guardian.key} 已倒下，${wave.id} 不再登场。`);
+                return;
+            }
+            spawnableWaves.push(wave);
+        });
+
+        if (spawnableWaves.length === 0) {
+            this.emitStateChange();
+            return true;
+        }
+
+        const bosses = [];
+        spawnableWaves.forEach((wave) => {
             wave.isSpawned = true;
             bosses.push(...(wave.bosses || []));
         });
@@ -552,8 +1230,16 @@ class BattleManager {
             duration: 2000,
             message: '领主登场!',
             reason,
-            waveIds: normalizedWaves.map(wave => wave.id),
+            waveIds: spawnableWaves.map(wave => wave.id),
             bosses
+        });
+        spawnableWaves.forEach((wave) => {
+            const guardian = this.resolveBossGuardianState(wave);
+            if (guardian.enabled && guardian.alive) {
+                guardian.unit.hp = 0;
+                this.processDefeatedUnit(guardian.unit, { bossGuardian: true });
+                this.addLog('boss', `${guardian.unit.name} 因领主登场而倒下。`);
+            }
         });
         this.placeSpawnedUnits(bosses, this.scene.enemySpawn, true);
         this.addLog('boss', `${bossNames} 登场了！`);
@@ -580,16 +1266,15 @@ class BattleManager {
         return false;
     }
 
-    addLog(type, message) {
-        this.battleLog.push({ round: this.currentRound, type, message, timestamp: Date.now() });
+    addLog() {
     }
 
     getBattleLog() {
-        return [...this.battleLog];
+        return [];
     }
 
-    getSnapshot() {
-        return {
+    getSnapshot(options = {}) {
+        const snapshot = {
             scene: this.scene,
             environmentEffect: this.environmentEffect,
             currentRound: this.currentRound,
@@ -605,30 +1290,115 @@ class BattleManager {
                 cells: (warning.cells || []).map(cell => ({ ...cell }))
             })),
             battleItemUsage: { ...this.battleItemUsage },
-            logs: this.getBattleLog()
         };
+        if (options.includeBattleStats === true) {
+            snapshot.battleStats = this.getBattleStatsSummary();
+        }
+        return snapshot;
     }
 
     emitStateChange() {
+        if (this.pendingStateChangeFrame) {
+            return;
+        }
+        const schedule = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame
+            : (callback) => setTimeout(callback, 0);
+        this.pendingStateChangeFrame = schedule(() => {
+            this.pendingStateChangeFrame = null;
+            eventManager.emit('battleStateChange', this.getSnapshot());
+        });
+    }
+
+    flushStateChange() {
+        if (!this.pendingStateChangeFrame) {
+            return;
+        }
+        if (typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this.pendingStateChangeFrame);
+        } else {
+            clearTimeout(this.pendingStateChangeFrame);
+        }
+        this.pendingStateChangeFrame = null;
         eventManager.emit('battleStateChange', this.getSnapshot());
+    }
+
+    cancelPendingStateChange() {
+        if (!this.pendingStateChangeFrame) {
+            return;
+        }
+        if (typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this.pendingStateChangeFrame);
+        } else {
+            clearTimeout(this.pendingStateChangeFrame);
+        }
+        this.pendingStateChangeFrame = null;
     }
 
     isInsideBoard(position) {
         return position.x >= 0 && position.y >= 0 && position.x < this.scene.width && position.y < this.scene.height;
     }
 
+    buildPositionMap(entries = [], valueFactory = item => item) {
+        const map = new Map();
+        entries.forEach((entry) => {
+            if (!entry || !Number.isFinite(Number(entry.x)) || !Number.isFinite(Number(entry.y))) {
+                return;
+            }
+            map.set(`${entry.x},${entry.y}`, valueFactory(entry));
+        });
+        return map;
+    }
+
+    getObstacleMap() {
+        const obstacles = this.scene?.obstacles || [];
+        const key = obstacles.map(obstacle => `${obstacle.x},${obstacle.y},${obstacle.id || obstacle.type || ''}`).join('|');
+        if (!this.boardCache.obstacleMap || this.boardCache.obstacleKey !== key) {
+            this.boardCache.obstacleMap = this.buildPositionMap(obstacles);
+            this.boardCache.obstacleKey = key;
+            this.boardCache.lineObstacle.clear();
+            this.boardCache.pathDistance.clear();
+        }
+        return this.boardCache.obstacleMap;
+    }
+
+    getSpecialTileMap() {
+        const tiles = this.scene?.specialTiles || [];
+        const key = tiles.map(tile => `${tile.x},${tile.y},${tile.id || tile.type || ''}`).join('|');
+        if (!this.boardCache.specialTileMap || this.boardCache.specialTileKey !== key) {
+            this.boardCache.specialTileMap = this.buildPositionMap(tiles);
+            this.boardCache.specialTileKey = key;
+        }
+        return this.boardCache.specialTileMap;
+    }
+
+    getUnitPositionMap() {
+        const units = this.getAllUnits().filter(unit => unit?.isAlive?.() && unit.isAlive() && unit.position);
+        const key = units.map(unit => `${unit.id}:${unit.position.x},${unit.position.y}`).join('|');
+        if (!this.boardCache.unitMap || this.boardCache.unitKey !== key) {
+            const map = new Map();
+            units.forEach(unit => {
+                map.set(this.getCellKey(unit.position), unit);
+            });
+            this.boardCache.unitMap = map;
+            this.boardCache.unitKey = key;
+            this.boardCache.pathDistance.clear();
+        }
+        return this.boardCache.unitMap;
+    }
+
     getObstacleAt(position) {
         if (!position) {
             return null;
         }
-        return (this.scene?.obstacles || []).find(obstacle => obstacle.x === position.x && obstacle.y === position.y) || null;
+        return this.getObstacleMap().get(this.getCellKey(position)) || null;
     }
 
     getSpecialTileAt(position) {
         if (!position) {
             return null;
         }
-        return (this.scene?.specialTiles || []).find(tile => tile.x === position.x && tile.y === position.y) || null;
+        return this.getSpecialTileMap().get(this.getCellKey(position)) || null;
     }
 
     isObstacleAt(position) {
@@ -636,7 +1406,11 @@ class BattleManager {
     }
 
     getUnitAt(position, ignoreUnitId = null) {
-        return this.getAllUnits().find(unit => unit.id !== ignoreUnitId && unit.isAlive() && unit.position.x === position.x && unit.position.y === position.y) || null;
+        if (!position) {
+            return null;
+        }
+        const unit = this.getUnitPositionMap().get(this.getCellKey(position)) || null;
+        return unit && unit.id !== ignoreUnitId ? unit : null;
     }
 
     isCellBlocked(position, ignoreUnitId = null) {
@@ -691,14 +1465,31 @@ class BattleManager {
         if (!tile) {
             return [];
         }
+        const terrainState = this.getTerrainUnitState(unit);
         if (tile.type === 'heal') {
-            const missingHp = Math.max(0, unit.maxHp - unit.hp);
-            const heal = Math.max(1, Math.floor(missingHp * 0.05));
-            return heal > 0 ? [{ type: 'heal', heal }] : [];
+            const nextStage = Math.max(1, Number(terrainState?.healStreak) || 0) + 1;
+            const stageConfig = this.getHealTileStageConfig(nextStage);
+            terrainState.healStreak = nextStage;
+            if (stageConfig.mode === 'heal') {
+                const missingHp = Math.max(0, unit.maxHp - unit.hp);
+                const heal = Math.max(0, Math.floor(missingHp * stageConfig.ratio));
+                return heal > 0
+                    ? [{ type: 'heal', heal, tileName: tile.name || '恢复地格', stage: nextStage }]
+                    : [];
+            }
+            const damage = Math.max(1, Math.floor(unit.hp * stageConfig.ratio));
+            return [{ type: 'damage', damage, tileName: tile.name || '恢复地格', stage: nextStage }];
         }
         if (tile.type === 'fire') {
+            terrainState.fireMomentumStacks = Math.min(5, Math.max(0, Number(terrainState.fireMomentumStacks) || 0) + 1);
             const damage = Math.max(1, Math.floor(unit.hp * 0.1));
-            return [{ type: 'damage', damage }];
+            return [{
+                type: 'damage',
+                damage,
+                tileName: tile.name || '火焰地格',
+                gainedFireMomentum: 1,
+                fireMomentumStacks: terrainState.fireMomentumStacks
+            }];
         }
         return [];
     }
@@ -735,6 +1526,18 @@ class BattleManager {
         return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
     }
 
+    distanceBetweenByMetric(a, b, metric = 'manhattan') {
+        if (!a || !b) {
+            return Infinity;
+        }
+        const dx = Math.abs(a.x - b.x);
+        const dy = Math.abs(a.y - b.y);
+        if (metric === 'chebyshev') {
+            return Math.max(dx, dy);
+        }
+        return dx + dy;
+    }
+
     getNeighborCells(position) {
         return [
             { x: position.x + 1, y: position.y },
@@ -751,7 +1554,15 @@ class BattleManager {
         if (start.x === target.x && start.y === target.y) {
             return 0;
         }
+        this.getObstacleMap();
+        this.getUnitPositionMap();
+        const actorKey = actor ? `${actor.id}:${actor.camp}` : '';
+        const cacheKey = `${actorKey};${start.x},${start.y};${target.x},${target.y};${this.boardCache.unitKey};${this.boardCache.obstacleKey}`;
+        if (this.boardCache.pathDistance.has(cacheKey)) {
+            return this.boardCache.pathDistance.get(cacheKey);
+        }
         if (this.isCellBlockedForMovement(target, actor, target)) {
+            this.boardCache.pathDistance.set(cacheKey, Infinity);
             return Infinity;
         }
 
@@ -768,6 +1579,7 @@ class BattleManager {
                 }
                 const nextSteps = current.steps + 1;
                 if (neighbor.x === target.x && neighbor.y === target.y) {
+                    this.boardCache.pathDistance.set(cacheKey, nextSteps);
                     return nextSteps;
                 }
                 visited.add(key);
@@ -775,11 +1587,16 @@ class BattleManager {
             }
         }
 
+        this.boardCache.pathDistance.set(cacheKey, Infinity);
         return Infinity;
     }
 
     getRawRangeCells(actor, range) {
         const normalizedRange = Math.max(0, Number(range) || 0);
+        const cacheKey = `actor:${actor?.position?.x ?? ''},${actor?.position?.y ?? ''}:${normalizedRange}:${this.scene.width}x${this.scene.height}`;
+        if (this.boardCache.rawRange.has(cacheKey)) {
+            return this.boardCache.rawRange.get(cacheKey);
+        }
         const cells = [];
         for (let x = 0; x < this.scene.width; x++) {
             for (let y = 0; y < this.scene.height; y++) {
@@ -790,6 +1607,30 @@ class BattleManager {
                 }
             }
         }
+        this.boardCache.rawRange.set(cacheKey, cells);
+        return cells;
+    }
+
+    getRawRangeCellsByMetric(origin, range, metric = 'manhattan') {
+        if (!origin || !this.isInsideBoard(origin)) {
+            return [];
+        }
+        const normalizedRange = Math.max(0, Number(range) || 0);
+        const cacheKey = `${origin.x},${origin.y}:${normalizedRange}:${metric}:${this.scene.width}x${this.scene.height}`;
+        if (this.boardCache.rawRange.has(cacheKey)) {
+            return this.boardCache.rawRange.get(cacheKey);
+        }
+        const cells = [];
+        for (let x = 0; x < this.scene.width; x++) {
+            for (let y = 0; y < this.scene.height; y++) {
+                const position = { x, y };
+                const distance = this.distanceBetweenByMetric(origin, position, metric);
+                if (distance > 0 && distance <= normalizedRange) {
+                    cells.push(position);
+                }
+            }
+        }
+        this.boardCache.rawRange.set(cacheKey, cells);
         return cells;
     }
 
@@ -820,7 +1661,41 @@ class BattleManager {
     }
 
     hasObstacleBetween(start, end) {
-        return this.getCellsOnLine(start, end).some(cell => this.isObstacleAt(cell));
+        this.getObstacleMap();
+        const cacheKey = `${start.x},${start.y};${end.x},${end.y};${this.boardCache.obstacleKey}`;
+        if (this.boardCache.lineObstacle.has(cacheKey)) {
+            return this.boardCache.lineObstacle.get(cacheKey);
+        }
+        const blocked = this.getCellsOnLine(start, end).some(cell => this.isObstacleAt(cell))
+            || this.hasObstacleBlockedDiagonalCorner(start, end);
+        this.boardCache.lineObstacle.set(cacheKey, blocked);
+        return blocked;
+    }
+
+    hasObstacleBlockedDiagonalCorner(start, end) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        if (dx === 0 || dy === 0) {
+            return false;
+        }
+        const steps = Math.max(Math.abs(dx), Math.abs(dy));
+        let previous = { x: start.x, y: start.y };
+
+        for (let step = 1; step <= steps; step++) {
+            const current = {
+                x: Math.round(start.x + dx * (step / steps)),
+                y: Math.round(start.y + dy * (step / steps))
+            };
+            const stepX = Math.sign(current.x - previous.x);
+            const stepY = Math.sign(current.y - previous.y);
+            if (stepX !== 0 && stepY !== 0
+                && this.isObstacleAt({ x: previous.x + stepX, y: previous.y })
+                && this.isObstacleAt({ x: previous.x, y: previous.y + stepY })) {
+                return true;
+            }
+            previous = current;
+        }
+        return false;
     }
 
     isCellTargetable(actor, position, range) {
@@ -829,6 +1704,21 @@ class BattleManager {
         }
         const normalizedRange = Math.max(0, Number(range) || 0);
         const distance = this.distanceBetween(actor.position, position);
+        if (distance <= 0 || distance > normalizedRange) {
+            return false;
+        }
+        if (this.isObstacleAt(position)) {
+            return false;
+        }
+        return !this.hasObstacleBetween(actor.position, position);
+    }
+
+    isCellTargetableByMetric(actor, position, range, metric = 'manhattan') {
+        if (!actor || !position || !this.isInsideBoard(position)) {
+            return false;
+        }
+        const normalizedRange = Math.max(0, Number(range) || 0);
+        const distance = this.distanceBetweenByMetric(actor.position, position, metric);
         if (distance <= 0 || distance > normalizedRange) {
             return false;
         }
@@ -1062,6 +1952,7 @@ class BattleManager {
         const ignoreUsable = options.ignoreUsable === true;
         const targetType = actor.getSkillTargetType?.(skillIndex) || 'enemy';
         const range = Number(actor.getSkillRange?.(skillIndex));
+        const rangeMetric = actor.getSkillState?.(skillIndex)?.rangeMetric || 'manhattan';
         if (!ignoreUsable && !this.canActorUseSkill(actor, skillIndex)) {
             return [];
         }
@@ -1071,7 +1962,7 @@ class BattleManager {
         const targetPool = targetType === 'ally'
             ? this.getAllies(actor)
             : this.getOpponents(actor);
-        return targetPool.filter(target => target.isAlive() && this.isCellTargetable(actor, target.position, range));
+        return targetPool.filter(target => target.isAlive() && this.isCellTargetableByMetric(actor, target.position, range, rangeMetric));
     }
 
     getPoYuBladeFlashContext(actor, skillIndex = 0) {
@@ -1109,6 +2000,7 @@ class BattleManager {
     getSkillRangeCells(actor, skillIndex = 0, options = {}) {
         const targetType = actor.getSkillTargetType?.(skillIndex) || 'enemy';
         const range = Number(actor.getSkillRange?.(skillIndex));
+        const rangeMetric = actor.getSkillState?.(skillIndex)?.rangeMetric || 'manhattan';
         if (targetType === 'self') {
             const bladeFlashContext = this.getPoYuBladeFlashContext(actor, skillIndex);
             if (bladeFlashContext) {
@@ -1123,12 +2015,12 @@ class BattleManager {
             return [{ x: actor.position.x, y: actor.position.y }];
         }
         if (options.previewRaw) {
-            return this.getRawRangeCells(actor, range);
+            return this.getRawRangeCellsByMetric(actor.position, range, rangeMetric);
         }
         if (!options.ignoreUsable && !this.canActorUseSkill(actor, skillIndex)) {
             return [];
         }
-        return this.getRawRangeCells(actor, range).filter(position => !this.hasObstacleBetween(actor.position, position));
+        return this.getRawRangeCellsByMetric(actor.position, range, rangeMetric).filter(position => !this.hasObstacleBetween(actor.position, position));
     }
 
     getSelectedSkillTargets(actor, primaryTarget, skillIndex = 0) {
@@ -1179,7 +2071,12 @@ class BattleManager {
     }
 
     getAttackRangeCells(actor) {
-        return this.getRawRangeCells(actor, actor.attackRange);
+        if (!actor?.position) {
+            return [];
+        }
+        return this.getRawRangeCells(actor, actor.attackRange).filter((position) => (
+            this.isPositionTargetable(actor.position, position, actor.attackRange)
+        ));
     }
 
     chooseRandomUnits(units = [], count = 1) {
@@ -1363,12 +2260,16 @@ class BattleManager {
                 return;
             }
 
+            const terrainAttackState = this.getTerrainAttackStatePreview(actor);
             const attackResult = actor.performConfiguredAttack(target, {
                 multiplier: Number(passiveEffect?.multiplier ?? 1) || 1,
                 canCrit: passiveEffect?.canCrit === true,
                 defensePenBonus: Math.max(0, Number(passiveEffect?.defensePenBonus ?? 0) || 0),
                 triggerName: passiveEffect?.name || '被动'
             });
+            this.applyTerrainAttackConsequences(actor, target, attackResult, attackResult.appliedEffects || [], terrainAttackState);
+            this.playAttackActionSfx(attackResult);
+            this.triggerHeroDamageVoice(actor, attackResult);
 
             let hpCost = 0;
             if (attackResult.hit && attackResult.damage > 0) {
@@ -1485,12 +2386,16 @@ class BattleManager {
                 return;
             }
 
+            const terrainAttackState = this.getTerrainAttackStatePreview(actor);
             const chainResult = actor.performConfiguredAttack(chainTarget, {
                 multiplier: currentMultiplier,
                 canCrit: passiveEffect?.canCrit === true,
                 defensePenBonus: Math.max(0, Number(passiveEffect?.defensePenBonus ?? 0) || 0),
                 triggerName: passiveEffect?.name || '被动'
             });
+            this.applyTerrainAttackConsequences(actor, chainTarget, chainResult, chainResult.appliedEffects || [], terrainAttackState);
+            this.playAttackActionSfx(chainResult);
+            this.triggerHeroDamageVoice(actor, chainResult);
 
             const multiplierText = `${Math.round(currentMultiplier * 100)}%`;
             if (!chainResult.hit) {
@@ -1521,6 +2426,59 @@ class BattleManager {
         });
     }
 
+    isHeroUnit(unit) {
+        return unit?.camp === 'hero' || unit?.type === 'hero';
+    }
+
+    triggerHeroVoice(unit, cue, options = {}) {
+        if (!this.isHeroUnit(unit) || !window.audioManager?.hasHeroVoiceCue?.(unit, cue)) {
+            return null;
+        }
+        const cooldownMs = Math.max(0, Number(options.cooldownMs ?? 900) || 0);
+        const key = `${unit.id || unit.configId || unit.name}:${cue}`;
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const lastPlayedAt = Number(this.heroVoiceLastPlayedAt?.[key]) || 0;
+        if (cooldownMs > 0 && now - lastPlayedAt < cooldownMs) {
+            return null;
+        }
+        this.heroVoiceLastPlayedAt[key] = now;
+        return window.audioManager.playHeroVoiceCue(unit, cue, options);
+    }
+
+    triggerHeroDamageVoice(actor, attackResult) {
+        if (!attackResult?.hit || Number(attackResult.damage) <= 0) {
+            return;
+        }
+        if (attackResult.isCritical) {
+            this.triggerHeroVoice(actor, 'critical', {
+                priority: 2,
+                cooldownMs: 1000
+            });
+        }
+    }
+
+    triggerHeroHealVoice(actor, actionTargets = []) {
+        const targets = Array.isArray(actionTargets) ? actionTargets : [actionTargets];
+        const hasActualHeal = targets.some(entry => Number(entry?.result?.heal) > 0);
+        if (!hasActualHeal) {
+            return;
+        }
+        this.triggerHeroVoice(actor, 'heal', {
+            priority: 2,
+            cooldownMs: 1000
+        });
+    }
+
+    playAttackActionSfx(attackResults) {
+        const results = Array.isArray(attackResults) ? attackResults : [attackResults];
+        const validResults = results.filter(result => result?.hit && Number(result.damage) > 0);
+        if (!validResults.length) {
+            return;
+        }
+        const hasCritical = validResults.some(result => result.isCritical);
+        window.audioManager?.playSFX?.(hasCritical ? 'battle_critical' : 'battle_attack', hasCritical ? 0.36 : 0.3);
+    }
+
     clearTauntsFromSource(sourceUnit) {
         if (!sourceUnit?.id) {
             return [];
@@ -1548,13 +2506,32 @@ class BattleManager {
         if (!unit || unit.isAlive()) {
             return false;
         }
+        this.invalidateBoardCache();
+        if (unit.id && this.processedDeathUnitIds?.has(unit.id)) {
+            return false;
+        }
+        if (unit.id) {
+            this.processedDeathUnitIds.add(unit.id);
+        }
+        if (unit.id && this.terrainRuntimeState?.unitStates) {
+            this.terrainRuntimeState.unitStates[unit.id] = this.createTerrainUnitState();
+        }
         this.addLog('death', `${unit.name} 倒下了！`);
         eventManager.emit('battleUnitDie', { unit });
+        this.triggerHeroVoice(unit, 'death', {
+            priority: 4,
+            cooldownMs: 0
+        });
         this.specialTileWarnings = this.specialTileWarnings.filter(warning => warning.sourceUnitId !== unit.id);
+        unit.removeStatusEffectsByType?.('warning_guard');
         this.clearTauntsFromSource(unit);
         if (context?.attacker?.isAlive?.() && context.attacker.isAlive()) {
+            this.triggerHeroVoice(context.attacker, 'kill', {
+                priority: 3,
+                cooldownMs: 800
+            });
             this.triggerKillPassives(context.attacker, unit, context);
-            this.grantExtraActionOnKill(context.attacker);
+            this.grantExtraActionOnKill(context.attacker, unit);
         }
         return true;
     }
@@ -1707,19 +2684,22 @@ class BattleManager {
         const stepDivisor = Math.max(1, Number(effect.stepDivisor) || 5);
         const attackPerStep = Number(effect.attackPerStep) || 0;
         const critPerStep = Number(effect.critPerStep) || 0;
+        const stepCount = Math.max(0, Math.floor(missingHpPercent / stepDivisor));
         return {
             effect,
             currentHpPercent,
             missingHpPercent,
-            attackBonus: (missingHpPercent / stepDivisor) * attackPerStep,
-            critBonus: (missingHpPercent / stepDivisor) * critPerStep,
+            stepCount,
+            attackBonus: stepCount * attackPerStep,
+            critBonus: stepCount * critPerStep,
             despairActive: currentHpPercent < (Number(effect.despairThresholdPercent) || 30)
         };
     }
 
     getAttackContextModifiers(attacker, target, config = {}) {
         const modifiers = {
-            defensePenBonus: 0
+            defensePenBonus: 0,
+            damageBonus: 0
         };
         if (!attacker?.isAlive?.() || !attacker.isAlive()) {
             return modifiers;
@@ -1730,7 +2710,112 @@ class BattleManager {
                 modifiers.defensePenBonus += Math.max(0, Number(instinct.effect?.despairDefensePenBonus) || 0);
             }
         }
+        (target?.getStatusEffects?.() || []).forEach((effect) => {
+            const bonus = Math.max(0, Number(effect?.alliedDefensePenBonus) || 0);
+            if (bonus <= 0) {
+                return;
+            }
+            if (effect.sourceOnly === true && effect.sourceUnitId && effect.sourceUnitId !== attacker.id) {
+                return;
+            }
+            if (effect.sourceUnitId) {
+                const sourceUnit = this.findUnitById(effect.sourceUnitId);
+                if (sourceUnit && sourceUnit.camp !== attacker.camp) {
+                    return;
+                }
+            }
+            modifiers.defensePenBonus += bonus;
+        });
+        const terrainState = this.getTerrainUnitState(attacker, false);
+        const tile = this.getSpecialTileAt(attacker.position);
+        const fireMomentumStacks = Math.max(0, Number(terrainState?.fireMomentumStacks) || 0);
+        if (fireMomentumStacks > 0 && tile?.type !== 'fire') {
+            modifiers.damageBonus += fireMomentumStacks * 0.1;
+            modifiers.fireMomentumStacks = fireMomentumStacks;
+        }
         return modifiers;
+    }
+
+    getTerrainAttackStatePreview(attacker) {
+        if (!attacker?.id) {
+            return {
+                tileType: '',
+                fireMomentumStacks: 0,
+                canConsumeFireMomentum: false,
+                swampAttackPrimed: false
+            };
+        }
+        const state = this.getTerrainUnitState(attacker, false);
+        const tile = this.getSpecialTileAt(attacker.position);
+        const tileType = tile?.type || '';
+        const fireMomentumStacks = Math.max(0, Number(state?.fireMomentumStacks) || 0);
+        return {
+            tileType,
+            fireMomentumStacks,
+            canConsumeFireMomentum: fireMomentumStacks > 0 && tileType !== 'fire',
+            swampAttackPrimed: Boolean(state?.swampAttackPrimed && tileType === 'swamp')
+        };
+    }
+
+    applyTerrainHitEffects(actor, targetUnit, attackResult = {}, terrainAttackState = null) {
+        const preview = terrainAttackState || this.getTerrainAttackStatePreview(actor);
+        if (!preview.swampAttackPrimed || !attackResult?.hit || !targetUnit?.isAlive?.() || !targetUnit.isAlive()) {
+            return [];
+        }
+        return targetUnit.applyStatusEffects([{
+            type: 'slow',
+            name: '泥沼牵制',
+            value: -0.25,
+            durationTurns: 1,
+            modifierType: 'percent',
+            effectType: 'stat_modifier',
+            countsAsDebuff: true
+        }], actor);
+    }
+
+    finalizeTerrainAttackAction(actor, terrainAttackState = null) {
+        if (!actor?.id) {
+            return { consumedFireMomentum: 0, consumedSwampPrime: false };
+        }
+        const preview = terrainAttackState || this.getTerrainAttackStatePreview(actor);
+        const state = this.getTerrainUnitState(actor, false);
+        if (!state) {
+            return { consumedFireMomentum: 0, consumedSwampPrime: false };
+        }
+        const consumedFireMomentum = preview.canConsumeFireMomentum ? Math.max(0, Number(state.fireMomentumStacks) || 0) : 0;
+        if (consumedFireMomentum > 0) {
+            state.fireMomentumStacks = 0;
+        }
+        const consumedSwampPrime = Boolean(preview.swampAttackPrimed);
+        if (consumedSwampPrime) {
+            state.swampAttackPrimed = false;
+        }
+        return {
+            consumedFireMomentum,
+            consumedSwampPrime
+        };
+    }
+
+    applyTerrainAttackConsequences(actor, targetUnit, attackResult = {}, appliedEffects = [], terrainAttackState = null) {
+        const combinedEffects = Array.isArray(appliedEffects) ? [...appliedEffects] : [];
+        const preview = terrainAttackState || this.getTerrainAttackStatePreview(actor);
+        const terrainAppliedEffects = attackResult?.hit
+            ? this.applyTerrainHitEffects(actor, targetUnit, attackResult, preview)
+            : [];
+        if (terrainAppliedEffects.length > 0) {
+            combinedEffects.push(...terrainAppliedEffects);
+        }
+        const terrainFinalization = this.finalizeTerrainAttackAction(actor, preview);
+        attackResult.appliedEffects = combinedEffects;
+        attackResult.terrainAppliedEffects = terrainAppliedEffects;
+        attackResult.consumedFireMomentum = terrainFinalization.consumedFireMomentum;
+        attackResult.consumedSwampPrime = terrainFinalization.consumedSwampPrime;
+        attackResult.fireMomentumDamageBonus = terrainFinalization.consumedFireMomentum * 0.1;
+        return {
+            appliedEffects: combinedEffects,
+            terrainAppliedEffects,
+            terrainFinalization
+        };
     }
 
     tryPreventFatalDamage(unit, damage, attacker = null) {
@@ -1856,6 +2941,9 @@ class BattleManager {
             const healRatio = Utils.clamp(Number(interceptEffect.healRatio) || 0.3, 0.05, 1);
             const healAmount = Math.max(1, Math.floor(unit.maxHp * healRatio));
             unit.hp = healAmount;
+            const appliedEffects = Array.isArray(interceptEffect.allyStatusEffects) && interceptEffect.allyStatusEffects.length > 0
+                ? unit.applyStatusEffects(interceptEffect.allyStatusEffects, ally)
+                : [];
             this.addLog('control', `${ally.name} 触发 ${interceptEffect.name || '复燃'}，将 ${unit.name} 从致命伤害中救回，恢复 ${healAmount} 点生命`);
             eventManager.emit('battleUnitAction', {
                 attacker: ally,
@@ -1865,7 +2953,8 @@ class BattleManager {
                 result: {
                     hit: true,
                     heal: healAmount,
-                    statusName: interceptEffect.name || '复燃'
+                    statusName: interceptEffect.name || '复燃',
+                    appliedEffects
                 }
             });
             return true;
@@ -1929,7 +3018,7 @@ class BattleManager {
         if (!unit?.isAlive?.() || !unit.isAlive()) {
             return null;
         }
-        const effect = unit.getPassiveEffects?.('extra_action_on_kill').find(eff =>
+        const effect = unit.getPassiveEffects?.().find(eff =>
             eff?.type === 'extra_action_on_kill'
         );
         if (!effect) {
@@ -1945,9 +3034,13 @@ class BattleManager {
         };
     }
 
-    grantExtraActionOnKill(unit) {
+    grantExtraActionOnKill(unit, defeatedUnit = null) {
         const state = this.getExtraActionOnKillState(unit);
         if (!state) {
+            return false;
+        }
+        const requiredStatusType = state.effect?.requiredTargetStatusType || (unit.configId === 'hero_030' ? 'break_armor' : null);
+        if (requiredStatusType && !defeatedUnit?.hasStatus?.(requiredStatusType)) {
             return false;
         }
         if (state.usedThisTurn >= state.maxPerTurn) {
@@ -1965,6 +3058,133 @@ class BattleManager {
         unit.passiveState.extraActionPending = false;
     }
 
+    getFocusedStationaryEffect(unit) {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return null;
+        }
+        const attackEffects = unit.getBasicAttackEffects?.('hit') || [];
+        return attackEffects.find(effect => effect?.damageBonusType === 'focused_stationary') || null;
+    }
+
+    getFocusedAimStatusEffect(unit, effect = null) {
+        const focusedEffect = effect || this.getFocusedStationaryEffect(unit);
+        if (!focusedEffect) {
+            return null;
+        }
+        return {
+            type: 'focused_aim',
+            name: focusedEffect.statusName || '瞄准就绪',
+            effectType: 'stat_modifier',
+            stat: 'attack',
+            value: 0,
+            modifierType: 'percent',
+            damageBonus: Math.max(0, Number(focusedEffect.damageBonus) || 0),
+            extraCritChance: Math.max(0, Number(focusedEffect.extraCritChance) || 0),
+            durationTurns: 1,
+            remainingTurns: 1,
+            countsAsDebuff: false,
+            stackMode: 'replace',
+            skipNextTurnEndDecay: true
+        };
+    }
+
+    refreshFocusedStationaryState(unit) {
+        if (!unit) {
+            return false;
+        }
+        const focusedEffect = this.getFocusedStationaryEffect(unit);
+        unit.passiveState = unit.passiveState || {};
+        if (!focusedEffect) {
+            unit.removeStatusEffectsByType?.('focused_aim');
+            return false;
+        }
+        const requiredIdleTurns = Math.max(1, Number(focusedEffect.requiredIdleTurns) || 1);
+        const streak = Math.max(0, Number(unit.passiveState.stationaryTurnStreak) || 0);
+        if (streak >= requiredIdleTurns) {
+            unit.applyStatusEffects?.([this.getFocusedAimStatusEffect(unit, focusedEffect)], unit);
+            return true;
+        }
+        unit.removeStatusEffectsByType?.('focused_aim');
+        return false;
+    }
+
+    updateFocusedStationaryTurnStart(unit) {
+        if (!unit) {
+            return false;
+        }
+        unit.passiveState = unit.passiveState || {};
+        const movedLastOwnTurn = unit.passiveState.movedThisTurn === true;
+        const previousStreak = Math.max(0, Number(unit.passiveState.stationaryTurnStreak) || 0);
+        unit.passiveState.stationaryTurnStreak = movedLastOwnTurn ? 0 : (previousStreak + 1);
+        unit.passiveState.movedThisTurn = false;
+        return this.refreshFocusedStationaryState(unit);
+    }
+
+    clearFocusedStationaryState(unit) {
+        if (!unit) {
+            return;
+        }
+        unit.passiveState = unit.passiveState || {};
+        unit.passiveState.movedThisTurn = true;
+        unit.passiveState.stationaryTurnStreak = 0;
+        unit.removeStatusEffectsByType?.('focused_aim');
+    }
+
+    buildBasicAttackConfig(actor, action = {}) {
+        const config = {};
+        const focusedEffect = this.getFocusedStationaryEffect(actor);
+        if (focusedEffect && actor?.hasStatus?.('focused_aim')) {
+            config.damageBonus = Number(focusedEffect.damageBonus) || 0;
+            config.extraCritChance = Number(focusedEffect.extraCritChance) || 0;
+            config.triggerName = focusedEffect.name || '冷凝瞄准';
+        }
+        if (action?._critGuaranteed === true) {
+            config.critGuaranteed = true;
+        }
+        return config;
+    }
+
+    applyReflectLifesteal(unit, damage, triggerName = '反击') {
+        if (!unit?.isAlive?.() || !unit.isAlive()) {
+            return 0;
+        }
+        const effect = unit.getPassiveEffects?.().find(eff =>
+            eff?.type === 'reflect_lifesteal' && Number(eff?.lifestealRatio) > 0
+        );
+        if (!effect) {
+            return 0;
+        }
+        const hpThreshold = Math.max(0, Number(effect.hpThresholdPercent) || 0);
+        if (hpThreshold > 0) {
+            const hpPercent = (unit.hp / Math.max(1, unit.maxHp)) * 100;
+            if (hpPercent >= hpThreshold) {
+                return 0;
+            }
+        }
+        const healAmount = Math.max(0, Math.floor(Math.max(0, Number(damage) || 0) * Number(effect.lifestealRatio)));
+        if (healAmount <= 0) {
+            return 0;
+        }
+        const actualHeal = unit.heal(healAmount);
+        if (actualHeal <= 0) {
+            return 0;
+        }
+        this.addLog('heal', `${unit.name} 触发 ${effect.name || '不灭熔炉'}，因${triggerName}恢复 ${actualHeal} 点生命`);
+        eventManager.emit('battleUnitAction', {
+            attacker: unit,
+            target: unit,
+            damage: 0,
+            actionType: 'status',
+            result: {
+                hit: true,
+                heal: actualHeal,
+                statusName: effect.name || '不灭熔炉',
+                triggerName
+            }
+        });
+        return actualHeal;
+    }
+
     handleCounterAttack(unit, sourceUnit) {
         if (!unit?.isAlive?.() || !unit.isAlive() || !sourceUnit?.isAlive?.() || !sourceUnit.isAlive()) {
             return null;
@@ -1979,24 +3199,22 @@ class BattleManager {
         if (Math.random() > chance) {
             return null;
         }
-        unit.passiveState = unit.passiveState || {};
-        const maxPerRound = Math.max(1, Number(counterEffect.maxPerRound) || 1);
-        const counterCount = Number(unit.passiveState.counterAttacksThisRound) || 0;
-        if (counterCount >= maxPerRound) {
-            return null;
-        }
         const distance = unit.distanceTo(sourceUnit);
         if (distance > unit.attackRange) {
             return null;
         }
-        unit.passiveState.counterAttacksThisRound = counterCount + 1;
         const multiplier = Number(counterEffect.multiplier) || 1;
+        const terrainAttackState = this.getTerrainAttackStatePreview(unit);
         const counterResult = unit.performConfiguredAttack(sourceUnit, {
             multiplier,
             canCrit: counterEffect.canCrit !== false,
             defensePenBonus: Math.max(0, Number(counterEffect.defensePenBonus) || 0),
+            maxDamageAttackRatio: Math.max(0, Number(counterEffect.maxDamageAttackRatio) || 0),
             triggerName: counterEffect.name || '反击'
         });
+        this.applyTerrainAttackConsequences(unit, sourceUnit, counterResult, counterResult.appliedEffects || [], terrainAttackState);
+        this.playAttackActionSfx(counterResult);
+        this.triggerHeroDamageVoice(unit, counterResult);
         if (counterResult.hit && counterResult.damage > 0) {
             this.addLog('damage', `${unit.name} 触发 ${counterEffect.name || '怒锤反击'}，对 ${sourceUnit.name} 造成 ${counterResult.damage} 点伤害`);
         } else {
@@ -2009,6 +3227,9 @@ class BattleManager {
             actionType: 'attack',
             result: counterResult
         });
+        if (counterResult.hit && counterResult.damage > 0) {
+            this.applyReflectLifesteal(unit, counterResult.damage, counterEffect.name || '反击');
+        }
         if (!sourceUnit.isAlive()) {
             this.processDefeatedUnit(sourceUnit, {
                 attacker: unit,
@@ -2060,11 +3281,20 @@ class BattleManager {
                 reflectiveDamage: reflectResult
             }
         });
+        if (reflectResult > 0) {
+            this.applyReflectLifesteal(unit, reflectResult, reflectEffect.name || '反弹');
+        }
+        if (!sourceUnit.isAlive()) {
+            this.processDefeatedUnit(sourceUnit, {
+                attacker: unit,
+                reason: 'damage_reflect'
+            });
+        }
         return { reflectResult, reflectEffect };
     }
 
     handlePostDamageEffects(target, sourceUnit, damageResult) {
-        if (!target?.isAlive?.() || !sourceUnit?.isAlive?.()) {
+        if (!target?.isAlive || !sourceUnit?.isAlive?.()) {
             return;
         }
         const damage = Number(damageResult?.damage) || 0;
@@ -2077,7 +3307,6 @@ class BattleManager {
                 attacker: sourceUnit,
                 reason: damageResult?.useSkill ? 'skill' : 'attack'
             });
-            this.grantExtraActionOnKill(sourceUnit);
         }
     }
 
@@ -2317,14 +3546,32 @@ class BattleManager {
         })).filter(plan => plan.attackPositions.length > 0);
         const hpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
         const hasHealTile = (this.scene?.specialTiles || []).some(tile => tile?.type === 'heal');
-        const stayScore = this.evaluateMoveCell(actor, actor.position, opponents, hpRatio, hasHealTile, opponentPlans);
+        const aggressiveContext = this.getAggressiveAdvanceContext(actor, opponents, opponentPlans, hpRatio);
+        const stayEvaluation = this.evaluateMoveCell(actor, actor.position, opponents, hpRatio, hasHealTile, opponentPlans, aggressiveContext);
 
         const scored = reachableCells.map(cell => ({
             cell,
-            score: this.evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile, opponentPlans)
+            ...this.evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile, opponentPlans, aggressiveContext)
         }));
 
-        scored.sort((a, b) => {
+        const best = this.sortMoveEvaluations(scored)[0];
+        if (!best) {
+            return null;
+        }
+        if (actor.camp === 'enemy') {
+            const forcedAdvance = this.shouldEnemyForceAdvance(actor, best, stayEvaluation.score, aggressiveContext);
+            if (forcedAdvance) {
+                return best.cell;
+            }
+        }
+        if (best.score <= stayEvaluation.score) {
+            return null;
+        }
+        return best.cell;
+    }
+
+    sortMoveEvaluations(entries = []) {
+        return [...entries].sort((a, b) => {
             if (b.score !== a.score) {
                 return b.score - a.score;
             }
@@ -2333,29 +3580,148 @@ class BattleManager {
             }
             return a.cell.x - b.cell.x;
         });
-        const best = scored[0];
-        if (!best || best.score <= stayScore) {
-            return null;
-        }
-        return best.cell;
     }
 
-    evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile = false, opponentPlans = null) {
+    chooseUrgentTerrainEscapeMove(actor) {
+        if (!actor?.position || !this.isHealTileBacklashPosition(actor, actor.position)) {
+            return null;
+        }
+        const reachableCells = this.getReachableCells(actor);
+        if (reachableCells.length === 0) {
+            return null;
+        }
+        const opponents = this.getOpponents(actor);
+        const opponentPlans = opponents.map(target => ({
+            target,
+            attackPositions: this.getAttackPositionsNearTarget(actor, target)
+        })).filter(plan => plan.attackPositions.length > 0);
+        const hpRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
+        const hasHealTile = (this.scene?.specialTiles || []).some(tile => tile?.type === 'heal');
+        const aggressiveContext = this.getAggressiveAdvanceContext(actor, opponents, opponentPlans, hpRatio);
+        const stayEvaluation = this.evaluateMoveCell(actor, actor.position, opponents, hpRatio, hasHealTile, opponentPlans, aggressiveContext);
+        const scored = this.sortMoveEvaluations(
+            reachableCells
+                .map(cell => ({
+                    cell,
+                    ...this.evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile, opponentPlans, aggressiveContext)
+                }))
+                .filter(entry => !this.isHealTileBacklashPosition(actor, entry.cell))
+        );
+        if (scored.length === 0) {
+            return null;
+        }
+        const safeCandidates = scored.filter(entry => this.getSpecialTileAt(entry.cell)?.type !== 'fire');
+        if (safeCandidates.length > 0) {
+            return safeCandidates[0].cell;
+        }
+        const best = scored[0];
+        return best && best.score > stayEvaluation.score + 10 ? best.cell : null;
+    }
+
+    getAggressiveAdvanceContext(actor, opponents = [], opponentPlans = [], hpRatio = 1) {
+        const plans = Array.isArray(opponentPlans) ? opponentPlans : [];
+        const nearestOpponentDistance = Array.isArray(opponents) && opponents.length > 0
+            ? Math.min(...opponents.map(target => this.distanceBetween(actor.position, target.position)))
+            : Infinity;
+        const nearestAttackPath = plans.length > 0
+            ? Math.min(...plans.map(plan => this.getNearestPathDistanceToCells(actor.position, plan.attackPositions, actor)))
+            : Infinity;
+        const engagedAllies = this.getAllies(actor).filter(ally => (
+            ally?.id !== actor?.id
+            && this.getOpponents(actor).some(target => this.isCellTargetable(ally, target.position, ally.attackRange))
+        ));
+        return {
+            actorCamp: actor?.camp || 'enemy',
+            isEnemy: actor?.camp === 'enemy',
+            hpRatio,
+            nearestOpponentDistance,
+            nearestAttackPath,
+            engagedAllyCount: engagedAllies.length
+        };
+    }
+
+    shouldEnemyForceAdvance(actor, bestMove, stayScore, aggressiveContext = {}) {
+        if (actor?.camp !== 'enemy' || !bestMove?.cell) {
+            return false;
+        }
+        const hpRatio = Math.max(0, Number(aggressiveContext?.hpRatio ?? (actor.maxHp > 0 ? actor.hp / actor.maxHp : 1)) || 0);
+        if (hpRatio <= 0.18) {
+            return false;
+        }
+        const scoreGap = Number(bestMove.score) - Number(stayScore);
+        const tile = this.getSpecialTileAt(bestMove.cell);
+        const dangerousTile = tile?.type === 'fire';
+        if (dangerousTile && hpRatio < 0.55) {
+            return false;
+        }
+        const progressToAttack = Math.max(0, Number(aggressiveContext?.nearestAttackPath) || 0)
+            - Math.max(0, Number(bestMove.meta?.nearestAttackPath) || 0);
+        const progressToTarget = Math.max(0, Number(aggressiveContext?.nearestOpponentDistance) || 0)
+            - Math.max(0, Number(bestMove.meta?.nearestOpponentDistance) || 0);
+        if (bestMove.meta?.canAttack) {
+            return true;
+        }
+        if (progressToAttack >= 1 && scoreGap >= -14) {
+            return true;
+        }
+        if (progressToTarget >= 1 && Number(aggressiveContext?.engagedAllyCount) > 0 && scoreGap >= -10) {
+            return true;
+        }
+        return false;
+    }
+
+    evaluateMoveCell(actor, cell, opponents, hpRatio, hasHealTile = false, opponentPlans = null, aggressiveContext = null) {
         let score = 0;
         const tile = this.getSpecialTileAt(cell);
+        const terrainState = this.getTerrainUnitState(actor, false);
+        const isEnemy = actor?.camp === 'enemy';
+        const currentHealBacklash = this.isHealTileBacklashPosition(actor, actor?.position);
         if (tile) {
             if (tile.type === 'heal') {
                 const missing = 1 - hpRatio;
-                score += 8 + missing * 70;
+                const projectedOutcome = this.getProjectedHealTileOutcome(actor, cell);
+                const projectedStage = Math.max(1, Number(projectedOutcome?.stage) || 1);
+                const stageConfig = projectedOutcome || this.getHealTileStageConfig(projectedStage || 1);
+                if (stageConfig.mode === 'heal') {
+                    const stageWeight = projectedStage <= 1 ? 10 : (projectedStage === 2 ? 5 : 1);
+                    score += stageWeight + missing * (projectedStage <= 1 ? 66 : (projectedStage === 2 ? 38 : 18));
+                } else {
+                    const backlashPenalty = projectedStage === 4
+                        ? (42 + hpRatio * 18)
+                        : (68 + hpRatio * 26);
+                    score -= backlashPenalty;
+                }
             } else if (tile.type === 'fire') {
-                score -= 32;
+                const currentStacks = Math.max(0, Number(terrainState?.fireMomentumStacks) || 0);
+                score -= 12 + hpRatio * 8;
+                if (currentStacks < 5) {
+                    score += 6 - currentStacks;
+                }
             } else if (tile.type === 'swamp') {
-                score -= 14;
+                score -= isEnemy ? 4 : 7;
             } else if (tile.type === 'miasma') {
-                score -= 20;
+                score -= isEnemy ? 8 : 26;
+            }
+        }
+        if (currentHealBacklash) {
+            if (!tile) {
+                score += 28;
+            } else if (tile.type === 'heal') {
+                if (this.isHealTileBacklashPosition(actor, cell)) {
+                    score -= 32;
+                }
+            } else if (tile.type === 'fire') {
+                score += 4;
+            } else {
+                score += 20;
             }
         }
 
+        let moveMeta = {
+            canAttack: false,
+            nearestAttackPath: Infinity,
+            nearestOpponentDistance: Infinity
+        };
         if (opponents && opponents.length > 0) {
             const plans = Array.isArray(opponentPlans) && opponentPlans.length > 0
                 ? opponentPlans
@@ -2377,16 +3743,50 @@ class BattleManager {
             if (minDist === Infinity) {
                 minDist = Math.min(...opponents.map(target => this.distanceBetween(cell, target.position)));
             }
+            moveMeta = {
+                canAttack,
+                nearestAttackPath: minDist,
+                nearestOpponentDistance: Math.min(...opponents.map(target => this.distanceBetween(cell, target.position)))
+            };
             if (canAttack) {
-                score += 16;
+                score += isEnemy ? 34 : 16;
+                if (tile?.type === 'swamp' && !terrainState?.swampAttackPrimed) {
+                    score += 6;
+                }
             }
-            if (hpRatio < 0.4 && hasHealTile) {
+            if (!isEnemy && hpRatio < 0.4 && hasHealTile) {
                 score += minDist * 1.4;
             } else {
-                score -= minDist * 1.1;
+                score -= minDist * (isEnemy ? 1.8 : 1.1);
+            }
+            if (isEnemy) {
+                const context = aggressiveContext || this.getAggressiveAdvanceContext(actor, opponents, plans, hpRatio);
+                const currentAttackPath = Number(context?.nearestAttackPath);
+                const currentOpponentDistance = Number(context?.nearestOpponentDistance);
+                if (Number.isFinite(currentAttackPath) && Number.isFinite(minDist)) {
+                    const attackProgress = currentAttackPath - minDist;
+                    score += Math.max(0, attackProgress) * 12;
+                }
+                if (Number.isFinite(currentOpponentDistance) && Number.isFinite(moveMeta.nearestOpponentDistance)) {
+                    const distanceProgress = currentOpponentDistance - moveMeta.nearestOpponentDistance;
+                    score += Math.max(0, distanceProgress) * 8;
+                }
+                if (Number(context?.engagedAllyCount) > 0 && moveMeta.nearestOpponentDistance <= Math.max(2, attackRange + 1)) {
+                    score += 12 + Number(context.engagedAllyCount) * 4;
+                }
+                if (tile?.type === 'miasma') {
+                    if (canAttack) {
+                        score += 18;
+                    } else if (moveMeta.nearestAttackPath <= 1) {
+                        score += 10;
+                    }
+                }
             }
         }
-        return score;
+        return {
+            score,
+            meta: moveMeta
+        };
     }
 
     chooseTarget(actor) {
@@ -2395,6 +3795,18 @@ class BattleManager {
             return null;
         }
         return [...targets].sort((a, b) => {
+            const killA = a.hp <= Math.max(1, actor.getEffectiveAttack?.() || actor._attack || 1) ? 0 : 1;
+            const killB = b.hp <= Math.max(1, actor.getEffectiveAttack?.() || actor._attack || 1) ? 0 : 1;
+            if (killA !== killB) {
+                return killA - killB;
+            }
+            if (actor.camp === 'enemy') {
+                const supportA = (a.profession === 'psionic') ? 0 : 1;
+                const supportB = (b.profession === 'psionic') ? 0 : 1;
+                if (supportA !== supportB) {
+                    return supportA - supportB;
+                }
+            }
             const badA = this.isUnitOnNegativeTile(a) ? 0 : 1;
             const badB = this.isUnitOnNegativeTile(b) ? 0 : 1;
             if (badA !== badB) {
@@ -2411,6 +3823,9 @@ class BattleManager {
         const tile = this.getSpecialTileAt(unit?.position);
         if (!tile) {
             return false;
+        }
+        if (tile.type === 'heal') {
+            return this.isHealTileBacklashPosition(unit, unit?.position);
         }
         return tile.type === 'fire' || tile.type === 'swamp' || tile.type === 'miasma';
     }
@@ -2605,6 +4020,11 @@ class BattleManager {
             return { type: 'item', itemId: healItems[0].id, targetId: actor.id };
         }
 
+        const urgentTerrainEscapeMove = this.chooseUrgentTerrainEscapeMove(actor);
+        if (urgentTerrainEscapeMove) {
+            return { type: 'move', position: urgentTerrainEscapeMove };
+        }
+
         const skillAction = this.chooseSkillAction(actor);
         if (skillAction) {
             return skillAction;
@@ -2650,6 +4070,7 @@ class BattleManager {
     }
 
     async waitForActionPresentation() {
+        this.flushStateChange();
         const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
         const startedAt = now();
         if (window.battleView && typeof window.battleView.waitForActionQueueIdle === 'function') {
@@ -2661,6 +4082,9 @@ class BattleManager {
             await (typeof Utils !== 'undefined' && Utils.delay
                 ? Utils.delay(minDelay - elapsed)
                 : new Promise(resolve => setTimeout(resolve, minDelay - elapsed)));
+        }
+        if (window.battleView && typeof window.battleView.waitForBattleOverlayRelease === 'function') {
+            await window.battleView.waitForBattleOverlayRelease();
         }
     }
 
@@ -2694,46 +4118,116 @@ class BattleManager {
         return this.getAllUnits().find(unit => unit.id === unitId) || null;
     }
 
+    getStatusPassiveAdjustmentText(effect = {}) {
+        const passiveName = String(effect?.reducedByPassiveName || '').trim();
+        if (!passiveName) {
+            return '';
+        }
+        if (effect?.convertedFromType) {
+            return `，${passiveName}降级`;
+        }
+        const reducedTurns = Math.max(0, Number(effect?.durationReducedByPassive) || 0);
+        if (reducedTurns > 0) {
+            return `，${passiveName}-${reducedTurns}回合`;
+        }
+        return '';
+    }
+
     formatStatusDescription(effect = {}) {
         const name = effect.name || '状态';
         const duration = Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
+        const passiveAdjustmentText = this.getStatusPassiveAdjustmentText(effect);
         switch (effect.type) {
             case 'slow':
-                return `${name}${Math.round(Math.abs((Number(effect.value) || 0) * 100))}%（持续${duration}回合）`;
+                return `${name}${Math.round(Math.abs((Number(effect.value) || 0) * 100))}%（持续${duration}回合${passiveAdjustmentText}）`;
             case 'stun':
-                return `${name}（持续${duration}回合）`;
+                return `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             case 'charm':
                 return effect.sourceName
-                    ? `${name}（来源：${effect.sourceName}，持续${duration}回合）`
-                    : `${name}（持续${duration}回合）`;
+                    ? `${name}（来源：${effect.sourceName}，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             case 'silence':
-                return `${name}（持续${duration}回合）`;
+                return `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             case 'taunt':
                 return effect.sourceName
-                    ? `${name}（来源：${effect.sourceName}，持续${duration}回合）`
-                    : `${name}（持续${duration}回合）`;
+                    ? `${name}（来源：${effect.sourceName}，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             case 'haze_mark': {
                 const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
                 return bonus > 0
-                    ? `${name}（易伤${bonus}%，持续${duration}回合）`
-                    : `${name}（持续${duration}回合）`;
+                    ? `${name}（易伤${bonus}%，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
+            }
+            case 'crack': {
+                const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
+                return bonus > 0
+                    ? `${name}（受伤提高${bonus}%，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
+            }
+            case 'break_formation': {
+                const pen = Math.round((Number(effect.alliedDefensePenBonus) || 0));
+                return pen > 0
+                    ? `${name}（友军无视防御${pen}%，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
+            }
+            case 'break_wound': {
+                const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
+                return bonus > 0
+                    ? `${name}（受伤提高${bonus}%，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             }
             case 'black_wall': {
                 const defenseBonus = Math.round((Number(effect.value) || 0) * 100);
                 const reduction = Math.round((Number(effect.damageReduction) || 0) * 1000) / 10;
                 const reductionText = reduction > 0 ? `，减伤${reduction}%` : '';
-                return `${name}（防御+${defenseBonus}%${reductionText}，持续${duration}回合）`;
+                return `${name}（防御+${defenseBonus}%${reductionText}，持续${duration}回合${passiveAdjustmentText}）`;
             }
             case 'battle_guard': {
                 const reduction = Math.round((Number(effect.damageReduction) || 0) * 100);
                 return reduction > 0
-                    ? `${name}（减伤${reduction}%，持续${duration}回合）`
-                    : `${name}（持续${duration}回合）`;
+                    ? `${name}（减伤${reduction}%，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
+            }
+            case 'warning_guard': {
+                const reduction = Math.round((Number(effect.damageReduction) || 0) * 100);
+                const details = [];
+                if (reduction > 0) {
+                    details.push(`减伤${reduction}%`);
+                }
+                if (effect.immuneStun) {
+                    details.push('免疫眩晕');
+                }
+                if (effect.immuneDisplace) {
+                    details.push('免疫击退/拉拽');
+                }
+                return details.length > 0
+                    ? `${name}（${details.join('，')}，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
+            }
+            case 'focused_aim': {
+                const bonus = Math.round((Number(effect.damageBonus) || 0) * 100);
+                const crit = Math.round((Number(effect.extraCritChance) || 0));
+                const details = [];
+                if (bonus > 0) {
+                    details.push(`普攻增伤${bonus}%`);
+                }
+                if (crit > 0) {
+                    details.push(`暴击率+${crit}%`);
+                }
+                return details.length > 0
+                    ? `${name}（${details.join('，')}，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
+            }
+            case 'break_armor': {
+                const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
+                return bonus > 0
+                    ? `${name}（受伤提高${bonus}%，持续${duration}回合${passiveAdjustmentText}）`
+                    : `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             }
             case 'bleed':
-                return `${name}（持续${duration}回合）`;
+                return `${name}（持续${duration}回合${passiveAdjustmentText}）`;
             case 'burn':
-                return `${name}（持续${duration}回合，可叠加）`;
+                return `${name}（持续${duration}回合，可叠加${passiveAdjustmentText}）`;
             default:
                 if ((effect.modifierType === 'percent' || effect.modifierType === 'flat') && Number.isFinite(Number(effect.value))) {
                     const statNameMap = {
@@ -2747,9 +4241,9 @@ class BattleManager {
                         : Math.round(Math.abs(Number(effect.value) || 0) * 100);
                     const suffix = effect.modifierType === 'flat' ? '' : '%';
                     const sign = (Number(effect.value) || 0) >= 0 ? '+' : '-';
-                    return `${name}（${statName}${sign}${value}${suffix}，持续${duration}回合）`;
+                    return `${name}（${statName}${sign}${value}${suffix}，持续${duration}回合${passiveAdjustmentText}）`;
                 }
-                return `${name}（持续${duration}回合）`;
+                return `${name}（持续${duration}回合${passiveAdjustmentText}）`;
         }
     }
 
@@ -2771,6 +4265,67 @@ class BattleManager {
         }
 
         return appliedEffects;
+    }
+
+    shouldApplyBlockedStatusesForDisplace(customEffect = {}, displaceResult = null) {
+        if (!displaceResult?.blocked || (Number(displaceResult?.moved) || 0) > 0) {
+            return false;
+        }
+        if (displaceResult.blockReason === 'immune_displace') {
+            return false;
+        }
+        const allowedReasons = Array.isArray(customEffect?.blockedStatusReasons)
+            ? customEffect.blockedStatusReasons.filter(Boolean)
+            : [];
+        if (allowedReasons.length === 0) {
+            return true;
+        }
+        return allowedReasons.includes(displaceResult.blockReason);
+    }
+
+    applyControlMarkPassive(actor, targetUnit, context = {}) {
+        if (!actor?.isAlive?.() || !actor.isAlive() || !targetUnit?.isAlive?.() || !targetUnit.isAlive()) {
+            return [];
+        }
+        const passiveEffect = actor.getPassiveEffects?.().find(effect =>
+            effect?.type === 'control_mark' && effect?.markStatusEffect
+        );
+        if (!passiveEffect) {
+            return [];
+        }
+        const displaceMoved = Math.max(0, Number(context?.displaceMoved) || 0);
+        const appliedEffects = Array.isArray(context?.appliedEffects) ? context.appliedEffects : [];
+        const causedStun = appliedEffects.some(effect => effect?.type === 'stun');
+        if (displaceMoved <= 0 && !causedStun) {
+            return [];
+        }
+        return targetUnit.applyStatusEffects([passiveEffect.markStatusEffect], actor);
+    }
+
+    commitForcedMoveEffect(unit, toPosition, options = {}) {
+        if (!unit?.isAlive?.() || !unit.isAlive() || !toPosition || !this.isInsideBoard(toPosition)) {
+            return false;
+        }
+        if (unit.position.x === toPosition.x && unit.position.y === toPosition.y) {
+            return false;
+        }
+        if (this.isObstacleAt(toPosition) || this.getUnitAt(toPosition, unit.id)) {
+            return false;
+        }
+        const fromPosition = { x: unit.position.x, y: unit.position.y };
+        this.deactivateFormationByMovement(unit);
+        unit.setPosition(toPosition);
+        this.handleTerrainPositionChange(unit, fromPosition, toPosition);
+        eventManager.emit('battleUnitMove', {
+            unit,
+            fromPosition,
+            position: toPosition,
+            toPosition,
+            reason: options.reason || 'forced_move',
+            mode: options.mode || 'advance',
+            causedBy: options.causedBy || null
+        });
+        return true;
     }
 
     applyMissingHpRegenEffect(actor, targetUnit, customEffect = {}) {
@@ -2818,7 +4373,7 @@ class BattleManager {
     }
 
     applyBasicAttackEffects(actor, targetUnit, attackResult = {}) {
-        if (!attackResult?.hit || !targetUnit?.isAlive()) {
+        if (!attackResult?.hit) {
             return [];
         }
 
@@ -2826,6 +4381,9 @@ class BattleManager {
         const appliedEffects = [];
         attackResult.basicAttackTriggers = [];
         attackEffects.forEach((effect) => {
+            if (effect?.damageBonusType === 'focused_stationary') {
+                return;
+            }
             const chance = Utils.clamp(Number(effect?.chance ?? 1) || 0, 0, 1);
             if (chance <= 0 || Math.random() > chance) {
                 return;
@@ -2844,6 +4402,41 @@ class BattleManager {
                     }
                 }
             }
+            const customEffect = effect?.customEffect;
+            if (customEffect?.type === 'displace') {
+                if (!targetUnit?.isAlive?.() || !targetUnit.isAlive()) {
+                    return;
+                }
+                const displaceResult = this.computeDisplaceEffect(actor, targetUnit, customEffect);
+                const customAppliedEffects = [];
+                attackResult.basicAttackTriggers.push({
+                    type: 'displace',
+                    mode: displaceResult.mode,
+                    moved: displaceResult.moved,
+                    blocked: displaceResult.blocked,
+                    blockReason: displaceResult.blockReason || null
+                });
+                if (displaceResult.moved > 0) {
+                    this.commitDisplaceEffect(targetUnit, displaceResult, actor);
+                } else if (this.shouldApplyBlockedStatusesForDisplace(customEffect, displaceResult)) {
+                    const blockedStatusEffects = Array.isArray(customEffect?.blockedStatusEffects)
+                        ? customEffect.blockedStatusEffects
+                        : [];
+                    if (blockedStatusEffects.length > 0) {
+                        customAppliedEffects.push(...targetUnit.applyStatusEffects(blockedStatusEffects, actor));
+                    }
+                }
+                if (customAppliedEffects.length > 0) {
+                    appliedEffects.push(...customAppliedEffects);
+                }
+                const markEffects = this.applyControlMarkPassive(actor, targetUnit, {
+                    displaceMoved: displaceResult.moved,
+                    appliedEffects: customAppliedEffects
+                });
+                if (markEffects.length > 0) {
+                    appliedEffects.push(...markEffects);
+                }
+            }
             const statuses = Array.isArray(effect?.statusEffects) ? effect.statusEffects : [];
             if (!statuses.length) {
                 return;
@@ -2851,7 +4444,15 @@ class BattleManager {
             const selectedStatuses = effect.statusSelection === 'random_one'
                 ? [statuses[Math.floor(Math.random() * statuses.length)]].filter(Boolean)
                 : statuses;
-            appliedEffects.push(...targetUnit.applyStatusEffects(selectedStatuses, actor));
+            const statusTargets = effect.extraTargets === 'attack_range'
+                ? this.getAttackableTargets(actor)
+                : [targetUnit];
+            statusTargets.forEach((statusTarget) => {
+                if (!statusTarget?.isAlive?.() || !statusTarget.isAlive()) {
+                    return;
+                }
+                appliedEffects.push(...statusTarget.applyStatusEffects(selectedStatuses, actor));
+            });
         });
         return appliedEffects;
     }
@@ -2881,6 +4482,35 @@ class BattleManager {
         return [...targets].sort((a, b) => a.hp - b.hp || actor.distanceTo(a) - actor.distanceTo(b))[0] || null;
     }
 
+    buildWarningChargeGuardEffect(delayTurns = 2) {
+        const turns = Math.max(1, Number(delayTurns) || 1);
+        return {
+            type: 'warning_guard',
+            name: '蓄力护体',
+            durationTurns: turns,
+            remainingTurns: turns,
+            damageReduction: 0.35,
+            countsAsDebuff: false,
+            skipNextTurnEndDecay: true,
+            immuneDisplace: true,
+            immuneStun: true
+        };
+    }
+
+    applyWarningChargeGuard(actor, delayTurns = 2) {
+        if (!actor?.isAlive?.() || !actor.isAlive()) {
+            return [];
+        }
+        return actor.applyStatusEffects([this.buildWarningChargeGuardEffect(delayTurns)], actor);
+    }
+
+    clearWarningChargeGuard(actor) {
+        if (!actor?.removeStatusEffectsByType) {
+            return [];
+        }
+        return actor.removeStatusEffectsByType('warning_guard');
+    }
+
     createWarningSkill(actor, targetUnit, skillIndex = 0, skill = actor?.getSkill?.(skillIndex) || {}) {
         const customEffect = skill?.customEffect || {};
         const shape = customEffect.shape || skill?.warningShape || 'around_self';
@@ -2902,11 +4532,20 @@ class BattleManager {
             fixedDamage: Math.max(0, Number(customEffect.fixedDamage ?? skill?.fixedDamage ?? 0) || 0),
             randomDamageRatio: Math.max(0, Number(customEffect.randomDamageRatio ?? 0) || 0),
             canCrit: customEffect.canCrit === true,
+            statusEffects: Array.isArray(customEffect.statusEffects) && customEffect.statusEffects.length > 0
+                ? customEffect.statusEffects.map(effect => ({ ...effect }))
+                : (Array.isArray(skill?.statusEffects) ? skill.statusEffects.map(effect => ({ ...effect })) : []),
             cells
         };
         this.specialTileWarnings.push(warning);
         actor.consumeSkillCost(skillIndex);
-        this.addLog('control', `${actor.name} 开始蓄力 ${warning.skillName}，${delayTurns}次行动后爆发`);
+        const guardEffects = customEffect.grantChargeGuard === false
+            ? []
+            : this.applyWarningChargeGuard(actor, delayTurns);
+        this.addLog(
+            'control',
+            `${actor.name} 开始蓄力 ${warning.skillName}，${delayTurns}次行动后爆发${guardEffects.length > 0 ? '，并进入蓄力护体' : ''}`
+        );
         this.emitStateChange();
         return warning;
     }
@@ -2918,7 +4557,7 @@ class BattleManager {
             return this.getLineWarningCells(actor.position, targetUnit?.position, Number(config.length) || this.scene.height);
         }
         if (shape === 'random_cells') {
-            return this.getRandomWarningCells(Number(config.count) || 4);
+            return this.getRandomWarningCells(Number(config.count) || 4, config);
         }
         if (shape === 'target_cross') {
             return this.getCrossWarningCells(targetUnit?.position || actor.position, radius);
@@ -2984,7 +4623,8 @@ class BattleManager {
         return cells;
     }
 
-    getRandomWarningCells(count = 4) {
+    getRandomWarningCells(count = 4, config = {}) {
+        const targetCount = Math.max(1, Math.floor(Number(count) || 1));
         const candidates = [];
         for (let y = 0; y < this.scene.height; y++) {
             for (let x = 0; x < this.scene.width; x++) {
@@ -2995,10 +4635,45 @@ class BattleManager {
             }
         }
         const cells = [];
-        while (candidates.length && cells.length < count) {
-            const index = Math.floor(Math.random() * candidates.length);
-            cells.push(candidates.splice(index, 1)[0]);
+        const selectedKeys = new Set();
+        const pickRandomCells = (pool = []) => {
+            while (pool.length && cells.length < targetCount) {
+                const index = Math.floor(Math.random() * pool.length);
+                const cell = pool.splice(index, 1)[0];
+                const key = `${cell.x},${cell.y}`;
+                if (selectedKeys.has(key)) {
+                    continue;
+                }
+                selectedKeys.add(key);
+                cells.push(cell);
+            }
+        };
+
+        if (config?.preferHeroes === true) {
+            const heroRadius = Math.max(0, Math.floor(Number(config.heroRadius ?? 1) || 1));
+            const preferredCells = [];
+            const preferredKeys = new Set();
+            (this.heroes || [])
+                .filter(hero => hero?.isAlive?.() && hero.isAlive())
+                .forEach((hero) => {
+                    for (let y = hero.position.y - heroRadius; y <= hero.position.y + heroRadius; y++) {
+                        for (let x = hero.position.x - heroRadius; x <= hero.position.x + heroRadius; x++) {
+                            const position = { x, y };
+                            const key = `${x},${y}`;
+                            if (!this.isInsideBoard(position) || this.isObstacleAt(position) || preferredKeys.has(key)) {
+                                continue;
+                            }
+                            if (this.distanceBetween(hero.position, position) <= heroRadius) {
+                                preferredKeys.add(key);
+                                preferredCells.push(position);
+                            }
+                        }
+                    }
+                });
+            pickRandomCells(preferredCells);
         }
+
+        pickRandomCells(candidates.filter(cell => !selectedKeys.has(`${cell.x},${cell.y}`)));
         return cells;
     }
 
@@ -3025,18 +4700,25 @@ class BattleManager {
             events.push(...this.resolveWarningSkill(warning, actor));
         });
         this.specialTileWarnings = this.specialTileWarnings.filter(warning => warning.remainingTurns > 0);
+        if (!this.specialTileWarnings.some(warning => warning.sourceUnitId === actor.id)) {
+            this.clearWarningChargeGuard(actor);
+        }
         return events;
     }
 
     resolveWarningSkill(warning, actor) {
         const cellSet = new Set((warning.cells || []).map(cell => `${cell.x},${cell.y}`));
         const events = [];
+        const effectSource = actor || { id: warning.sourceUnitId, name: warning.sourceName };
         const targets = this.getAllUnits().filter(unit => unit.isAlive() && cellSet.has(`${unit.position.x},${unit.position.y}`));
         targets.forEach((target) => {
             const rawDamage = warning.fixedDamage > 0
                 ? warning.fixedDamage
                 : Math.floor((actor?.getEffectiveAttack?.() || actor?._attack || 1) * warning.multiplier * (warning.randomDamageRatio > 0 ? Utils.randomFloat(1 - warning.randomDamageRatio, 1 + warning.randomDamageRatio) : 1));
             const damage = target.takeDamage(Math.max(1, rawDamage), { defensePen: actor?.defensePen || 0, sourceUnitId: actor?.id });
+            const appliedEffects = target.isAlive() && Array.isArray(warning.statusEffects) && warning.statusEffects.length > 0
+                ? target.applyStatusEffects(warning.statusEffects, effectSource)
+                : [];
             events.push({
                 type: 'warning_damage',
                 warning,
@@ -3044,7 +4726,8 @@ class BattleManager {
                 damage,
                 sourceUnitId: actor?.id || warning.sourceUnitId,
                 sourceName: actor?.name || warning.sourceName,
-                skillName: warning.skillName
+                skillName: warning.skillName,
+                appliedEffects
             });
         });
         if (!targets.length) {
@@ -3058,6 +4741,32 @@ class BattleManager {
         const mode = customEffect?.mode === 'pull' ? 'pull' : 'push';
         if (!actor || !targetUnit || distance <= 0) {
             return { type: 'displace', mode, moved: 0, distance, blocked: false };
+        }
+        if (targetUnit.isEscortCart) {
+            const currentPosition = { x: targetUnit.position.x, y: targetUnit.position.y };
+            return {
+                type: 'displace',
+                mode,
+                moved: 0,
+                distance,
+                blocked: true,
+                blockReason: 'escort_cart_immune',
+                fromPosition: currentPosition,
+                toPosition: currentPosition
+            };
+        }
+        if (targetUnit.getStatusEffects?.().some(effect => effect.immuneDisplace === true || effect.type === 'warning_guard')) {
+            const currentPosition = { x: targetUnit.position.x, y: targetUnit.position.y };
+            return {
+                type: 'displace',
+                mode,
+                moved: 0,
+                distance,
+                blocked: true,
+                blockReason: 'immune_displace',
+                fromPosition: currentPosition,
+                toPosition: currentPosition
+            };
         }
         const dx = targetUnit.position.x - actor.position.x;
         const dy = targetUnit.position.y - actor.position.y;
@@ -3079,10 +4788,22 @@ class BattleManager {
         let current = { x: fromPosition.x, y: fromPosition.y };
         let moved = 0;
         let blocked = false;
+        let blockReason = null;
         for (let i = 0; i < distance; i++) {
             const next = { x: current.x + stepX, y: current.y + stepY };
-            if (!this.isInsideBoard(next) || this.isCellBlocked(next, targetUnit.id)) {
+            if (!this.isInsideBoard(next)) {
                 blocked = true;
+                blockReason = 'edge';
+                break;
+            }
+            if (this.isObstacleAt(next)) {
+                blocked = true;
+                blockReason = 'obstacle';
+                break;
+            }
+            if (this.getUnitAt(next, targetUnit.id)) {
+                blocked = true;
+                blockReason = 'unit';
                 break;
             }
             current = next;
@@ -3094,6 +4815,7 @@ class BattleManager {
             moved,
             distance,
             blocked,
+            blockReason,
             fromPosition,
             toPosition: current
         };
@@ -3105,6 +4827,7 @@ class BattleManager {
         }
         const { fromPosition, toPosition, mode } = displaceResult;
         targetUnit.setPosition(toPosition);
+        this.handleTerrainPositionChange(targetUnit, fromPosition, toPosition);
         eventManager.emit('battleUnitMove', {
             unit: targetUnit,
             fromPosition,
@@ -3168,7 +4891,35 @@ class BattleManager {
         }
 
         if (customEffect.type === 'displace') {
-            return this.computeDisplaceEffect(actor, targetUnit, customEffect);
+            const result = this.computeDisplaceEffect(actor, targetUnit, customEffect);
+            const blockedStatusEffects = Array.isArray(customEffect?.blockedStatusEffects)
+                ? customEffect.blockedStatusEffects
+                : [];
+            result.appliedEffects = [];
+            if (result.moved <= 0 && blockedStatusEffects.length > 0 && this.shouldApplyBlockedStatusesForDisplace(customEffect, result)) {
+                result.appliedEffects = targetUnit.applyStatusEffects(blockedStatusEffects, actor);
+            }
+            if (result.moved > 0 && customEffect.followToSourcePositionOnSuccess === true) {
+                result.followPosition = { ...result.fromPosition };
+            }
+            return result;
+        }
+
+        if (customEffect.type === 'apply_status_if_target_has_status') {
+            const requiredStatusType = String(customEffect.requiredStatusType || '').trim();
+            const statusEffects = Array.isArray(customEffect.statusEffects) ? customEffect.statusEffects : [];
+            if (!requiredStatusType || statusEffects.length === 0 || !targetUnit.hasStatus?.(requiredStatusType)) {
+                return {
+                    type: 'apply_status_if_target_has_status',
+                    requiredStatusType,
+                    appliedEffects: []
+                };
+            }
+            return {
+                type: 'apply_status_if_target_has_status',
+                requiredStatusType,
+                appliedEffects: targetUnit.applyStatusEffects(statusEffects, actor)
+            };
         }
 
         if (customEffect.type === 'lifesteal') {
@@ -3188,13 +4939,20 @@ class BattleManager {
             return null;
         }
 
+        return this.resolveConsumeStatusDamage(actor, targetUnit, customEffect, attackResult);
+    }
+
+    resolveConsumeStatusDamage(actor, targetUnit, customEffect = {}, attackResult = {}) {
         const statusType = customEffect.statusType || 'burn';
         const consumedStacks = targetUnit.countStatusStacks?.(statusType) || 0;
-        const extraMultiplier = Math.max(0, Number(customEffect.extraMultiplier) || 0);
+        const extraMultiplier = Math.max(0, Number(customEffect.extraMultiplier ?? customEffect.damageMultiplierPerStack) || 0);
         let extraDamage = 0;
 
         if (consumedStacks > 0 && extraMultiplier > 0) {
-            const rawDamage = Math.floor(actor._attack * actor.attackCoefficient * consumedStacks * extraMultiplier);
+            const sourceAttack = customEffect.sourceAttackMultiplier === true
+                ? (actor.getEffectiveAttack?.() || actor._attack || 1)
+                : (actor._attack || actor.getEffectiveAttack?.() || 1);
+            const rawDamage = Math.floor(sourceAttack * actor.attackCoefficient * consumedStacks * extraMultiplier);
             extraDamage = targetUnit.takeStatusDamage(rawDamage, customEffect.ignoreDefense !== false);
             attackResult.damage += extraDamage;
         }
@@ -3204,10 +4962,70 @@ class BattleManager {
         }
 
         return {
+            type: 'consume_status_damage',
             statusType,
             consumedStacks,
             extraDamage
         };
+    }
+
+    getStatusEffectTemplate(actor, statusType) {
+        const fromBasic = (actor.getBasicAttackEffects?.('hit') || [])
+            .flatMap(effect => Array.isArray(effect?.statusEffects) ? effect.statusEffects : [])
+            .find(effect => effect?.type === statusType);
+        if (fromBasic) {
+            return fromBasic;
+        }
+        const fromSkills = (actor.skills || [])
+            .flatMap(skill => Array.isArray(skill?.statusEffects) ? skill.statusEffects : [])
+            .find(effect => effect?.type === statusType);
+        return fromSkills || null;
+    }
+
+    buildStatusStackEffects(actor, statusType, count) {
+        const template = this.getStatusEffectTemplate(actor, statusType);
+        const stackCount = Math.max(0, Math.floor(Number(count) || 0));
+        if (!template || stackCount <= 0) {
+            return [];
+        }
+        return Array.from({ length: stackCount }, () => ({ ...template }));
+    }
+
+    triggerDoubleConsumeStatusDamage(actor, skill, customEffect = {}) {
+        if (!customEffect.doubleTrigger || actor.passiveState?.consumeStatusDoubleTriggered?.[skill?.name || customEffect.statusType]) {
+            return null;
+        }
+
+        actor.passiveState = actor.passiveState || {};
+        actor.passiveState.consumeStatusDoubleTriggered = actor.passiveState.consumeStatusDoubleTriggered || {};
+        actor.passiveState.consumeStatusDoubleTriggered[skill?.name || customEffect.statusType] = true;
+
+        const statusType = customEffect.statusType || 'burn';
+        const targets = this.getOpponents(actor).filter(unit => unit?.isAlive?.() && unit.isAlive());
+        const addedStatuses = this.buildStatusStackEffects(actor, statusType, customEffect.preAddStacksToAll);
+        const appliedEffects = [];
+        if (addedStatuses.length > 0) {
+            targets.forEach((targetUnit) => {
+                appliedEffects.push(...targetUnit.applyStatusEffects(addedStatuses, actor));
+            });
+        }
+
+        const results = targets
+            .filter(targetUnit => targetUnit?.isAlive?.() && targetUnit.isAlive())
+            .map((targetUnit) => {
+                const result = {
+                    hit: true,
+                    damage: 0,
+                    useSkill: true,
+                    skillName: skill?.name || null,
+                    protocolFinale: true
+                };
+                result.customEffectResult = this.resolveConsumeStatusDamage(actor, targetUnit, customEffect, result);
+                return { target: targetUnit, result };
+            })
+            .filter(entry => Number(entry.result?.customEffectResult?.consumedStacks) > 0 || Number(entry.result?.damage) > 0);
+
+        return { targets: results, appliedCount: appliedEffects.length };
     }
 
     applyReactiveEffects(owner, trigger, context = {}) {
@@ -3304,15 +5122,20 @@ class BattleManager {
             }
 
             if (event.type === 'special_tile_damage' && event.damage > 0) {
-                this.addLog('damage', `${actor.name} 受到${event.tileName || '地格'}影响，损失 ${event.damage} 点生命`);
+                const momentumText = event.fireMomentumStacks > 0
+                    ? `，积蓄至${event.fireMomentumStacks}层燃势`
+                    : '';
+                this.addLog('damage', `${actor.name} 受到${event.tileName || '地格'}影响，损失 ${event.damage} 点生命${momentumText}`);
                 eventManager.emit('battleUnitAction', {
                     attacker: actor,
                     target: actor,
                     damage: event.damage,
+                    ignoreBattleStats: true,
                     actionType: 'status',
                     result: {
                         hit: true,
                         damage: event.damage,
+                        statusType: event.effectType || event.type || 'terrain_state',
                         statusName: event.tileName || '地格伤害'
                     }
                 });
@@ -3328,13 +5151,20 @@ class BattleManager {
                     attacker: actor,
                     target: actor,
                     damage: 0,
+                    ignoreBattleStats: true,
                     actionType: 'status',
                     result: {
                         hit: true,
                         heal: event.heal,
+                        statusType: event.effectType || event.type || 'terrain_state',
                         statusName: event.tileName || '地格恢复'
                     }
                 });
+                return;
+            }
+
+            if (event.type === 'miasma_expand') {
+                this.addLog('control', `${event.tileName || '瘴气地格'} 向外扩散了一圈`);
                 return;
             }
 
@@ -3368,8 +5198,12 @@ class BattleManager {
                 return;
             }
 
-            if (event.type === 'warning_damage' && event.target && event.damage > 0) {
-                this.addLog('damage', `${event.sourceName || actor.name} 的 ${event.skillName || '蓄力技能'} 命中 ${event.target.name}，造成 ${event.damage} 点伤害`);
+            if (event.type === 'warning_damage' && event.target) {
+                const appliedEffects = Array.isArray(event.appliedEffects) ? event.appliedEffects : [];
+                const statusText = appliedEffects.length > 0
+                    ? `，并施加${appliedEffects.map(effect => this.formatStatusDescription(effect)).join('、')}`
+                    : '';
+                this.addLog('damage', `${event.sourceName || actor.name} 的 ${event.skillName || '蓄力技能'} 命中 ${event.target.name}，造成 ${event.damage} 点伤害${statusText}`);
                 eventManager.emit('battleUnitAction', {
                     attacker: actor,
                     target: event.target,
@@ -3378,7 +5212,10 @@ class BattleManager {
                     result: {
                         hit: true,
                         damage: event.damage,
-                        statusName: event.skillName || '蓄力技能'
+                        statusName: event.skillName || '蓄力技能',
+                        appliedEffects,
+                        heavyImpact: true,
+                        impactLevel: 'critical'
                     }
                 });
                 if (!event.target.isAlive()) {
@@ -3416,9 +5253,7 @@ class BattleManager {
                     reason: 'status'
                 });
                 if (!actor.isAlive()) {
-                    this.addLog('death', `${actor.name} 倒下了！`);
-                    eventManager.emit('battleUnitDie', { unit: actor });
-                    this.clearTauntsFromSource(actor);
+                    this.processDefeatedUnit(actor, { reason: 'status_damage' });
                 }
             }
 
@@ -3463,6 +5298,7 @@ class BattleManager {
             const fromPosition = { x: actor.position.x, y: actor.position.y };
             this.deactivateFormationByMovement(actor);
             actor.setPosition(finalAction.position);
+            this.handleTerrainPositionChange(actor, fromPosition, finalAction.position);
             this.addLog('move', `${actor.name} 受嘲讽影响，向 ${source.name} 移动到了 (${finalAction.position.x + 1}, ${finalAction.position.y + 1})`);
             eventManager.emit('battleUnitMove', {
                 unit: actor,
@@ -3497,7 +5333,9 @@ class BattleManager {
             }
             const fromPosition = { x: actor.position.x, y: actor.position.y };
             this.deactivateFormationByMovement(actor);
+            this.clearFocusedStationaryState(actor);
             actor.setPosition(finalAction.position);
+            this.handleTerrainPositionChange(actor, fromPosition, finalAction.position);
             if (finalAction.forcedByCharm) {
                 const charmSource = finalAction.charmSourceId ? this.findUnitById(finalAction.charmSourceId) : null;
                 this.addLog('control', `${actor.name} 受魅惑牵引${charmSource ? `,向 ${charmSource.name}` : ''}移动到了 (${finalAction.position.x + 1}, ${finalAction.position.y + 1})`);
@@ -3510,6 +5348,8 @@ class BattleManager {
                 position: finalAction.position,
                 toPosition: finalAction.position
             });
+            this.recordBattleCommandAchievement(actor, 'move', finalAction);
+            this.recordSpecialTileEnterAchievement(actor, finalAction.position, finalAction);
             await this.waitForActionPresentation();
             this.triggerMoveEndPassives(actor);
             this.emitStateChange();
@@ -3519,20 +5359,20 @@ class BattleManager {
         if (finalAction.type === 'item') {
             const item = itemManager.getItem(finalAction.itemId);
             if (!item) {
-                return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
             }
             const target = this.findUnitById(finalAction.targetId) || actor;
             if (item.effect?.type === 'revive') {
                 const isValidReviveTarget = target && target.camp === 'hero' && !target.isAlive();
                 if (!isValidReviveTarget || !this.canUseBattleItem(finalAction.itemId)) {
-                    return this.executeAction(actor, { type: 'defend' });
+                    return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
                 }
             } else if (item.effect?.target === 'self' && target.id !== actor.id) {
-                return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
             }
             const result = itemManager.useItem(finalAction.itemId, target);
             if (!result.success) {
-                return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
             }
             if (item.effect?.type === 'revive') {
                 this.consumeBattleItemUse(finalAction.itemId);
@@ -3551,6 +5391,7 @@ class BattleManager {
                 message: result.message,
                 result
             });
+            this.recordBattleCommandAchievement(actor, 'item', finalAction);
             await this.waitForActionPresentation();
             this.emitStateChange();
             return;
@@ -3574,10 +5415,10 @@ class BattleManager {
                 ? this.getSkillTargetCandidates(actor, skillIndex)
                 : this.getAttackableTargets(actor);
             if (!target || !target.isAlive() || !validTargets.some(unit => unit.id === target.id)) {
-                return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
             }
             if (isSkill && !this.canActorUseSkill(actor, skillIndex)) {
-                return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
             }
 
             if (isSkill) {
@@ -3585,7 +5426,7 @@ class BattleManager {
                 if (this.isWarningSkill(skill)) {
                     const warning = this.createWarningSkill(actor, target, skillIndex, skill);
                     if (!warning) {
-                        return this.executeAction(actor, { type: 'defend' });
+                return this.executeAction(actor, { type: 'defend', reason: 'fallback' });
                     }
                     eventManager.emit('battleUnitAction', {
                         attacker: actor,
@@ -3598,6 +5439,7 @@ class BattleManager {
                             skillName: warning.skillName
                         }
                     });
+                    this.recordBattleCommandAchievement(actor, 'skill', finalAction);
                     await this.waitForActionPresentation();
                     this.emitStateChange();
                     return;
@@ -3615,6 +5457,7 @@ class BattleManager {
                     }
 
                     targets.forEach((targetUnit) => {
+                        const terrainAttackState = this.getTerrainAttackStatePreview(actor);
                         const attackResult = actor.performConfiguredAttack(targetUnit, {
                             multiplier: bladeFlashContext.multiplier,
                             canCrit: false,
@@ -3624,13 +5467,20 @@ class BattleManager {
                             skillName: skill?.name || null
                         });
                         if (!attackResult.hit) {
+                            this.applyTerrainAttackConsequences(actor, targetUnit, attackResult, [], terrainAttackState);
                             skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，但被闪避了`);
                             actionTargets.push({ target: targetUnit, result: attackResult });
                             return;
                         }
 
-                        const appliedEffects = this.applySkillStatusEffects(actor, targetUnit, skillIndex, attackResult);
-                        attackResult.appliedEffects = appliedEffects;
+                        const baseAppliedEffects = this.applySkillStatusEffects(actor, targetUnit, skillIndex, attackResult);
+                        const { appliedEffects } = this.applyTerrainAttackConsequences(
+                            actor,
+                            targetUnit,
+                            attackResult,
+                            baseAppliedEffects,
+                            terrainAttackState
+                        );
                         const reactiveResults = this.applyReactiveEffects(targetUnit, 'damaged', {
                             damage: attackResult.damage,
                             sourceUnit: actor,
@@ -3669,6 +5519,10 @@ class BattleManager {
                             defeatedTargets.push(targetUnit);
                         }
                     });
+                    this.playAttackActionSfx(actionTargets.map(entry => entry.result));
+                    if (actionTargets.some(entry => entry.result?.isCritical)) {
+                        this.triggerHeroDamageVoice(actor, actionTargets.find(entry => entry.result?.isCritical)?.result);
+                    }
 
                     if (hpCost > 0) {
                         skillLogs.push(`${actor.name} 额外消耗 ${hpCost} 点生命施放特技`);
@@ -3686,6 +5540,7 @@ class BattleManager {
                             targets: actionTargets.map(entry => ({ id: entry.target.id, name: entry.target.name, ...entry.result }))
                         }
                     });
+                    this.recordBattleCommandAchievement(actor, 'skill', finalAction);
                     await this.waitForActionPresentation();
                     defeatedTargets.forEach((targetUnit) => {
                         this.processDefeatedUnit(targetUnit, {
@@ -3766,6 +5621,7 @@ class BattleManager {
                         skillLogs.push(`${actor.name} 额外消耗 ${hpCost} 点生命施放特技`);
                     }
                     skillLogs.forEach(message => this.addLog('heal', message));
+                    this.triggerHeroHealVoice(actor, actionTargets);
                     eventManager.emit('battleUnitAction', {
                         attacker: actor,
                         target,
@@ -3833,14 +5689,39 @@ class BattleManager {
                         }
                         actionTargets.push({ target: targetUnit, result: utilityResult });
                     } else {
-                        const attackResult = actor.attackTarget(targetUnit, true, skillIndex);
+                        const terrainAttackState = this.getTerrainAttackStatePreview(actor);
+                        const attackResult = actor.attackTarget(
+                            targetUnit,
+                            true,
+                            skillIndex,
+                            finalAction?._critGuaranteed ? { critGuaranteed: true, forceCrit: true } : {}
+                        );
                         if (!attackResult.hit) {
+                            this.applyTerrainAttackConsequences(actor, targetUnit, attackResult, [], terrainAttackState);
                             skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，但被闪避了`);
                         } else {
-                            const appliedEffects = this.applySkillStatusEffects(actor, targetUnit, skillIndex, attackResult);
-                            attackResult.appliedEffects = appliedEffects;
+                            const baseAppliedEffects = this.applySkillStatusEffects(actor, targetUnit, skillIndex, attackResult);
+                            const { appliedEffects: terrainAppliedEffects } = this.applyTerrainAttackConsequences(
+                                actor,
+                                targetUnit,
+                                attackResult,
+                                baseAppliedEffects,
+                                terrainAttackState
+                            );
+                            let appliedEffects = Array.isArray(terrainAppliedEffects) ? [...terrainAppliedEffects] : [];
                             const customEffectResult = this.resolveCustomSkillEffect(actor, targetUnit, skillIndex, attackResult);
                             attackResult.customEffectResult = customEffectResult;
+                            if (Array.isArray(customEffectResult?.appliedEffects) && customEffectResult.appliedEffects.length > 0) {
+                                appliedEffects.push(...customEffectResult.appliedEffects);
+                            }
+                            const controlMarkEffects = this.applyControlMarkPassive(actor, targetUnit, {
+                                displaceMoved: customEffectResult?.type === 'displace' ? customEffectResult.moved : 0,
+                                appliedEffects
+                            });
+                            if (controlMarkEffects.length > 0) {
+                                appliedEffects.push(...controlMarkEffects);
+                            }
+                            attackResult.appliedEffects = appliedEffects;
                             const reactiveResults = this.applyReactiveEffects(targetUnit, 'damaged', {
                                 damage: attackResult.damage,
                                 sourceUnit: actor,
@@ -3880,6 +5761,13 @@ class BattleManager {
                             skillLogs.push(`${actor.name} 对 ${targetUnit.name} 施放 ${skill?.name || '特技'}，造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}${statusText}${customText}${displaceText}${lifestealText}`);
                             if (customEffectResult?.type === 'displace') {
                                 this.commitDisplaceEffect(targetUnit, customEffectResult, actor);
+                                if (customEffectResult.followPosition) {
+                                    this.commitForcedMoveEffect(actor, customEffectResult.followPosition, {
+                                        reason: 'skill_follow',
+                                        mode: 'advance',
+                                        causedBy: actor.id
+                                    });
+                                }
                             }
                         }
                         actionTargets.push({ target: targetUnit, result: attackResult });
@@ -3888,6 +5776,26 @@ class BattleManager {
                         }
                     }
                 });
+                if (effectType === 'damage') {
+                    this.playAttackActionSfx(actionTargets.map(entry => entry.result));
+                    if (actionTargets.some(entry => entry.result?.isCritical)) {
+                        this.triggerHeroDamageVoice(actor, actionTargets.find(entry => entry.result?.isCritical)?.result);
+                    }
+                }
+
+                const doubleTriggerResult = this.triggerDoubleConsumeStatusDamage(actor, skill, skill?.customEffect || {});
+                if (doubleTriggerResult?.targets?.length > 0) {
+                    skillLogs.push(`${actor.name} 启动协议终焉，为全场敌人追加噪点并再次过载`);
+                    doubleTriggerResult.targets.forEach((entry) => {
+                        const consumedStacks = Number(entry.result?.customEffectResult?.consumedStacks) || 0;
+                        const extraDamage = Number(entry.result?.customEffectResult?.extraDamage) || 0;
+                        skillLogs.push(`协议终焉引爆 ${entry.target.name} 的${consumedStacks}层噪点，造成 ${extraDamage} 点伤害`);
+                        actionTargets.push(entry);
+                        if (!entry.target.isAlive()) {
+                            defeatedTargets.push(entry.target);
+                        }
+                    });
+                }
 
                 if (hpCost > 0) {
                     skillLogs.push(`${actor.name} 额外消耗 ${hpCost} 点生命施放特技`);
@@ -3896,6 +5804,9 @@ class BattleManager {
                     ? 'heal'
                     : (effectType === 'utility' ? 'control' : 'damage');
                 skillLogs.forEach(message => this.addLog(skillLogType, message));
+                if (effectType === 'heal') {
+                    this.triggerHeroHealVoice(actor, actionTargets);
+                }
                 eventManager.emit('battleUnitAction', {
                     attacker: actor,
                     target,
@@ -3908,6 +5819,7 @@ class BattleManager {
                         targets: actionTargets.map(entry => ({ id: entry.target.id, name: entry.target.name, ...entry.result }))
                     }
                 });
+                this.recordBattleCommandAchievement(actor, 'skill', finalAction);
                 await this.waitForActionPresentation();
                 defeatedTargets.forEach((targetUnit) => {
                     this.processDefeatedUnit(targetUnit, {
@@ -3919,12 +5831,21 @@ class BattleManager {
                 return;
             }
 
-            const attackResult = actor.attackTarget(target, false);
+            const terrainAttackState = this.getTerrainAttackStatePreview(actor);
+            const attackConfig = this.buildBasicAttackConfig(actor, finalAction);
+            const attackResult = actor.attackTarget(target, false, 0, attackConfig);
             if (!attackResult.hit) {
+                this.applyTerrainAttackConsequences(actor, target, attackResult, [], terrainAttackState);
                 this.addLog('miss', `${actor.name} 攻击 ${target.name}，但被闪避了`);
             } else {
-                const appliedEffects = this.applyBasicAttackEffects(actor, target, attackResult);
-                attackResult.appliedEffects = appliedEffects;
+                const baseAppliedEffects = this.applyBasicAttackEffects(actor, target, attackResult);
+                const { appliedEffects } = this.applyTerrainAttackConsequences(
+                    actor,
+                    target,
+                    attackResult,
+                    baseAppliedEffects,
+                    terrainAttackState
+                );
                 const reactiveResults = this.applyReactiveEffects(target, 'damaged', {
                     damage: attackResult.damage,
                     sourceUnit: actor,
@@ -3939,7 +5860,6 @@ class BattleManager {
                 });
                 attackResult.reactiveEffects = reactiveResults;
                 attackResult.damageTakenPassives = damageTakenPassiveResults;
-                this.handlePostDamageEffects(target, actor, attackResult);
                 const statusText = appliedEffects.length > 0
                     ? `，并施加${appliedEffects.map(effect => this.formatStatusDescription(effect)).join('、')}`
                     : '';
@@ -3949,8 +5869,15 @@ class BattleManager {
                 const logText = `${actor.name} 对 ${target.name} 造成 ${attackResult.damage} 点伤害${attackResult.isCritical ? '（暴击）' : ''}${statusText}${healText}`;
                 this.addLog('damage', logText);
             }
+            this.playAttackActionSfx(attackResult);
+            this.triggerHeroDamageVoice(actor, attackResult);
             eventManager.emit('battleUnitAction', { attacker: actor, target, damage: attackResult.damage, actionType: finalAction.type, result: attackResult });
+            this.recordBattleCommandAchievement(actor, finalAction.type, finalAction);
             await this.waitForActionPresentation();
+            // 攻击动画呈现完后再触发反伤/反击/阵亡，确保阵亡动画在攻击动画之后入队
+            if (attackResult.hit) {
+                this.handlePostDamageEffects(target, actor, attackResult);
+            }
             this.emitStateChange();
             return;
         }
@@ -3990,6 +5917,7 @@ class BattleManager {
             actionType: 'defend',
             result: undefined
         });
+        this.recordBattleCommandAchievement(actor, 'defend', finalAction);
         this.emitStateChange();
     }
 
@@ -4058,6 +5986,7 @@ class BattleManager {
                 survivors: livingHeroes.map(unit => unit.id)
             };
             this.isBattling = false;
+            this.finalizeBattleStats(this.result);
             this.addLog('result', '战斗胜利！');
             eventManager.emit('battleEnd', this.result);
             return true;
@@ -4070,6 +5999,7 @@ class BattleManager {
                 survivors: []
             };
             this.isBattling = false;
+            this.finalizeBattleStats(this.result);
             this.addLog('result', '战斗失败...');
             eventManager.emit('battleEnd', this.result);
             return true;
@@ -4092,6 +6022,7 @@ class BattleManager {
             }
             this.currentRound++;
             this.addLog('round', `第 ${this.currentRound} 回合`);
+            this.processTerrainRoundStart();
             this.emitStateChange();
             await this.checkAndSpawnBossWaves('roundStart');
             if (this.checkBattleEnd()) {
@@ -4103,20 +6034,25 @@ class BattleManager {
                     continue;
                 }
                 actor.resetTurnState();
+                this.updateFocusedStationaryTurnStart(actor);
                 this.currentActor = actor;
                 this.emitStateChange();
+                this.triggerHeroVoice(actor, 'turnStart', {
+                    priority: 1,
+                    interrupt: false,
+                    cooldownMs: 1200
+                });
                 const passiveTurnStartEvents = this.processHeroPassiveTurnStart(actor);
                 const formationEvents = this.processFormationTurnStart(actor);
                 const warningEvents = this.processWarningSkillTurnStart(actor);
                 const specialTileEvents = this.getSpecialTileTriggerEffects(actor).map((effect) => {
-                    const tile = this.getSpecialTileAt(actor.position);
                     if (effect.type === 'damage') {
                         const damage = actor.takeStatusDamage(effect.damage, true);
-                        return { type: 'special_tile_damage', damage, tileName: tile?.name || '火焰地格' };
+                        return { type: 'special_tile_damage', damage, ...effect };
                     }
                     if (effect.type === 'heal') {
                         const heal = actor.heal(effect.heal);
-                        return { type: 'special_tile_heal', heal, tileName: tile?.name || '恢复地格' };
+                        return { type: 'special_tile_heal', heal, ...effect };
                     }
                     return null;
                 }).filter(Boolean);
@@ -4235,6 +6171,7 @@ class BattleManager {
                 survivors: this.heroes.filter(unit => unit.isAlive()).map(unit => unit.id)
             };
             this.isBattling = false;
+            this.finalizeBattleStats(this.result);
             this.addLog('result', '战斗超时，自动判定失败');
             eventManager.emit('battleEnd', this.result);
         }
@@ -4242,10 +6179,11 @@ class BattleManager {
     }
 
     reset() {
+        this.cancelPendingStateChange();
+        this.teardownBattleStats();
         this.heroes = [];
         this.enemies = [];
         this.pendingBossWaves = [];
-        this.battleLog = [];
         this.currentRound = 0;
         this.isBattling = false;
         this.result = null;
@@ -4255,6 +6193,9 @@ class BattleManager {
         this.isBossEntrancePlaying = false;
         this.battleItemUsage = {};
         this.environmentEffect = 'none';
+        this.terrainRuntimeState = this.createEmptyTerrainRuntimeState();
+        this.battleStats = this.createEmptyBattleStats();
+        this.processedDeathUnitIds = new Set();
         this.emitStateChange();
     }
 }

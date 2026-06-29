@@ -40,7 +40,29 @@ class TaskView {
             if (!task.completed) return 1;
             return 2;
         };
-        return tasks.slice().sort((left, right) => rank(left) - rank(right));
+        return tasks.slice().sort((left, right) => (
+            rank(left) - rank(right)
+            || this.getTaskSortOrder(left) - this.getTaskSortOrder(right)
+            || String(left.id || '').localeCompare(String(right.id || ''), 'en')
+        ));
+    }
+
+    getTaskSortOrder(task) {
+        if (Number.isFinite(Number(task?.sortOrder)) && Number(task.sortOrder) !== 0) {
+            return Number(task.sortOrder);
+        }
+        const id = String(task?.id || '');
+        if (id.startsWith('achievement_battle_')) {
+            return 100;
+        }
+        const match = id.match(/^achievement_first_clear_dungeon_(\d+)$/);
+        if (match) {
+            return 10000 + Number(match[1]);
+        }
+        if (id.includes('tutorial')) {
+            return 200;
+        }
+        return 1000;
     }
 
     getSummary() {
@@ -332,12 +354,14 @@ class TaskView {
                         <div class="task-card-title">${task.title}</div>
                         <div class="task-card-status">${stateMeta.label}</div>
                     </div>
-                    <div class="task-card-desc">${task.description}</div>
                     <div class="task-card-detail-row">
-                        <div class="task-card-progress-line">
-                            <div class="task-card-progress-text">${Math.min(task.progress, task.target)}/${task.target}</div>
-                            <div class="task-card-progress-track" aria-hidden="true">
-                                <span style="--task-progress: ${progressPercent}%;"></span>
+                        <div class="task-card-info-stack">
+                            <div class="task-card-desc">${task.description}</div>
+                            <div class="task-card-progress-line">
+                                <div class="task-card-progress-text">${Math.min(task.progress, task.target)}/${task.target}</div>
+                                <div class="task-card-progress-track" aria-hidden="true">
+                                    <span style="--task-progress: ${progressPercent}%;"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="task-card-rewards">${rewards}</div>

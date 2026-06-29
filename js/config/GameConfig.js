@@ -47,17 +47,17 @@ const GameConfig = {
 
     combatPower: {
         weights: {
-            attack: 20,
-            defense: 12,
-            hp: 3,
-            speed: 10,
-            crit: 8,
-            antiCrit: 6,
-            defensePen: 8,
-            accuracy: 6,
-            dodge: 6,
-            attackRange: 40,
-            moveRange: 30
+            attack: 85,
+            defense: 48,
+            hp: 12,
+            speed: 36,
+            crit: 30,
+            antiCrit: 22,
+            defensePen: 32,
+            accuracy: 22,
+            dodge: 24,
+            attackRange: 135,
+            moveRange: 105
         }
     },
 

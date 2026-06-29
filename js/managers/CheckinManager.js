@@ -31,6 +31,24 @@ class CheckinManager {
         { type: 'resource', id: 'meat', count: 10 }
     ];
 
+    getDailyCheckinRewards() {
+        const configured = window.CheckinConfig?.checkinCycleRewards;
+        const source = Array.isArray(configured) && configured.length ? configured : CheckinManager.REWARDS;
+        const byDay = new Map();
+        source.forEach((entry, index) => {
+            const day = Math.min(7, Math.max(1, Number(entry?.day) || index + 1));
+            byDay.set(day, {
+                day,
+                rewards: Array.isArray(entry?.rewards) ? entry.rewards.map(reward => ({ ...reward })) : []
+            });
+        });
+        const result = [];
+        for (let day = 1; day <= 7; day++) {
+            result.push(byDay.get(day) || { day, rewards: [] });
+        }
+        return result;
+    }
+
     init(saveData) {
         if (saveData) {
             this.checkinDay = this.normalizeCheckinDay(saveData.checkinDay);
@@ -69,7 +87,8 @@ class CheckinManager {
         }
 
         const claimedDay = this.checkinDay;
-        const bonusRewardConfig = CheckinManager.REWARDS[claimedDay - 1];
+        const rewardConfigs = this.getDailyCheckinRewards();
+        const bonusRewardConfig = rewardConfigs[claimedDay - 1];
         if (!bonusRewardConfig) {
             return { success: false, message: '签到配置错误' };
         }
@@ -120,8 +139,8 @@ class CheckinManager {
                 shelterManager.addResource(reward.id, reward.count);
                 rewards.push(RewardModal.createResourceReward(reward.id, reward.count));
             } else if (reward.type === 'item') {
-                itemManager.addItem(reward.id, reward.count);
-                rewards.push(RewardModal.createItemReward(reward.id, reward.count));
+                const result = itemManager.grantItemReward(reward.id, reward.count);
+                rewards.push(...(result.rewards || []));
             } else if (reward.type === 'fragment') {
                 const item = ItemConfig.getItemConfig(reward.id) || {};
                 if (item.fragmentHeroId) {
@@ -516,7 +535,7 @@ class CheckinManager {
             claimedDay,
             isTodayCheckedIn,
             canCheckin: !isTodayCheckedIn,
-            rewards: CheckinManager.REWARDS,
+            rewards: this.getDailyCheckinRewards(),
             dailyRewards: CheckinManager.DAILY_REWARDS
         };
     }

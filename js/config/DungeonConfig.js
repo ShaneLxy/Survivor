@@ -204,36 +204,80 @@ const DungeonConfig = {
         },
         enemy_skill_charge_quake: {
             name: '\u84c4\u529b\u9707\u8361',
-            description: '\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u5bf9\u81ea\u8eab\u5468\u56f41\u683c\u9020\u6210115%\u653b\u51fb\u4f24\u5bb3\u3002',
+            description: '\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u5bf9\u81ea\u8eab\u5468\u56f44\u683c\u9020\u6210170%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u9644\u52a02\u56de\u540840%\u51cf\u901f\u3002',
             multiplier: 1,
             cooldownTurns: 4,
             range: 4,
             targetType: 'enemy',
             targetCount: 1,
             effectType: 'warning_area_damage',
-            customEffect: { type: 'warning_area_damage', shape: 'around_self', radius: 1, delayTurns: 2, multiplier: 1.15 }
+            customEffect: {
+                type: 'warning_area_damage',
+                shape: 'around_self',
+                radius: 4,
+                delayTurns: 2,
+                multiplier: 1.7,
+                statusEffects: [{
+                    type: 'slow',
+                    name: '\u9707\u8361\u8fdf\u6ede',
+                    value: -0.4,
+                    durationTurns: 2,
+                    modifierType: 'percent',
+                    stackMode: 'replace'
+                }]
+            }
         },
         enemy_skill_line_crack: {
             name: '\u76f4\u7ebf\u88c2\u51fb',
-            description: '\u84c4\u529b1\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u6cbf\u76ee\u6807\u65b9\u5411\u76f4\u7ebf\u9020\u6210130%\u653b\u51fb\u4f24\u5bb3\u3002',
+            description: '\u84c4\u529b1\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u6cbf\u76ee\u6807\u65b9\u5411\u76f4\u7ebf\u9020\u6210175%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u9644\u52a02\u56de\u540825%\u9632\u5fa1\u4e0b\u964d\u3002',
             multiplier: 1,
             cooldownTurns: 3,
             range: 5,
             targetType: 'enemy',
             targetCount: 1,
             effectType: 'warning_area_damage',
-            customEffect: { type: 'warning_area_damage', shape: 'line_to_target', length: 8, delayTurns: 1, multiplier: 1.3 }
+            customEffect: {
+                type: 'warning_area_damage',
+                shape: 'line_to_target',
+                length: 8,
+                delayTurns: 1,
+                multiplier: 1.75,
+                statusEffects: [{
+                    type: 'crack_armor',
+                    name: '\u88c2\u7532',
+                    stat: 'defense',
+                    value: -0.25,
+                    durationTurns: 2,
+                    modifierType: 'percent',
+                    stackMode: 'replace'
+                }]
+            }
         },
         enemy_skill_random_fall: {
             name: '\u968f\u673a\u5760\u51fb',
-            description: '\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u968f\u673a4\u4e2a\u683c\u5b50\u9020\u621090%-130%\u653b\u51fb\u4f24\u5bb3\u3002',
+            description: '\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u5728\u82f1\u96c4\u5468\u56f4\u968f\u673a8\u4e2a\u683c\u5b50\u9020\u6210160%\u653b\u51fb\u4f24\u5bb3\uff0c\u5e76\u9644\u52a01\u56de\u5408\u7729\u6655\u3002',
             multiplier: 1,
             cooldownTurns: 4,
             range: 6,
             targetType: 'enemy',
             targetCount: 1,
             effectType: 'warning_area_damage',
-            customEffect: { type: 'warning_area_damage', shape: 'random_cells', count: 4, delayTurns: 2, multiplier: 1.1, randomDamageRatio: 0.2 }
+            customEffect: {
+                type: 'warning_area_damage',
+                shape: 'random_cells',
+                count: 8,
+                delayTurns: 2,
+                multiplier: 1.6,
+                randomDamageRatio: 0.15,
+                preferHeroes: true,
+                heroRadius: 2,
+                statusEffects: [{
+                    type: 'stun',
+                    name: '\u5760\u51fb\u9707\u6151',
+                    durationTurns: 1,
+                    stackMode: 'replace'
+                }]
+            }
         },
         enemy_skill_hook_drag: {
             name: '\u94a9\u722a\u62d6\u62fd',

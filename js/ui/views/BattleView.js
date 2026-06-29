@@ -27,6 +27,8 @@ class BattleView {
         this.moveUnsubscribe = null;
         this.actionUnsubscribe = null;
         this.dieUnsubscribe = null;
+        this.dyingUnitIds = new Set();
+        this.playedDeathUnitIds = new Set();
         // 动画队列系统：确保行动表现串行完成
         this.actionQueue = [];
         this.isProcessingAction = false;
@@ -41,6 +43,8 @@ class BattleView {
         this.hpTrailTimers = new Map();
         this.combatTextBurstMap = new Map();
         this.effectTimers = new Set();
+        this.animationElementPools = new Map();
+        this.animationElementPoolLimit = 24;
         this.environmentCanvas = null;
         this.environmentParticleCanvas = null;
         this.environmentContext = null;
@@ -57,16 +61,31 @@ class BattleView {
         this.heroTurnPromptTimer = null;
         this.lastHeroTurnPromptKey = '';
         this.battleStateRenderFrame = null;
+        this.pendingBattleSnapshot = null;
+        this.battlePerfStats = {};
+        this.boardRenderFrame = null;
+        this.pendingBoardSnapshot = null;
         this.lastBoardRenderKey = '';
+        this.boardStructureRenderKey = '';
+        this.fallenTrayRenderKey = '';
+        this.actionPanelRenderKey = '';
+        this.detailPanelRenderKey = '';
+        this.lastDetailHeroTurnActorId = null;
         this.terrainCanvas = null;
         this.terrainContext = null;
+        this.terrainStaticDisplayCanvas = null;
+        this.terrainStaticDisplayContext = null;
         this.terrainRenderKey = '';
         this.terrainRenderFrame = null;
+        this.pendingTerrainRenderForce = false;
         this.terrainEffectFrame = null;
         this.terrainAnimationTime = 0;
         this.terrainEffectLastFrame = 0;
         this.terrainResizeObserver = null;
         this.terrainImageCache = new Map();
+        this.terrainStaticCanvas = null;
+        this.terrainStaticContext = null;
+        this.terrainStaticRenderKey = '';
 
     }
 
@@ -148,6 +167,8 @@ class BattleView {
 
     bindTerrainLayer() {
         this.resetTerrainLayer();
+        this.terrainStaticDisplayCanvas = this.element.querySelector('#battle-terrain-static-layer');
+        this.terrainStaticDisplayContext = this.terrainStaticDisplayCanvas?.getContext?.('2d') || null;
         this.terrainCanvas = this.element.querySelector('#battle-terrain-layer');
         this.terrainContext = this.terrainCanvas?.getContext?.('2d') || null;
         const board = this.element.querySelector('#battle-board');
@@ -176,25 +197,41 @@ class BattleView {
         if (this.terrainContext && this.terrainCanvas) {
             this.terrainContext.clearRect(0, 0, this.terrainCanvas.width, this.terrainCanvas.height);
         }
+        if (this.terrainStaticDisplayContext && this.terrainStaticDisplayCanvas) {
+            this.terrainStaticDisplayContext.clearRect(0, 0, this.terrainStaticDisplayCanvas.width, this.terrainStaticDisplayCanvas.height);
+        }
+        if (this.terrainStaticContext && this.terrainStaticCanvas) {
+            this.terrainStaticContext.clearRect(0, 0, this.terrainStaticCanvas.width, this.terrainStaticCanvas.height);
+        }
         this.boardUnitElements.clear();
+        this.terrainStaticDisplayCanvas = null;
+        this.terrainStaticDisplayContext = null;
         this.terrainCanvas = null;
         this.terrainContext = null;
+        this.terrainStaticCanvas = null;
+        this.terrainStaticContext = null;
         this.terrainRenderKey = '';
+        this.pendingTerrainRenderForce = false;
+        this.terrainStaticRenderKey = '';
     }
 
-    startTerrainEffects() {
-        if (this.terrainEffectFrame || !this.terrainCanvas || window.game?.settings?.environmentEffectsDisabled) {
+    startTerrainEffects(snapshot = battleManager.getSnapshot()) {
+        if (this.isPaused || this.terrainEffectFrame || !this.terrainCanvas || !this.hasAnimatedTerrainContent(snapshot)) {
             return;
         }
         const tick = (time) => {
             this.terrainEffectFrame = null;
-            if (!this.visible || !this.terrainCanvas || !this.terrainContext || window.game?.settings?.environmentEffectsDisabled) {
+            if (this.isPaused || !this.visible || !this.terrainCanvas || !this.terrainContext) {
+                return;
+            }
+            const latestSnapshot = battleManager.getSnapshot();
+            if (!this.hasAnimatedTerrainContent(latestSnapshot)) {
                 return;
             }
             if (!this.terrainEffectLastFrame || time - this.terrainEffectLastFrame >= 66) {
                 this.terrainAnimationTime = time;
                 this.terrainEffectLastFrame = time;
-                this.renderTerrainLayer(battleManager.getSnapshot(), true);
+                this.renderTerrainLayer(latestSnapshot, true);
             }
             this.terrainEffectFrame = requestAnimationFrame(tick);
         };
@@ -202,18 +239,86 @@ class BattleView {
     }
 
     requestTerrainRender(force = false) {
+        this.pendingTerrainRenderForce = this.pendingTerrainRenderForce || Boolean(force);
         if (this.terrainRenderFrame) {
             return;
         }
         this.terrainRenderFrame = requestAnimationFrame(() => {
             this.terrainRenderFrame = null;
-            this.renderTerrainLayer(battleManager.getSnapshot(), force);
-            this.startTerrainEffects();
+            const shouldForce = this.pendingTerrainRenderForce;
+            this.pendingTerrainRenderForce = false;
+            const snapshot = battleManager.getSnapshot();
+            this.renderTerrainLayer(snapshot, shouldForce);
+            this.startTerrainEffects(snapshot);
         });
     }
 
     buildTerrainRenderKey(snapshot) {
-        return this.buildBoardRenderKey(snapshot);
+        if (!snapshot?.scene) {
+            return '';
+        }
+        const environmentType = (!window.game?.settings?.environmentEffectsDisabled && this.environmentEffectType !== 'none')
+            ? this.environmentEffectType
+            : '';
+        const actorId = this.selectionMode ? (this.pendingAction?.context?.actor?.id || '') : '';
+        const selectionKey = [
+            this.selectionMode || '',
+            actorId,
+            snapshot.currentActorId || '',
+            Number.isFinite(this.selectedSkillIndex) ? this.selectedSkillIndex : '',
+            this.selectedBattleItemId || '',
+            this.isPaused ? 1 : 0,
+            battleManager.isAutoBattleEnabled() ? 1 : 0
+        ].join(':');
+        const units = [...snapshot.heroes, ...snapshot.enemies]
+            .filter(unit => !this.dyingUnitIds.has(unit.id))
+            .map(unit => `${unit.id}:${unit.camp}:${unit.rank || ''}:${unit.position?.x ?? ''},${unit.position?.y ?? ''}:${unit.isAlive?.() ? 1 : 0}`)
+            .join('|');
+        const obstacles = (snapshot.scene.obstacles || [])
+            .map(obstacle => `${obstacle.x},${obstacle.y},${obstacle.id || obstacle.type || ''}`)
+            .join('|');
+        const specialTiles = (snapshot.scene.specialTiles || [])
+            .map(tile => `${tile.x},${tile.y},${tile.type || ''}`)
+            .join('|');
+        const warnings = (snapshot.specialTileWarnings || [])
+            .map(warning => `${warning.id}:${warning.remainingTurns}:${(warning.cells || []).map(cell => `${cell.x},${cell.y}`).join('.')}`)
+            .join('|');
+        const escortState = snapshot.escortMission
+            ? [
+                (snapshot.escortMission.route || []).map(position => `${position.x},${position.y}`).join('|'),
+                snapshot.escortMission.goalPosition ? `${snapshot.escortMission.goalPosition.x},${snapshot.escortMission.goalPosition.y}` : '',
+                battleManager?.isEscortMissionActive?.() && battleManager.getNextEscortRoutePosition?.()
+                    ? `${battleManager.getNextEscortRoutePosition().x},${battleManager.getNextEscortRoutePosition().y}`
+                    : ''
+            ].join(':')
+            : '';
+        return `${snapshot.scene.width}x${snapshot.scene.height};${environmentType};${selectionKey};${units};${obstacles};${specialTiles};${warnings};${escortState}`;
+    }
+
+    hasAnimatedTerrainContent(snapshot = battleManager.getSnapshot()) {
+        if (window.game?.settings?.environmentEffectsDisabled || !snapshot?.scene) {
+            return false;
+        }
+        return (snapshot.scene.specialTiles || []).length > 0;
+    }
+
+    buildTerrainStaticRenderKey(snapshot = battleManager.getSnapshot()) {
+        if (!snapshot?.scene) {
+            return '';
+        }
+        const environmentType = (!window.game?.settings?.environmentEffectsDisabled && this.environmentEffectType !== 'none')
+            ? this.environmentEffectType
+            : '';
+        const obstacles = (snapshot.scene.obstacles || [])
+            .map(obstacle => `${obstacle.x},${obstacle.y},${obstacle.id || obstacle.type || ''},${obstacle.iconSrc || ''}`)
+            .join('|');
+        const escortRoute = snapshot.escortMission
+            ? (snapshot.escortMission.route || []).map(position => `${position.x},${position.y}`).join('|')
+            : '';
+        const escortGoal = snapshot.escortMission?.goalPosition
+            ? `${snapshot.escortMission.goalPosition.x},${snapshot.escortMission.goalPosition.y}`
+            : '';
+        return `${snapshot.scene.width}x${snapshot.scene.height};${environmentType};${obstacles};${escortRoute};${escortGoal}`;
     }
 
     getTerrainImage(src) {
@@ -227,6 +332,8 @@ class BattleView {
             record = { image, loaded: false };
             image.onload = () => {
                 record.loaded = true;
+                this.terrainStaticRenderKey = '';
+                this.terrainRenderKey = '';
                 this.requestTerrainRender(true);
             };
             image.onerror = () => {
@@ -358,6 +465,7 @@ class BattleView {
         const attackTargetIds = new Set(targetCandidates.map(target => target.id));
         const attackTargetCellSet = new Set(targetCandidates.map(target => `${target.position.x},${target.position.y}`));
         const playerTurnActorId = this.getPendingHeroTurnActor()?.id || null;
+        const currentActorId = battleManager.currentActor?.id || snapshot?.currentActorId || null;
         const environmentType = (!window.game?.settings?.environmentEffectsDisabled && this.environmentEffectType !== 'none')
             ? this.environmentEffectType
             : '';
@@ -373,6 +481,12 @@ class BattleView {
                 unitMap.set(`${unit.position.x},${unit.position.y}`, unit);
             }
         });
+        const escortGoal = snapshot?.escortMission?.goalPosition || null;
+        const escortRouteSet = new Set(
+            (snapshot?.escortMission?.route || [])
+                .map(position => position ? `${position.x},${position.y}` : '')
+                .filter(Boolean)
+        );
         return {
             width,
             height,
@@ -385,9 +499,12 @@ class BattleView {
             attackTargetIds,
             attackTargetCellSet,
             playerTurnActorId,
+            currentActorId,
             environmentType,
             environmentPulseCells,
-            unitMap
+            unitMap,
+            escortGoal,
+            escortRouteSet
         };
     }
 
@@ -468,7 +585,33 @@ class BattleView {
         ctx.restore();
     }
 
-    drawTerrainGridCell(ctx, rect, unit, specialTile, obstacle, warning, state, cellKey) {
+    drawEscortGoalMark(ctx, rect, isNextStep = false) {
+        const pulse = this.getTerrainPulse();
+        const inset = isNextStep ? 4 : 2;
+        const markRect = {
+            x: rect.x + inset,
+            y: rect.y + inset,
+            width: Math.max(1, rect.width - inset * 2),
+            height: Math.max(1, rect.height - inset * 2)
+        };
+        const stroke = isNextStep ? 'rgba(125, 249, 233, 0.86)' : 'rgba(251, 191, 36, 0.96)';
+        const fill = isNextStep ? `rgba(45, 212, 191, ${0.08 + pulse * 0.06})` : `rgba(251, 191, 36, ${0.08 + pulse * 0.08})`;
+        const glow = isNextStep ? 'rgba(45, 212, 191, ALPHA)' : 'rgba(251, 191, 36, ALPHA)';
+        this.drawBoardCellFrame(ctx, markRect, fill, stroke, isNextStep ? 1.5 : 2);
+        this.drawBoardGlow(ctx, markRect, glow, isNextStep ? 0.58 : 0.82);
+
+        const cx = rect.x + rect.width / 2;
+        const cy = rect.y + rect.height / 2;
+        ctx.save();
+        ctx.fillStyle = isNextStep ? 'rgba(204, 251, 241, 0.92)' : 'rgba(255, 247, 200, 0.96)';
+        ctx.font = `700 ${Math.max(10, Math.min(rect.width, rect.height) * (isNextStep ? 0.34 : 0.42))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(isNextStep ? '下' : '终', cx, cy);
+        ctx.restore();
+    }
+
+    drawTerrainStaticCell(ctx, rect, obstacle, state, cellKey) {
         const baseFill = 'rgba(8, 12, 17, 0.18)';
         const baseStroke = 'rgba(255, 246, 214, 0.2)';
         this.drawBoardCellFrame(ctx, rect, baseFill, baseStroke, 1);
@@ -486,12 +629,22 @@ class BattleView {
             this.drawBoardCellFrame(ctx, rect, pulseFill, null);
         }
 
-        if (specialTile && !obstacle) {
-            this.drawTerrainSpecialTile(ctx, specialTile, rect);
+        if (state.escortRouteSet.has(cellKey) && (!state.escortGoal || `${state.escortGoal.x},${state.escortGoal.y}` !== cellKey)) {
+            this.drawEscortRouteMark(ctx, rect);
         }
 
         if (obstacle) {
             this.drawTerrainObstacle(ctx, obstacle, rect);
+        }
+
+        if (state.escortGoal && `${state.escortGoal.x},${state.escortGoal.y}` === cellKey) {
+            this.drawEscortGoalMark(ctx, rect);
+        }
+    }
+
+    drawTerrainDynamicCell(ctx, rect, unit, specialTile, obstacle, warning, state, cellKey) {
+        if (specialTile && !obstacle) {
+            this.drawTerrainSpecialTile(ctx, specialTile, rect);
         }
 
         if (unit) {
@@ -541,12 +694,18 @@ class BattleView {
             this.drawBoardWarningMark(ctx, rect, warning);
         }
 
-        if (unit && unit.id === state.playerTurnActorId) {
+        if (unit && state.currentActorId && unit.id === state.currentActorId) {
+            const actorRect = {
+                x: rect.x + 1,
+                y: rect.y + 1,
+                width: Math.max(1, rect.width - 2),
+                height: Math.max(1, rect.height - 2)
+            };
+            this.drawBoardCellFrame(ctx, actorRect, 'rgba(251, 191, 36, 0.03)', 'rgba(255, 215, 0, 0.92)', 2);
+            this.drawBoardGlow(ctx, actorRect, 'rgba(255, 215, 0, ALPHA)', 0.72);
+        } else if (unit && unit.id === state.playerTurnActorId) {
             this.drawBoardCellFrame(ctx, rect, 'rgba(45, 212, 191, 0.02)', 'rgba(125, 249, 233, 0.9)', 2);
             this.drawBoardGlow(ctx, rect, 'rgba(45, 212, 191, ALPHA)', 0.85);
-        } else if (unit && state.actor && unit.id === state.actor.id) {
-            this.drawBoardCellFrame(ctx, rect, 'rgba(251, 191, 36, 0.03)', 'rgba(255, 215, 0, 0.92)', 2);
-            this.drawBoardGlow(ctx, rect, 'rgba(255, 215, 0, ALPHA)', 0.72);
         }
     }
 
@@ -563,6 +722,36 @@ class BattleView {
         ctx.lineTo(x, y + r);
         ctx.quadraticCurveTo(x, y, x + r, y);
         ctx.closePath();
+    }
+
+    drawEscortRouteMark(ctx, rect) {
+        const markRect = {
+            x: rect.x + 3,
+            y: rect.y + 3,
+            width: Math.max(1, rect.width - 6),
+            height: Math.max(1, rect.height - 6)
+        };
+        this.drawBoardCellFrame(ctx, markRect, 'rgba(250, 204, 21, 0.1)', null, 0);
+    }
+
+    drawEscortGoalMark(ctx, rect) {
+        const inset = 2;
+        const markRect = {
+            x: rect.x + inset,
+            y: rect.y + inset,
+            width: Math.max(1, rect.width - inset * 2),
+            height: Math.max(1, rect.height - inset * 2)
+        };
+        this.drawBoardCellFrame(ctx, markRect, 'rgba(250, 204, 21, 0.14)', 'rgba(250, 204, 21, 0.26)', 1);
+        const cx = rect.x + rect.width / 2;
+        const cy = rect.y + rect.height / 2;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 244, 179, 0.78)';
+        ctx.font = `700 ${Math.max(18, Math.min(rect.width, rect.height) * 0.54)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('终', cx, cy + 1);
+        ctx.restore();
     }
 
     drawTerrainObstacle(ctx, obstacle, rect) {
@@ -628,11 +817,52 @@ class BattleView {
         ctx.restore();
     }
 
+    renderTerrainStaticLayer(snapshot, metrics, staticDpr, state, obstacleMap) {
+        if (!snapshot?.scene || !metrics) {
+            return false;
+        }
+        const canvasWidth = Math.round(metrics.width * staticDpr);
+        const canvasHeight = Math.round(metrics.height * staticDpr);
+        if (!this.terrainStaticCanvas) {
+            this.terrainStaticCanvas = document.createElement('canvas');
+            this.terrainStaticContext = this.terrainStaticCanvas.getContext('2d');
+        }
+        const staticCanvas = this.terrainStaticCanvas;
+        const staticContext = this.terrainStaticContext;
+        if (!staticCanvas || !staticContext) {
+            return false;
+        }
+        const staticKey = `${this.buildTerrainStaticRenderKey(snapshot)};${Math.round(metrics.width)}x${Math.round(metrics.height)}@${staticDpr}`;
+        const needsResize = staticCanvas.width !== canvasWidth || staticCanvas.height !== canvasHeight;
+        if (!needsResize && staticKey === this.terrainStaticRenderKey) {
+            return true;
+        }
+        if (needsResize) {
+            staticCanvas.width = canvasWidth;
+            staticCanvas.height = canvasHeight;
+        }
+        staticContext.setTransform(staticDpr, 0, 0, staticDpr, 0, 0);
+        staticContext.clearRect(0, 0, metrics.width, metrics.height);
+        const { width, height } = snapshot.scene;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const cellKey = `${x},${y}`;
+                const rect = this.getTerrainCellRect(metrics, x, y, 1);
+                const obstacle = obstacleMap.get(cellKey) || null;
+                this.drawTerrainStaticCell(staticContext, rect, obstacle, state, cellKey);
+            }
+        }
+        this.terrainStaticRenderKey = staticKey;
+        return true;
+    }
+
     renderTerrainLayer(snapshot = battleManager.getSnapshot(), force = false) {
         const canvas = this.terrainCanvas;
         const ctx = this.terrainContext;
+        const staticCanvas = this.terrainStaticDisplayCanvas;
+        const staticCtx = this.terrainStaticDisplayContext;
         const board = this.element.querySelector('#battle-board');
-        if (!canvas || !ctx || !board || !snapshot?.scene) {
+        if (!canvas || !ctx || !staticCanvas || !staticCtx || !board || !snapshot?.scene) {
             return;
         }
         const { width, height } = snapshot.scene;
@@ -640,9 +870,13 @@ class BattleView {
         if (metrics.width < 2 || metrics.height < 2) {
             return;
         }
-        const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+        const isCoarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches;
+        const dpr = isCoarsePointer ? 1 : Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+        const staticDpr = isCoarsePointer ? 2 : dpr;
         const canvasWidth = Math.round(metrics.width * dpr);
         const canvasHeight = Math.round(metrics.height * dpr);
+        const staticCanvasWidth = Math.round(metrics.width * staticDpr);
+        const staticCanvasHeight = Math.round(metrics.height * staticDpr);
         const renderKey = `${this.buildTerrainRenderKey(snapshot)};${Math.round(metrics.width)}x${Math.round(metrics.height)}@${dpr}`;
         if (!force && renderKey === this.terrainRenderKey && canvas.width === canvasWidth && canvas.height === canvasHeight) {
             return;
@@ -651,10 +885,20 @@ class BattleView {
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
         }
+        if (staticCanvas.width !== staticCanvasWidth || staticCanvas.height !== staticCanvasHeight) {
+            staticCanvas.width = staticCanvasWidth;
+            staticCanvas.height = staticCanvasHeight;
+        }
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, metrics.width, metrics.height);
         const state = this.getBoardRenderState(snapshot);
         const obstacleMap = new Map((snapshot.scene.obstacles || []).map(item => [`${item.x},${item.y}`, item]));
+        this.renderTerrainStaticLayer(snapshot, metrics, staticDpr, state, obstacleMap);
+        staticCtx.setTransform(staticDpr, 0, 0, staticDpr, 0, 0);
+        staticCtx.clearRect(0, 0, metrics.width, metrics.height);
+        if (this.terrainStaticCanvas) {
+            staticCtx.drawImage(this.terrainStaticCanvas, 0, 0, metrics.width, metrics.height);
+        }
         const specialTileMap = new Map((snapshot.scene.specialTiles || []).map(item => [`${item.x},${item.y}`, item]));
         const warningMap = new Map();
         (snapshot.specialTileWarnings || []).forEach(warning => {
@@ -668,7 +912,18 @@ class BattleView {
                 const obstacle = obstacleMap.get(cellKey) || null;
                 const specialTile = specialTileMap.get(cellKey) || null;
                 const warning = warningMap.get(cellKey) || null;
-                this.drawTerrainGridCell(ctx, rect, unit, specialTile, obstacle, warning, state, cellKey);
+                const hasDynamicContent = Boolean(
+                    unit
+                    || warning
+                    || (specialTile && !obstacle)
+                    || state.moveTargetSet.has(cellKey)
+                    || state.attackRangeSet.has(cellKey)
+                    || (state.isTargetMode && obstacle)
+                );
+                if (!hasDynamicContent) {
+                    continue;
+                }
+                this.drawTerrainDynamicCell(ctx, rect, unit, specialTile, obstacle, warning, state, cellKey);
             }
         }
         this.terrainRenderKey = renderKey;
@@ -774,10 +1029,13 @@ class BattleView {
         this.skipBattleRequested = false;
         this.closePauseModal();
         this.actionQueue = [];
+        this.dyingUnitIds.clear();
+        this.playedDeathUnitIds.clear();
         this.isProcessingAction = false;
         this.actionQueueWaiters = [];
         this.lastUnitPositions.clear();
         this.lastBoardRenderKey = '';
+        this.boardStructureRenderKey = '';
         this.progressTokenMap = new Map();
         this.progressValueMap = new Map();
         this.displayProgressMap = new Map();
@@ -830,9 +1088,9 @@ class BattleView {
         if (this.unsubscribeState) {
             this.unsubscribeState();
         }
-        this.unsubscribeState = eventManager.on('battleStateChange', () => {
+        this.unsubscribeState = eventManager.on('battleStateChange', (snapshot) => {
             if (this.visible) {
-                this.requestBattleStateRender();
+                this.requestBattleStateRender(snapshot);
             }
         });
         // 监听移动事件 - 入队，串行执行
@@ -863,6 +1121,8 @@ class BattleView {
                 } else if ((data.actionType === 'status' || data.actionType === 'status_expire') && data.target) {
                     this.actionQueue.push({ type: 'status', data });
                     this.processActionQueue();
+                } else if (data?.result?.escortBlocked) {
+                    Toast.info('运输车前进路线受阻');
                 }
             }
         });
@@ -872,6 +1132,9 @@ class BattleView {
         }
         this.dieUnsubscribe = eventManager.on('battleUnitDie', (data) => {
             if (this.visible && data.unit) {
+                if (this.dyingUnitIds.has(data.unit.id) || this.playedDeathUnitIds.has(data.unit.id)) {
+                    return;
+                }
                 this.actionQueue.push({ type: 'die', data });
                 this.processActionQueue();
             }
@@ -898,6 +1161,7 @@ class BattleView {
                 <div class="battle-main-panel" style="position: relative;">
                     <div id="battle-board-container" style="position:relative;min-width:0;min-height:0;width:100%;height:100%;">
                         <div class="battle-board-stage">
+                            <canvas id="battle-terrain-static-layer" class="battle-terrain-layer battle-terrain-static-layer" aria-hidden="true"></canvas>
                             <canvas id="battle-terrain-layer" class="battle-terrain-layer" aria-hidden="true"></canvas>
                             <div id="battle-board" class="battle-board"></div>
                             <div id="battle-environment-layer" class="battle-environment-layer" aria-hidden="true"></div>
@@ -921,6 +1185,8 @@ class BattleView {
         this.animationLayer = this.element.querySelector('#battle-animation-layer');
         this.environmentCanvas = this.element.querySelector('#battle-environment-layer');
         this.environmentParticleCanvas = null;
+        this.fallenTrayRenderKey = '';
+        this.actionPanelRenderKey = '';
         this.bindTerrainLayer();
         const board = this.element.querySelector('#battle-board');
         if (board) {
@@ -977,37 +1243,6 @@ class BattleView {
         if (view) view.dataset.environment = type;
         if (stage) stage.dataset.environment = type;
         if (board) board.dataset.environment = type;
-        if (['smoke', 'poison_fog', 'dust_smoke'].includes(type)) {
-            layer.innerHTML = '<canvas class="battle-environment-canvas"></canvas>';
-            this.environmentParticleCanvas = layer.querySelector('.battle-environment-canvas');
-            this.environmentContext = this.environmentParticleCanvas?.getContext?.('2d') || null;
-            this.environmentFlashStartX = 0;
-            if (this.environmentContext) {
-                this.resizeEnvironmentCanvas(true);
-                if (window.ResizeObserver) {
-                    this.environmentResizeObserver = new ResizeObserver(() => this.resizeEnvironmentCanvas(false));
-                    this.environmentResizeObserver.observe(layer);
-                }
-                this.environmentLastTime = performance.now();
-                const tick = (time) => {
-                    if (!this.environmentParticleCanvas || !this.environmentContext || this.environmentEffectType !== type) {
-                        this.environmentAnimationFrame = null;
-                        return;
-                    }
-                    if (time - this.environmentLastTime < 32) {
-                        this.environmentAnimationFrame = requestAnimationFrame(tick);
-                        return;
-                    }
-                    const delta = Math.min(0.045, Math.max(0.001, (time - this.environmentLastTime) / 1000));
-                    this.environmentLastTime = time;
-                    this.updateEnvironmentParticles(delta);
-                    this.drawEnvironmentParticles();
-                    this.environmentAnimationFrame = requestAnimationFrame(tick);
-                };
-                this.environmentAnimationFrame = requestAnimationFrame(tick);
-            }
-            return;
-        }
         layer.innerHTML = this.renderEnvironmentEffectMarkup(type);
         this.environmentParticleCanvas = null;
         this.environmentContext = null;
@@ -1024,37 +1259,50 @@ class BattleView {
 
         if (type === 'rain' || type === 'storm_night') {
             const isStorm = type === 'storm_night';
-            const count = isStorm ? (isCompact ? 48 : 64) : (isCompact ? 30 : 42);
+            const count = isCompact ? (isStorm ? 34 : 28) : (isStorm ? 52 : 42);
             for (let i = 0; i < count; i++) {
-                const duration = randomBetween(isStorm ? 0.72 : 0.95, isStorm ? 1.35 : 1.8);
-                particles.push(`<span class="battle-weather-particle battle-weather-rain" style="${styleText({
-                    left: `${randomBetween(-18, 118).toFixed(2)}%`,
-                    top: `${randomBetween(-42, 106).toFixed(2)}%`,
-                    '--rain-len': `${randomBetween(isStorm ? 30 : 15, isStorm ? 58 : 30).toFixed(1)}px`,
-                    '--rain-width': `${randomBetween(isStorm ? 1.05 : 0.65, isStorm ? 1.9 : 1.15).toFixed(2)}px`,
-                    '--rain-drift': `${randomBetween(isStorm ? -24 : -14, isStorm ? -10 : -5).toFixed(1)}vw`,
-                    '--weather-opacity': randomBetween(isStorm ? 0.38 : 0.2, isStorm ? 0.72 : 0.44).toFixed(2),
+                const near = Math.random() > 0.68;
+                const duration = randomBetween(isStorm ? 0.72 : 0.95, isStorm ? 1.34 : 1.75);
+                particles.push(`<span class="battle-weather-particle battle-weather-rain ${near ? 'is-near' : ''}" style="${styleText({
+                    left: `${randomBetween(-14, 112).toFixed(2)}%`,
+                    top: `${randomBetween(-34, 104).toFixed(2)}%`,
+                    '--rain-width': `${randomBetween(near ? 1.05 : 0.65, near ? 1.45 : 1.05).toFixed(2)}px`,
+                    '--rain-len': `${randomBetween(near ? 15 : 9, near ? 24 : 18).toFixed(1)}px`,
+                    '--rain-drift': `${randomBetween(isStorm ? -28 : -22, isStorm ? -12 : -8).toFixed(1)}vw`,
+                    '--rain-rotate': `${randomBetween(12, 18).toFixed(1)}deg`,
+                    '--weather-opacity': randomBetween(isStorm ? 0.5 : 0.34, isStorm ? 0.86 : 0.68).toFixed(2),
                     '--weather-duration': `${duration.toFixed(2)}s`,
                     '--weather-delay': `${(-randomBetween(0, duration)).toFixed(2)}s`
                 })}"></span>`);
             }
             if (isStorm) {
-                for (let i = 0; i < 2; i++) {
-                    const duration = randomBetween(4.8, 7.8);
+                for (let i = 0; i < 1; i++) {
+                    const duration = randomBetween(7.5, 11.5);
                     const delay = -randomBetween(0, duration);
                     const left = randomBetween(22, 72);
+                    const isDoubleFlash = Math.random() < 0.42;
+                    const doubleFlashClass = isDoubleFlash ? ' is-double-flash' : '';
+                    const firstLightningClass = isDoubleFlash ? ' is-double-first' : '';
+                    const secondLeft = Math.max(14, Math.min(84, left + randomBetween(left > 50 ? -24 : 14, left > 50 ? -12 : 26)));
                     particles.push(`
-                        <span class="battle-weather-flash" style="${styleText({
+                        <span class="battle-weather-flash${doubleFlashClass}" style="${styleText({
                             '--weather-duration': `${duration.toFixed(2)}s`,
                             '--weather-delay': `${delay.toFixed(2)}s`
                         })}"></span>
-                        <svg class="battle-weather-lightning" viewBox="0 0 28 120" preserveAspectRatio="none" style="${styleText({
+                        <svg class="battle-weather-lightning${firstLightningClass}" viewBox="0 0 28 120" preserveAspectRatio="none" style="${styleText({
                             left: `${left.toFixed(1)}%`,
                             '--weather-duration': `${duration.toFixed(2)}s`,
                             '--weather-delay': `${delay.toFixed(2)}s`
                         })}" aria-hidden="true">
                             <polyline points="14,0 22,28 10,48 20,76 7,120"></polyline>
                         </svg>
+                        ${isDoubleFlash ? `<svg class="battle-weather-lightning is-double-second" viewBox="0 0 28 120" preserveAspectRatio="none" style="${styleText({
+                            left: `${secondLeft.toFixed(1)}%`,
+                            '--weather-duration': `${duration.toFixed(2)}s`,
+                            '--weather-delay': `${delay.toFixed(2)}s`
+                        })}" aria-hidden="true">
+                            <polyline points="16,0 8,24 18,45 11,72 23,120"></polyline>
+                        </svg>` : ''}
                     `);
                 }
             }
@@ -1062,7 +1310,17 @@ class BattleView {
         }
 
         if (type === 'snow') {
-            const count = isCompact ? 24 : 34;
+            const sheetCount = 2;
+            for (let i = 0; i < sheetCount; i++) {
+                const duration = randomBetween(9.5, 14.5);
+                particles.push(`<span class="battle-snow-sheet snow-sheet-${i + 1}" style="${styleText({
+                    '--snow-sheet-opacity': randomBetween(0.22, 0.42).toFixed(2),
+                    '--snow-sheet-drift': `${randomBetween(-8, 8).toFixed(1)}vw`,
+                    '--weather-duration': `${duration.toFixed(2)}s`,
+                    '--weather-delay': `${(-randomBetween(0, duration)).toFixed(2)}s`
+                })}"></span>`);
+            }
+            const count = isCompact ? 8 : 12;
             for (let i = 0; i < count; i++) {
                 const duration = randomBetween(5.8, 10.5);
                 particles.push(`<span class="battle-weather-particle battle-weather-snow" style="${styleText({
@@ -1080,32 +1338,34 @@ class BattleView {
         }
 
         if (type === 'ash') {
-            const count = isCompact ? 34 : 52;
+            particles.push('<span class="battle-ash-sheet ash-sheet-one"></span><span class="battle-ash-sheet ash-sheet-two"></span>');
+            const count = isCompact ? 10 : 14;
             const ashColors = [
-                'rgba(18, 18, 16, 0.82)',
-                'rgba(39, 37, 34, 0.78)',
-                'rgba(66, 61, 54, 0.66)',
-                'rgba(96, 88, 76, 0.52)'
+                'rgba(24, 22, 19, 0.88)',
+                'rgba(56, 51, 45, 0.82)',
+                'rgba(92, 84, 72, 0.74)',
+                'rgba(136, 124, 108, 0.62)',
+                'rgba(168, 146, 114, 0.46)'
             ];
             for (let i = 0; i < count; i++) {
-                const duration = randomBetween(5.8, 11.8);
-                const isEmber = Math.random() < 0.14;
-                const spin = randomBetween(isEmber ? 80 : 140, isEmber ? 240 : 480);
-                const opacity = randomBetween(isEmber ? 0.38 : 0.26, isEmber ? 0.72 : 0.58);
+                const duration = randomBetween(7.8, 13.8);
+                const isEmber = Math.random() < 0.24;
+                const spin = randomBetween(isEmber ? 110 : 160, isEmber ? 300 : 540);
+                const opacity = randomBetween(isEmber ? 0.54 : 0.38, isEmber ? 0.9 : 0.74);
                 particles.push(`<span class="battle-weather-particle battle-weather-ash ${isEmber ? 'is-ember' : ''}" style="${styleText({
                     left: `${randomBetween(-10, 108).toFixed(2)}%`,
                     top: `${randomBetween(-42, 104).toFixed(2)}%`,
-                    '--ash-width': `${randomBetween(isEmber ? 1.5 : 2.1, isEmber ? 3.2 : 5.2).toFixed(1)}px`,
-                    '--ash-height': `${randomBetween(isEmber ? 1.5 : 1.1, isEmber ? 3.2 : 3.4).toFixed(1)}px`,
-                    '--ash-color': isEmber ? 'rgba(249, 115, 22, 0.86)' : ashColors[Math.floor(randomBetween(0, ashColors.length))],
-                    '--ash-drift-a': `${randomBetween(-7, 9).toFixed(1)}vw`,
-                    '--ash-drift-b': `${randomBetween(-14, 16).toFixed(1)}vw`,
+                    '--ash-width': `${randomBetween(isEmber ? 2.2 : 2.8, isEmber ? 4.4 : 6.8).toFixed(1)}px`,
+                    '--ash-height': `${randomBetween(isEmber ? 2.2 : 1.6, isEmber ? 4.4 : 4.2).toFixed(1)}px`,
+                    '--ash-color': isEmber ? 'rgba(255, 142, 62, 0.94)' : ashColors[Math.floor(randomBetween(0, ashColors.length))],
+                    '--ash-drift-a': `${randomBetween(-16, 18).toFixed(1)}vw`,
+                    '--ash-drift-b': `${randomBetween(-30, 34).toFixed(1)}vw`,
                     '--ash-rotate': `${randomBetween(0, 360).toFixed(1)}deg`,
                     '--ash-spin-mid': `${(spin * 0.48).toFixed(1)}deg`,
                     '--ash-spin': `${spin.toFixed(1)}deg`,
                     '--weather-opacity': opacity.toFixed(2),
-                    '--ash-opacity-mid': (opacity * 0.92).toFixed(2),
-                    '--ash-opacity-low': (opacity * 0.72).toFixed(2),
+                    '--ash-opacity-mid': (opacity * 0.96).toFixed(2),
+                    '--ash-opacity-low': (opacity * 0.78).toFixed(2),
                     '--weather-duration': `${duration.toFixed(2)}s`,
                     '--weather-delay': `${(-randomBetween(0, duration)).toFixed(2)}s`
                 })}"></span>`);
@@ -1114,24 +1374,23 @@ class BattleView {
         }
 
         if (['smoke', 'poison_fog', 'dust_smoke'].includes(type)) {
-            const count = isCompact ? 10 : 14;
-            for (let i = 0; i < count; i++) {
-                const duration = randomBetween(8.5, 15.5);
-                const alpha = randomBetween(type === 'dust_smoke' ? 0.22 : 0.18, type === 'poison_fog' ? 0.36 : 0.32);
-                particles.push(`<span class="battle-weather-particle battle-weather-fog battle-weather-fog-${type}" style="${styleText({
-                    left: `${randomBetween(-28, 96).toFixed(2)}%`,
-                    top: `${randomBetween(6, 88).toFixed(2)}%`,
-                    width: `${randomBetween(34, 76).toFixed(1)}%`,
-                    height: `${randomBetween(11, 22).toFixed(1)}%`,
-                    '--fog-drift': `${randomBetween(18, 72).toFixed(1)}vw`,
-                    '--fog-rise': `${randomBetween(-8, 6).toFixed(1)}vh`,
-                    '--fog-scale': randomBetween(1.05, 1.32).toFixed(2),
-                    '--fog-alpha': alpha.toFixed(2),
-                    '--fog-alpha-low': (alpha * 0.38).toFixed(2),
+            const bandCount = isCompact ? 2 : 3;
+            for (let i = 0; i < bandCount; i++) {
+                const top = i === 0 ? randomBetween(8, 18) : (i === 1 ? randomBetween(42, 54) : randomBetween(70, 82));
+                const duration = randomBetween(14, 21);
+                particles.push(`<span class="battle-environment-near-fog fog-band-${i + 1}" style="${styleText({
+                    top: `${top.toFixed(1)}%`,
+                    height: `${randomBetween(14, 22).toFixed(1)}%`,
+                    '--fog-rotate': `${randomBetween(-7, 7).toFixed(1)}deg`,
+                    '--fog-start-x': `${randomBetween(-72, -48).toFixed(1)}%`,
+                    '--fog-end-x': `${randomBetween(138, 190).toFixed(1)}%`,
+                    '--fog-opacity-a': randomBetween(0.42, type === 'poison_fog' ? 0.68 : 0.58).toFixed(2),
+                    '--fog-opacity-b': randomBetween(0.54, type === 'poison_fog' ? 0.78 : 0.7).toFixed(2),
                     '--weather-duration': `${duration.toFixed(2)}s`,
                     '--weather-delay': `${(-randomBetween(0, duration)).toFixed(2)}s`
                 })}"></span>`);
             }
+            particles.push(`<span class="battle-fog-wash battle-fog-wash-${type}"></span>`);
             return particles.join('');
         }
 
@@ -1180,7 +1439,8 @@ class BattleView {
         const rect = canvas.getBoundingClientRect();
         const width = Math.max(1, Math.round(rect.width));
         const height = Math.max(1, Math.round(rect.height));
-        const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        const isCoarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches;
+        const pixelRatio = isCoarsePointer ? 1 : Math.max(1, Math.min(2, window.devicePixelRatio || 1));
         const nextWidth = Math.round(width * pixelRatio);
         const nextHeight = Math.round(height * pixelRatio);
         if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
@@ -1206,8 +1466,8 @@ class BattleView {
             smoke: Math.round(14 * areaFactor),
             poison_fog: Math.round(16 * areaFactor),
             dust_smoke: Math.round(18 * areaFactor),
-            rain: Math.round(34 * areaFactor),
-            storm_night: Math.round(62 * areaFactor),
+            rain: 0,
+            storm_night: 0,
             snow: Math.round(30 * areaFactor)
         };
         const count = counts[this.environmentEffectType] || 0;
@@ -1471,13 +1731,18 @@ class BattleView {
         alert.classList.remove('active');
     }
 
-    requestBattleStateRender() {
+    requestBattleStateRender(snapshot = null) {
+        if (snapshot) {
+            this.pendingBattleSnapshot = snapshot;
+        }
         if (!this.visible || this.battleStateRenderFrame) {
             return;
         }
         this.battleStateRenderFrame = requestAnimationFrame(() => {
             this.battleStateRenderFrame = null;
-            this.renderBattleState();
+            const nextSnapshot = this.pendingBattleSnapshot;
+            this.pendingBattleSnapshot = null;
+            this.renderBattleState(nextSnapshot);
         });
     }
 
@@ -1488,12 +1753,51 @@ class BattleView {
         }
     }
 
-    renderBattleState() {
+    isBattlePerfEnabled() {
+        try {
+            return localStorage.getItem('survivor_battle_perf') === '1';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    getBattlePerfTime() {
+        return this.isBattlePerfEnabled() ? performance.now() : 0;
+    }
+
+    recordBattlePerf(name, startedAt) {
+        if (!startedAt || !this.isBattlePerfEnabled()) {
+            return;
+        }
+        const duration = performance.now() - startedAt;
+        const stats = this.battlePerfStats[name] || { count: 0, total: 0, max: 0 };
+        stats.count += 1;
+        stats.total += duration;
+        stats.max = Math.max(stats.max, duration);
+        this.battlePerfStats[name] = stats;
+        if (stats.count % 120 === 0) {
+            console.info(`[BattlePerf] ${name}`, {
+                count: stats.count,
+                avg: Number((stats.total / stats.count).toFixed(2)),
+                max: Number(stats.max.toFixed(2))
+            });
+        }
+    }
+
+    getProfiledBattleSnapshot() {
+        const startedAt = this.getBattlePerfTime();
+        const snapshot = battleManager.getSnapshot();
+        this.recordBattlePerf('getSnapshot', startedAt);
+        return snapshot;
+    }
+
+    renderBattleState(snapshot = null) {
 
         if (!this.visible) {
             return;
         }
-        const snapshot = battleManager.getSnapshot();
+        const startedAt = this.getBattlePerfTime();
+        snapshot = snapshot || this.getProfiledBattleSnapshot();
         this.syncBattleEffectsDisabledClass();
         this.syncHeroTurnPresentation(snapshot);
         this.renderTurnMeta(snapshot);
@@ -1505,7 +1809,8 @@ class BattleView {
         // 动画进行中跳过棋盘重建，避免打断浮动元素动画
         this.renderBoardIfNeeded(snapshot);
         this.renderFallenTray(snapshot);
-        this.renderActionPanel();
+        this.renderActionPanel(snapshot);
+        this.recordBattlePerf('renderBattleState', startedAt);
     }
 
     forceBattleStateRender() {
@@ -1519,22 +1824,27 @@ class BattleView {
         this.renderTurnMeta(snapshot);
         this.renderProgress(snapshot);
         this.lastBoardRenderKey = '';
+        this.boardStructureRenderKey = '';
+        this.fallenTrayRenderKey = '';
+        this.actionPanelRenderKey = '';
         this.renderBoard(snapshot);
         this.renderFallenTray(snapshot);
-        this.renderActionPanel();
+        this.renderActionPanel(snapshot);
     }
 
     getBoardUnitStateKey(unit) {
         if (!unit) {
             return '';
         }
-        const effects = (unit.getStatusEffects?.() || []).map(effect => [
+        const effects = this.getCombinedUnitStatusEffects(unit).map(effect => [
             effect.type || '',
             effect.name || '',
             effect.stat || '',
             effect.modifierType || '',
             effect.value ?? '',
-            effect.remainingTurns ?? effect.durationTurns ?? ''
+            effect.remainingTurns ?? effect.durationTurns ?? '',
+            effect.stackCount ?? '',
+            effect.damagePercentBonus ?? ''
         ].join(',')).join('~');
         return [
             unit.id,
@@ -1575,6 +1885,7 @@ class BattleView {
             battleManager.isAutoBattleEnabled() ? 1 : 0
         ].join(':');
         const units = [...snapshot.heroes, ...snapshot.enemies]
+            .filter(unit => !this.dyingUnitIds.has(unit.id))
             .map(unit => this.getBoardUnitStateKey(unit))
             .join('|');
         const obstacles = (snapshot.scene.obstacles || [])
@@ -1586,7 +1897,37 @@ class BattleView {
         const warnings = (snapshot.specialTileWarnings || [])
             .map(warning => `${warning.id}:${warning.remainingTurns}:${(warning.cells || []).map(cell => `${cell.x},${cell.y}`).join('.')}`)
             .join('|');
-        return `${snapshot.scene.width}x${snapshot.scene.height};${environmentType};${selectionKey};${units};${obstacles};${specialTiles};${warnings}`;
+        const escortState = snapshot.escortMission
+            ? [
+                (snapshot.escortMission.route || []).map(position => `${position.x},${position.y}`).join('|'),
+                snapshot.escortMission.goalPosition ? `${snapshot.escortMission.goalPosition.x},${snapshot.escortMission.goalPosition.y}` : '',
+                battleManager?.isEscortMissionActive?.() && battleManager.getNextEscortRoutePosition?.()
+                    ? `${battleManager.getNextEscortRoutePosition().x},${battleManager.getNextEscortRoutePosition().y}`
+                    : '',
+                snapshot.escortMission.reinforcementLevel ?? '',
+                snapshot.escortMission.currentEnemyTargetCount ?? ''
+            ].join(':')
+            : '';
+        return `${snapshot.scene.width}x${snapshot.scene.height};${environmentType};${selectionKey};${units};${obstacles};${specialTiles};${warnings};${escortState}`;
+    }
+
+    buildBoardStructureRenderKey(snapshot = battleManager.getSnapshot()) {
+        if (!snapshot?.scene) {
+            return '';
+        }
+        const obstacles = (snapshot.scene.obstacles || [])
+            .map(obstacle => `${obstacle.x},${obstacle.y},${obstacle.id || obstacle.type || ''}`)
+            .join('|');
+        const specialTiles = (snapshot.scene.specialTiles || [])
+            .map(tile => `${tile.x},${tile.y},${tile.type || ''}`)
+            .join('|');
+        const escortState = snapshot.escortMission
+            ? [
+                (snapshot.escortMission.route || []).map(position => `${position.x},${position.y}`).join('|'),
+                snapshot.escortMission.goalPosition ? `${snapshot.escortMission.goalPosition.x},${snapshot.escortMission.goalPosition.y}` : ''
+            ].join(':')
+            : '';
+        return `${snapshot.scene.width}x${snapshot.scene.height};${obstacles};${specialTiles};${escortState}`;
     }
 
     refreshBoardRuntimeState(snapshot = battleManager.getSnapshot()) {
@@ -1596,7 +1937,7 @@ class BattleView {
         }
         const currentActorId = battleManager.currentActor?.id || null;
         this.syncCurrentActorUnitMarkers(currentActorId);
-        this.requestTerrainRender(true);
+        this.requestTerrainRender(false);
     }
 
     syncCurrentActorUnitMarkers(currentActorId = battleManager.currentActor?.id || null) {
@@ -1621,8 +1962,29 @@ class BattleView {
             this.refreshBoardRuntimeState(snapshot);
             return false;
         }
+        const structureKey = this.buildBoardStructureRenderKey(snapshot);
+        if (board && structureKey && structureKey === this.boardStructureRenderKey) {
+            this.syncBoardUnitsIncremental(snapshot);
+            this.lastBoardRenderKey = renderKey;
+            return false;
+        }
         this.renderBoard(snapshot);
         return true;
+    }
+
+    requestBoardRenderIfNeeded(snapshot = null) {
+        if (snapshot) {
+            this.pendingBoardSnapshot = snapshot;
+        }
+        if (!this.visible || this.boardRenderFrame) {
+            return;
+        }
+        this.boardRenderFrame = requestAnimationFrame(() => {
+            this.boardRenderFrame = null;
+            const nextSnapshot = this.pendingBoardSnapshot || battleManager.getSnapshot();
+            this.pendingBoardSnapshot = null;
+            this.renderBoardIfNeeded(nextSnapshot);
+        });
     }
 
     getPendingHeroTurnActor() {
@@ -1690,10 +2052,29 @@ class BattleView {
         }
     }
 
+    buildFallenTrayRenderKey(snapshot = battleManager.getSnapshot()) {
+        const fallenHeroes = snapshot?.fallenHeroes || [];
+        const selectedItemId = this.selectedBattleItemId || 'stimulant';
+        const usage = battleManager.getBattleItemUsageState(selectedItemId);
+        return [
+            fallenHeroes.map(hero => `${hero.id}:${hero.name}:${hero.hp}:${hero.maxHp}`).join('|'),
+            this.selectionMode || '',
+            selectedItemId,
+            this.isFallenTrayOpen ? 1 : 0,
+            usage.used,
+            usage.maxUses
+        ].join(';');
+    }
+
     renderFallenTray(snapshot = battleManager.getSnapshot()) {
         const tray = this.element.querySelector('#battle-fallen-tray');
         const toggle = this.element.querySelector('#battle-fallen-toggle');
         if (!tray || !toggle) {
+            return;
+        }
+
+        const renderKey = this.buildFallenTrayRenderKey(snapshot);
+        if (renderKey && renderKey === this.fallenTrayRenderKey) {
             return;
         }
 
@@ -1721,6 +2102,7 @@ class BattleView {
             tray.className = 'battle-fallen-tray';
             tray.setAttribute('aria-hidden', 'true');
             tray.innerHTML = '';
+            this.fallenTrayRenderKey = renderKey;
             return;
         }
 
@@ -1740,6 +2122,7 @@ class BattleView {
                 <span class="battle-fallen-tray-usage-value">${usage.used}/${usage.maxUses}</span>
             </div>
         `;
+        this.fallenTrayRenderKey = renderKey;
     }
 
     renderTurnMeta(snapshot) {
@@ -1765,7 +2148,10 @@ class BattleView {
         if (!this.visible) {
             return;
         }
-        this.renderTurnMeta(battleManager.getSnapshot());
+        this.renderTurnMeta({
+            currentRound: battleManager.currentRound,
+            isBossEntrancePlaying: battleManager.isBossEntrancePlaying
+        });
     }
 
     clearProgressAnimationTimers(unitId = null) {
@@ -1795,7 +2181,11 @@ class BattleView {
         if (this.displayProgressMap.size === 0) {
             return true;
         }
-        return true;
+        const units = [...snapshot.heroes, ...snapshot.enemies].filter(unit => unit.isAlive());
+        if (units.length !== this.displayProgressMap.size) {
+            return true;
+        }
+        return units.some(unit => this.displayProgressMap.get(unit.id) !== this._normalizeProgressValue(unit.progress));
     }
 
     syncDisplayedProgress(snapshot, force = false) {
@@ -1989,37 +2379,47 @@ class BattleView {
             case 'slow':
                 return { icon: '↓', shortName: '减速', className: 'debuff' };
             case 'stun':
-                return { icon: '✦', shortName: '眩晕', className: 'control' };
+                return { icon: '眩', shortName: '眩晕', className: 'control' };
             case 'silence':
-                return { icon: '◇', shortName: '沉默', className: 'control' };
+                return { icon: '默', shortName: '沉默', className: 'control' };
             case 'taunt':
                 return { icon: '!', shortName: '嘲讽', className: 'control' };
             case 'charm':
-                return { icon: '♥', shortName: '魅惑', className: 'control' };
+                return { icon: '魅', shortName: '魅惑', className: 'control' };
             case 'haze_mark':
-                return { icon: '⌖', shortName: '破意', className: 'debuff' };
+                return { icon: '破', shortName: '破绽', className: 'debuff' };
+            case 'break_formation':
+                return { icon: '阵', shortName: '破阵', className: 'debuff' };
+            case 'break_wound':
+                return { icon: '伤', shortName: '裂隙', className: 'debuff' };
             case 'black_wall':
-                return { icon: '▣', shortName: '铁壁', className: 'buff' };
+                return { icon: '壁', shortName: '铁壁', className: 'buff' };
             case 'battle_guard':
-                return { icon: '◆', shortName: '减伤', className: 'buff' };
+                return { icon: '盾', shortName: '减伤', className: 'buff' };
             case 'bleed':
-                return { icon: '🩸', shortName: '流血', className: 'debuff' };
+                return { icon: '血', shortName: '流血', className: 'debuff' };
             case 'burn':
-                return { icon: '🔥', shortName: '灼烧', className: 'debuff' };
+                return { icon: '火', shortName: '灼烧', className: 'debuff' };
+            case 'terrain_fire_momentum':
+                return { icon: '焰', shortName: '燃势', className: 'buff' };
             default:
                 return { icon: isBuff ? '↑' : '•', shortName: effect.name || '状态', className: isBuff ? 'buff' : 'debuff' };
         }
     }
-
     getSpecialTileStatusDisplayInfo(tile) {
         const type = tile?.type || '';
         const config = {
-            heal: { icon: '\u6062', shortName: '\u6062\u590d\u5730\u683c', className: 'buff', description: '\u56de\u5408\u5f00\u59cb\uff1a\u6062\u590d\u5df2\u635f\u751f\u547d5%', title: '\u6062\u590d\u5730\u683c\uff1a\u56de\u5408\u5f00\u59cb\u6062\u590d\u5df2\u635f\u5931\u751f\u547d\u76845%' },
-            fire: { icon: '\u706b', shortName: '\u706b\u7130\u5730\u683c', className: 'debuff', description: '\u56de\u5408\u5f00\u59cb\uff1a\u635f\u5931\u5f53\u524d\u751f\u547d10%', title: '\u706b\u7130\u5730\u683c\uff1a\u56de\u5408\u5f00\u59cb\u635f\u5931\u5f53\u524d\u751f\u547d\u768410%' },
-            swamp: { icon: '\u6cbc', shortName: '\u6cbc\u6cfd\u5730\u683c', className: 'debuff', description: '\u7ad9\u4e0a\u540e\uff1a\u901f\u5ea6\u548c\u79fb\u52a8-30%', title: '\u6cbc\u6cfd\u5730\u683c\uff1a\u901f\u5ea6\u548c\u79fb\u52a8\u8ddd\u79bb\u964d\u4f4e30%' },
-            miasma: { icon: '\u7634', shortName: '\u7634\u6c14\u5730\u683c', className: 'debuff', description: '\u7ad9\u4e0a\u540e\uff1a\u9632\u5fa1-50%', title: '\u7634\u6c14\u5730\u683c\uff1a\u9632\u5fa1\u964d\u4f4e50%' }
+            heal: { icon: '愈', shortName: '恢复地格', className: 'buff', description: '首轮恢复20%已损生命，久留后会转为反噬', title: '恢复地格：恢复20%/15%/8%已损生命，第4回合起反噬' },
+            fire: { icon: '火', shortName: '灼烧地格', className: 'debuff', description: '每回合损失当前生命10%，并积累燃势', title: '灼烧地格：每回合损失当前生命10%，离火后首攻消耗燃势增伤' },
+            swamp: { icon: '沼', shortName: '沼泽地格', className: 'debuff', description: '速度与移动-30%，首攻附带减速', title: '沼泽地格：速度与移动距离降低30%，从沼泽发起的首次攻击附带减速' },
+            miasma: { icon: '瘴', shortName: '瘴气地格', className: 'debuff', description: '防御-50%，第15/30回合各扩散一圈', title: '瘴气地格：防御降低50%，第15回合与第30回合各扩散一圈，之后停止扩散' }
         };
         return config[type] || null;
+    }
+    getCombinedUnitStatusEffects(unit) {
+        const effects = unit?.getStatusEffects?.() || [];
+        const terrainEffects = battleManager?.getUnitTerrainStatusEffects?.(unit) || [];
+        return [...effects, ...terrainEffects];
     }
 
     formatUnitDetailStatValue(current, base) {
@@ -2028,8 +2428,52 @@ class BattleView {
         return currentValue !== baseValue ? `${currentValue}(\u539f${baseValue})` : `${currentValue}`;
     }
 
+    getEscortDutyDisplayInfo(unit) {
+        if (unit?.camp !== 'enemy' || !unit?.escortDuty || !battleManager?.isEscortMissionActive?.()) {
+            return null;
+        }
+        const dutyMap = {
+            escort_cart: {
+                badgeText: '攻车',
+                icon: '车',
+                name: '攻车怪',
+                description: '优先攻击马车'
+            },
+            intercept: {
+                badgeText: '拦截',
+                icon: '拦',
+                name: '拦截怪',
+                description: '更倾向阻拦护送路线'
+            },
+            chase: {
+                badgeText: '追击',
+                icon: '追',
+                name: '追击怪',
+                description: '更倾向追击英雄'
+            }
+        };
+        const dutyKey = String(unit.escortDuty || '').trim();
+        const dutyInfo = dutyMap[dutyKey] || dutyMap.escort_cart;
+        return {
+            className: 'debuff',
+            badgeText: dutyInfo.badgeText,
+            icon: dutyInfo.icon,
+            name: dutyInfo.name,
+            description: dutyInfo.description,
+            title: `${dutyInfo.name}：${dutyInfo.description}`
+        };
+    }
     getUnitDetailStatusRows(unit, statuses = []) {
         const rows = [];
+        const escortDutyInfo = this.getEscortDutyDisplayInfo(unit);
+        if (escortDutyInfo) {
+            rows.push({
+                className: escortDutyInfo.className,
+                icon: escortDutyInfo.icon,
+                name: escortDutyInfo.name,
+                description: escortDutyInfo.description
+            });
+        }
         const tile = battleManager?.getSpecialTileAt?.(unit?.position);
         const tileInfo = tile ? this.getSpecialTileStatusDisplayInfo(tile) : null;
         if (tileInfo) {
@@ -2054,7 +2498,8 @@ class BattleView {
     }
 
     getUnitStatusBadgesMarkup(unit, variant = 'board') {
-        const effects = unit?.getStatusEffects?.() || [];
+        const effects = this.getCombinedUnitStatusEffects(unit);
+        const escortDutyInfo = this.getEscortDutyDisplayInfo(unit);
         const tile = battleManager?.getSpecialTileAt?.(unit?.position);
         const tileInfo = tile ? this.getSpecialTileStatusDisplayInfo(tile) : null;
         const tileBadge = tileInfo ? {
@@ -2062,13 +2507,22 @@ class BattleView {
             turns: '',
             title: tileInfo.title
         } : null;
+        const escortDutyBadge = escortDutyInfo ? {
+            className: escortDutyInfo.className,
+            text: escortDutyInfo.badgeText,
+            turns: '',
+            title: escortDutyInfo.title
+        } : null;
         if (!effects.length) {
-            if (!tileBadge) {
+            if (!tileBadge && !escortDutyBadge) {
                 return '';
             }
         }
         const buffs = [];
         const debuffs = [];
+        if (escortDutyBadge) {
+            debuffs.push(escortDutyBadge);
+        }
         if (tileBadge) {
             if (tileBadge.className === 'buff') {
                 buffs.push(tileBadge);
@@ -2078,10 +2532,15 @@ class BattleView {
         }
         effects.forEach((effect) => {
             const info = this.getStatusDisplayInfo(effect);
+            const isTerrainFireMomentum = effect.type === 'terrain_fire_momentum';
             const badge = {
                 ...info,
-                turns: Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1),
-                title: `${effect.name || info.shortName} · 剩余${Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1)}回合`
+                turns: isTerrainFireMomentum
+                    ? Math.max(1, Number(effect.stackCount) || 1)
+                    : Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1),
+                title: isTerrainFireMomentum
+                    ? `${effect.name || info.shortName} · 当前${Math.max(1, Number(effect.stackCount) || 1)}层`
+                    : `${effect.name || info.shortName} · 剩余${Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1)}回合`
             };
             if (info.className === 'buff') {
                 buffs.push(badge);
@@ -2099,8 +2558,10 @@ class BattleView {
             return `
                 <div class="battle-status-group ${side}">
                     ${visible.map(item => `
-                        <span class="battle-status-badge ${item.className}" title="${item.title}">
-                            <span class="battle-status-icon">${item.icon}</span>
+                        <span class="battle-status-badge ${item.className}${item.text ? ' is-text' : ''}" title="${item.title}">
+                            ${item.text
+                                ? `<span class="battle-status-text">${item.text}</span>`
+                                : `<span class="battle-status-icon">${item.icon}</span>`}
                             ${item.turns ? `<span class="battle-status-turn">${item.turns}</span>` : ''}
                         </span>
                     `).join('')}
@@ -2179,6 +2640,13 @@ class BattleView {
     formatStatusEffectText(effect = {}) {
         const info = this.getStatusDisplayInfo(effect);
         const turns = Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
+        if (effect.type === 'terrain_fire_momentum') {
+            const stacks = Math.max(1, Number(effect.stackCount) || 1);
+            const bonus = Math.round((Number(effect.damagePercentBonus) || 0) * 100);
+            return effect.activeWhileOnFire
+                ? `${info.shortName} 当前${stacks}层 · 离火后首攻增伤+${bonus}%`
+                : `${info.shortName} 首攻增伤+${bonus}% · ${stacks}层`;
+        }
         if (effect.type === 'slow') {
             return `${info.shortName} ${Math.round(Math.abs((Number(effect.value) || 0) * 100))}% · ${turns}回合`;
         }
@@ -2194,6 +2662,14 @@ class BattleView {
             const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
             return bonus > 0 ? `${info.shortName} 易伤${bonus}% · ${turns}回合` : `${info.shortName} · ${turns}回合`;
         }
+        if (effect.type === 'break_formation') {
+            const pen = Math.round((Number(effect.alliedDefensePenBonus) || 0));
+            return pen > 0 ? `${info.shortName} 友军破防${pen}% · ${turns}回合` : `${info.shortName} · ${turns}回合`;
+        }
+        if (effect.type === 'break_wound') {
+            const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
+            return bonus > 0 ? `${info.shortName} 受伤+${bonus}% · ${turns}回合` : `${info.shortName} · ${turns}回合`;
+        }
         if (effect.type === 'black_wall') {
             const defenseBonus = Math.round((Number(effect.value) || 0) * 100);
             const reduction = Math.round((Number(effect.damageReduction) || 0) * 1000) / 10;
@@ -2205,8 +2681,8 @@ class BattleView {
             return reduction > 0 ? `${info.shortName} 减伤${reduction}% · ${turns}回合` : `${info.shortName} · ${turns}回合`;
         }
         if (effect.type === 'burn') {
-            const stackCount = Math.max(1, Number(effect.maxStacks) || 1) > 1 ? ` · 叠层` : '';
-            return `${info.shortName}${stackCount} · ${turns}回合`;
+            const stackText = Math.max(1, Number(effect.maxStacks) || 1) > 1 ? ' · 叠层' : '';
+            return `${info.shortName}${stackText} · ${turns}回合`;
         }
         if ((effect.modifierType === 'percent' || effect.modifierType === 'flat') && Number.isFinite(Number(effect.value))) {
             const sign = (Number(effect.value) || 0) > 0 ? '+' : '';
@@ -2218,17 +2694,36 @@ class BattleView {
         }
         return `${effect.name || info.shortName} · ${turns}回合`;
     }
-
     getSelectedDetailUnit(actor = null) {
         const inspected = this.inspectedUnitId ? battleManager.findUnitById(this.inspectedUnitId) : null;
         return inspected || actor || null;
+    }
+
+    resetDetailPanelInspection() {
+        this.inspectedUnitId = null;
+        this.inspectedSpecialTile = null;
+        this.inspectedObstacle = null;
+    }
+
+    syncHeroTurnDetailFocus() {
+        const actor = battleManager.currentActor;
+        const pendingActorId = this.pendingAction?.context?.actor?.id || null;
+        const isHeroTurn = Boolean(this.pendingAction && actor && actor.camp === 'hero' && actor.id === pendingActorId);
+        if (!isHeroTurn) {
+            this.lastDetailHeroTurnActorId = null;
+            return;
+        }
+        if (this.lastDetailHeroTurnActorId !== actor.id) {
+            this.resetDetailPanelInspection();
+            this.lastDetailHeroTurnActorId = actor.id;
+        }
     }
 
     renderUnitDetailPanel(unit) {
         if (!unit) {
             return '<div class="battle-detail-empty">点击棋盘中的单位可以查看状态与属性。</div>';
         }
-        const statuses = this.getMergedStatusEffects(unit.getStatusEffects?.() || []);
+        const statuses = this.getMergedStatusEffects(this.getCombinedUnitStatusEffects(unit));
         const statusRows = this.getUnitDetailStatusRows(unit, statuses);
         const stats = unit.getStats?.() || {};
         const attackText = this.formatUnitDetailStatValue(stats.attack ?? unit._attack, unit._attack);
@@ -2359,7 +2854,7 @@ class BattleView {
 
         // 记录所有单位当前位置（用于动画计算）
         this.lastUnitPositions.clear();
-        battleManager.getAllUnits().forEach(unit => {
+        [...snapshot.heroes, ...snapshot.enemies].forEach(unit => {
             if (unit.isAlive()) {
                 this.lastUnitPositions.set(unit.id, { x: unit.position.x, y: unit.position.y });
             }
@@ -2367,10 +2862,11 @@ class BattleView {
         const metrics = this.getTerrainCellMetrics(board, width, height);
         const fragment = document.createDocumentFragment();
         this.boardUnitElements.clear();
-        battleManager.getAllUnits().forEach(unit => {
-            if (!unit?.isAlive?.()) {
+        [...snapshot.heroes, ...snapshot.enemies].forEach(unit => {
+            if (!unit?.isAlive?.() || this.dyingUnitIds.has(unit.id)) {
                 return;
             }
+            this.playedDeathUnitIds.delete(unit.id);
             const slot = document.createElement('div');
             slot.className = `battle-board-unit-slot battle-cell occupied ${unit.camp} ${unit.rank || 'normal'} inspectable`;
             slot.dataset.x = String(unit.position.x);
@@ -2387,6 +2883,7 @@ class BattleView {
         board.appendChild(fragment);
         this.renderTerrainLayer(snapshot, true);
         this.syncCurrentActorUnitMarkers(battleManager.currentActor?.id || null);
+        this.boardStructureRenderKey = this.buildBoardStructureRenderKey(snapshot);
         this.lastBoardRenderKey = this.buildBoardRenderKey(snapshot);
     }
 
@@ -2423,23 +2920,113 @@ class BattleView {
         return battleManager.getAttackableTargets(actor);
     }
 
+    buildActionPanelRenderKey(snapshot = battleManager.getSnapshot()) {
+        const actor = battleManager.currentActor;
+        const pendingActorId = this.pendingAction?.context?.actor?.id || null;
+        return [
+            this.isPaused ? 1 : 0,
+            battleManager.isAutoBattleEnabled() ? 1 : 0,
+            actor?.id || '',
+            actor?.camp || '',
+            pendingActorId,
+            this.pendingAction ? 1 : 0,
+            this.selectionMode || '',
+            Number.isFinite(this.selectedSkillIndex) ? this.selectedSkillIndex : '',
+            this.selectedBattleItemId || '',
+            this.isFallenTrayOpen ? 1 : 0,
+            actor?.skills?.length || 0
+        ].join(';');
+    }
 
-    renderActionPanel() {
-        const panel = this.element.querySelector('#battle-action-panel');
+    buildDetailPanelRenderKey(snapshot = battleManager.getSnapshot()) {
+        const actor = battleManager.currentActor;
+        const pendingActorId = this.pendingAction?.context?.actor?.id || null;
+        const inspected = this.getSelectedDetailUnit(actor);
+        const inspectedKey = inspected ? this.getBoardUnitStateKey(inspected) : '';
+        const skills = actor?.skills || [];
+        const skillKey = skills.map((skill, index) => [
+            index,
+            skill.id || skill.name || '',
+            skill.cooldownRemaining ?? '',
+            skill.cooldownTurns ?? ''
+        ].join(',')).join('|');
+        const needsBattleItemKey = this.selectionMode === 'item' || this.selectionMode === 'revive-item';
+        const battleItemKey = needsBattleItemKey
+            ? itemManager.getAllItems()
+                .filter(item => ['heal', 'revive', 'battle_status', 'max_hp'].includes(item.effect?.type))
+                .map(item => `${item.id}:${itemManager.getItemCount(item.id)}`)
+                .join('|')
+            : '';
+        const tileKey = this.inspectedSpecialTile
+            ? `${this.inspectedSpecialTile.x},${this.inspectedSpecialTile.y},${this.inspectedSpecialTile.type || ''}`
+            : '';
+        const obstacleKey = this.inspectedObstacle
+            ? `${this.inspectedObstacle.x},${this.inspectedObstacle.y},${this.inspectedObstacle.id || this.inspectedObstacle.type || ''}`
+            : '';
+        return [
+            this.isPaused ? 1 : 0,
+            battleManager.isAutoBattleEnabled() ? 1 : 0,
+            actor?.id || '',
+            actor?.camp || '',
+            pendingActorId,
+            this.pendingAction ? 1 : 0,
+            this.selectionMode || '',
+            Number.isFinite(this.selectedSkillIndex) ? this.selectedSkillIndex : '',
+            this.selectedBattleItemId || '',
+            this.isFallenTrayOpen ? 1 : 0,
+            inspectedKey,
+            tileKey,
+            obstacleKey,
+            skillKey,
+            battleItemKey,
+            (snapshot?.fallenHeroes || []).map(hero => hero.id).join(',')
+        ].join(';');
+    }
+
+    renderDetailPanelIfNeeded(html, renderKey = '') {
         const detailPanel = this.element.querySelector('#battle-detail-panel');
+        if (!detailPanel) {
+            return;
+        }
+        const key = renderKey || html;
+        if (key && key === this.detailPanelRenderKey) {
+            return;
+        }
+        detailPanel.innerHTML = html;
+        this.detailPanelRenderKey = key;
+    }
+
+
+    renderActionPanel(snapshot = null) {
+        const panel = this.element.querySelector('#battle-action-panel');
         if (!panel) {
             return;
         }
+        snapshot = snapshot || undefined;
+        const renderKey = this.buildActionPanelRenderKey(snapshot);
+        const detailRenderKey = this.buildDetailPanelRenderKey(snapshot);
+        if (renderKey && renderKey === this.actionPanelRenderKey && detailRenderKey === this.detailPanelRenderKey) {
+            return;
+        }
+        const commitRender = () => {
+            this.actionPanelRenderKey = renderKey;
+        };
 
         if (this.isPaused) {
-            panel.innerHTML = '<div class="battle-action-status">战斗已暂停</div>';
-            if (detailPanel) detailPanel.innerHTML = this.renderUnitDetailPanel(this.getSelectedDetailUnit());
+            if (renderKey !== this.actionPanelRenderKey) {
+                panel.innerHTML = '<div class="battle-action-status">战斗已暂停</div>';
+            }
+            this.renderDetailPanelIfNeeded(this.renderUnitDetailPanel(this.getSelectedDetailUnit()), detailRenderKey);
+            commitRender();
             return;
         }
 
         if (battleManager.isAutoBattleEnabled()) {
-            panel.innerHTML = '<div class="battle-action-status">自动战斗中，系统将自动处理本场战斗。</div>';
-            if (detailPanel) detailPanel.innerHTML = this.renderUnitDetailPanel(this.getSelectedDetailUnit());
+            if (renderKey !== this.actionPanelRenderKey) {
+                panel.innerHTML = '<div class="battle-action-status">自动战斗中，系统将自动处理本场战斗。</div>';
+            }
+            this.renderDetailPanelIfNeeded(this.renderUnitDetailPanel(this.getSelectedDetailUnit()), detailRenderKey);
+            commitRender();
             return;
         }
 
@@ -2453,44 +3040,48 @@ class BattleView {
             const statusText = actor
                 ? (actor.camp === 'enemy' ? '敌方行动中...' : '等待回合推进中...')
                 : '等待回合推进中...';
-              panel.innerHTML = `
-                  <div class="battle-action-buttons battle-action-buttons-vertical" style="opacity:0.5;pointer-events:none;">
-                      <button class="btn btn-secondary battle-command-btn is-attack" disabled><span class="battle-command-icon">攻击</span></button>
-                      <button class="btn btn-secondary battle-command-btn is-move" disabled><span class="battle-command-icon">移动</span></button>
-                      <button class="btn btn-secondary battle-command-btn is-defend" disabled><span class="battle-command-icon">防御</span></button>
-                      <button class="btn btn-secondary battle-command-btn is-item" disabled><span class="battle-command-icon">物品</span></button>
-                      <button class="btn btn-secondary battle-command-btn is-skill" disabled><span class="battle-command-icon">特技</span></button>
-                  </div>
-              `;
-              if (detailPanel) {
-                  if (this.inspectedSpecialTile) {
-                      detailPanel.innerHTML = this.renderSpecialTileDetailPanel(this.inspectedSpecialTile);
-                  } else if (this.inspectedObstacle) {
-                      detailPanel.innerHTML = this.renderObstacleDetailPanel(this.inspectedObstacle);
-                  } else {
-                      const detailUnit = this.getSelectedDetailUnit(actor);
-                      detailPanel.innerHTML = detailUnit
-                          ? this.renderUnitDetailPanel(detailUnit)
-                          : `<div class="battle-detail-empty">${statusText}</div>`;
-                  }
+              if (renderKey !== this.actionPanelRenderKey) {
+                  panel.innerHTML = `
+                      <div class="battle-action-buttons battle-action-buttons-vertical" style="opacity:0.5;pointer-events:none;">
+                          <button class="btn btn-secondary battle-command-btn is-attack" disabled><span class="battle-command-icon">攻击</span></button>
+                          <button class="btn btn-secondary battle-command-btn is-move" disabled><span class="battle-command-icon">移动</span></button>
+                          <button class="btn btn-secondary battle-command-btn is-defend" disabled><span class="battle-command-icon">防御</span></button>
+                          <button class="btn btn-secondary battle-command-btn is-item" disabled><span class="battle-command-icon">物品</span></button>
+                          <button class="btn btn-secondary battle-command-btn is-skill" disabled><span class="battle-command-icon">特技</span></button>
+                      </div>
+                  `;
               }
+              let detailHtml = '';
+              if (this.inspectedSpecialTile) {
+                  detailHtml = this.renderSpecialTileDetailPanel(this.inspectedSpecialTile);
+              } else if (this.inspectedObstacle) {
+                  detailHtml = this.renderObstacleDetailPanel(this.inspectedObstacle);
+              } else {
+                  const detailUnit = this.getSelectedDetailUnit(actor);
+                  detailHtml = detailUnit
+                      ? this.renderUnitDetailPanel(detailUnit)
+                      : `<div class="battle-detail-empty">${statusText}</div>`;
+              }
+              this.renderDetailPanelIfNeeded(detailHtml, detailRenderKey);
+              commitRender();
               return;
           }
 
           // 英雄行动阶段：正常渲染可用按钮
           const heroActor = this.pendingAction.context.actor;
-          panel.innerHTML = `
-              <div class="battle-action-buttons battle-action-buttons-vertical">
-                  <button class="btn battle-command-btn is-attack ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span class="battle-command-icon">攻击</span></button>
-                  <button class="btn battle-command-btn is-move ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span class="battle-command-icon">移动</span></button>
-                  <button class="btn btn-secondary battle-command-btn is-defend" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span class="battle-command-icon">防御</span></button>
-                  <button class="btn battle-command-btn is-item ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span class="battle-command-icon">物品</span></button>
-                  <button class="btn battle-command-btn is-skill ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span class="battle-command-icon">特技</span></button>
-              </div>
-          `;
-          if (detailPanel) {
-              detailPanel.innerHTML = this.renderDetailPanel(heroActor);
+          if (renderKey !== this.actionPanelRenderKey) {
+              panel.innerHTML = `
+                  <div class="battle-action-buttons battle-action-buttons-vertical">
+                      <button class="btn battle-command-btn is-attack ${this.selectionMode === 'attack' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('attack')" title="攻击"><span class="battle-command-icon">攻击</span></button>
+                      <button class="btn battle-command-btn is-move ${this.selectionMode === 'move' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('move')" title="移动"><span class="battle-command-icon">移动</span></button>
+                      <button class="btn btn-secondary battle-command-btn is-defend" onclick="window.game.ui.battleView.resolvePendingAction({ type: 'defend' })" title="防御"><span class="battle-command-icon">防御</span></button>
+                      <button class="btn battle-command-btn is-item ${this.selectionMode === 'item' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.selectActionMode('item')" title="使用物品"><span class="battle-command-icon">物品</span></button>
+                      <button class="btn battle-command-btn is-skill ${this.selectionMode === 'skill' ? 'btn-primary' : 'btn-secondary'}" onclick="window.game.ui.battleView.openSkillPanel()" title="使用特技" ${heroActor.skills?.length ? '' : 'disabled'}><span class="battle-command-icon">特技</span></button>
+                  </div>
+              `;
           }
+          this.renderDetailPanelIfNeeded(this.renderDetailPanel(heroActor), detailRenderKey);
+          commitRender();
       }
 
     renderDetailPanel(actor) {
@@ -2616,7 +3207,10 @@ class BattleView {
                 return;
             }
             this.pendingAction.remainingTime -= 1;
-            if (window.audioManager && typeof window.audioManager.playSFX === 'function') {
+            if (this.pendingAction.remainingTime > 0
+                && this.pendingAction.remainingTime <= 10
+                && window.audioManager
+                && typeof window.audioManager.playSFX === 'function') {
                 const sfxVolume = Number.isFinite(window.audioManager.sfxVolume) ? window.audioManager.sfxVolume : 0.28;
                 window.audioManager.playSFX('battle_countdown_tick', Math.min(0.28, sfxVolume));
             }
@@ -2642,6 +3236,7 @@ class BattleView {
             this.selectedSkillIndex = null;
             this.selectedBattleItemId = null;
             this.isFallenTrayOpen = false;
+            this.syncHeroTurnDetailFocus();
             this.startPendingActionTimer();
             this.renderBattleState();
         });
@@ -2667,6 +3262,7 @@ class BattleView {
         this.selectionMode = null;
         this.selectedSkillIndex = null;
         this.selectedBattleItemId = null;
+        this.lastDetailHeroTurnActorId = null;
         this.clearHeroTurnPrompt();
     }
 
@@ -3100,6 +3696,7 @@ class BattleView {
         this.clearPendingAction();
         if (result.victory) {
             const rewardResult = window.game.grantDungeonVictoryRewards(dungeon, result.participants || heroManager.getTeamIds());
+            saveSyncService.uploadCurrentSave?.({ force: true });
             await RewardModal.show({
                 title: '战斗胜利',
                 rewards: rewardResult.rewardEntries,
@@ -3187,7 +3784,7 @@ class BattleView {
                 if (syncedAfterTask) {
                     renderedAfterTask = true;
                 } else {
-                    this.renderBoardIfNeeded(battleManager.getSnapshot());
+                    this.requestBoardRenderIfNeeded();
                     renderedAfterTask = true;
                 }
             }
@@ -3261,9 +3858,9 @@ class BattleView {
     getCellScreenPosition(x, y) {
         const board = this.element.querySelector('#battle-board');
         if (!board) return null;
-        const snapshot = battleManager.getSnapshot();
-        if (!snapshot?.scene) return null;
-        const { width, height } = snapshot.scene;
+        const scene = battleManager.scene || {};
+        const width = Math.max(1, Number(scene.width) || 1);
+        const height = Math.max(1, Number(scene.height) || 1);
         if (x < 0 || y < 0 || x >= width || y >= height) return null;
         const metrics = this.getTerrainCellMetrics(board, width, height);
         const cellRect = this.getTerrainCellRect(metrics, x, y, 1);
@@ -3322,13 +3919,13 @@ class BattleView {
         const y = Number(cell.dataset.y);
         const pulseCells = this.getEnvironmentPulseCells(snapshot.scene.width, snapshot.scene.height, environmentType);
         cell.classList.add('environment-cell', `environment-${environmentType}`);
-        if (pulseCells.has(`${x},${y}`)) {
+        if (environmentType !== 'rain' && environmentType !== 'storm_night' && pulseCells.has(`${x},${y}`)) {
             cell.classList.add('environment-pulse-cell');
         }
     }
 
     clearBoardSelectionHighlights() {
-        this.requestTerrainRender(true);
+        this.requestTerrainRender(false);
     }
 
     clearBoardCellUnitState(cell, unitId) {
@@ -3339,14 +3936,18 @@ class BattleView {
         }
     }
 
-    syncBoardUnitCell(unit) {
+    syncBoardUnitCell(unit, snapshot = null, metrics = null) {
         if (!unit?.position) return;
-        if (!unit.isAlive?.()) {
+        if (unit.isAlive?.()) {
+            this.dyingUnitIds.delete(unit.id);
+            this.playedDeathUnitIds.delete(unit.id);
+        }
+        if (!unit.isAlive?.() || this.dyingUnitIds.has(unit.id)) {
             this.clearBoardCellUnitState(null, unit.id);
             return;
         }
         const board = this.element.querySelector('#battle-board');
-        const snapshot = battleManager.getSnapshot();
+        snapshot = snapshot || battleManager.getSnapshot();
         if (!board || !snapshot?.scene) return;
         let slot = this.boardUnitElements.get(unit.id);
         if (!slot) {
@@ -3361,16 +3962,55 @@ class BattleView {
         slot.classList.toggle('boss', unit.rank === 'boss');
         slot.classList.toggle('active', battleManager.currentActor?.id === unit.id);
         slot.classList.toggle('player-turn-cell', this.getPendingHeroTurnActor()?.id === unit.id);
-        slot.innerHTML = this.renderBoardUnitMarkup(unit);
-        const metrics = this.getTerrainCellMetrics(board, snapshot.scene.width, snapshot.scene.height);
+        const renderKey = this.getBoardUnitStateKey(unit);
+        if (slot.dataset.renderKey !== renderKey) {
+            slot.innerHTML = this.renderBoardUnitMarkup(unit);
+            slot.dataset.renderKey = renderKey;
+        }
+        metrics = metrics || this.getTerrainCellMetrics(board, snapshot.scene.width, snapshot.scene.height);
         this.positionBoardSlot(slot, metrics, unit.position.x, unit.position.y);
+    }
+
+    syncBoardUnitsIncremental(snapshot = battleManager.getSnapshot()) {
+        const board = this.element.querySelector('#battle-board');
+        if (!board || !snapshot?.scene) {
+            return;
+        }
+        const units = [...snapshot.heroes, ...snapshot.enemies];
+        const aliveIds = new Set(
+            units
+                .filter(unit => unit?.isAlive?.() && !this.dyingUnitIds.has(unit.id))
+                .map(unit => unit.id)
+        );
+        for (const [unitId, element] of this.boardUnitElements) {
+            if (!aliveIds.has(unitId)) {
+                element?.remove();
+                this.boardUnitElements.delete(unitId);
+            }
+        }
+        const metrics = this.getTerrainCellMetrics(board, snapshot.scene.width, snapshot.scene.height);
+        units.forEach(unit => {
+            if (!unit?.isAlive?.() || this.dyingUnitIds.has(unit.id)) {
+                if (unit?.id) {
+                    this.clearBoardCellUnitState(null, unit.id);
+                }
+                return;
+            }
+            this.lastUnitPositions.set(unit.id, { x: unit.position.x, y: unit.position.y });
+            this.syncBoardUnitCell(unit, snapshot, metrics);
+        });
+        this.refreshBoardRuntimeState(snapshot);
     }
 
     syncBoardUnitsAfterAction(units = []) {
         const snapshot = battleManager.getSnapshot();
+        const board = this.element.querySelector('#battle-board');
+        const metrics = board && snapshot?.scene
+            ? this.getTerrainCellMetrics(board, snapshot.scene.width, snapshot.scene.height)
+            : null;
         (units || []).filter(Boolean).forEach(unit => {
             if (unit?.isAlive?.()) {
-                this.syncBoardUnitCell(unit);
+                this.syncBoardUnitCell(unit, snapshot, metrics);
                 this.showUnitInBoard(unit.id);
             } else if (unit?.id) {
                 this.clearBoardCellUnitState(null, unit.id);
@@ -3387,11 +4027,60 @@ class BattleView {
         this.lastUnitPositions.set(unit.id, { x: toPosition.x, y: toPosition.y });
         this.syncBoardUnitCell(unit);
         this.hideUnitInBoard(unit.id);
-        this.requestTerrainRender(true);
+        this.requestTerrainRender(false);
+    }
+
+    acquireAnimationElement(poolKey) {
+        const key = String(poolKey || 'default');
+        const pool = this.animationElementPools.get(key) || [];
+        const element = pool.pop() || document.createElement('div');
+        if (pool.length) {
+            this.animationElementPools.set(key, pool);
+        }
+        element.className = '';
+        element.removeAttribute('style');
+        element.innerHTML = '';
+        element.textContent = '';
+        Object.keys(element.dataset || {}).forEach(name => delete element.dataset[name]);
+        return element;
+    }
+
+    releaseAnimationElement(poolKey, element) {
+        if (!element) {
+            return;
+        }
+        if (element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+        element.className = '';
+        element.removeAttribute('style');
+        element.innerHTML = '';
+        element.textContent = '';
+        Object.keys(element.dataset || {}).forEach(name => delete element.dataset[name]);
+        if (!this.animationLayer) {
+            return;
+        }
+        const key = String(poolKey || 'default');
+        const pool = this.animationElementPools.get(key) || [];
+        if (pool.length < this.animationElementPoolLimit) {
+            pool.push(element);
+            this.animationElementPools.set(key, pool);
+        }
+    }
+
+    clearAnimationElementPools() {
+        this.animationElementPools.forEach(pool => {
+            pool.forEach(element => {
+                if (element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
+            });
+        });
+        this.animationElementPools.clear();
     }
 
     createFloatingUnit(unit) {
-        const el = document.createElement('div');
+        const el = this.acquireAnimationElement('floating-unit');
         const isCurrentActor = battleManager.currentActor?.id === unit.id;
         el.className = `battle-unit-floating ${unit.camp} ${unit.rank || 'normal'} ${isCurrentActor ? 'is-current-actor' : ''}`.trim();
         el.dataset.unitId = unit.id;
@@ -3476,7 +4165,7 @@ class BattleView {
             this.setUnitHpTrail(unit.id, currentPercent);
             this.hpTrailTimers.delete(unit.id);
             if (this.visible && !this.isProcessingAction) {
-                this.renderBoardIfNeeded(battleManager.getSnapshot());
+                this.requestBoardRenderIfNeeded();
             }
         }, 180);
         this.hpTrailTimers.set(unit.id, timerId);
@@ -3516,16 +4205,14 @@ class BattleView {
         if (!this.animationLayer || !position || !text) {
             return;
         }
-        const label = document.createElement('div');
+        const label = this.acquireAnimationElement('combat-text');
         label.className = `battle-combat-text ${variant}`.trim();
         label.textContent = text;
         label.style.left = `${position.left + position.width / 2}px`;
         label.style.top = `${position.top + Math.max(10, position.height * 0.2)}px`;
         this.animationLayer.appendChild(label);
-        setTimeout(() => {
-            if (label.parentNode) {
-                label.parentNode.removeChild(label);
-            }
+        this.scheduleBattleEffect(() => {
+            this.releaseAnimationElement('combat-text', label);
         }, variant === 'skill-label' ? 900 : 1050);
     }
 
@@ -3566,7 +4253,7 @@ class BattleView {
         if (!this.animationLayer || !position) {
             return null;
         }
-        const effect = document.createElement('div');
+        const effect = this.acquireAnimationElement('battle-effect');
         effect.className = `battle-effect ${className}`.trim();
         if (options.isCritical) {
             effect.classList.add('is-critical');
@@ -3599,9 +4286,7 @@ class BattleView {
 
         this.animationLayer.appendChild(effect);
         this.scheduleBattleEffect(() => {
-            if (effect.parentNode) {
-                effect.parentNode.removeChild(effect);
-            }
+            this.releaseAnimationElement('battle-effect', effect);
         }, Number(options.duration) || 900);
         return effect;
     }
@@ -3694,6 +4379,27 @@ class BattleView {
         this.scheduleBattleEffect(() => {
             slot.classList.remove(cls);
         }, isCritical ? 320 : 200);
+    }
+
+    animateBoardUnitHit(unitId, isCritical = false) {
+        if (!unitId) {
+            return;
+        }
+        const board = this.element.querySelector('#battle-board');
+        if (!board) {
+            return;
+        }
+        const slot = this.boardUnitElements?.get?.(unitId) || board.querySelector(`.battle-board-unit-slot[data-unit-id="${unitId}"]`);
+        if (!slot) {
+            return;
+        }
+        const cls = isCritical ? 'battle-unit-hit-critical' : 'battle-unit-hit';
+        slot.classList.remove('battle-unit-hit', 'battle-unit-hit-critical');
+        void slot.offsetWidth;
+        slot.classList.add(cls);
+        this.scheduleBattleEffect(() => {
+            slot.classList.remove(cls);
+        }, isCritical ? 840 : 720);
     }
 
     fadeOutDeadUnit(unitId) {
@@ -3829,9 +4535,7 @@ class BattleView {
             requestAnimationFrame(() => requestAnimationFrame(startMove));
 
             setTimeout(() => {
-                if (floatingEl.parentNode) {
-                    floatingEl.parentNode.removeChild(floatingEl);
-                }
+                this.releaseAnimationElement('floating-unit', floatingEl);
                 this.syncBoardUnitCell(unit);
                 this.showUnitInBoard(unit.id);
                 resolve();
@@ -3955,7 +4659,7 @@ class BattleView {
         await new Promise(resolve => setTimeout(resolve, pureHealAction ? 1100 : 1250));
 
         [attackerFloat, ...targetFloats.map(({ element }) => element)].forEach(el => {
-            if (el.parentNode) el.parentNode.removeChild(el);
+            this.releaseAnimationElement('floating-unit', el);
         });
         this.syncBoardUnitCell(attacker);
         this.showUnitInBoard(attacker.id);
@@ -4008,9 +4712,7 @@ class BattleView {
 
         await new Promise(resolve => setTimeout(resolve, 1150));  // 350ms动画 + 800ms间隔
 
-        if (targetFloat.parentNode) {
-            targetFloat.parentNode.removeChild(targetFloat);
-        }
+        this.releaseAnimationElement('floating-unit', targetFloat);
 
     }
 
@@ -4032,8 +4734,14 @@ class BattleView {
                 this.spawnCombatText(targetPos, `+${heal}`, 'heal');
             } else if (damage > 0) {
                 const statusName = actionData?.result?.statusName || '状态';
-                this.spawnImpactEffect(targetPos, { delay: 80, shake: false });
-                this.flashUnitOnHit(target.id, false);
+                const strongImpact = actionData?.result?.heavyImpact === true || actionData?.result?.impactLevel === 'critical';
+                this.spawnImpactEffect(targetPos, {
+                    delay: 80,
+                    shake: strongImpact,
+                    isCritical: strongImpact
+                });
+                this.flashUnitOnHit(target.id, strongImpact);
+                this.animateBoardUnitHit(target.id, strongImpact);
                 this.spawnCombatText(targetPos, `${statusName} -${damage}`, 'status-damage');
             } else if (appliedEffects.length > 0) {
                 appliedEffects.forEach((effect, index) => {
@@ -4074,8 +4782,17 @@ class BattleView {
      */
     handleDeathAnimation(unit) {
         return new Promise((resolve) => {
+            if (!unit?.id || !unit?.position || this.dyingUnitIds.has(unit.id)) {
+                resolve();
+                return;
+            }
+            this.dyingUnitIds.add(unit.id);
+            this.playedDeathUnitIds.add(unit.id);
             const pos = this.getCellScreenPosition(unit.position.x, unit.position.y);
-            if (!pos) { resolve(); return; }
+            if (!pos) {
+                resolve();
+                return;
+            }
 
             // 棋盘原位先灰化淡出(质感反馈)
             this.fadeOutDeadUnit(unit.id);
@@ -4105,9 +4822,8 @@ class BattleView {
 
             // 整体动画时长保持 1320ms 不变,不影响后续 actionQueue 节奏
             setTimeout(() => {
-                if (deathFloat.parentNode) {
-                    deathFloat.parentNode.removeChild(deathFloat);
-                }
+                this.releaseAnimationElement('floating-unit', deathFloat);
+                this.dyingUnitIds.delete(unit.id);
                 resolve();
             }, 1320);
         });
@@ -4130,6 +4846,9 @@ class BattleView {
      * 显示棋盘中指定单位
      */
     showUnitInBoard(unitId) {
+        if (this.dyingUnitIds.has(unitId)) {
+            return;
+        }
         const board = this.element.querySelector('#battle-board');
         if (!board) return;
         const slot = this.boardUnitElements.get(unitId) || board.querySelector(`.battle-board-unit-slot[data-unit-id="${unitId}"]`);
@@ -4166,12 +4885,26 @@ class BattleView {
         }
         this.lastUnitPositions.clear();
         this.lastBoardRenderKey = '';
+        this.boardStructureRenderKey = '';
         this.boardUnitElements.clear();
         this.animationLayer = null;
         this.actionQueue = [];
         this.isProcessingAction = false;
         this.clearHpTrailTimers();
         this.clearBattleEffectTimers();
+        if (this.battleBoardLayoutFrame) {
+            cancelAnimationFrame(this.battleBoardLayoutFrame);
+            this.battleBoardLayoutFrame = null;
+        }
+        if (this.boardRenderFrame) {
+            cancelAnimationFrame(this.boardRenderFrame);
+            this.boardRenderFrame = null;
+            this.pendingBoardSnapshot = null;
+        }
+        if (this.animationLayer) {
+            this.animationLayer.innerHTML = '';
+        }
+        this.clearAnimationElementPools();
         this.stopEnvironmentEffect();
         this.resetTerrainLayer();
         this.environmentCanvas = null;
@@ -4184,6 +4917,11 @@ class BattleView {
         this.progressRenderCacheKey = '';
         this.hpTrailMap = new Map();
         this.combatTextBurstMap = new Map();
+        this.fallenTrayRenderKey = '';
+        this.actionPanelRenderKey = '';
+        this.detailPanelRenderKey = '';
+        this.dyingUnitIds.clear();
+        this.playedDeathUnitIds.clear();
         this.inspectedUnitId = null;
         this.inspectedSpecialTile = null;
         this.inspectedObstacle = null;
@@ -4195,3 +4933,156 @@ class BattleView {
 
 const battleView = new BattleView();
 window.battleView = battleView;
+
+const originalBattleViewGetStatusDisplayInfo = BattleView.prototype.getStatusDisplayInfo;
+BattleView.prototype.getStatusDisplayInfo = function(effect = {}) {
+    if (effect?.type === 'terrain_heal_cycle') {
+        return { icon: '治', shortName: '治疗', className: 'buff' };
+    }
+    if (effect?.type === 'terrain_heal_backlash') {
+        return { icon: '噬', shortName: '反噬', className: 'debuff' };
+    }
+    return originalBattleViewGetStatusDisplayInfo.call(this, effect);
+};
+
+const originalBattleViewFormatStatusEffectText = BattleView.prototype.formatStatusEffectText;
+BattleView.prototype.formatStatusEffectText = function(effect = {}) {
+    if (effect?.type === 'terrain_heal_cycle') {
+        const remaining = Math.max(1, Number(effect.remainingTurns) || 1);
+        const ratio = Math.round((Number(effect.ratio) || 0) * 100);
+        return `治疗 · 还可治疗${remaining}回合 · 当前恢复已损生命${ratio}%`;
+    }
+    if (effect?.type === 'terrain_heal_backlash') {
+        const ratio = Math.round((Number(effect.ratio) || 0) * 100);
+        return `反噬 · 当前驻留会扣除${ratio}%当前生命`;
+    }
+    return originalBattleViewFormatStatusEffectText.call(this, effect);
+};
+
+const originalBattleViewGetUnitStatusBadgesMarkup = BattleView.prototype.getUnitStatusBadgesMarkup;
+BattleView.prototype.getUnitStatusBadgesMarkup = function(unit, variant = 'board') {
+    const effects = this.getCombinedUnitStatusEffects(unit);
+    const hasTerrainHealStatus = effects.some((effect) => effect?.type === 'terrain_heal_cycle' || effect?.type === 'terrain_heal_backlash');
+    if (!hasTerrainHealStatus) {
+        return originalBattleViewGetUnitStatusBadgesMarkup.call(this, unit, variant);
+    }
+
+    const escortDutyInfo = this.getEscortDutyDisplayInfo(unit);
+    const tile = battleManager?.getSpecialTileAt?.(unit?.position);
+    const tileInfo = tile ? this.getSpecialTileStatusDisplayInfo(tile) : null;
+    const tileBadge = tileInfo && tile?.type !== 'heal' ? {
+        ...tileInfo,
+        turns: '',
+        title: tileInfo.title
+    } : null;
+    const escortDutyBadge = escortDutyInfo ? {
+        className: escortDutyInfo.className,
+        text: escortDutyInfo.badgeText,
+        turns: '',
+        title: escortDutyInfo.title
+    } : null;
+
+    const buffs = [];
+    const debuffs = [];
+    if (escortDutyBadge) {
+        debuffs.push(escortDutyBadge);
+    }
+    if (tileBadge) {
+        if (tileBadge.className === 'buff') {
+            buffs.push(tileBadge);
+        } else {
+            debuffs.push(tileBadge);
+        }
+    }
+
+    effects.forEach((effect) => {
+        const info = this.getStatusDisplayInfo(effect);
+        const isTerrainFireMomentum = effect.type === 'terrain_fire_momentum';
+        const badge = {
+            ...info,
+            turns: effect.type === 'terrain_heal_cycle'
+                ? Math.max(1, Number(effect.remainingTurns) || 1)
+                : (effect.type === 'terrain_heal_backlash'
+                    ? ''
+                    : (isTerrainFireMomentum
+                        ? Math.max(1, Number(effect.stackCount) || 1)
+                        : Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1))),
+            title: effect.type === 'terrain_heal_cycle'
+                ? `${effect.name || info.shortName} · 还可治疗${Math.max(1, Number(effect.remainingTurns) || 1)}回合`
+                : (effect.type === 'terrain_heal_backlash'
+                    ? `${effect.name || info.shortName} · 当前驻留会受到反噬伤害`
+                    : (isTerrainFireMomentum
+                        ? `${effect.name || info.shortName} · 当前${Math.max(1, Number(effect.stackCount) || 1)}层`
+                        : `${effect.name || info.shortName} · 剩余${Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1)}回合`))
+        };
+        if (info.className === 'buff') {
+            buffs.push(badge);
+        } else {
+            debuffs.push(badge);
+        }
+    });
+
+    const renderGroup = (items, side) => {
+        if (!items.length) {
+            return '';
+        }
+        const visible = items.slice(0, 2);
+        const hidden = items.length - visible.length;
+        return `
+            <div class="battle-status-group ${side}">
+                ${visible.map(item => `
+                    <span class="battle-status-badge ${item.className}${item.text ? ' is-text' : ''}" title="${item.title}">
+                        ${item.text
+                            ? `<span class="battle-status-text">${item.text}</span>`
+                            : `<span class="battle-status-icon">${item.icon}</span>`}
+                        ${item.turns ? `<span class="battle-status-turn">${item.turns}</span>` : ''}
+                    </span>
+                `).join('')}
+                ${hidden > 0 ? `<span class="battle-status-badge extra" title="还有${hidden}个状态">+${hidden}</span>` : ''}
+            </div>
+        `;
+    };
+
+    return `
+        <div class="battle-status-strip ${variant}">
+            ${renderGroup(buffs, 'buffs')}
+            ${renderGroup(debuffs, 'debuffs')}
+        </div>
+    `;
+};
+
+const battleViewHero030GetStatusDisplayInfo = BattleView.prototype.getStatusDisplayInfo;
+BattleView.prototype.getStatusDisplayInfo = function(effect = {}) {
+    if (effect?.type === 'break_armor') {
+        return { icon: '破', shortName: '破甲', className: 'debuff' };
+    }
+    if (effect?.type === 'focused_aim') {
+        return { icon: '◎', shortName: '瞄准', className: 'buff' };
+    }
+    return battleViewHero030GetStatusDisplayInfo.call(this, effect);
+};
+
+const battleViewHero030FormatStatusEffectText = BattleView.prototype.formatStatusEffectText;
+BattleView.prototype.formatStatusEffectText = function(effect = {}) {
+    if (effect?.type === 'break_armor') {
+        const remaining = Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
+        const bonus = Math.round((Number(effect.damageTakenDebuffBonus) || 0) * 100);
+        return bonus > 0 ? `破甲 受伤+${bonus}% · ${remaining}回合` : `破甲 · ${remaining}回合`;
+    }
+    if (effect?.type === 'focused_aim') {
+        const remaining = Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
+        const bonus = Math.round((Number(effect.damageBonus) || 0) * 100);
+        const crit = Math.round((Number(effect.extraCritChance) || 0));
+        const details = [];
+        if (bonus > 0) {
+            details.push(`增伤+${bonus}%`);
+        }
+        if (crit > 0) {
+            details.push(`暴击+${crit}%`);
+        }
+        return details.length > 0
+            ? `瞄准 ${details.join(' / ')} · ${remaining}回合`
+            : `瞄准 · ${remaining}回合`;
+    }
+    return battleViewHero030FormatStatusEffectText.call(this, effect);
+};

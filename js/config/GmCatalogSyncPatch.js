@@ -1,6 +1,22 @@
 (function() {
     const GmCatalogSync = {
         loaded: false,
+        embeddedApplied: false,
+
+        applyEmbeddedCatalog() {
+            if (this.embeddedApplied) {
+                return true;
+            }
+
+            const catalog = window.__SURVIVOR_EMBEDDED_GM_CATALOG__;
+            if (!catalog || typeof catalog !== 'object') {
+                return false;
+            }
+
+            this.apply(catalog);
+            this.embeddedApplied = true;
+            return true;
+        },
 
         async load() {
             if (this.loaded) {
@@ -410,9 +426,17 @@
             }
 
             window.CheckinConfig = window.CheckinConfig || {};
-            window.CheckinConfig.welfareGifts = welfareGifts
+            const normalized = welfareGifts
                 .filter(entry => entry?.id)
                 .map(entry => this.stripCatalogMeta(entry));
+            window.CheckinConfig.welfareGifts = normalized;
+            const cycleEntry = normalized.find(entry => String(entry?.kind || '').trim() === 'checkinCycle');
+            window.CheckinConfig.checkinCycleRewards = Array.isArray(cycleEntry?.cycleRewards)
+                ? cycleEntry.cycleRewards.map(entry => ({
+                    day: Math.min(7, Math.max(1, Number(entry?.day) || 1)),
+                    rewards: Array.isArray(entry?.rewards) ? entry.rewards.map(reward => ({ ...reward })) : []
+                }))
+                : null;
             window.game?.ui?.checkinView?.refresh?.();
         },
 

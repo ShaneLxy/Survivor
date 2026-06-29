@@ -429,6 +429,8 @@ export class GmCatalogService {
       title,
       description: String(entry?.description || '').trim(),
       period,
+      category: String(entry?.category || '').trim(),
+      sortOrder: Number.isFinite(Number(entry?.sortOrder)) ? Number(entry.sortOrder) : 0,
       trigger,
       target: Math.max(1, Math.floor(Number(entry?.target) || 1)),
       rewards: rewardList,
@@ -524,6 +526,8 @@ export class GmCatalogService {
     }
 
     // ----- specialTraits 文字字段(name/summary + traits[] + track[] + stages[]) -----
+    const voiceCues = this.normalizeHeroVoiceCues(entry?.voiceCues);
+
     const specialTraits =
       entry?.specialTraits && typeof entry.specialTraits === 'object' && !Array.isArray(entry.specialTraits)
         ? this.cloneSpecialTraits(entry.specialTraits)
@@ -583,6 +587,7 @@ export class GmCatalogService {
     const result: Record<string, any> = {
       id: String(entry?.id || '').trim(),
       name: String(entry?.name || '').trim(),
+      enabled: entry?.enabled === false ? false : true,
       rarity,
       profession: entry?.profession ? String(entry.profession).trim() : '',
       professionIcon: entry?.professionIcon ?? null,
@@ -597,10 +602,33 @@ export class GmCatalogService {
     if (basicAttackEffects.length > 0) result.basicAttackEffects = basicAttackEffects;
     if (reactiveEffects.length > 0) result.reactiveEffects = reactiveEffects;
     if (specialTraits) result.specialTraits = specialTraits;
+    result.voiceCues = voiceCues;
     if (entry?.icon !== undefined) result.icon = String(entry.icon || '').trim();
     if (entry?.attackCoefficient !== undefined && Number.isFinite(Number(entry.attackCoefficient))) {
       result.attackCoefficient = Number(entry.attackCoefficient);
     }
+    return result;
+  }
+
+  private normalizeHeroVoiceCues(voiceCues: any) {
+    const result: Record<string, any[]> = {};
+    if (!voiceCues || typeof voiceCues !== 'object' || Array.isArray(voiceCues)) {
+      return result;
+    }
+    ['turnStart', 'critical', 'kill', 'death', 'mvp', 'heal'].forEach((cue) => {
+      const entries = Array.isArray(voiceCues[cue]) ? voiceCues[cue] : [];
+      const normalized = entries
+        .filter(Boolean)
+        .map((entry: any) => ({
+          name: String(entry?.name || '').trim(),
+          text: String(entry?.text || '').trim(),
+          src: String(entry?.src || entry?.url || '').trim(),
+        }))
+        .filter((entry: any) => entry.src);
+      if (normalized.length > 0) {
+        result[cue] = normalized;
+      }
+    });
     return result;
   }
 
@@ -790,6 +818,13 @@ export class GmCatalogService {
           String(left.name || left.id || '').localeCompare(String(right.name || right.id || ''), 'zh-CN'),
       );
     }
+    if (category === 'quest' || category === 'achievement') {
+      return values.sort(
+        (left, right) =>
+          Number(left.sortOrder || 0) - Number(right.sortOrder || 0) ||
+          String(left.name || left.id || '').localeCompare(String(right.name || right.id || ''), 'zh-CN'),
+      );
+    }
     return values.sort((left, right) =>
       String(left.name || left.id).localeCompare(String(right.name || right.id), 'zh-CN'),
     );
@@ -865,7 +900,9 @@ export class GmCatalogService {
         category: 'hero',
       }),
     );
-    const heroFragments = heroes.map((hero: any) => this.toHeroFragmentItemEntry(hero));
+    const heroFragments = heroes
+      .filter((hero: any) => hero?.enabled !== false)
+      .map((hero: any) => this.toHeroFragmentItemEntry(hero));
 
     const equipment = (Array.isArray(equipmentConfig.templates) ? equipmentConfig.templates : []).map(
       (template: any) => ({
@@ -987,7 +1024,7 @@ export class GmCatalogService {
 
   private getHeroList(heroConfig: any) {
     if (typeof heroConfig.getAllHeroes === 'function') {
-      return heroConfig.getAllHeroes.call(heroConfig);
+      return heroConfig.getAllHeroes.call(heroConfig, { includeDisabled: true });
     }
     return Array.isArray(heroConfig.heroes) ? heroConfig.heroes : [];
   }
@@ -1055,6 +1092,23 @@ export class GmCatalogService {
           { type: 'item', id: 'exp_potion', count: 20 },
         ],
         adLimits: { normal: 3, welfare: 4, supreme: 5 },
+      },
+      {
+        id: 'checkin_cycle_rewards',
+        kind: 'checkinCycle',
+        name: '7日签到额外奖励',
+        title: '7日签到额外奖励',
+        description: '签到页每日固定奖励之外的7天循环额外奖励。',
+        sortOrder: 90,
+        cycleRewards: [
+          { day: 1, rewards: [{ type: 'resource', id: 'gold', count: 100 }] },
+          { day: 2, rewards: [{ type: 'resource', id: 'wood', count: 50 }] },
+          { day: 3, rewards: [{ type: 'item', id: 'energy_potion', count: 1 }] },
+          { day: 4, rewards: [{ type: 'item', id: 'hero_summon', count: 1 }] },
+          { day: 5, rewards: [{ type: 'resource', id: 'gold', count: 200 }] },
+          { day: 6, rewards: [{ type: 'resource', id: 'meat', count: 3 }] },
+          { day: 7, rewards: [{ type: 'random_fragments', total: 50 }] },
+        ],
       },
       {
         id: 'welfare_month_card',
@@ -1144,11 +1198,13 @@ export class GmCatalogService {
   }
 
   private normalizeWelfareGiftEntry(entry: Record<string, any>) {
+    const rawKind = String(entry?.kind || '').trim();
     const kind =
-      String(entry?.kind || '').trim() === 'monthCard' ||
-      String(entry?.id || '').trim().includes('month_card')
-        ? 'monthCard'
-        : 'gift';
+      rawKind === 'checkinCycle'
+        ? 'checkinCycle'
+        : rawKind === 'monthCard' || String(entry?.id || '').trim().includes('month_card')
+          ? 'monthCard'
+          : 'gift';
     return {
       ...entry,
       kind,
@@ -1169,25 +1225,51 @@ export class GmCatalogService {
       },
       rewards: (Array.isArray(entry?.rewards) ? entry.rewards : [])
         .map((reward: any) => this.normalizeWelfareRewardEntry(reward))
-        .filter((reward: any) => reward && reward.id),
+        .filter(Boolean),
       dailyRewards: (Array.isArray(entry?.dailyRewards) ? entry.dailyRewards : [])
         .map((reward: any) => this.normalizeWelfareRewardEntry(reward))
-        .filter((reward: any) => reward && reward.id),
+        .filter(Boolean),
+      cycleRewards: this.normalizeCheckinCycleRewardList(entry?.cycleRewards),
     };
   }
 
   private normalizeWelfareRewardEntry(reward: Record<string, any>) {
     const type = String(reward?.type || 'item').trim();
     const id = String(reward?.id || '').trim();
-    if (!id) {
+    if (type !== 'random_fragments' && !id) {
       return null;
     }
-    const count = Math.max(1, Number(reward?.count ?? reward?.amount ?? 1) || 1);
+    const count = Math.max(1, Number(reward?.count ?? reward?.amount ?? reward?.total ?? 1) || 1);
+    if (type === 'random_fragments') {
+      return {
+        type,
+        total: count,
+        count,
+      };
+    }
     return {
       type,
       id,
       count,
     };
+  }
+
+  private normalizeCheckinCycleRewardList(entries: any) {
+    const source = Array.isArray(entries) ? entries : [];
+    const normalized = source
+      .map((entry: any, index: number) => ({
+        day: Math.min(7, Math.max(1, Number(entry?.day) || index + 1)),
+        rewards: (Array.isArray(entry?.rewards) ? entry.rewards : [])
+          .map((reward: any) => this.normalizeWelfareRewardEntry(reward))
+          .filter(Boolean),
+      }))
+      .sort((left: any, right: any) => left.day - right.day);
+    const byDay = new Map<number, any>(normalized.map((entry: any) => [entry.day, entry]));
+    const result = [];
+    for (let day = 1; day <= 7; day += 1) {
+      result.push(byDay.get(day) || { day, rewards: [] });
+    }
+    return result;
   }
 
   private normalizeShelterBuildingLevel(levelEntry: any, fallbackLevel: number) {
@@ -1554,6 +1636,10 @@ export class GmCatalogService {
           count: Math.max(1, Number(entry?.count) || 1),
           positions: this.normalizeCoordinateList(entry?.positions || entry?.spawnPositions),
         };
+        const key = String(entry?.key || entry?.entryKey || entry?.spawnKey || '').trim();
+        if (key) {
+          normalized.key = key;
+        }
         const skillIds = this.normalizeSkillIdList(entry?.skillIds);
         const skillRefs = this.normalizeSkillRefs(entry?.skillRefs);
         if (entry?.multiplier !== undefined) {
@@ -1623,12 +1709,19 @@ export class GmCatalogService {
   }
 
   private normalizeBossWaves(waves: any, dungeonId: any) {
-    return (Array.isArray(waves) ? waves : []).map((wave, index) => ({
-      id: String(wave?.id || `${dungeonId || 'dungeon'}_boss_wave_${index + 1}`),
-      spawnRound: Math.max(1, Number(wave?.spawnRound) || 12),
-      spawnOnClearBeforeRound: wave?.spawnOnClearBeforeRound !== false,
-      bosses: this.normalizeDungeonEnemies(wave?.bosses),
-    }));
+    return (Array.isArray(waves) ? waves : []).map((wave, index) => {
+      const guardianKey = String(wave?.guardianKey || wave?.guardian?.key || wave?.guardian?.enemyKey || '').trim();
+      const normalized: Record<string, any> = {
+        id: String(wave?.id || `${dungeonId || 'dungeon'}_boss_wave_${index + 1}`),
+        spawnRound: Math.max(1, Number(wave?.spawnRound) || 12),
+        spawnOnClearBeforeRound: wave?.spawnOnClearBeforeRound !== false,
+        bosses: this.normalizeDungeonEnemies(wave?.bosses),
+      };
+      if (guardianKey) {
+        normalized.guardianKey = guardianKey;
+      }
+      return normalized;
+    });
   }
 
   private normalizeCoordinateList(list: any) {

@@ -1,0 +1,14 @@
+{
+  "battleBgmPath": "assets/audio/bgm/battle.mp3",
+  "lobbyBgmPath": "assets/audio/bgm/ParadiseBGM.MP3",
+  "attackSfxPaths": [
+    "assets/audio/sfx/gm_battle_attack_1781733151190_70408.wav",
+    "assets/audio/sfx/gm_battle_attack_1781733156522_97711.mp3",
+    "assets/audio/sfx/gm_battle_attack_1781733164072_11865.mp3"
+  ],
+  "criticalSfxPaths": [
+    "assets/audio/sfx/gm_battle_critical_1781733169277_15805.wav",
+    "assets/audio/sfx/gm_battle_critical_1781733173020_98423.wav",
+    "assets/audio/sfx/gm_battle_critical_1781733176804_76918.wav"
+  ]
+}

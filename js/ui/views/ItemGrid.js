@@ -16,6 +16,9 @@ class ItemGrid {
         this.inventoryCategory = 'item';
         this.fragments = heroManager.getAllFragments();
         this.toolbarElement = null;
+        this.swipeStartX = 0;
+        this.swipeStartY = 0;
+        this.swipeStartTime = 0;
         this.init();
     }
 
@@ -47,6 +50,52 @@ class ItemGrid {
             eventManager.on(eventName, () => this.refresh());
         });
         eventManager.on('viewChange', data => this.onViewChange(data));
+        this.setupSwipeEvents();
+    }
+
+    setupSwipeEvents() {
+        if (!this.element) {
+            return;
+        }
+        this.element.addEventListener('touchstart', event => {
+            if (event.touches.length !== 1) {
+                return;
+            }
+            const touch = event.touches[0];
+            this.swipeStartX = touch.clientX;
+            this.swipeStartY = touch.clientY;
+            this.swipeStartTime = Date.now();
+        }, { passive: true });
+
+        this.element.addEventListener('touchend', event => {
+            const touch = event.changedTouches?.[0];
+            if (!touch || !this.swipeStartTime) {
+                return;
+            }
+            const diffX = touch.clientX - this.swipeStartX;
+            const diffY = touch.clientY - this.swipeStartY;
+            const absX = Math.abs(diffX);
+            const absY = Math.abs(diffY);
+            const elapsed = Date.now() - this.swipeStartTime;
+            this.swipeStartTime = 0;
+
+            if (elapsed > 600 || absX < 45 || absX < absY * 1.25) {
+                return;
+            }
+            if (diffX < 0) {
+                this.goToPage(this.currentPage + 1);
+            } else {
+                this.goToPage(this.currentPage - 1);
+            }
+        }, { passive: true });
+    }
+
+    goToPage(page) {
+        const totalPages = this.pagination?.config?.totalPages || 1;
+        if (page < 1 || page > totalPages) {
+            return;
+        }
+        this.pagination.setPage(page);
     }
 
     onViewChange(data) {
@@ -292,7 +341,9 @@ class ItemGrid {
     }
 
     showHeroFragmentDetail(item) {
-        const heroConfig = HeroConfig.getHeroConfig(item.id);
+        const itemConfig = ItemConfig.getItemConfig(item.id);
+        const heroConfigId = itemConfig?.fragmentHeroId || item.fragmentHeroId || String(item.id || '').replace(/_fragment$/, '');
+        const heroConfig = HeroConfig.getHeroConfig(heroConfigId);
         if (!heroConfig) {
             Toast.error('英雄配置不存在');
             return;
@@ -371,60 +422,11 @@ class ItemGrid {
 
     showHeroExpUseModal(itemId) {
         const item = itemManager.getItem(itemId);
-        const totalCount = itemManager.getItemCount(itemId);
-        if (!item || totalCount <= 0) {
+        if (!item || item.effect?.type !== 'hero_exp') {
             Toast.error('经验药水不存在');
             return;
         }
-        const heroes = heroManager.getAllHeroes();
-        if (heroes.length === 0) {
-            Toast.error('当前没有可培养的英雄');
-            return;
-        }
-
-        const content = `
-            <div class="hero-exp-use-panel">
-                <div class="hero-exp-use-tip">经验药水可批量使用，每瓶提供 1 点英雄经验。</div>
-                <label class="hero-exp-use-field">
-                    <span>选择英雄</span>
-                    <select id="exp-potion-hero-select" class="hero-exp-use-select">
-                        ${heroes.map(hero => `<option value="${hero.id}">${hero.name} · Lv.${hero.level}</option>`).join('')}
-                    </select>
-                </label>
-                <label class="hero-exp-use-field">
-                    <span>使用数量（当前 ${totalCount}）</span>
-                    <input id="exp-potion-count-input" class="hero-exp-use-input" type="number" min="1" max="${totalCount}" value="1">
-                </label>
-            </div>
-        `;
-
-        const modal = new Modal({
-            title: '使用经验药水',
-            className: 'inventory-detail-modal-shell hero-command-modal-shell',
-            content,
-            buttons: [
-                {
-                    text: '确认使用',
-                    className: 'btn-primary',
-                    onClick: () => {
-                        const heroId = document.getElementById('exp-potion-hero-select')?.value;
-                        const quantity = Number(document.getElementById('exp-potion-count-input')?.value) || 1;
-                        const result = itemManager.useItem(itemId, heroId, { quantity });
-                        if (result.success) {
-                            Toast.success(result.message);
-                            this.refresh();
-                            window.game.ui.heroView.refresh();
-                            window.game.save();
-                            modal.close();
-                        } else {
-                            Toast.error(result.message);
-                        }
-                    }
-                },
-                { text: '取消', className: 'btn-secondary', onClick: () => modal.close() }
-            ]
-        });
-        modal.show();
+        Toast.info('请前往英雄管理页面英雄详情中使用');
     }
 
     showItemDetail(item) {
@@ -452,10 +454,21 @@ class ItemGrid {
                         }
                         const result = itemManager.useItem(item.id);
                         if (result.success) {
-                            Toast.success(result.message);
-                            this.refresh();
-                            window.game.save();
-                            modal.close();
+                            const finalize = () => {
+                                this.refresh();
+                                window.game.save();
+                                modal.close();
+                            };
+                            if (Array.isArray(result.rewards) && result.rewards.length > 0) {
+                                RewardModal.show({
+                                    title: item.name,
+                                    rewards: result.rewards,
+                                    summaryText: result.message || '使用成功'
+                                }).then(() => finalize());
+                            } else {
+                                Toast.success(result.message);
+                                finalize();
+                            }
                         } else {
                             Toast.error(result.message);
                         }

@@ -5,6 +5,7 @@ class BattleUnit {
     constructor(config, level = 1) {
         this.id = config.id || Utils.generateId();
         this.configId = config.configId || null;
+        this.entryKey = config.entryKey || config.key || config.spawnKey || null;
         this.name = config.name || '未知单位';
         this.icon = config.icon || '✦';
         this.portrait = config.portrait || null;
@@ -13,6 +14,12 @@ class BattleUnit {
         this.rank = config.rank || 'normal';
         this.profession = config.profession || null;
         this.description = config.description || '';
+        this.voiceCues = config.voiceCues && typeof config.voiceCues === 'object'
+            ? Object.fromEntries(Object.entries(config.voiceCues).map(([cue, list]) => [
+                cue,
+                Array.isArray(list) ? list.filter(Boolean).map(entry => ({ ...entry })) : []
+            ]))
+            : {};
         this.skills = Array.isArray(config.skills) && config.skills.length > 0
             ? config.skills.filter(Boolean).map(skill => ({ ...skill }))
             : (config.skill ? [{ ...config.skill }] : []);
@@ -81,7 +88,8 @@ class BattleUnit {
             ...(config.baseStats || {})
         };
 
-        this.maxHp = Math.max(1, Number(baseStats.hp) || 100);
+        this.baseMaxHp = Math.max(1, Number(baseStats.hp) || 100);
+        this.maxHp = this.baseMaxHp;
         this.hp = this.maxHp;
         this._attack = Math.max(1, Number(baseStats.attack) || 10);
         this.attackCoefficient = Math.max(0.05, Number(baseStats.attackCoefficient) || 1);
@@ -115,6 +123,7 @@ class BattleUnit {
             cooldownRemaining: 0,
             cooldownTurns,
             range,
+            rangeMetric: skill?.rangeMetric || 'manhattan',
             targetType: skill?.targetType || 'enemy',
             targetCount,
             hpCostPercent,
@@ -135,6 +144,8 @@ class BattleUnit {
                 : effect.type === 'stun' ? 'control'
                     : effect.type === 'charm' ? 'control'
                         : 'stat_modifier');
+        const modifierType = effect.modifierType || 'percent';
+        const explicitAttackPercentBonus = Number(effect.attackPercentBonus);
         return {
             id: effect.id || Utils.generateId(),
             type: effect.type || 'custom',
@@ -142,7 +153,7 @@ class BattleUnit {
             stat,
             value,
             effectType,
-            modifierType: effect.modifierType || 'percent',
+            modifierType,
             durationTurns,
             remainingTurns: Math.max(1, Number(effect.remainingTurns) || durationTurns),
             tickTiming: effect.tickTiming || 'turnStart',
@@ -153,16 +164,23 @@ class BattleUnit {
             damageRatioCurrentHp: Number(effect.damageRatioCurrentHp) || 0,
             damageMultiplier: Number(effect.damageMultiplier) || 0,
             healMissingHpRatio: Math.max(0, Number(effect.healMissingHpRatio) || 0),
+            healRatioMaxHp: Math.max(0, Number(effect.healRatioMaxHp) || 0),
             healTakenMultiplier: Utils.clamp(Number(effect.healTakenMultiplier ?? 1) || 1, 0, 10),
-            attackPercentBonus: Number(effect.attackPercentBonus) || 0,
+            attackPercentBonus: Number.isFinite(explicitAttackPercentBonus)
+                ? explicitAttackPercentBonus
+                : (effectType === 'stat_modifier' && stat === 'attack' && modifierType !== 'flat' ? value : 0),
             defensePercentBonus: Number(effect.defensePercentBonus) || 0,
             damageReduction: Math.max(0, Number(effect.damageReduction ?? 0) || 0),
             maxStacks: Math.max(1, Number(effect.maxStacks) || 1),
             ignoreDefense: effect.ignoreDefense !== false,
             silenceSkills: Boolean(effect.silenceSkills || effect.type === 'silence'),
             countsAsDebuff: effect.countsAsDebuff !== false,
+            requiresOtherDebuff: effect.requiresOtherDebuff !== false,
             refreshAllStacksOnApply: effect.refreshAllStacksOnApply === true,
             damageTakenDebuffBonus: Math.max(0, Number(effect.damageTakenDebuffBonus ?? effect.damageTakenBonus ?? 0) || 0),
+            alliedDefensePenBonus: Math.max(0, Number(effect.alliedDefensePenBonus) || 0),
+            immuneDisplace: effect.immuneDisplace === true,
+            immuneStun: effect.immuneStun === true,
             excludedDebuffTypes: Array.isArray(effect.excludedDebuffTypes)
                 ? effect.excludedDebuffTypes.filter(Boolean)
                 : [],
@@ -224,10 +242,16 @@ class BattleUnit {
                 return '灼烧';
             case 'haze_mark':
                 return '破意标记';
+            case 'break_formation':
+                return '破阵';
+            case 'break_wound':
+                return '裂隙';
             case 'black_wall':
                 return '铜墙铁壁';
             case 'battle_guard':
                 return '战术减伤';
+            case 'warning_guard':
+                return '蓄力护体';
             default:
                 return '状态';
         }
@@ -254,7 +278,7 @@ class BattleUnit {
         if (effect.isDebuff === true || effect.debuff === true) {
             return true;
         }
-        if (['slow', 'stun', 'silence', 'taunt', 'bleed', 'burn', 'charm'].includes(type)) {
+        if (['slow', 'stun', 'silence', 'taunt', 'bleed', 'burn', 'charm', 'break_formation', 'break_wound', 'break_armor'].includes(type)) {
             return true;
         }
         if (effect.effectType === 'damage_over_time' || effect.effectType === 'control') {
@@ -319,8 +343,16 @@ class BattleUnit {
         if (incoming.type === 'taunt') {
             return incoming;
         }
-        const currentMagnitude = Math.abs(Number(current.value) || 0);
-        const incomingMagnitude = Math.abs(Number(incoming.value) || 0);
+        const getMagnitude = (effect = {}) => Math.max(
+            Math.abs(Number(effect.value) || 0),
+            Math.abs(Number(effect.damageTakenDebuffBonus) || 0),
+            Math.abs(Number(effect.alliedDefensePenBonus) || 0),
+            Math.abs(Number(effect.attackPercentBonus) || 0),
+            Math.abs(Number(effect.defensePercentBonus) || 0),
+            Math.abs(Number(effect.damageReduction) || 0)
+        );
+        const currentMagnitude = getMagnitude(current);
+        const incomingMagnitude = getMagnitude(incoming);
         if (incomingMagnitude > currentMagnitude) {
             return incoming;
         }
@@ -334,11 +366,132 @@ class BattleUnit {
         };
     }
 
+    getIncomingStatusDuration(effect = {}) {
+        return Math.max(1, Number(effect.remainingTurns ?? effect.durationTurns) || 1);
+    }
+
+    buildPassiveAdjustedStatusEffect(effect = {}, passiveEffect = {}, overrides = {}) {
+        return {
+            ...effect,
+            ...overrides,
+            reducedByPassiveType: passiveEffect?.type || effect.reducedByPassiveType || 'custom',
+            reducedByPassiveName: passiveEffect?.name || effect.reducedByPassiveName || '被动'
+        };
+    }
+
+    applyBattleTenacityToIncomingStatus(effect = {}, passiveEffect = {}) {
+        const hardControlTypes = Array.isArray(passiveEffect?.hardControlTypes) && passiveEffect.hardControlTypes.length > 0
+            ? passiveEffect.hardControlTypes.filter(Boolean)
+            : ['stun', 'silence', 'taunt', 'charm'];
+        if (!hardControlTypes.includes(effect.type)) {
+            return effect;
+        }
+
+        const duration = this.getIncomingStatusDuration(effect);
+        const reduction = Math.max(1, Math.floor(Number(passiveEffect?.durationReduction) || 1));
+        if (duration > reduction) {
+            const nextDuration = Math.max(1, duration - reduction);
+            const nextDurationTurns = Math.max(1, (Number(effect.durationTurns) || duration) - reduction);
+            return this.buildPassiveAdjustedStatusEffect(effect, passiveEffect, {
+                durationTurns: nextDurationTurns,
+                remainingTurns: nextDuration,
+                durationReducedByPassive: Math.max(0, Number(effect.durationReducedByPassive) || 0) + (duration - nextDuration)
+            });
+        }
+
+        const configuredSlowValue = Number(passiveEffect?.downgradeSlowValue);
+        const slowValue = Utils.clamp(
+            configuredSlowValue === 0
+                ? -0.5
+                : (configuredSlowValue > 0 ? -configuredSlowValue : configuredSlowValue),
+            -0.95,
+            -0.05
+        );
+        const downgradeDuration = Math.max(1, Number(passiveEffect?.downgradeDurationTurns) || 1);
+        return this.buildPassiveAdjustedStatusEffect(effect, passiveEffect, {
+            type: 'slow',
+            name: passiveEffect?.downgradeStatusName || '迟滞',
+            stat: 'speed',
+            value: slowValue,
+            effectType: 'stat_modifier',
+            modifierType: 'percent',
+            durationTurns: downgradeDuration,
+            remainingTurns: downgradeDuration,
+            skipAction: false,
+            silenceSkills: false,
+            damageValue: 0,
+            damageRatioMaxHp: 0,
+            damageRatioCurrentHp: 0,
+            damageMultiplier: 0,
+            healMissingHpRatio: 0,
+            attackPercentBonus: 0,
+            defensePercentBonus: 0,
+            damageReduction: 0,
+            damageTakenDebuffBonus: 0,
+            alliedDefensePenBonus: 0,
+            convertedFromType: effect.type,
+            durationReducedByPassive: 0
+        });
+    }
+
+    applyStableArmorToIncomingStatus(effect = {}, passiveEffect = {}) {
+        const resistedTypes = Array.isArray(passiveEffect?.resistedTypes) && passiveEffect.resistedTypes.length > 0
+            ? passiveEffect.resistedTypes.filter(Boolean)
+            : ['slow', 'break_formation', 'break_wound'];
+        if (!resistedTypes.includes(effect.type)) {
+            return effect;
+        }
+
+        const duration = this.getIncomingStatusDuration(effect);
+        if (duration <= 1) {
+            return effect;
+        }
+
+        const reduction = Math.max(1, Math.floor(Number(passiveEffect?.durationReduction) || 1));
+        const nextDuration = Math.max(1, duration - reduction);
+        const nextDurationTurns = Math.max(1, (Number(effect.durationTurns) || duration) - reduction);
+        return this.buildPassiveAdjustedStatusEffect(effect, passiveEffect, {
+            durationTurns: nextDurationTurns,
+            remainingTurns: nextDuration,
+            durationReducedByPassive: Math.max(0, Number(effect.durationReducedByPassive) || 0) + (duration - nextDuration)
+        });
+    }
+
+    processIncomingStatusEffectByPassives(effect = {}) {
+        let nextEffect = effect ? { ...effect } : null;
+        if (!nextEffect) {
+            return null;
+        }
+
+        this.getPassiveEffects().forEach((passiveEffect) => {
+            if (!nextEffect || !passiveEffect) {
+                return;
+            }
+            if (passiveEffect.type === 'battle_tenacity') {
+                nextEffect = this.applyBattleTenacityToIncomingStatus(nextEffect, passiveEffect);
+                return;
+            }
+            if (passiveEffect.type === 'stable_armor') {
+                nextEffect = this.applyStableArmorToIncomingStatus(nextEffect, passiveEffect);
+            }
+        });
+
+        return nextEffect;
+    }
+
     applyStatusEffects(effects = [], source = null) {
-        const normalizedEffects = this.normalizeStatusEffects(effects, source);
+        const normalizedEffects = this.normalizeStatusEffects(effects, source)
+            .map(effect => this.processIncomingStatusEffectByPassives(effect))
+            .filter(Boolean);
         const appliedEffects = [];
 
         normalizedEffects.forEach((effect) => {
+            if (this.isEscortCart && effect.type === 'stun') {
+                return;
+            }
+            if (effect.type === 'stun' && this.statusEffects.some(entry => entry.immuneStun === true || entry.type === 'warning_guard')) {
+                return;
+            }
             const key = this.getStatusKey(effect);
             const existingIndex = this.statusEffects.findIndex(entry => this.getStatusKey(entry) === key);
 
@@ -540,7 +693,10 @@ class BattleUnit {
             const tickTiming = effect.tickTiming || 'turnStart';
             if (effect.effectType === 'heal_over_time' && tickTiming === 'turnStart') {
                 const missingHp = Math.max(0, this.maxHp - this.hp);
-                const healAmount = Math.max(0, Math.floor(missingHp * (Number(effect.healMissingHpRatio) || 0)));
+                const healRatioMaxHp = Math.max(0, Number(effect.healRatioMaxHp) || 0);
+                const healAmount = healRatioMaxHp > 0
+                    ? Math.max(0, Math.floor(this.maxHp * healRatioMaxHp))
+                    : Math.max(0, Math.floor(missingHp * (Number(effect.healMissingHpRatio) || 0)));
                 if (healAmount > 0) {
                     const actualHeal = this.heal(Math.max(1, healAmount));
                     if (actualHeal > 0) {
@@ -672,10 +828,11 @@ class BattleUnit {
         return Utils.clamp(0.9 + (accuracy - dodge) / 100, 0.35, 1);
     }
 
-    calculateCritChance(target) {
+    calculateCritChance(target, config = {}) {
         const crit = this.getEffectiveStat('crit') || this.crit || 0;
         const antiCrit = target?.getEffectiveStat?.('antiCrit') || target?.antiCrit || 0;
-        return Utils.clamp(0.05 + (crit - antiCrit) / 100, 0.05, 0.85);
+        const extraCritChance = (Number(config?.extraCritChance) || 0) / 100;
+        return Utils.clamp(0.05 + (crit - antiCrit) / 100 + extraCritChance, 0.05, 0.85);
     }
 
     calculateCritMultiplier(target) {
@@ -704,6 +861,10 @@ class BattleUnit {
     }
 
     takeDamage(rawDamage, attacker = null) {
+        if (attacker && typeof attacker === 'object') {
+            delete attacker.damageToTarget;
+            delete attacker.redirectedDamage;
+        }
         const shieldBeforeHp = this.shield > 0 && this.shieldRemainingTurns > 0;
         const penRatio = Utils.clamp((Number(attacker?.defensePen) || 0) / 100, 0, 0.9);
         const effectiveDefense = Math.floor(this.getEffectiveDefense() * (1 + this.defendBonus) * (1 - penRatio));
@@ -717,6 +878,10 @@ class BattleUnit {
             this.shield = Math.max(0, this.shield - actualDamage);
             const remainingDamage = actualDamage - absorbedByShield;
             if (remainingDamage <= 0) {
+                if (attacker && typeof attacker === 'object') {
+                    attacker.damageToTarget = actualDamage;
+                    attacker.redirectedDamage = 0;
+                }
                 return actualDamage;
             }
             const nextHpAfterShield = Math.max(0, this.hp - remainingDamage);
@@ -726,6 +891,11 @@ class BattleUnit {
                 if (redirectResult && redirectResult !== remainingDamage) {
                     finalDamage = redirectResult;
                 }
+            }
+            const targetDamage = absorbedByShield + finalDamage;
+            if (attacker && typeof attacker === 'object') {
+                attacker.damageToTarget = targetDamage;
+                attacker.redirectedDamage = Math.max(0, actualDamage - targetDamage);
             }
             const nextHp = Math.max(0, this.hp - finalDamage);
             if (nextHp <= 0 && this.battleContext && typeof this.battleContext.tryPreventFatalDamage === 'function') {
@@ -745,6 +915,10 @@ class BattleUnit {
             if (redirectResult && redirectResult !== actualDamage) {
                 finalDirectDamage = redirectResult;
             }
+        }
+        if (attacker && typeof attacker === 'object') {
+            attacker.damageToTarget = finalDirectDamage;
+            attacker.redirectedDamage = Math.max(0, actualDamage - finalDirectDamage);
         }
         const nextHp = Math.max(0, this.hp - finalDirectDamage);
         if (nextHp <= 0 && this.battleContext && typeof this.battleContext.tryPreventFatalDamage === 'function') {
@@ -767,11 +941,13 @@ class BattleUnit {
             if (effect.sourceOnly === true && effect.sourceUnitId && attacker?.sourceUnitId && effect.sourceUnitId !== attacker.sourceUnitId) {
                 return;
             }
-            const excludedDebuffTypes = Array.isArray(effect.excludedDebuffTypes) && effect.excludedDebuffTypes.length > 0
-                ? effect.excludedDebuffTypes
-                : [effect.type];
-            if (!this.hasDebuff({ excludedTypes: excludedDebuffTypes })) {
-                return;
+            if (effect.requiresOtherDebuff !== false) {
+                const excludedDebuffTypes = Array.isArray(effect.excludedDebuffTypes) && effect.excludedDebuffTypes.length > 0
+                    ? effect.excludedDebuffTypes
+                    : [effect.type];
+                if (!this.hasDebuff({ excludedTypes: excludedDebuffTypes })) {
+                    return;
+                }
             }
             bonus += effectBonus;
         });
@@ -811,7 +987,7 @@ class BattleUnit {
 
     increaseMaxHpByRatio(ratio = 0) {
         const safeRatio = Utils.clamp(Number(ratio) || 0, 0, 5);
-        const increased = Math.max(0, Math.floor(this.maxHp * safeRatio));
+        const increased = Math.max(0, Math.floor(this.baseMaxHp * safeRatio));
         if (increased <= 0) {
             return 0;
         }
@@ -941,6 +1117,7 @@ class BattleUnit {
 
     performConfiguredAttack(target, config = {}) {
         const multiplier = Number.isFinite(Number(config?.multiplier)) ? Number(config.multiplier) : 1;
+        const maxDamageAttackRatio = Math.max(0, Number(config?.maxDamageAttackRatio) || 0);
         const hitChance = this.calculateHitChance(target);
         const hit = Math.random() <= hitChance;
         if (!hit) {
@@ -963,7 +1140,8 @@ class BattleUnit {
         damage = Math.floor(damage * Utils.randomFloat(0.92, 1.08));
 
         const canCrit = config?.canCrit !== false;
-        const isCritical = canCrit && Math.random() <= this.calculateCritChance(target);
+        const forceCrit = Boolean(config?.forceCrit || config?.critGuaranteed);
+        const isCritical = canCrit && (forceCrit || Math.random() <= this.calculateCritChance(target, config));
         if (isCritical) {
             damage = Math.floor(damage * this.calculateCritMultiplier(target));
         }
@@ -975,6 +1153,14 @@ class BattleUnit {
         const runtimeAttackModifiers = this.battleContext && typeof this.battleContext.getAttackContextModifiers === 'function'
             ? this.battleContext.getAttackContextModifiers(this, target, config) || {}
             : {};
+        const runtimeDamageBonus = Number(runtimeAttackModifiers?.damageBonus ?? 0) || 0;
+        if (runtimeDamageBonus !== 0) {
+            damage = Math.max(1, Math.floor(damage * (1 + runtimeDamageBonus)));
+        }
+        if (maxDamageAttackRatio > 0) {
+            const maxDamage = Math.max(1, Math.floor(this.getEffectiveAttack() * maxDamageAttackRatio));
+            damage = Math.min(damage, maxDamage);
+        }
         const attackerContext = {
             defensePen: this.defensePen
                 + Math.max(0, Number(config?.defensePenBonus ?? 0) || 0)
@@ -986,10 +1172,13 @@ class BattleUnit {
             attacker: this.name,
             target: target.name,
             damage: actualDamage,
+            damageToTarget: Math.max(0, Number(attackerContext.damageToTarget ?? actualDamage) || 0),
+            redirectedDamage: Math.max(0, Number(attackerContext.redirectedDamage) || 0),
             hit: true,
             useSkill: Boolean(config?.useSkill),
             isCritical,
-            outgoingDamageBonus,
+            outgoingDamageBonus: outgoingDamageBonus + runtimeDamageBonus,
+            runtimeDamageBonus,
             defensePenBonus: attackerContext.defensePen - this.defensePen,
             skillIndex: Number.isFinite(Number(config?.skillIndex)) ? Number(config.skillIndex) : null,
             skillName: config?.skillName || null,
@@ -997,7 +1186,7 @@ class BattleUnit {
         };
     }
 
-    attackTarget(target, useSkill = false, skillIndex = 0) {
+    attackTarget(target, useSkill = false, skillIndex = 0, extraConfig = {}) {
         const activeSkill = useSkill ? this.getSkill(skillIndex) : (this.skill || this.skills[0] || null);
         return this.performConfiguredAttack(target, {
             multiplier: useSkill && activeSkill ? activeSkill.multiplier || 1 : 1,
@@ -1005,7 +1194,8 @@ class BattleUnit {
             defensePenBonus: useSkill ? this.getSkillDefensePenBonus(skillIndex) : 0,
             useSkill,
             skillIndex: useSkill ? skillIndex : null,
-            skillName: useSkill ? activeSkill?.name : null
+            skillName: useSkill ? activeSkill?.name : null,
+            ...extraConfig
         });
     }
 

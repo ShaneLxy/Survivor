@@ -526,14 +526,13 @@ ShelterManager.prototype.collectTdIdleRewards = function(now = Date.now()) {
     }
 
     const chestStatus = this.getTdChestStatus(now);
-    let chestReward = null;
-    if (chestStatus.stored > 0) {
-        chestReward = this.rollTdChestReward();
-    }
+    const chestCount = Math.max(0, Number(chestStatus.stored) || 0);
+    const chestRewards = Array.from({ length: chestCount }, () => this.rollTdChestReward()).filter(Boolean);
+    const chestReward = chestRewards[0] || null;
 
     const itemRewards = [
         ...normal.rewards.filter((reward) => reward.type === 'item').map((reward) => ({ id: reward.id, count: reward.amount || 1 })),
-        ...(chestReward?.type === 'item' ? [{ id: chestReward.id, count: chestReward.amount || 1 }] : [])
+        ...chestRewards.filter((reward) => reward.type === 'item').map((reward) => ({ id: reward.id, count: reward.amount || 1 }))
     ];
     const inventoryCheck = itemManager.canAddItemBundle(itemRewards);
     if (!inventoryCheck.success) {
@@ -544,11 +543,13 @@ ShelterManager.prototype.collectTdIdleRewards = function(now = Date.now()) {
         if (reward.type === 'item') itemManager.addItem(reward.id, reward.amount);
         else this.addResource(reward.id, reward.amount);
     });
-    if (chestReward) {
-        if (chestReward.type === 'item') itemManager.addItem(chestReward.id, chestReward.amount);
-        else if (chestReward.type === 'resource') this.addResource(chestReward.id, chestReward.amount);
-        else if (chestReward.type === 'fragment') heroManager.addFragments(chestReward.heroId, chestReward.amount);
-        this.tdIdleState.chestStored = Math.max(0, (Number(this.tdIdleState.chestStored) || 0) - 1);
+    if (chestRewards.length > 0) {
+        chestRewards.forEach((reward) => {
+            if (reward.type === 'item') itemManager.addItem(reward.id, reward.amount);
+            else if (reward.type === 'resource') this.addResource(reward.id, reward.amount);
+            else if (reward.type === 'fragment') heroManager.addFragments(reward.heroId, reward.amount);
+        });
+        this.tdIdleState.chestStored = Math.max(0, (Number(this.tdIdleState.chestStored) || 0) - chestRewards.length);
     }
 
     this.tdIdleState.lastCollectAt = now;
@@ -561,7 +562,8 @@ ShelterManager.prototype.collectTdIdleRewards = function(now = Date.now()) {
         buildingId: 'monitor',
         hours: normal.hours,
         rewards: normal.rewards,
-        chestReward
+        chestReward,
+        chestRewards
     });
 
     return {
@@ -570,6 +572,7 @@ ShelterManager.prototype.collectTdIdleRewards = function(now = Date.now()) {
         hours: normal.hours,
         rewards: normal.rewards,
         chestReward,
+        chestRewards,
         tapBonusPercent: Math.floor(((normal.tapMultiplier || 1) - 1) * 100)
     };
 };

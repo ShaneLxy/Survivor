@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1080" role="img" aria-label="Guardian placeholder portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f2328"/>
+      <stop offset="55%" stop-color="#2a3138"/>
+      <stop offset="100%" stop-color="#111417"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d7dee6"/>
+      <stop offset="100%" stop-color="#6b7784"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f0b44c"/>
+      <stop offset="100%" stop-color="#d86d28"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="1080" fill="url(#bg)"/>
+  <rect x="64" y="72" width="592" height="936" rx="32" fill="none" stroke="#49525b" stroke-width="4" stroke-dasharray="10 14"/>
+  <circle cx="360" cy="320" r="94" fill="#20262c" stroke="#7b8792" stroke-width="16"/>
+  <path d="M286 428h148l44 86v206H242V514z" fill="#303840" stroke="#8e9aa6" stroke-width="16"/>
+  <path d="M326 270h68v78h-68z" fill="url(#steel)"/>
+  <path d="M250 500h220" stroke="#12161a" stroke-width="16" opacity=".38"/>
+  <path d="M238 590h244" stroke="#12161a" stroke-width="16" opacity=".24"/>
+  <path d="M360 468l66 54-22 238h-88l-22-238z" fill="url(#accent)"/>
+  <path d="M522 328l40 34-118 140-40-34z" fill="url(#steel)" stroke="#58616b" stroke-width="10"/>
+  <path d="M482 458l112 92-34 40-112-92z" fill="#48515a"/>
+  <path d="M226 794h268" stroke="#f0b44c" stroke-width="10" opacity=".75"/>
+  <text x="360" y="856" text-anchor="middle" fill="#e7edf2" font-family="Arial, sans-serif" font-size="38" letter-spacing="10">COMING SOON</text>
+  <text x="360" y="910" text-anchor="middle" fill="#9ca7b3" font-family="Arial, sans-serif" font-size="26" letter-spacing="6">LEGENDARY DEFENDER</text>
+</svg>

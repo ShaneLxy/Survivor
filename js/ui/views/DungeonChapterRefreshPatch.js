@@ -132,6 +132,29 @@
         };
     };
 
+    DungeonView.prototype.getPreferredStageForChapter = function(chapter) {
+        const stages = chapter?.dungeons || [];
+        if (!stages.length) {
+            return null;
+        }
+
+        const firstPendingAccessibleStage = stages.find((stage) => {
+            const accessibility = this.getStageAccessibility(chapter.id, stage.id);
+            return accessibility.accessible && !dungeonManager.isCompleted(stage.id);
+        });
+        if (firstPendingAccessibleStage) {
+            return firstPendingAccessibleStage;
+        }
+
+        for (let index = stages.length - 1; index >= 0; index -= 1) {
+            if (dungeonManager.isCompleted(stages[index].id)) {
+                return stages[index];
+            }
+        }
+
+        return stages.find((stage) => this.getStageAccessibility(chapter.id, stage.id).accessible) || stages[0];
+    };
+
     DungeonView.prototype.getChapterProgressSummary = function(chapters) {
         const safeChapters = Array.isArray(chapters) ? chapters : [];
         const unlockedChapters = safeChapters.filter((chapter) => this.getChapterAccessibility(chapter.id).accessible);
@@ -222,8 +245,8 @@
         }
 
         const stages = chapter.dungeons || [];
-        const firstAccessibleStage = stages.find((stage) => this.getStageAccessibility(chapter.id, stage.id).accessible);
-        this.selectedStageId = firstAccessibleStage?.id || stages[0]?.id || null;
+        const preferredStage = this.getPreferredStageForChapter(chapter);
+        this.selectedStageId = preferredStage?.id || stages[0]?.id || null;
         const modal = new Modal({
             className: 'chapter-stage-modal-shell',
             title: `${chapter.index}. ${chapter.name}`,
@@ -237,6 +260,12 @@
     DungeonView.prototype.refreshChapterStageModal = function(chapter) {
         if (!this.chapterStageModal?.isShown()) {
             return;
+        }
+        const stages = chapter?.dungeons || [];
+        const selectedStage = stages.find((stage) => stage.id === this.selectedStageId);
+        if (!selectedStage) {
+            const preferredStage = this.getPreferredStageForChapter(chapter);
+            this.selectedStageId = preferredStage?.id || stages[0]?.id || null;
         }
         this.chapterStageModal.setContent(this.getChapterStageModalContent(chapter));
     };
@@ -469,7 +498,9 @@
 
     DungeonView.prototype.getChapterStageModalContent = function(chapter) {
         const stages = chapter.dungeons || [];
-        const activeStage = stages.find((stage) => stage.id === this.selectedStageId) || stages[0];
+        const activeStage = stages.find((stage) => stage.id === this.selectedStageId)
+            || this.getPreferredStageForChapter(chapter)
+            || stages[0];
         if (!activeStage) {
             return '<div class="shelter-empty">暂无关卡</div>';
         }

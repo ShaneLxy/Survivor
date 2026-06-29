@@ -8,15 +8,17 @@ class LoginView {
         this.element = null;
         this.guestLoginModal = null;
         this.announcementModal = null;
+        this.bannedLoginModal = null;
         this.sessionNotice = '';
         this.versionPolicy = null;
         this.operationConfig = { gameStatus: 'unknown', announcements: [] };
         this.serverStatus = 'loading';
-        this.serverStatusText = '获取服务器状态...';
+        this.serverStatusText = '连接中';
         this.activeAnnouncementIndex = 0;
         this.operationFetchToken = 0;
         this.operationConfigLoaded = false;
         this.operationConfigLoadingPromise = null;
+        this.tapTapUpdateCheckTriggered = false;
 
         this.KEY_ACCOUNT = 'survivor_remember_account';
         this.KEY_PASSWORD = 'survivor_remember_password';
@@ -24,6 +26,69 @@ class LoginView {
         this.KEY_READ_ANNOUNCEMENTS = 'survivor_read_announcements';
 
         this._announcementTouch = null;
+        this._operationDebugModal = null;
+    }
+
+    _closeOperationDebugModal() {
+        this._operationDebugModal?.close?.();
+        this._operationDebugModal = null;
+    }
+
+    _showOperationDebugModal(payload = {}) {
+        this._closeOperationDebugModal();
+        const attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char]));
+        const content = `
+            <div class="login-debug-modal">
+                <div class="login-debug-summary">
+                    <div><span>最终状态</span><strong>${payload.finalStatus || 'unknown'}</strong></div>
+                    <div><span>最终地址</span><strong>${payload.finalUrl || 'N/A'}</strong></div>
+                    <div><span>最终错误</span><strong>${payload.finalError || 'none'}</strong></div>
+                    <div><span>在线状态</span><strong>${payload.onlineState || 'unknown'}</strong></div>
+                </div>
+                <div class="login-debug-list">
+                    ${attempts.map((item, index) => `
+                        <div class="login-debug-item">
+                            <div class="login-debug-item-head">候选 ${index + 1}</div>
+                            <div><span>URL</span><code>${item.url || ''}</code></div>
+                            <div><span>Base</span><code>${item.baseUrl || ''}</code></div>
+                            <div><span>状态码</span><code>${item.status || 'N/A'}</code></div>
+                            <div><span>错误名</span><code>${item.errorName || ''}</code></div>
+                            <div><span>响应体</span><pre>${String(item.body || '').replace(/[&<>"']/g, (char) => ({
+                                '&': '&amp;',
+                                '<': '&lt;',
+                                '>': '&gt;',
+                                '"': '&quot;',
+                                "'": '&#39;'
+                            }[char]))}</pre></div>
+                            <div><span>错误</span><code>${item.error || ''}</code></div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        this._operationDebugModal = new Modal({
+            title: '登录请求调试',
+            className: 'login-debug-modal-shell',
+            content,
+            buttons: [{ text: '关闭', className: 'btn-primary', onClick: () => this._closeOperationDebugModal() }],
+            onClose: () => {
+                this._operationDebugModal = null;
+            }
+        });
+        this._operationDebugModal.show();
+    }
+
+    _getOperationBlockedMessage() {
+        return this.serverStatus === 'maintenance'
+            ? '服务器维护中，请稍后再试'
+            : '正在连接服务器，请稍后再试';
     }
 
     _getReadAnnouncementIds() {
@@ -81,7 +146,7 @@ class LoginView {
         this._ensureContainer();
         this.mode = 'login';
         if (!this.operationConfigLoaded) {
-            this._setOperationStatus('loading', '获取服务器状态...');
+            this._setOperationStatus('loading', '连接中');
         }
         this.render();
         this._loadOperationConfig();
@@ -113,6 +178,8 @@ class LoginView {
         this.guestLoginModal = null;
         this.announcementModal?.close?.();
         this.announcementModal = null;
+        this.bannedLoginModal?.close?.();
+        this.bannedLoginModal = null;
         if (this.element) {
             this.element.classList.add('login-fade-out');
             setTimeout(() => {
@@ -219,8 +286,8 @@ class LoginView {
         } else {
             pushBase(currentBaseUrl);
             pushBase(runtimeBaseUrl);
+            pushBase(sameOriginBaseUrl);
         }
-        pushBase(sameOriginBaseUrl);
 
         if (isLocalWeb) {
             pushBase('http://127.0.0.1:9000/api');
@@ -239,6 +306,7 @@ class LoginView {
     async _requestOperationConfig(signal) {
         const candidates = this._getOperationRequestCandidates();
         let lastError = null;
+        const debugAttempts = [];
 
         for (const candidate of candidates) {
             if (signal?.aborted) {
@@ -246,7 +314,7 @@ class LoginView {
             }
             const controller = typeof AbortController === 'function' ? new AbortController() : null;
             const timeoutId = controller
-                ? window.setTimeout(() => controller.abort(), 2200)
+                ? window.setTimeout(() => controller.abort(), 8000)
                 : 0;
             let abortHandler = null;
             try {
@@ -262,7 +330,20 @@ class LoginView {
                 }
                 const response = await fetch(candidate.url, requestOptions);
                 window.serverClock?.updateFromResponse?.(response);
-                const payload = await response.json().catch(() => ({}));
+                const responseText = await response.text();
+                let payload = {};
+                try {
+                    payload = responseText ? JSON.parse(responseText) : {};
+                } catch (_) {
+                    payload = { rawText: responseText };
+                }
+                debugAttempts.push({
+                    url: candidate.url,
+                    baseUrl: candidate.baseUrl,
+                    status: response.status,
+                    body: responseText,
+                    errorName: ''
+                });
                 if (!response.ok) {
                     throw new Error(payload?.message || `请求失败：${response.status}`);
                 }
@@ -272,6 +353,14 @@ class LoginView {
                 return payload?.config || payload || {};
             } catch (error) {
                 lastError = error;
+                debugAttempts.push({
+                    url: candidate.url,
+                    baseUrl: candidate.baseUrl,
+                    error: error?.message || String(error),
+                    errorName: error?.name || 'Error',
+                    status: error?.name === 'AbortError' ? 'ABORT' : 'ERR',
+                    body: ''
+                });
                 console.warn('[LoginView] operation endpoint failed:', candidate.url, error?.message || error);
                 if (signal?.aborted) {
                     break;
@@ -286,6 +375,13 @@ class LoginView {
             }
         }
 
+        this._showOperationDebugModal({
+            finalStatus: 'failed',
+            finalUrl: debugAttempts[debugAttempts.length - 1]?.url || '',
+            finalError: lastError?.message || 'unknown',
+            onlineState: navigator.onLine ? 'online' : 'offline',
+            attempts: debugAttempts
+        });
         throw lastError || new Error('获取服务器状态失败');
     }
 
@@ -296,10 +392,10 @@ class LoginView {
 
         const requestToken = ++this.operationFetchToken;
         const controller = typeof AbortController === 'function' ? new AbortController() : null;
-        const timeout = window.setTimeout(() => controller?.abort?.(), 8000);
+        const timeout = window.setTimeout(() => controller?.abort?.(), 15000);
 
         if (!this.operationConfigLoaded) {
-            this._setOperationStatus('loading', '获取服务器状态...');
+            this._setOperationStatus('loading', '连接中');
         }
 
         this.operationConfigLoadingPromise = (async () => {
@@ -318,9 +414,9 @@ class LoginView {
                 if (requestToken !== this.operationFetchToken) {
                     return;
                 }
-                this.operationConfig = { gameStatus: 'maintenance', announcements: [] };
-                this.operationConfigLoaded = true;
-                this._setOperationStatus('maintenance', '维护中');
+                this.operationConfig = { gameStatus: 'unknown', announcements: [] };
+                this.operationConfigLoaded = false;
+                this._setOperationStatus('loading', '连接中');
             } finally {
                 window.clearTimeout(timeout);
                 this.operationConfigLoadingPromise = null;
@@ -666,7 +762,7 @@ class LoginView {
                     <p class="login-subtitle">// YUNJING.SYS &#8226; v2.0.7</p>
                 </div>
 
-                <div class="login-server-status ${this.serverStatus === 'normal' ? 'is-normal' : ''}" id="login-server-status">
+                <div class="login-server-status ${this.serverStatus === 'normal' ? 'is-normal' : (this.serverStatus === 'loading' ? 'is-loading' : 'is-maintenance')}" id="login-server-status">
                     <span class="login-server-status-dot"></span>
                     <span class="login-server-status-text">${this._escapeAttr(this.serverStatusText)}</span>
                 </div>
@@ -771,7 +867,7 @@ class LoginView {
     openGuestLoginModal() {
         if (this.isSubmitting) return;
         if (!this._canLoginByOperation()) {
-            Toast?.info?.('服务器维护中，请稍后再试');
+            Toast?.info?.(this._getOperationBlockedMessage());
             return;
         }
 
@@ -919,6 +1015,9 @@ class LoginView {
     }
 
     _triggerTapTapUpdateCheck() {
+        if (this.tapTapUpdateCheckTriggered) {
+            return;
+        }
         const service = window.tapTapUpdateService;
         if (!service || typeof service.checkOnLogin !== 'function') {
             return;
@@ -926,6 +1025,7 @@ class LoginView {
         if (!service.isSupported?.()) {
             return;
         }
+        this.tapTapUpdateCheckTriggered = true;
         try {
             // Fire-and-forget：SDK 自己弹原生对话框，登录页不阻塞渲染
             Promise.resolve(service.checkOnLogin()).catch((error) => {
@@ -991,10 +1091,59 @@ class LoginView {
         });
     }
 
+    _getLoginErrorMessage(error, fallbackMessage) {
+        return error?.payload?.message || error?.message || fallbackMessage;
+    }
+
+    _isBannedLoginError(error) {
+        const code = String(error?.payload?.code || '').trim().toUpperCase();
+        if (code === 'ACCOUNT_BANNED') {
+            return true;
+        }
+
+        const message = `${error?.payload?.message || ''} ${error?.message || ''}`;
+        return ['封禁', '禁止使用', '存档异常'].some(keyword => message.includes(keyword));
+    }
+
+    _showBannedLoginModal() {
+        if (this.bannedLoginModal?.isShown()) {
+            return;
+        }
+
+        this.bannedLoginModal = new Modal({
+            title: '登录提示',
+            className: 'login-ban-modal',
+            content: `<div class="login-ban-message">${this._escapeAttr('该账号被检测到异常已被禁止使用,请联系管理员')}</div>`,
+            buttons: [
+                {
+                    text: '我知道了',
+                    className: 'btn-primary',
+                    onClick: () => this.bannedLoginModal?.close?.()
+                }
+            ],
+            onClose: () => {
+                this.bannedLoginModal = null;
+            }
+        });
+        this.bannedLoginModal.show();
+    }
+
+    _handleLoginError(error, fallbackMessage, options = {}) {
+        const msg = this._getLoginErrorMessage(error, fallbackMessage);
+        if (options.toast) {
+            Toast?.error?.(msg);
+        }
+        this._showError('login-error', msg);
+        if (this._isBannedLoginError(error)) {
+            this._showBannedLoginModal();
+        }
+        this._shakePanel();
+    }
+
     async handleLogin() {
         if (this.isSubmitting) return;
         if (!this._canLoginByOperation()) {
-            this._showError('login-error', '服务器维护中，请稍后再试');
+            this._showError('login-error', this._getOperationBlockedMessage());
             this._shakePanel();
             return;
         }
@@ -1040,9 +1189,7 @@ class LoginView {
             this.hide();
             eventManager.emit('loginSuccess');
         } catch (err) {
-            const msg = err?.message || '登录失败，请检查网络连接';
-            this._showError('login-error', msg);
-            this._shakePanel();
+            this._handleLoginError(err, '登录失败，请检查网络连接');
         } finally {
             this._setLoading('btn-login', false);
             this.isSubmitting = false;
@@ -1052,7 +1199,7 @@ class LoginView {
     async handleTapTapLogin() {
         if (this.isSubmitting) return;
         if (!this._canLoginByOperation()) {
-            Toast?.info?.('服务器维护中，请稍后再试');
+            Toast?.info?.(this._getOperationBlockedMessage());
             return;
         }
         if (window.versionCheckService?.isBlocked?.()) {
@@ -1092,10 +1239,7 @@ class LoginView {
             this.hide();
             eventManager.emit('loginSuccess');
         } catch (err) {
-            const msg = err?.message || '\u0054\u0061\u0070\u0054\u0061\u0070 \u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5';
-            Toast?.error?.(msg);
-            this._showError('login-error', msg);
-            this._shakePanel();
+            this._handleLoginError(err, 'TapTap 登录失败，请重试', { toast: true });
         } finally {
             const tapTapButton = document.getElementById('btn-taptap-login');
             if (tapTapButton) {

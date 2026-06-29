@@ -178,8 +178,7 @@ class ShopView {
     }
 
     getCurrencyLabel(currencyType) {
-        const config = shelterManager.getResourceConfig?.(currencyType);
-        return config?.name || currencyType || '资源';
+        return shelterManager.getResourceDisplayName?.(currencyType) || currencyType || '资源';
     }
 
     renderIconMarkup(item, imageClass = 'shop-icon-image') {

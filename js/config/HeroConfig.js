@@ -102,10 +102,16 @@ const HeroConfig = {
         };
     },
 
-    getHeroList() {
+    isHeroEnabled(hero = {}) {
+        return hero?.enabled !== false;
+    },
+
+    getHeroList(options = {}) {
+        const includeDisabled = Boolean(options?.includeDisabled);
         const catalogHeroes = this.getUnitCatalog()?.heroes;
         const source = Array.isArray(catalogHeroes) && catalogHeroes.length > 0 ? catalogHeroes : this.heroes;
-        return source.map(hero => this.normalizeHeroConfig(hero));
+        const heroes = source.map(hero => this.normalizeHeroConfig(hero));
+        return includeDisabled ? heroes : heroes.filter(hero => this.isHeroEnabled(hero));
     },
 
     normalizeSkillCollection(skills, skill = null) {
@@ -116,6 +122,27 @@ const HeroConfig = {
             return [{ ...skill }];
         }
         return [];
+    },
+
+    normalizeVoiceCues(voiceCues = {}) {
+        if (!voiceCues || typeof voiceCues !== 'object' || Array.isArray(voiceCues)) {
+            return {};
+        }
+        return ['turnStart', 'critical', 'kill', 'death', 'mvp', 'heal'].reduce((acc, cue) => {
+            const list = Array.isArray(voiceCues[cue]) ? voiceCues[cue] : [];
+            const entries = list
+                .filter(Boolean)
+                .map(entry => ({
+                    name: String(entry.name || '').trim(),
+                    text: String(entry.text || '').trim(),
+                    src: String(entry.src || entry.url || '').trim()
+                }))
+                .filter(entry => entry.src);
+            if (entries.length > 0) {
+                acc[cue] = entries;
+            }
+            return acc;
+        }, {});
     },
 
     getProfessionIconPath(professionId) {
@@ -145,11 +172,13 @@ const HeroConfig = {
             : this.getCardPortraitPath(hero.portrait);
         return {
             ...hero,
+            enabled: this.isHeroEnabled(hero),
             rarity: this.normalizeRarity(hero.rarity),
             profession: hero.profession || null,
             portrait,
             cardPortrait,
             professionIcon: hero.professionIcon || this.getProfessionIconPath(hero.profession),
+            voiceCues: this.normalizeVoiceCues(hero.voiceCues),
             skills,
             skill: skills[0] || null
         };
@@ -158,20 +187,21 @@ const HeroConfig = {
     heroes: [],
 
 
-    getHeroConfig(id) {
-        return this.getHeroList().find(hero => hero.id === id) || null;
+    getHeroConfig(id, options = {}) {
+        const includeDisabled = options?.includeDisabled !== false;
+        return this.getHeroList({ includeDisabled }).find(hero => hero.id === id) || null;
     },
 
-    getHeroesByRarity(rarity) {
-        return this.getHeroList().filter(hero => hero.rarity === rarity);
+    getHeroesByRarity(rarity, options = {}) {
+        return this.getHeroList(options).filter(hero => hero.rarity === rarity);
     },
 
-    getAllHeroes() {
-        return [...this.getHeroList()];
+    getAllHeroes(options = {}) {
+        return [...this.getHeroList(options)];
     },
 
-    getAllHeroConfigs() {
-        return this.getAllHeroes();
+    getAllHeroConfigs(options = {}) {
+        return this.getAllHeroes(options);
     },
 
     getStatDefinition(statKey) {
@@ -544,6 +574,9 @@ const HeroConfig = {
                 });
             });
             return evolvedEffect;
+        }).filter((effect) => {
+            const unlockStage = Math.max(1, Number(effect?.unlockStage) || 1);
+            return normalizedStar >= unlockStage;
         });
     },
 
@@ -671,7 +704,7 @@ const HeroConfig = {
             attack: Math.floor(base.attack * levelMultiplier),
             attackCoefficient: Math.max(0.05, Number(base.attackCoefficient) || 1),
             defense: Math.floor(base.defense * levelMultiplier),
-            speed: Math.floor(base.speed * levelMultiplier),
+            speed: base.speed,
             crit: base.crit,
             antiCrit: base.antiCrit,
             defensePen: base.defensePen,

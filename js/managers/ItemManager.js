@@ -1,5 +1,5 @@
 ﻿/**
- * 閬撳叿绠＄悊鍣?- 鍗曚緥妯″紡
+ * 道具管理器 - 单例模式
  */
 class ItemManager {
     constructor() {
@@ -29,6 +29,13 @@ class ItemManager {
             normalized.items.forEach(itemData => {
                 const config = ItemConfig.getItemConfig(itemData.id);
                 if (!config) {
+                    return;
+                }
+                if (config.type === 'fragment') {
+                    const heroConfigId = this.getFragmentHeroConfigId(config, itemData.id);
+                    if (heroConfigId) {
+                        heroManager.addFragments(heroConfigId, itemData.count);
+                    }
                     return;
                 }
                 this.items.push(new Item(config, itemData.count));
@@ -107,6 +114,7 @@ class ItemManager {
                     normalized.items.push({ id: entry.id, count: stackCount });
                 });
             });
+            normalized.items = this.normalizeItemStacks(normalized.items);
             return normalized;
         }
 
@@ -121,7 +129,37 @@ class ItemManager {
                 normalized.items.push({ id: entry.id, count: stackCount });
             });
         });
+        normalized.items = this.normalizeItemStacks(normalized.items);
         normalized.equipment = Array.isArray(saveData.equipment) ? saveData.equipment : [];
+        return normalized;
+    }
+
+    normalizeItemStacks(entries = []) {
+        const aggregated = new Map();
+        const order = [];
+
+        (Array.isArray(entries) ? entries : []).forEach(entry => {
+            const itemId = String(entry?.id || '').trim();
+            const count = Math.max(0, Number(entry?.count) || 0);
+            if (!itemId || count <= 0) {
+                return;
+            }
+            if (!aggregated.has(itemId)) {
+                aggregated.set(itemId, 0);
+                order.push(itemId);
+            }
+            aggregated.set(itemId, aggregated.get(itemId) + count);
+        });
+
+        const normalized = [];
+        order.forEach(itemId => {
+            const totalCount = aggregated.get(itemId) || 0;
+            const stackLimit = Math.max(1, ItemConfig.getStackLimit(itemId));
+            this.splitStackCounts(totalCount, stackLimit).forEach(stackCount => {
+                normalized.push({ id: itemId, count: stackCount });
+            });
+        });
+
         return normalized;
     }
 
@@ -296,6 +334,19 @@ class ItemManager {
             return false;
         }
 
+        if (config.type === 'fragment') {
+            const heroConfigId = this.getFragmentHeroConfigId(config, itemId);
+            if (!heroConfigId) {
+                return false;
+            }
+            heroManager.addFragments(heroConfigId, remaining);
+            return true;
+        }
+
+        if (config.effect?.type === 'random_hero_fragment') {
+            return this.grantRandomHeroFragments(config, remaining).success;
+        }
+
         if (!this.canAddItem(itemId, remaining).success) {
             return false;
         }
@@ -330,6 +381,60 @@ class ItemManager {
             return true;
         }
         return false;
+    }
+
+    getFragmentHeroConfigId(config, fallbackId = '') {
+        return String(config?.fragmentHeroId || fallbackId || '').replace(/_fragment$/, '').trim();
+    }
+
+    grantRandomHeroFragments(config, quantity = 1) {
+        const rarity = String(config?.effect?.rarity || 'any');
+        const perUseCount = Math.max(1, Number(config?.effect?.count) || 1);
+        const uses = Math.max(1, Number(quantity) || 1);
+        const pool = (rarity === 'any'
+            ? HeroConfig.getAllHeroes()
+            : HeroConfig.getHeroesByRarity(rarity)
+        ).filter(hero => hero?.id);
+        if (!pool.length) {
+            return { success: false, message: '当前没有可用的英雄碎片池', rewards: [] };
+        }
+
+        const fragmentMap = new Map();
+        for (let index = 0; index < uses; index++) {
+            const hero = pool[Math.floor(Math.random() * pool.length)];
+            fragmentMap.set(hero.id, (fragmentMap.get(hero.id) || 0) + perUseCount);
+        }
+
+        const rewards = [];
+        for (const [heroId, amount] of fragmentMap) {
+            heroManager.addFragments(heroId, amount);
+            rewards.push(RewardModal.createFragmentReward(heroId, amount));
+        }
+        return { success: true, message: '获得英雄碎片', rewards };
+    }
+
+    grantItemReward(itemId, count = 1) {
+        const config = ItemConfig.getItemConfig(itemId);
+        const amount = Math.max(1, Number(count) || 1);
+        if (!config || this.isLegacyEquipmentConfig(config)) {
+            return { success: false, rewards: [] };
+        }
+        if (config.type === 'fragment') {
+            const heroConfigId = this.getFragmentHeroConfigId(config, itemId);
+            if (!heroConfigId) {
+                return { success: false, rewards: [] };
+            }
+            heroManager.addFragments(heroConfigId, amount);
+            return { success: true, rewards: [RewardModal.createFragmentReward(heroConfigId, amount)] };
+        }
+        if (config.effect?.type === 'random_hero_fragment') {
+            return this.grantRandomHeroFragments(config, amount);
+        }
+        const success = this.addItem(itemId, amount);
+        return {
+            success,
+            rewards: success ? [RewardModal.createItemReward(itemId, amount)] : []
+        };
     }
 
     addEquipment(equipment) {
@@ -560,34 +665,25 @@ class ItemManager {
         }
 
         if (item.effect?.type === 'random_hero_fragment') {
-            const rarity = String(item.effect.rarity || 'any');
-            const count = Math.max(1, Number(item.effect.count) || 1);
-            const pool = (rarity === 'any'
-                ? HeroConfig.getAllHeroes()
-                : HeroConfig.getHeroesByRarity(rarity)
-            ).filter(hero => hero?.id);
-            if (!pool.length) {
-                return { success: false, message: '当前没有可用的英雄碎片池' };
+            const result = this.grantRandomHeroFragments(item, 1);
+            if (!result.success) {
+                return result;
             }
-            const hero = pool[Math.floor(Math.random() * pool.length)];
-            heroManager.addFragments(hero.id, count);
             this.removeItem(itemId, 1);
-            const fragmentReward = RewardModal.createFragmentReward(hero.id, count);
             eventManager.emit('itemUse', {
                 item,
                 target: null,
                 result: {
                     success: true,
-                    effect: { type: 'random_hero_fragment', rarity, heroId: hero.id, count },
-                    rewards: [fragmentReward]
+                    effect: { type: 'random_hero_fragment' },
+                    rewards: result.rewards
                 }
             });
             return {
                 success: true,
-                message: `获得 ${hero.name} 碎片 x${count}`,
-                effect: { type: 'random_hero_fragment', rarity, heroId: hero.id, count },
-                rewards: [fragmentReward],
-                heroId: hero.id
+                message: result.message || '获得英雄碎片',
+                effect: { type: 'random_hero_fragment' },
+                rewards: result.rewards
             };
         }
 
@@ -639,14 +735,16 @@ class ItemManager {
             if (!expResult.success) {
                 return { success: false, message: expResult.reason === 'level_cap' ? '等级已达到当前星级上限！' : '英雄无法获得经验' };
             }
-            this.removeItem(itemId, actualCount);
-            eventManager.emit('itemUse', { item, target: hero, result: expResult, quantity: actualCount });
+            const consumedCount = Math.min(actualCount, Math.max(1, Math.ceil((Number(expResult.gainedExp) || 0) / expValue)));
+            this.removeItem(itemId, consumedCount);
+            eventManager.emit('itemUse', { item, target: hero, result: expResult, quantity: consumedCount });
+            const consumedText = consumedCount !== actualCount ? `，实际使用 ${consumedCount} 瓶` : '';
             return {
                 success: true,
-                message: `${hero.name} 获得 ${totalExp} 点经验`,
-                effect: { type: 'hero_exp', value: totalExp },
+                message: `${hero.name} 获得 ${expResult.gainedExp} 点经验${consumedText}`,
+                effect: { type: 'hero_exp', value: expResult.gainedExp },
                 hero,
-                quantity: actualCount
+                quantity: consumedCount
             };
         }
 

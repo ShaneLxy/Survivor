@@ -1,0 +1,6506 @@
+{
+  "escortMissions": [
+    {
+      "id": "escort_chapter_01",
+      "type": "escort",
+      "chapterId": "chapter_01",
+      "chapterIndex": 1,
+      "name": "资源护送战",
+      "subtitle": "锈蚀的呼吸",
+      "description": "那些被驱赶到废墟边缘的穴居者并没有走远，它们只是在等。等带着物资的人从安全的掩体里出来。",
+      "background": "assets/media/chapters/chapter_01.png",
+      "unlockAfterDungeonId": "dungeon_006",
+      "recommendedLevel": 1,
+      "energyCost": 8,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 300,
+        "wood": 54,
+        "stone": 45,
+        "diamond": 80
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 600,
+        "attack": 1,
+        "defense": 28,
+        "speed": 10,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_01_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_001",
+          "name": "苏醒",
+          "description": "",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  10,
+                  2
+                ],
+                [
+                  10,
+                  6
+                ],
+                [
+                  9,
+                  2
+                ],
+                [
+                  9,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  5,
+                  2
+                ],
+                [
+                  5,
+                  6
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                4,
+                2
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                6,
+                6
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    7,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              4
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              2,
+              4
+            ]
+          ],
+          "goalPosition": [
+            1,
+            4
+          ],
+          "environmentEffect": "smoke",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "芯片到手，零件也搜刮得差不多了。这些东西够把避难所的净水系统整个翻新一遍，当务之急是把这批货运回避难所!"
+            },
+            {
+              "speaker": "enemy_raider",
+              "speakerName": "掠夺者",
+              "avatarType": "enemy",
+              "position": "right",
+              "text": "喂!臭小子,兜里揣着什么好东西呢?赶紧交出来!"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "是掠夺者...听着,咱们要保护好运输车,不能让他们破坏了!"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "收到,但是切记不要恋战!"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_raider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 50,
+                "attack": 15,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 7,
+                "speed": 7,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 1,
+                "accuracy": 10,
+                "dodge": 2
+              }
+            },
+            {
+              "id": "enemy_slaughterer",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 50,
+                "attack": 15,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 7,
+                "speed": 7,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 1,
+                "accuracy": 10,
+                "dodge": 2
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_01_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_005",
+          "name": "重建避难所",
+          "description": "",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  1,
+                  5
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  2,
+                  6
+                ],
+                [
+                  2,
+                  1
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  2,
+                  2
+                ],
+                [
+                  8,
+                  6
+                ],
+                [
+                  3,
+                  7
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                4,
+                7
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                7,
+                7
+              ],
+              [
+                7,
+                2
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    3,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              9,
+              5
+            ]
+          ],
+          "goalPosition": [
+            10,
+            5
+          ],
+          "environmentEffect": "smoke",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "很好,马上就要回到避难所营地了!再坚持一下!"
+            },
+            {
+              "speaker": "hero_028",
+              "speakerName": "苍绿之殇-莹尘",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "太好了!避难所的人今晚就能喝上干净水了。我们赶紧回去吧。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_hunter",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 80,
+                "attack": 17,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 10,
+                "speed": 7,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 1,
+                "accuracy": 10,
+                "dodge": 2
+              }
+            },
+            {
+              "id": "enemy_slaughterer",
+              "rank": "elite",
+              "count": 2,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_frenzy"
+              ],
+              "stats": {
+                "hp": 80,
+                "attack": 17,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 10,
+                "speed": 7,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 1,
+                "accuracy": 10,
+                "dodge": 2
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_02",
+      "type": "escort",
+      "chapterId": "chapter_02",
+      "chapterIndex": 2,
+      "name": "资源护送战",
+      "subtitle": "饥饿的遗产",
+      "description": "饿狼试探性的、此起彼伏的呼应。它们正从四面八方向物资车围拢。食物的气味比任何召唤都有效。",
+      "background": "assets/media/chapters/chapter_02.png",
+      "unlockAfterDungeonId": "dungeon_008",
+      "recommendedLevel": 2,
+      "energyCost": 9,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 400,
+        "wood": 72,
+        "stone": 60,
+        "diamond": 90
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 700,
+        "attack": 1,
+        "defense": 32,
+        "speed": 10,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_02_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_002",
+          "name": "黑暗森林",
+          "description": "水源恢复了，但食物即将耗尽，是时候赌一把了。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  8,
+                  1
+                ],
+                [
+                  10,
+                  3
+                ],
+                [
+                  9,
+                  4
+                ],
+                [
+                  6,
+                  2
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  6,
+                  1
+                ],
+                [
+                  7,
+                  5
+                ],
+                [
+                  4,
+                  5
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                9,
+                1
+              ],
+              [
+                7,
+                2
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                3,
+                4
+              ],
+              [
+                1,
+                5
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                9,
+                3
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                9,
+                6
+              ]
+            ],
+            "specialTiles": []
+          },
+          "route": [
+            [
+              10,
+              2
+            ],
+            [
+              9,
+              2
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              6,
+              3
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "goalPosition": [
+            1,
+            3
+          ],
+          "environmentEffect": "rain",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "我们赶紧走，天黑之前必须出森林——这片林子夜里什么都有。"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "说得对。异狼首领死了，但它手下的狼群还在。它们不敢白天追上来，但天快黑了。天黑之后，饥饿会让它们忘记恐惧。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_wolf",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_pack_pounce",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 100,
+                "attack": 16,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 10,
+                "speed": 12,
+                "crit": 14,
+                "antiCrit": 4,
+                "defensePen": 5,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_blood_wolf",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 120,
+                "attack": 20,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 10,
+                "speed": 12,
+                "crit": 14,
+                "antiCrit": 4,
+                "defensePen": 5,
+                "accuracy": 13,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_hunter",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 100,
+                "attack": 18,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 10,
+                "speed": 8,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 1,
+                "accuracy": 10,
+                "dodge": 2
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_02_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_007",
+          "name": "污染侵蚀",
+          "description": "破旧的物资地图指向森林深处，那里据说封存着足够吃一个月的应急口粮。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  7,
+                  2
+                ],
+                [
+                  9,
+                  1
+                ],
+                [
+                  10,
+                  4
+                ],
+                [
+                  7,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  3,
+                  3
+                ],
+                [
+                  6,
+                  3
+                ],
+                [
+                  8,
+                  4
+                ],
+                [
+                  6,
+                  6
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                1,
+                5
+              ],
+              [
+                5,
+                7
+              ],
+              [
+                9,
+                5
+              ],
+              [
+                8,
+                6
+              ],
+              [
+                6,
+                7
+              ],
+              [
+                2,
+                3
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    8,
+                    2
+                  ],
+                  [
+                    8,
+                    5
+                  ],
+                  [
+                    5,
+                    3
+                  ],
+                  [
+                    3,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              3
+            ],
+            [
+              9,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              3,
+              6
+            ]
+          ],
+          "goalPosition": [
+            3,
+            7
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [],
+          "initialEnemies": [
+            {
+              "id": "enemy_raider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_frenzy"
+              ],
+              "stats": {
+                "hp": 120,
+                "attack": 15,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 10,
+                "speed": 10,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 8,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_wolf",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 120,
+                "attack": 18,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 10,
+                "speed": 14,
+                "crit": 15,
+                "antiCrit": 4,
+                "defensePen": 2,
+                "accuracy": 10,
+                "dodge": 2
+              }
+            },
+            {
+              "id": "enemy_slaughterer",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 150,
+                "attack": 22,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 10,
+                "speed": 10,
+                "crit": 10,
+                "antiCrit": 5,
+                "defensePen": 8,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_03",
+      "type": "escort",
+      "chapterId": "chapter_03",
+      "chapterIndex": 3,
+      "name": "资源护送战",
+      "subtitle": "觉醒的代价",
+      "description": "这些晶核散发的幽蓝光芒透过箱体缝隙照亮了矿道，也照亮了队员们疲惫不堪的脸。但这一切都是值得的——这批晶核的纯度远超预期，够避难所的能源核心运转半年。",
+      "background": "assets/media/chapters/chapter_03.png",
+      "unlockAfterDungeonId": "dungeon_010",
+      "recommendedLevel": 3,
+      "energyCost": 9,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 450,
+        "wood": 90,
+        "stone": 75,
+        "diamond": 90,
+        "iron_ore": 25
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 800,
+        "attack": 1,
+        "defense": 36,
+        "speed": 10,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_03_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_003",
+          "name": "能源入口",
+          "description": "避难所通讯设备截获了一段求救信号，信号源头是一座高纯度晶矿富集的废弃通信塔。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  10,
+                  3
+                ],
+                [
+                  9,
+                  5
+                ],
+                [
+                  7,
+                  2
+                ],
+                [
+                  9,
+                  2
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  4,
+                  2
+                ],
+                [
+                  3,
+                  6
+                ],
+                [
+                  7,
+                  5
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                8,
+                2
+              ],
+              [
+                10,
+                1
+              ],
+              [
+                1,
+                4
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                8,
+                5
+              ],
+              [
+                9,
+                6
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    5,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              9,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "goalPosition": [
+            1,
+            3
+          ],
+          "environmentEffect": "poison_fog",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "一共十二块高纯晶核，加上之前从矿道里敲下来的碎晶，这一趟够我们烧半年。心渊，你听到了吗？半年不用再下矿洞了！！"
+            },
+            {
+              "speaker": "hero_021",
+              "speakerName": "裂魂者-心渊",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "（通讯器声音断断续续） 收到……晶矿纯度数据已传回……运输组正在前往矿道入口接应。你们尽快撤出……矿脉核心区出现了余震信号，整条矿道可能随时坍塌！！"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "事不宜迟！条矿道撑不了多久。我们必须在一小时内把所有晶核运到地面！"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_tiny_spider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_corrosive_bite",
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 160,
+                "attack": 18,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 13,
+                "speed": 8,
+                "crit": 13,
+                "antiCrit": 5,
+                "defensePen": 5,
+                "accuracy": 12,
+                "dodge": 2
+              }
+            },
+            {
+              "id": "enemy_tiny_spider",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_lock_on",
+                "enemy_skill_blood_drain",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 190,
+                "attack": 21,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 15,
+                "speed": 9,
+                "crit": 13,
+                "antiCrit": 5,
+                "defensePen": 5,
+                "accuracy": 12,
+                "dodge": 2
+              }
+            },
+            {
+              "id": "enemy_tiny_spider",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 190,
+                "attack": 21,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 15,
+                "speed": 9,
+                "crit": 13,
+                "antiCrit": 5,
+                "defensePen": 5,
+                "accuracy": 12,
+                "dodge": 2
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_03_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_009",
+          "name": "百目洞穴",
+          "description": "在辐射超标的矿区内，变异的并非只有人类...",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  10,
+                  2
+                ],
+                [
+                  10,
+                  6
+                ],
+                [
+                  9,
+                  2
+                ],
+                [
+                  9,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  2,
+                  2
+                ],
+                [
+                  2,
+                  4
+                ],
+                [
+                  2,
+                  6
+                ],
+                [
+                  1,
+                  3
+                ],
+                [
+                  1,
+                  5
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                5,
+                5
+              ],
+              [
+                7,
+                2
+              ],
+              [
+                7,
+                6
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    8,
+                    2
+                  ],
+                  [
+                    8,
+                    6
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              4
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              2,
+              4
+            ]
+          ],
+          "goalPosition": [
+            2,
+            4
+          ],
+          "environmentEffect": "poison_fog",
+          "storyDialogues": [
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "它们正在从支路往主矿道聚集——可能不是冲我们来的，是晶矿散发的能量波动在吸引它们。"
+            },
+            {
+              "speaker": "hero_024",
+              "speakerName": "焰罚者-余烬",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "也就是说我们拉着晶核，晶核也在散发能量，等于拉着一车活靶子。石墙，你最担心的事成真了。"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "所有人跟紧推车——车在，晶核在。车翻了，半年能源就没了。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "车翻了不光能源没了，咱们还得再下来一次矿洞。我宁可在这把这些蜘蛛消灭干净，也不想再钻一次这鬼地方。走！"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_tiny_spider",
+              "rank": "normal",
+              "count": 2,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_corrosive_bite",
+                "enemy_skill_hook_drag"
+              ],
+              "stats": {
+                "hp": 160,
+                "attack": 25,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 15,
+                "speed": 15,
+                "crit": 16,
+                "antiCrit": 2,
+                "defensePen": 4,
+                "accuracy": 15,
+                "dodge": 10
+              }
+            },
+            {
+              "id": "enemy_queen_spider",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce",
+                "enemy_skill_random_fall"
+              ],
+              "stats": {
+                "hp": 180,
+                "attack": 30,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 15,
+                "speed": 18,
+                "crit": 16,
+                "antiCrit": 2,
+                "defensePen": 5,
+                "accuracy": 16,
+                "dodge": 10
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_04",
+      "type": "escort",
+      "chapterId": "chapter_04",
+      "chapterIndex": 4,
+      "name": "资源护送战",
+      "subtitle": "铁锈花园",
+      "description": "温室深处的孢雾还在外溢，绯光花房里的样本必须被带回避难所。那不是战利品，而是下一次污染爆发前唯一能研究的证据。",
+      "background": "assets/media/chapters/chapter_04.png",
+      "unlockAfterDungeonId": "dungeon_012",
+      "recommendedLevel": 6,
+      "energyCost": 11,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 500,
+        "wood": 108,
+        "stone": 92,
+        "diamond": 100,
+        "iron_ore": 30
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 950,
+        "attack": 1,
+        "defense": 40,
+        "speed": 10,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_04_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_004",
+          "name": "温室外环",
+          "description": "破碎玻璃和藤蔓把道路切成几段，运输车必须沿着穹顶残骸边缘绕行。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  6,
+                  1
+                ],
+                [
+                  8,
+                  1
+                ],
+                [
+                  5,
+                  1
+                ],
+                [
+                  7,
+                  3
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  1,
+                  3
+                ],
+                [
+                  5,
+                  7
+                ],
+                [
+                  7,
+                  7
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    3,
+                    3
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              5,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              2,
+              5
+            ]
+          ],
+          "goalPosition": [
+            1,
+            5
+          ],
+          "environmentEffect": "poison_fog",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "这些花房样本很有价值，必须带回去解析。"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "路线很窄，别让这些藤蔓把车上的战利品勾走了。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_shelterer",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 207,
+                "attack": 33,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 18,
+                "speed": 9,
+                "crit": 12,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_flower_ball",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_hook_drag"
+              ],
+              "stats": {
+                "hp": 265,
+                "attack": 37,
+                "attackRange": 3,
+                "moveRange": 3,
+                "defense": 22,
+                "speed": 12,
+                "crit": 15,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 12,
+                "dodge": 5
+              }
+            },
+            {
+              "id": "enemy_infected_hunter",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_lock_on",
+                "enemy_skill_mutant_regen"
+              ],
+              "stats": {
+                "hp": 207,
+                "attack": 33,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 18,
+                "speed": 10,
+                "crit": 12,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_04_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_011",
+          "name": "孢潮水庭",
+          "description": "黑色浅池绕开了主路，孢团会顺着水汽靠近活物。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  10,
+                  1
+                ],
+                [
+                  10,
+                  3
+                ],
+                [
+                  9,
+                  1
+                ],
+                [
+                  9,
+                  3
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  6,
+                  1
+                ],
+                [
+                  6,
+                  7
+                ],
+                [
+                  8,
+                  1
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                5,
+                3
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    8,
+                    6
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              2
+            ],
+            [
+              9,
+              2
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              8,
+              5
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              4,
+              6
+            ]
+          ],
+          "goalPosition": [
+            4,
+            7
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [
+            {
+              "speaker": "enemy_flower_ball",
+              "speakerName": "孢团",
+              "avatarType": "enemy",
+              "position": "right",
+              "text": "嘶......"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "快走，马上就到安全地带了。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_flower_ball",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_hook_drag"
+              ],
+              "stats": {
+                "hp": 207,
+                "attack": 33,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 18,
+                "speed": 10,
+                "crit": 12,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_flower_walker",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_vine_bind"
+              ],
+              "stats": {
+                "hp": 265,
+                "attack": 37,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 22,
+                "speed": 9,
+                "crit": 15,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_infected_hunter",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 207,
+                "attack": 33,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 18,
+                "speed": 12,
+                "crit": 12,
+                "antiCrit": 7,
+                "defensePen": 7,
+                "accuracy": 12,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_05",
+      "type": "escort",
+      "chapterId": "chapter_05",
+      "chapterIndex": 5,
+      "name": "资源护送战",
+      "subtitle": "深埋的饿骨",
+      "description": "晶矿被装上车后，矿井深处传来了啃咬铁轨的声音。饿骨没有死在地下，它们只是学会了等待下一批补给。",
+      "background": "assets/media/chapters/chapter_05.png",
+      "unlockAfterDungeonId": "dungeon_015",
+      "recommendedLevel": 9,
+      "energyCost": 13,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 600,
+        "wood": 126,
+        "stone": 112,
+        "diamond": 100,
+        "iron_ore": 36
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 1100,
+        "attack": 1,
+        "defense": 44,
+        "speed": 10,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_05_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_013",
+          "name": "塌方轨道",
+          "description": "旧矿车轨道被落石切断，只能沿着临时支架绕出矿井。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  5,
+                  1
+                ],
+                [
+                  6,
+                  3
+                ],
+                [
+                  7,
+                  5
+                ],
+                [
+                  7,
+                  1
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  8,
+                  7
+                ],
+                [
+                  10,
+                  3
+                ],
+                [
+                  3,
+                  5
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                4,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    3,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              8,
+              1
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              4,
+              2
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "goalPosition": [
+            6,
+            7
+          ],
+          "environmentEffect": "smoke",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "我的天。矿道顶上全是虫子。不是跟着我们，是铺满了整条矿道顶部。"
+            },
+            {
+              "speaker": "hero_024",
+              "speakerName": "焰罚者-余烬",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "别分心，现在不是左顾右盼的时候!就快到出口了!"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_wormTiny",
+              "rank": "normal",
+              "count": 2,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_pack_howl",
+                "enemy_skill_lock_on"
+              ],
+              "stats": {
+                "hp": 235,
+                "attack": 37,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 20,
+                "speed": 10,
+                "crit": 13,
+                "antiCrit": 7,
+                "defensePen": 8,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_worm",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_charge_quake"
+              ],
+              "stats": {
+                "hp": 301,
+                "attack": 41,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 24,
+                "speed": 13,
+                "crit": 16,
+                "antiCrit": 7,
+                "defensePen": 8,
+                "accuracy": 12,
+                "dodge": 5
+              }
+            },
+            {
+              "id": "enemy_tiny_spider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_hook_drag"
+              ],
+              "stats": {
+                "hp": 235,
+                "attack": 37,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 20,
+                "speed": 11,
+                "crit": 13,
+                "antiCrit": 7,
+                "defensePen": 8,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_05_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_014",
+          "name": "辉矿裂隙",
+          "description": "晶簇照亮了裂隙，也让藏在墙后的虫影无处可躲。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  8,
+                  1
+                ],
+                [
+                  10,
+                  1
+                ],
+                [
+                  8,
+                  5
+                ],
+                [
+                  9,
+                  4
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  3,
+                  7
+                ],
+                [
+                  3,
+                  1
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                4,
+                6
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    6,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              3
+            ],
+            [
+              9,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              5,
+              3
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              7,
+              6
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              8,
+              6
+            ],
+            [
+              9,
+              6
+            ]
+          ],
+          "goalPosition": [
+            9,
+            7
+          ],
+          "environmentEffect": "snow",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "运输队说好了在这支援，他们人呢？"
+            },
+            {
+              "speaker": "hero_021",
+              "speakerName": "裂魂者-心渊",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "很抱歉,刚才运输队受到虫群的围攻,现在撤退了2公里外的安全地带,现在你们还需要靠你们自己了..."
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "见鬼!"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_wormTiny",
+              "rank": "normal",
+              "count": 2,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_pack_howl",
+                "enemy_skill_lock_on"
+              ],
+              "stats": {
+                "hp": 235,
+                "attack": 37,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 20,
+                "speed": 11,
+                "crit": 13,
+                "antiCrit": 7,
+                "defensePen": 8,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_worm",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_line_crack"
+              ],
+              "stats": {
+                "hp": 301,
+                "attack": 41,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 24,
+                "speed": 10,
+                "crit": 16,
+                "antiCrit": 7,
+                "defensePen": 8,
+                "accuracy": 12,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_tiny_spider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_toxic_spit",
+                "enemy_skill_corrosive_bite"
+              ],
+              "stats": {
+                "hp": 235,
+                "attack": 37,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 20,
+                "speed": 13,
+                "crit": 13,
+                "antiCrit": 7,
+                "defensePen": 8,
+                "accuracy": 12,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_06",
+      "type": "escort",
+      "chapterId": "chapter_06",
+      "chapterIndex": 6,
+      "name": "资源护送战",
+      "subtitle": "被遗忘的哨兵",
+      "description": "前哨站的数据库仍在发送求援信号。运输车载着核心记录离开时，沉睡多年的防卫系统把所有活体都判定为入侵者。",
+      "background": "assets/media/chapters/chapter_06.png",
+      "unlockAfterDungeonId": "dungeon_018",
+      "recommendedLevel": 12,
+      "energyCost": 15,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 750,
+        "wood": 144,
+        "stone": 130,
+        "diamond": 110,
+        "iron_ore": 42
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 1250,
+        "attack": 1,
+        "defense": 48,
+        "speed": 10,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_06_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_016",
+          "name": "外墙雨线",
+          "description": "暴雨冲刷着旧弹痕，探照灯在墙体缺口间反复扫过。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  9,
+                  1
+                ],
+                [
+                  6,
+                  1
+                ],
+                [
+                  6,
+                  4
+                ],
+                [
+                  10,
+                  3
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  4,
+                  1
+                ],
+                [
+                  3,
+                  7
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                4,
+                2
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    9,
+                    6
+                  ],
+                  [
+                    9,
+                    3
+                  ],
+                  [
+                    5,
+                    3
+                  ]
+                ]
+              },
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    5,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              8,
+              1
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              8,
+              5
+            ],
+            [
+              8,
+              7
+            ],
+            [
+              7,
+              7
+            ],
+            [
+              9,
+              5
+            ],
+            [
+              10,
+              5
+            ],
+            [
+              10,
+              6
+            ],
+            [
+              10,
+              7
+            ],
+            [
+              9,
+              7
+            ]
+          ],
+          "goalPosition": [
+            6,
+            7
+          ],
+          "environmentEffect": "rain",
+          "storyDialogues": [
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "数据库模块已经装车，别让雨水泡坏接口。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "比雨水更麻烦的是那些屁股后面的铁疙瘩。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_exSpider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_flash_blast"
+              ],
+              "stats": {
+                "hp": 263,
+                "attack": 41,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 22,
+                "speed": 10,
+                "crit": 14,
+                "antiCrit": 8,
+                "defensePen": 9,
+                "accuracy": 13,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_exBot",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_concussive_strike"
+              ],
+              "stats": {
+                "hp": 337,
+                "attack": 45,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 27,
+                "speed": 13,
+                "crit": 17,
+                "antiCrit": 8,
+                "defensePen": 9,
+                "accuracy": 13,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_06_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_017",
+          "name": "哨戒长廊",
+          "description": "长廊射界笔直，自动火力会惩罚任何犹豫。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  8,
+                  2
+                ],
+                [
+                  10,
+                  2
+                ],
+                [
+                  8,
+                  6
+                ],
+                [
+                  10,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  5,
+                  1
+                ],
+                [
+                  5,
+                  7
+                ],
+                [
+                  7,
+                  2
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                5,
+                2
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    4,
+                    4
+                  ]
+                ]
+              },
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    6,
+                    6
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              4
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              2,
+              5
+            ]
+          ],
+          "goalPosition": [
+            1,
+            5
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "用障碍挡住它们的视线，先清拦截点!"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_exSpider",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_flash_blast"
+              ],
+              "stats": {
+                "hp": 263,
+                "attack": 41,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 22,
+                "speed": 11,
+                "crit": 14,
+                "antiCrit": 8,
+                "defensePen": 9,
+                "accuracy": 13,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_exBot",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_pack_howl",
+                "enemy_skill_lock_on",
+                "enemy_skill_concussive_strike"
+              ],
+              "stats": {
+                "hp": 337,
+                "attack": 45,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 27,
+                "speed": 10,
+                "crit": 17,
+                "antiCrit": 8,
+                "defensePen": 9,
+                "accuracy": 13,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_exShooter",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_suppressive_fire"
+              ],
+              "stats": {
+                "hp": 337,
+                "attack": 45,
+                "attackRange": 5,
+                "moveRange": 3,
+                "defense": 27,
+                "speed": 13,
+                "crit": 17,
+                "antiCrit": 8,
+                "defensePen": 9,
+                "accuracy": 13,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": [
+            {
+              "id": "dungeon_017_escort_boss_wave_1",
+              "spawnRound": 16,
+              "spawnOnClearBeforeRound": false,
+              "bosses": [
+                {
+                  "id": "enemy_exFighter",
+                  "rank": "boss",
+                  "count": 1,
+                  "positions": [],
+                  "duty": "escort_cart",
+                  "skillIds": [
+                    "enemy_skill_heavy_cleave",
+                    "enemy_skill_charge_quake",
+                    "enemy_skill_intimidating_roar"
+                  ],
+                  "stats": {
+                    "hp": 710,
+                    "attack": 66,
+                    "attackRange": 2,
+                    "moveRange": 2,
+                    "defense": 34,
+                    "speed": 17,
+                    "crit": 18,
+                    "antiCrit": 12,
+                    "defensePen": 13,
+                    "accuracy": 16,
+                    "dodge": 3
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_07",
+      "type": "escort",
+      "chapterId": "chapter_07",
+      "chapterIndex": 7,
+      "name": "资源护送战",
+      "subtitle": "厄里斯之影",
+      "description": "厄里斯留下的收容记录被装进运输车，培养舱里的失败品却像听懂了召唤。每一段撤离路都在重复她的影子。",
+      "background": "",
+      "unlockAfterDungeonId": "dungeon_021",
+      "recommendedLevel": 15,
+      "energyCost": 17,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 850,
+        "wood": 162,
+        "stone": 148,
+        "diamond": 120,
+        "iron_ore": 48
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 1400,
+        "attack": 1,
+        "defense": 52,
+        "speed": 9,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_07_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_019",
+          "name": "笼中残响",
+          "description": "培养舱外的走廊狭窄而整齐，破裂玻璃后不断传出抓挠声。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  8,
+                  1
+                ],
+                [
+                  7,
+                  2
+                ],
+                [
+                  9,
+                  4
+                ],
+                [
+                  7,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  5,
+                  1
+                ],
+                [
+                  6,
+                  3
+                ],
+                [
+                  3,
+                  5
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                9,
+                7
+              ],
+              [
+                10,
+                6
+              ],
+              [
+                10,
+                7
+              ],
+              [
+                1,
+                4
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                1,
+                3
+              ],
+              [
+                1,
+                5
+              ],
+              [
+                1,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    8,
+                    5
+                  ]
+                ]
+              },
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    5,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              2
+            ],
+            [
+              9,
+              2
+            ],
+            [
+              9,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              4,
+              6
+            ]
+          ],
+          "goalPosition": [
+            4,
+            7
+          ],
+          "environmentEffect": "ash",
+          "storyDialogues": [
+            {
+              "speaker": "hero_021",
+              "speakerName": "裂魂者-心渊",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "厄里斯的证词加上这些实验档案，足以向整个锈带揭露Ω的邪恶计划。现在Ω已经知道研究所被侵入。你们必须尽快把数据带回来!"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "明白，没有这些，厄里斯的牺牲就白费了。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_eMouse",
+              "rank": "normal",
+              "count": 2,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_rending_strike"
+              ],
+              "stats": {
+                "hp": 291,
+                "attack": 45,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 24,
+                "speed": 10,
+                "crit": 15,
+                "antiCrit": 8,
+                "defensePen": 10,
+                "accuracy": 13,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_eMonster",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_pack_pounce",
+                "enemy_skill_intimidating_roar",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 372,
+                "attack": 49,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 29,
+                "speed": 13,
+                "crit": 18,
+                "antiCrit": 8,
+                "defensePen": 10,
+                "accuracy": 13,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_07_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_020",
+          "name": "失败品走廊",
+          "description": "旧实验编号涂满墙壁，失败品在通道两侧等待活体经过。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  6,
+                  2
+                ],
+                [
+                  7,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  2,
+                  3
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  6,
+                  7
+                ],
+                [
+                  8,
+                  1
+                ],
+                [
+                  5,
+                  4
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                4,
+                7
+              ],
+              [
+                8,
+                3
+              ],
+              [
+                9,
+                4
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                3,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              5,
+              3
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              7,
+              6
+            ],
+            [
+              8,
+              6
+            ],
+            [
+              9,
+              6
+            ]
+          ],
+          "goalPosition": [
+            9,
+            7
+          ],
+          "environmentEffect": "ash",
+          "storyDialogues": [],
+          "initialEnemies": [
+            {
+              "id": "enemy_exBot",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_corrosive_bite",
+                "enemy_skill_flash_blast",
+                "enemy_skill_suppressive_fire"
+              ],
+              "stats": {
+                "hp": 291,
+                "attack": 45,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 24,
+                "speed": 11,
+                "crit": 15,
+                "antiCrit": 8,
+                "defensePen": 10,
+                "accuracy": 13,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_exShooter",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_lock_on",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 291,
+                "attack": 45,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 24,
+                "speed": 10,
+                "crit": 15,
+                "antiCrit": 8,
+                "defensePen": 10,
+                "accuracy": 13,
+                "dodge": 3
+              }
+            },
+            {
+              "id": "enemy_exFighter",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_suppressive_fire"
+              ],
+              "stats": {
+                "hp": 372,
+                "attack": 49,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 29,
+                "speed": 13,
+                "crit": 18,
+                "antiCrit": 8,
+                "defensePen": 10,
+                "accuracy": 13,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_08",
+      "type": "escort",
+      "chapterId": "chapter_08",
+      "chapterIndex": 8,
+      "name": "资源护送战",
+      "subtitle": "来自云境",
+      "description": "云境调查队的装备被缴获后，避难所第一次真正看见了天上的敌人。运输车必须把这些证据送回去，赶在对方完成定位之前。",
+      "background": "",
+      "unlockAfterDungeonId": "dungeon_024",
+      "recommendedLevel": 18,
+      "energyCost": 19,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 950,
+        "wood": 180,
+        "stone": 166,
+        "diamond": 140,
+        "iron_ore": 54
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 1550,
+        "attack": 1,
+        "defense": 56,
+        "speed": 9,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_08_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_022",
+          "name": "第一次接触",
+          "description": "调查队分散搜索废墟，医疗兵和远程火力会互相支援。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  6,
+                  1
+                ],
+                [
+                  9,
+                  2
+                ],
+                [
+                  5,
+                  3
+                ],
+                [
+                  8,
+                  4
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  10,
+                  3
+                ],
+                [
+                  6,
+                  5
+                ],
+                [
+                  4,
+                  2
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                4,
+                5
+              ],
+              [
+                9,
+                6
+              ],
+              [
+                10,
+                5
+              ],
+              [
+                10,
+                6
+              ],
+              [
+                10,
+                7
+              ],
+              [
+                9,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    7,
+                    5
+                  ]
+                ]
+              },
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    6,
+                    2
+                  ]
+                ]
+              },
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    3,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              8,
+              1
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              3
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              2,
+              5
+            ]
+          ],
+          "goalPosition": [
+            1,
+            5
+          ],
+          "environmentEffect": "ash",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "断钉，你们那边的战况我已经同步给各避难所。击退了一支清剿分队，但这是他们最弱的一支——后续兵力至少是你们刚才面对的三倍。你们必须尽快撤回。石墙的肩膀还能动吗？"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "不用管我，这车战利品比我的肩膀值钱。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_xRanger",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_resonance_pulse",
+                "enemy_skill_frenzy"
+              ],
+              "stats": {
+                "hp": 319,
+                "attack": 49,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 27,
+                "speed": 10,
+                "crit": 16,
+                "antiCrit": 9,
+                "defensePen": 11,
+                "accuracy": 14,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_xDoc",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_emergency_patch",
+                "enemy_skill_static_silence"
+              ],
+              "stats": {
+                "hp": 408,
+                "attack": 53,
+                "attackRange": 3,
+                "moveRange": 3,
+                "defense": 33,
+                "speed": 13,
+                "crit": 19,
+                "antiCrit": 9,
+                "defensePen": 11,
+                "accuracy": 14,
+                "dodge": 6
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_08_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_023",
+          "name": "信号链路",
+          "description": "通讯兵试图重新接入云境频道，无人机沿着开阔线位压迫运输路线。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  1,
+                  6
+                ],
+                [
+                  3,
+                  4
+                ],
+                [
+                  6,
+                  6
+                ],
+                [
+                  3,
+                  7
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  4,
+                  7
+                ],
+                [
+                  7,
+                  5
+                ],
+                [
+                  6,
+                  7
+                ],
+                [
+                  9,
+                  3
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                7,
+                7
+              ],
+              [
+                9,
+                5
+              ],
+              [
+                9,
+                6
+              ],
+              [
+                10,
+                3
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    5,
+                    3
+                  ]
+                ]
+              },
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    8,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              2,
+              7
+            ],
+            [
+              2,
+              6
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              9,
+              2
+            ]
+          ],
+          "goalPosition": [
+            9,
+            1
+          ],
+          "environmentEffect": "ash",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "心渊，从我们这里到乱石阵，途中有没有Ω的巡逻残余？"
+            },
+            {
+              "speaker": "hero_021",
+              "speakerName": "裂魂者-心渊",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "你们的撤退路线会被全程追踪。沿途可能有掉队的突击兵和自动哨戒炮，数量不明。你们必须在下一波清剿编队抵达前撤回，时间窗口大约四十分钟。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_xRanger",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_flash_blast",
+                "enemy_skill_suppressive_fire",
+                "enemy_skill_no_prisoners"
+              ],
+              "stats": {
+                "hp": 408,
+                "attack": 53,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 33,
+                "speed": 11,
+                "crit": 19,
+                "antiCrit": 9,
+                "defensePen": 11,
+                "accuracy": 14,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_xDoc",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_emergency_patch",
+                "enemy_skill_lock_on"
+              ],
+              "stats": {
+                "hp": 319,
+                "attack": 49,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 27,
+                "speed": 10,
+                "crit": 16,
+                "antiCrit": 9,
+                "defensePen": 11,
+                "accuracy": 14,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_ΩCatcher",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_intimidating_roar",
+                "enemy_skill_signal_jam"
+              ],
+              "stats": {
+                "hp": 319,
+                "attack": 49,
+                "attackRange": 3,
+                "moveRange": 3,
+                "defense": 27,
+                "speed": 13,
+                "crit": 16,
+                "antiCrit": 9,
+                "defensePen": 11,
+                "accuracy": 14,
+                "dodge": 6
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_09",
+      "type": "escort",
+      "chapterId": "chapter_09",
+      "chapterIndex": 9,
+      "name": "资源护送战",
+      "subtitle": "虫群之母",
+      "description": "虫巢深处的组织样本还在蠕动，母虫的嘶鸣沿着地底通道追来。运输车每前进一步，整座巢穴都会醒得更彻底。",
+      "background": "",
+      "unlockAfterDungeonId": "dungeon_027",
+      "recommendedLevel": 21,
+      "energyCost": 21,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 1100,
+        "wood": 198,
+        "stone": 184,
+        "diamond": 150,
+        "iron_ore": 60
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 1700,
+        "attack": 1,
+        "defense": 60,
+        "speed": 9,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_09_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_025",
+          "name": "虫潮前锋",
+          "description": "前锋异虫从侧洞涌出，速度比运输车更快。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  9,
+                  2
+                ],
+                [
+                  8,
+                  6
+                ],
+                [
+                  6,
+                  4
+                ],
+                [
+                  10,
+                  5
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  5,
+                  5
+                ],
+                [
+                  1,
+                  3
+                ],
+                [
+                  7,
+                  5
+                ],
+                [
+                  8,
+                  1
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                9,
+                1
+              ],
+              [
+                10,
+                1
+              ],
+              [
+                9,
+                7
+              ],
+              [
+                10,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    6,
+                    1
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              4
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              9,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              5,
+              3
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              3,
+              4
+            ]
+          ],
+          "goalPosition": [
+            2,
+            4
+          ],
+          "environmentEffect": "poison_fog",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "这虫子活着的时候想吃了我们，死了之后倒给我们留了一屋子宝贝。这些虫胶够做多少急救绷带？"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "（通讯器声音带着罕见的兴奋） “按照母虫分泌物的样本分析，一桶虫胶可以制成至少两百份高效抗菌敷料。你们眼前那些桶，够整个咱们用半年。但母虫死后，整个巢穴的信息素链已经断裂，残余虫群会陷入无序暴走。它们不会再听任何指令，但会被任何移动的物体视为威胁。你们撤离的速度必须快于虫群重新组织的时间。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_scytheWorm",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_rending_strike",
+                "enemy_skill_blood_drain"
+              ],
+              "stats": {
+                "hp": 347,
+                "attack": 53,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 29,
+                "speed": 10,
+                "crit": 17,
+                "antiCrit": 9,
+                "defensePen": 12,
+                "accuracy": 14,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_shieldWorm",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_guard_protocol",
+                "enemy_skill_mutant_regen",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 444,
+                "attack": 57,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 35,
+                "speed": 13,
+                "crit": 20,
+                "antiCrit": 9,
+                "defensePen": 12,
+                "accuracy": 14,
+                "dodge": 6
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_09_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_026",
+          "name": "孵化室",
+          "description": "卵囊堵住了旧通道，任何拖延都会引来更多幼虫。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  5,
+                  2
+                ],
+                [
+                  6,
+                  1
+                ],
+                [
+                  8,
+                  1
+                ],
+                [
+                  7,
+                  3
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  5,
+                  7
+                ],
+                [
+                  5,
+                  3
+                ],
+                [
+                  8,
+                  6
+                ],
+                [
+                  4,
+                  5
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                1
+              ],
+              [
+                1,
+                2
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                1,
+                7
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                1,
+                4
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                3,
+                4
+              ],
+              [
+                1,
+                3
+              ],
+              [
+                1,
+                5
+              ],
+              [
+                10,
+                1
+              ],
+              [
+                10,
+                2
+              ],
+              [
+                10,
+                3
+              ],
+              [
+                10,
+                4
+              ],
+              [
+                10,
+                5
+              ],
+              [
+                10,
+                6
+              ],
+              [
+                10,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    8,
+                    3
+                  ]
+                ]
+              },
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    7,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              9,
+              2
+            ],
+            [
+              9,
+              3
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "goalPosition": [
+            6,
+            7
+          ],
+          "environmentEffect": "poison_fog",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "别碰那些卵囊。"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "已经晚了，它们开始破了。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_hunter",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_pack_howl",
+                "enemy_skill_mutant_regen"
+              ],
+              "stats": {
+                "hp": 347,
+                "attack": 53,
+                "attackRange": 1,
+                "moveRange": 2,
+                "defense": 29,
+                "speed": 11,
+                "crit": 17,
+                "antiCrit": 9,
+                "defensePen": 12,
+                "accuracy": 14,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_alienBoomWorm",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_flash_blast",
+                "enemy_skill_concussive_strike"
+              ],
+              "stats": {
+                "hp": 347,
+                "attack": 53,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 29,
+                "speed": 10,
+                "crit": 17,
+                "antiCrit": 9,
+                "defensePen": 12,
+                "accuracy": 14,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_alienKiller",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce",
+                "enemy_skill_no_prisoners"
+              ],
+              "stats": {
+                "hp": 444,
+                "attack": 57,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 35,
+                "speed": 13,
+                "crit": 20,
+                "antiCrit": 9,
+                "defensePen": 12,
+                "accuracy": 14,
+                "dodge": 6
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_10",
+      "type": "escort",
+      "chapterId": "chapter_10",
+      "chapterIndex": 10,
+      "name": "资源护送战",
+      "subtitle": "零号避难所的秘密",
+      "description": "零号避难所的档案被装进车厢，里面记录着永生计划、失踪名单和最初的实验编号。真相必须抵达避难所，否则所有牺牲都会被重新埋回黑暗。",
+      "background": "",
+      "unlockAfterDungeonId": "dungeon_030",
+      "recommendedLevel": 24,
+      "energyCost": 23,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 1300,
+        "wood": 216,
+        "stone": 202,
+        "diamond": 170,
+        "iron_ore": 66
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 1850,
+        "attack": 1,
+        "defense": 64,
+        "speed": 9,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_10_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_028",
+          "name": "黑暗中的脚步",
+          "description": "主走廊的灯一盏接一盏熄灭，阴影生物在照明死角移动。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  9,
+                  1
+                ],
+                [
+                  9,
+                  4
+                ],
+                [
+                  8,
+                  5
+                ],
+                [
+                  6,
+                  2
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  8,
+                  7
+                ],
+                [
+                  10,
+                  5
+                ],
+                [
+                  7,
+                  1
+                ],
+                [
+                  3,
+                  4
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                1,
+                3
+              ],
+              [
+                1,
+                4
+              ],
+              [
+                1,
+                5
+              ],
+              [
+                1,
+                7
+              ],
+              [
+                2,
+                7
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                5,
+                5
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                7,
+                6
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    7,
+                    3
+                  ]
+                ]
+              },
+              {
+                "type": "heal",
+                "positions": [
+                  [
+                    9,
+                    6
+                  ]
+                ]
+              },
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    5,
+                    3
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              2
+            ],
+            [
+              9,
+              2
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              5
+            ],
+            [
+              4,
+              6
+            ]
+          ],
+          "goalPosition": [
+            4,
+            7
+          ],
+          "environmentEffect": "snow",
+          "storyDialogues": [
+            {
+              "speaker": "",
+              "speakerName": "",
+              "avatarType": "none",
+              "position": "left",
+              "text": "储存着永生计划从立项到执行的全部实验档案，包括所有实验对象的名单、试剂配方、污染扩散模型，以及零号避难所和其他几处未公开设施的精确坐标。这份数据比之前从厄里斯那里得到的硬盘更加完整，足以让云境的罪行在锈带每一个幸存者面前无所遁形。小队沉默地穿过休眠仓阵列往回走，那些被撬开的空仓在应急灯的照射下拖出长长的阴影，像是数十双伸向他们的手。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "原初实验体说我们身上的能力都来自永生计划。我们打了这么久，杀蜘蛛、杀蠕虫、杀Ω的机甲——结果我们自己就是Ω的产品。"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "不是产品。是证据。我们活着站在这里，本身就是Ω罪行的活证。他给我们的数据核心加上我们从厄里斯那里拿到的东西，足以让云境在锈带的每一项罪行都被记录在案。这车数据比任何武器都重要。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_shadowsClimber",
+              "rank": "normal",
+              "count": 2,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_darkness_feast",
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 375,
+                "attack": 57,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 31,
+                "speed": 11,
+                "crit": 18,
+                "antiCrit": 10,
+                "defensePen": 13,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_shadowsKing",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_darkness_feast",
+                "enemy_skill_concussive_strike"
+              ],
+              "stats": {
+                "hp": 480,
+                "attack": 61,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 38,
+                "speed": 14,
+                "crit": 21,
+                "antiCrit": 10,
+                "defensePen": 13,
+                "accuracy": 15,
+                "dodge": 6
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_10_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_029",
+          "name": "休眠仓阵列",
+          "description": "破碎休眠仓排成整齐方阵，旧守卫仍在执行错误命令。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  5,
+                  5
+                ],
+                [
+                  2,
+                  6
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  7,
+                  5
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  2,
+                  4
+                ],
+                [
+                  5,
+                  7
+                ],
+                [
+                  9,
+                  4
+                ],
+                [
+                  8,
+                  7
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                6,
+                5
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                1,
+                5
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                1,
+                7
+              ],
+              [
+                10,
+                7
+              ],
+              [
+                10,
+                6
+              ],
+              [
+                10,
+                5
+              ],
+              [
+                9,
+                1
+              ],
+              [
+                9,
+                2
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    4,
+                    5
+                  ],
+                  [
+                    9,
+                    6
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              7,
+              6
+            ],
+            [
+              8,
+              6
+            ],
+            [
+              8,
+              5
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              7,
+              2
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              5,
+              2
+            ]
+          ],
+          "goalPosition": [
+            5,
+            1
+          ],
+          "environmentEffect": "snow",
+          "storyDialogues": [
+            {
+              "speaker": "hero_024",
+              "speakerName": "焰罚者-余烬",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "我有个问题。原初实验体说他的防御协议已经启动了，整座零号避难所的系统正在把他改造成屠戮兵器。我们撤出去之后，这座设施会怎样？"
+            },
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "（低头看着手中的数据核心） 他在最后一刻还在抵抗协议。他说趁他还没变成怪物之前让我们走。但防御协议不会因为他死了就停止——它会把整座设施当成需要保护的对象。那些休眠仓里残留的暗影生物，还有那些维护工程机，都会被防御协议激活。它们会追出来，不是为了围剿我们，是为了回收数据——因为数据证明了这一切发生过，而Ω花了二十年试图抹掉的正是这个证明。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_exBot",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_resonance_pulse",
+                "enemy_skill_static_silence",
+                "enemy_skill_flash_blast"
+              ],
+              "stats": {
+                "hp": 375,
+                "attack": 57,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 31,
+                "speed": 12,
+                "crit": 18,
+                "antiCrit": 10,
+                "defensePen": 13,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_shadowsClimber",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_darkness_feast",
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 375,
+                "attack": 57,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 31,
+                "speed": 14,
+                "crit": 18,
+                "antiCrit": 10,
+                "defensePen": 13,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": [
+            {
+              "id": "dungeon_029_escort_boss_wave_1",
+              "spawnRound": 20,
+              "spawnOnClearBeforeRound": false,
+              "bosses": [
+                {
+                  "id": "enemy_shadowsKing",
+                  "rank": "boss",
+                  "count": 1,
+                  "positions": [],
+                  "duty": "escort_cart",
+                  "skillIds": [
+                    "enemy_skill_darkness_feast",
+                    "enemy_skill_frenzy",
+                    "enemy_skill_intimidating_roar",
+                    "enemy_skill_blood_drain"
+                  ],
+                  "stats": {
+                    "hp": 1013,
+                    "attack": 84,
+                    "attackRange": 2,
+                    "moveRange": 2,
+                    "defense": 48,
+                    "speed": 18,
+                    "crit": 22,
+                    "antiCrit": 14,
+                    "defensePen": 17,
+                    "accuracy": 18,
+                    "dodge": 4
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_11",
+      "type": "escort",
+      "chapterId": "chapter_11",
+      "chapterIndex": 11,
+      "name": "资源护送战",
+      "subtitle": "狩猎者",
+      "description": "Ω清剿队已经锁定撤离路线，运输车里装着能证明他们罪行的档案。狩猎开始了，但猎物不打算继续低头逃跑。",
+      "background": "",
+      "unlockAfterDungeonId": "dungeon_033",
+      "recommendedLevel": 27,
+      "energyCost": 25,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 1500,
+        "wood": 234,
+        "stone": 220,
+        "diamond": 190,
+        "iron_ore": 72
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 2000,
+        "attack": 1,
+        "defense": 68,
+        "speed": 9,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_11_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_031",
+          "name": "狩猎开始",
+          "description": "追踪器从后方逼近，突击兵试图把运输车赶进交叉火力。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  7,
+                  2
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  6,
+                  1
+                ],
+                [
+                  8,
+                  1
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  3,
+                  4
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                7
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                3,
+                6
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                4,
+                7
+              ],
+              [
+                5,
+                3
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    6,
+                    4
+                  ],
+                  [
+                    5,
+                    1
+                  ]
+                ]
+              },
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    7,
+                    5
+                  ]
+                ]
+              },
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    3,
+                    5
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              2,
+              1
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              4,
+              2
+            ],
+            [
+              5,
+              2
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              6,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              8,
+              4
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              9,
+              5
+            ],
+            [
+              9,
+              6
+            ]
+          ],
+          "goalPosition": [
+            9,
+            7
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [
+            {
+              "speaker": "hero_022",
+              "speakerName": "守望者-石墙",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "我们得把装备运回避难所，要清点出能用的人手，还要布置防线。时间不够用。这批装备里最重要的是战术终端——它能让我们提前知道Ω下一波进攻的部队编制和攻击方向。这东西必须完整送到心渊手里。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "那就开干吧!"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_ΩAttacker",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce",
+                "enemy_skill_rending_strike"
+              ],
+              "stats": {
+                "hp": 403,
+                "attack": 61,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 33,
+                "speed": 11,
+                "crit": 19,
+                "antiCrit": 10,
+                "defensePen": 14,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_ΩCatcher",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_lock_on",
+                "enemy_skill_signal_jam",
+                "enemy_skill_flash_blast"
+              ],
+              "stats": {
+                "hp": 516,
+                "attack": 65,
+                "attackRange": 4,
+                "moveRange": 3,
+                "defense": 40,
+                "speed": 14,
+                "crit": 22,
+                "antiCrit": 10,
+                "defensePen": 14,
+                "accuracy": 15,
+                "dodge": 6
+              }
+            },
+            {
+              "id": "enemy_ΩDefenser",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_guard_protocol",
+                "enemy_skill_frenzy",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 420,
+                "attack": 62,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 33,
+                "speed": 13,
+                "crit": 18,
+                "antiCrit": 10,
+                "defensePen": 14,
+                "accuracy": 15,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_11_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_032",
+          "name": "交叉火力",
+          "description": "支援兵占据两侧废楼，压制线会不断切断英雄与运输车的距离。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  3,
+                  5
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  1,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  6,
+                  2
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  7,
+                  6
+                ],
+                [
+                  10,
+                  3
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                1
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                9,
+                1
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                5,
+                7
+              ],
+              [
+                1,
+                7
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "fire",
+                "positions": [
+                  [
+                    8,
+                    4
+                  ],
+                  [
+                    6,
+                    6
+                  ]
+                ]
+              },
+              {
+                "type": "miasma",
+                "positions": [
+                  [
+                    4,
+                    3
+                  ]
+                ]
+              },
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    8,
+                    2
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              2,
+              5
+            ],
+            [
+              2,
+              6
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              5,
+              5
+            ],
+            [
+              6,
+              5
+            ],
+            [
+              7,
+              5
+            ],
+            [
+              7,
+              4
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              9,
+              3
+            ],
+            [
+              9,
+              4
+            ],
+            [
+              9,
+              5
+            ],
+            [
+              9,
+              6
+            ]
+          ],
+          "goalPosition": [
+            9,
+            7
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [
+            {
+              "speaker": "hero_028",
+              "speakerName": "苍绿之殇-莹尘",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "我感应到周围仍有零散的Ω能量信号在移动。不是主力，是掉队的突击兵和自动哨戒炮。它们分布在我们撤回路线两侧，数量不多但位置分散。如果被任何一台哨戒炮锁定，它会把我们的位置实时传回云境。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "也就是说我们得一路避开哨戒炮，同时还要在四小时内赶回避难所。"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_ΩDefenser",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_guard_protocol",
+                "enemy_skill_suppressive_fire"
+              ],
+              "stats": {
+                "hp": 516,
+                "attack": 65,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 40,
+                "speed": 12,
+                "crit": 22,
+                "antiCrit": 10,
+                "defensePen": 14,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_ΩAttacker",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_suppressive_fire",
+                "enemy_skill_line_crack"
+              ],
+              "stats": {
+                "hp": 516,
+                "attack": 65,
+                "attackRange": 3,
+                "moveRange": 2,
+                "defense": 40,
+                "speed": 11,
+                "crit": 22,
+                "antiCrit": 10,
+                "defensePen": 14,
+                "accuracy": 15,
+                "dodge": 4
+              }
+            },
+            {
+              "id": "enemy_ΩCatcher",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_lock_on",
+                "enemy_skill_flash_blast"
+              ],
+              "stats": {
+                "hp": 403,
+                "attack": 61,
+                "attackRange": 3,
+                "moveRange": 3,
+                "defense": 33,
+                "speed": 14,
+                "crit": 19,
+                "antiCrit": 10,
+                "defensePen": 14,
+                "accuracy": 15,
+                "dodge": 6
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": [
+            {
+              "id": "dungeon_032_escort_boss_wave_1",
+              "spawnRound": 16,
+              "spawnOnClearBeforeRound": false,
+              "bosses": [
+                {
+                  "id": "enemy_ΩAttackPlat",
+                  "rank": "boss",
+                  "count": 1,
+                  "positions": [],
+                  "duty": "escort_cart",
+                  "skillIds": [
+                    "enemy_skill_suppressive_fire",
+                    "enemy_skill_line_crack",
+                    "enemy_skill_lock_on"
+                  ],
+                  "stats": {
+                    "hp": 1088,
+                    "attack": 88,
+                    "attackRange": 6,
+                    "moveRange": 2,
+                    "defense": 51,
+                    "speed": 18,
+                    "crit": 23,
+                    "antiCrit": 14,
+                    "defensePen": 18,
+                    "accuracy": 18,
+                    "dodge": 4
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "escort_chapter_12",
+      "type": "escort",
+      "chapterId": "chapter_12",
+      "chapterIndex": 12,
+      "name": "资源护送战",
+      "subtitle": "信号",
+      "description": "中继塔终于接入全频段广播，运输车运载的不再是普通物资，而是锈带向所有避难所发出的第一束信号。",
+      "background": "",
+      "unlockAfterDungeonId": "dungeon_036",
+      "recommendedLevel": 30,
+      "energyCost": 28,
+      "fixedRewardRatio": 0.6,
+      "durabilityRewardRatio": 0.4,
+      "baseRewards": {
+        "gold": 1700,
+        "wood": 252,
+        "stone": 238,
+        "diamond": 210,
+        "iron_ore": 78
+      },
+      "cartTemplate": {
+        "name": "补给车",
+        "icon": "车",
+        "hp": 2150,
+        "attack": 1,
+        "defense": 72,
+        "speed": 9,
+        "attackRange": 1,
+        "moveRange": 1
+      },
+      "segments": [
+        {
+          "id": "escort_chapter_12_segment_1",
+          "index": 1,
+          "sourceDungeonId": "dungeon_034",
+          "name": "高塔之上",
+          "description": "维护通道暴露在雷雨中，尖叫者的噪声让通讯频道几乎失控。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  10,
+                  2
+                ],
+                [
+                  9,
+                  2
+                ],
+                [
+                  10,
+                  3
+                ],
+                [
+                  7,
+                  1
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  1,
+                  7
+                ],
+                [
+                  4,
+                  1
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                2,
+                2
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                3,
+                5
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                6,
+                2
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    7,
+                    2
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              10,
+              1
+            ],
+            [
+              9,
+              1
+            ],
+            [
+              8,
+              1
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              3
+            ],
+            [
+              7,
+              3
+            ],
+            [
+              6,
+              3
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              4,
+              5
+            ]
+          ],
+          "goalPosition": [
+            4,
+            6
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "暴君机甲的残骸半跪在中继塔下，头顶的通讯天线阵列被断钉从根部炸断，砸在废墟中扬起漫天尘埃。"
+            },
+            {
+              "speaker": "hero_021",
+              "speakerName": "裂魂者-心渊",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "断钉！通讯全频段恢复！暴君机甲的广播压制解除了，我们现在能联系上所有避难所——包括之前被完全静默的那几个。他们都在问同一个问题：刚才那个覆盖全频段的声音是谁的？我们告诉他们，那是你们在打暴君机甲。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "告诉他们，暴君倒在我们脚下了"
+            },
+            {
+              "speaker": "hero_024",
+              "speakerName": "焰罚者-余烬",
+              "avatarType": "hero",
+              "position": "right",
+              "text": "但是,我们现在又有新的麻烦了,这些东西恐怕不会轻易让我们带着物资穿过这里"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_screamer",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_static_silence",
+                "enemy_skill_frenzy",
+                "enemy_skill_pack_pounce"
+              ],
+              "stats": {
+                "hp": 431,
+                "attack": 65,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 35,
+                "speed": 11,
+                "crit": 20,
+                "antiCrit": 11,
+                "defensePen": 15,
+                "accuracy": 16,
+                "dodge": 5
+              }
+            },
+            {
+              "id": "enemy_hellScreamer",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_gust_repel",
+                "enemy_skill_intimidating_roar",
+                "enemy_skill_blood_drain",
+                "enemy_skill_signal_jam"
+              ],
+              "stats": {
+                "hp": 552,
+                "attack": 69,
+                "attackRange": 3,
+                "moveRange": 3,
+                "defense": 43,
+                "speed": 14,
+                "crit": 23,
+                "antiCrit": 11,
+                "defensePen": 15,
+                "accuracy": 16,
+                "dodge": 7
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": []
+        },
+        {
+          "id": "escort_chapter_12_segment_2",
+          "index": 2,
+          "sourceDungeonId": "dungeon_035",
+          "name": "窃听者",
+          "description": "Ω无人机沿信号源围拢，火力平台准备把整条维护通道打穿。",
+          "battlefield": {
+            "cols": 7,
+            "rows": 10,
+            "actionTimeout": 25,
+            "heroSpawn": {
+              "positions": [
+                [
+                  4,
+                  7
+                ],
+                [
+                  6,
+                  7
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  6
+                ]
+              ]
+            },
+            "enemySpawn": {
+              "positions": [
+                [
+                  1,
+                  3
+                ],
+                [
+                  1,
+                  5
+                ],
+                [
+                  5,
+                  1
+                ]
+              ]
+            },
+            "obstacles": [
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                2,
+                5
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                3,
+                7
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "specialTiles": [
+              {
+                "type": "swamp",
+                "positions": [
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              }
+            ]
+          },
+          "route": [
+            [
+              5,
+              7
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              4,
+              6
+            ],
+            [
+              3,
+              6
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              4
+            ],
+            [
+              6,
+              4
+            ],
+            [
+              6,
+              3
+            ],
+            [
+              6,
+              2
+            ]
+          ],
+          "goalPosition": [
+            6,
+            1
+          ],
+          "environmentEffect": "storm_night",
+          "storyDialogues": [
+            {
+              "speaker": "enemy_ΩCatcherPlat",
+              "speakerName": "Ω火力平台",
+              "avatarType": "enemy",
+              "position": "right",
+              "text": "非授权信号，执行静默。"
+            },
+            {
+              "speaker": "hero_020",
+              "speakerName": "破伤风-断钉",
+              "avatarType": "hero",
+              "position": "left",
+              "text": "他们想让所有人继续听不见。我不答应。我们第一次有机会让整个锈带听到彼此的声音。不是为了赢，是为了让所有人知道——我们还在！！"
+            }
+          ],
+          "initialEnemies": [
+            {
+              "id": "enemy_ΩCatcher",
+              "rank": "normal",
+              "count": 2,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_lock_on",
+                "enemy_skill_signal_jam",
+                "enemy_skill_flash_blast"
+              ],
+              "stats": {
+                "hp": 431,
+                "attack": 65,
+                "attackRange": 4,
+                "moveRange": 2,
+                "defense": 35,
+                "speed": 12,
+                "crit": 20,
+                "antiCrit": 11,
+                "defensePen": 15,
+                "accuracy": 16,
+                "dodge": 5
+              }
+            },
+            {
+              "id": "enemy_ΩCatcherPlat",
+              "rank": "elite",
+              "count": 1,
+              "positions": [],
+              "duty": "escort_cart",
+              "skillIds": [
+                "enemy_skill_execution_order",
+                "enemy_skill_guard_protocol",
+                "enemy_skill_lock_on",
+                "enemy_skill_signal_jam",
+                "enemy_skill_suppressive_fire",
+                "enemy_skill_line_crack"
+              ],
+              "stats": {
+                "hp": 552,
+                "attack": 69,
+                "attackRange": 6,
+                "moveRange": 2,
+                "defense": 43,
+                "speed": 11,
+                "crit": 23,
+                "antiCrit": 11,
+                "defensePen": 15,
+                "accuracy": 16,
+                "dodge": 5
+              }
+            },
+            {
+              "id": "enemy_ΩAttacker",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "chase",
+              "skillIds": [
+                "enemy_skill_frenzy",
+                "enemy_skill_suppressive_fire",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 431,
+                "attack": 65,
+                "attackRange": 2,
+                "moveRange": 3,
+                "defense": 35,
+                "speed": 14,
+                "crit": 20,
+                "antiCrit": 11,
+                "defensePen": 15,
+                "accuracy": 16,
+                "dodge": 7
+              }
+            },
+            {
+              "id": "enemy_ΩDefenser",
+              "rank": "normal",
+              "count": 1,
+              "positions": [],
+              "duty": "intercept",
+              "skillIds": [
+                "enemy_skill_resonance_pulse",
+                "enemy_skill_frenzy",
+                "enemy_skill_heavy_cleave"
+              ],
+              "stats": {
+                "hp": 431,
+                "attack": 65,
+                "attackRange": 2,
+                "moveRange": 2,
+                "defense": 35,
+                "speed": 12,
+                "crit": 20,
+                "antiCrit": 11,
+                "defensePen": 15,
+                "accuracy": 16,
+                "dodge": 5
+              }
+            }
+          ],
+          "reinforcementEnemies": [],
+          "bossWaves": [
+            {
+              "id": "dungeon_035_escort_boss_wave_1",
+              "spawnRound": 16,
+              "spawnOnClearBeforeRound": false,
+              "bosses": [
+                {
+                  "id": "enemy_ΩCatcherPlat",
+                  "rank": "boss",
+                  "count": 1,
+                  "positions": [],
+                  "duty": "escort_cart",
+                  "skillIds": [
+                    "enemy_skill_random_fall",
+                    "enemy_skill_lock_on",
+                    "enemy_skill_signal_jam",
+                    "enemy_skill_charge_quake",
+                    "enemy_skill_suppressive_fire",
+                    "enemy_skill_line_crack"
+                  ],
+                  "stats": {
+                    "hp": 1164,
+                    "attack": 93,
+                    "attackRange": 6,
+                    "moveRange": 2,
+                    "defense": 54,
+                    "speed": 19,
+                    "crit": 24,
+                    "antiCrit": 15,
+                    "defensePen": 19,
+                    "accuracy": 19,
+                    "dodge": 5
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-06-26T06:09:35.902Z"
+}

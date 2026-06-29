@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
+import { ObjectId } from 'mongodb';
 import { MongoService } from '../../shared/mongo/mongo.service';
 import {
   CdkeyDocument,
@@ -10,6 +11,7 @@ import {
   MailAttachment,
   PlayerMailDocument,
   UserAccountDocument,
+  UserAccountSaveAuditBypass,
 } from '../../shared/mongo/mongo.types';
 
 @Injectable()
@@ -19,6 +21,12 @@ export class GmService {
     path.join(this.rootDir, 'index.html'),
     path.join(this.rootDir, 'mobile', 'web', 'index.html'),
   ];
+  private readonly specialBattleConfigFile = path.join(
+    this.rootDir,
+    'server',
+    'data',
+    'gm-special-battles.json',
+  );
 
   constructor(private readonly mongoService: MongoService) {}
 
@@ -158,15 +166,135 @@ export class GmService {
     return `${y}.${m}.${d}.${minuteOfDay}`;
   }
 
+  async getAudioConfig() {
+    const config = await this.loadAudioConfig();
+    return { success: true, config };
+  }
+
+  async updateAudioConfig(body: any) {
+    const current = await this.loadAudioConfig();
+    const next = {
+      battleBgmPath: this.normalizeBgmPath(body?.battleBgmPath, current.battleBgmPath),
+      lobbyBgmPath: this.normalizeBgmPath(body?.lobbyBgmPath, current.lobbyBgmPath),
+      attackSfxPaths: this.normalizeAudioPathList(body?.attackSfxPaths, current.attackSfxPaths),
+      criticalSfxPaths: this.normalizeAudioPathList(body?.criticalSfxPaths, current.criticalSfxPaths),
+    };
+    await fsp.writeFile(this.audioConfigPath(), JSON.stringify(next, null, 2), 'utf8');
+    return { success: true, config: next };
+  }
+
+  async uploadAudioFile(file: Express.Multer.File, category?: string) {
+    if (!file || !file.buffer || file.size <= 0) {
+      throw new BadRequestException('未选择音频文件');
+    }
+    const allowed = new Set(['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/webm', 'audio/aac']);
+    if (!allowed.has(file.mimetype)) {
+      throw new BadRequestException(`不支持的音频格式: ${file.mimetype || '未知'}`);
+    }
+    const normalizedCategory = this.normalizeAudioUploadCategory(category);
+    const targetDir = normalizedCategory === 'bgm' ? 'bgm' : 'sfx';
+    const destDir = path.join(this.rootDir, 'assets', 'audio', targetDir);
+    await fsp.mkdir(destDir, { recursive: true });
+    const ext = path.extname(file.originalname || 'audio.mp3') || '.mp3';
+    const safeName = this.buildUploadedAudioName(normalizedCategory, ext);
+    const destPath = path.join(destDir, safeName);
+    await fsp.writeFile(destPath, file.buffer);
+    const relativePath = `assets/audio/${targetDir}/${safeName}`;
+
+    const config = await this.loadAudioConfig();
+    if (normalizedCategory === 'battle_attack') {
+      config.attackSfxPaths = [...config.attackSfxPaths, relativePath];
+    } else if (normalizedCategory === 'battle_critical') {
+      config.criticalSfxPaths = [...config.criticalSfxPaths, relativePath];
+    } else {
+      config.battleBgmPath = relativePath;
+    }
+    await fsp.writeFile(this.audioConfigPath(), JSON.stringify(config, null, 2), 'utf8');
+
+    return { success: true, path: relativePath, category: normalizedCategory, config };
+  }
+
+  private audioConfigPath() {
+    return path.join(this.rootDir, 'server', 'gm-audio-config.json');
+  }
+
+  private async loadAudioConfig(): Promise<{
+    battleBgmPath: string;
+    lobbyBgmPath: string;
+    attackSfxPaths: string[];
+    criticalSfxPaths: string[];
+  }> {
+    const configPath = this.audioConfigPath();
+    try {
+      const raw = await fsp.readFile(configPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      return {
+        battleBgmPath: this.normalizeBgmPath(parsed?.battleBgmPath, 'assets/audio/bgm/ParadiseBGM.MP3'),
+        lobbyBgmPath: this.normalizeBgmPath(parsed?.lobbyBgmPath, 'assets/audio/bgm/ParadiseBGM.MP3'),
+        attackSfxPaths: this.normalizeAudioPathList(parsed?.attackSfxPaths),
+        criticalSfxPaths: this.normalizeAudioPathList(parsed?.criticalSfxPaths),
+      };
+    } catch {
+      return {
+        battleBgmPath: 'assets/audio/bgm/ParadiseBGM.MP3',
+        lobbyBgmPath: 'assets/audio/bgm/ParadiseBGM.MP3',
+        attackSfxPaths: [],
+        criticalSfxPaths: [],
+      };
+    }
+  }
+
+  private normalizeBgmPath(value: string, fallback: string) {
+    const trimmed = String(value || '').trim();
+    return trimmed ? trimmed : fallback;
+  }
+
+  private normalizeAudioPathList(value: any, fallback: string[] = []) {
+    if (typeof value === 'undefined') {
+      return Array.isArray(fallback) ? [...fallback] : [];
+    }
+    if (value === null) {
+      return [];
+    }
+    const list = Array.isArray(value) ? value : String(value).split(/[\r\n,;，；]+/);
+    return list.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+
+  private normalizeAudioUploadCategory(value: any) {
+    const category = String(value || '').trim();
+    if (category === 'battle_attack' || category === 'battle_critical') {
+      return category;
+    }
+    return 'bgm';
+  }
+
+  private buildUploadedAudioName(category: string, ext: string) {
+    const stamp = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    if (category === 'battle_attack') {
+      return `gm_battle_attack_${stamp}${ext}`;
+    }
+    if (category === 'battle_critical') {
+      return `gm_battle_critical_${stamp}${ext}`;
+    }
+    return `gm_battle_bgm${ext}`;
+  }
+
   async listPlayers(query: any = {}) {
     const keyword = String(query.keyword || '').trim();
     const limit = this.clampLimit(query.limit, 100);
+    const searchItems: any[] = keyword
+      ? [
+          { account: { $regex: keyword, $options: 'i' } },
+          { nickname: { $regex: keyword, $options: 'i' } },
+          { _id: keyword },
+        ]
+      : [];
+    if (keyword && ObjectId.isValid(keyword)) {
+      searchItems.push({ _id: new ObjectId(keyword) });
+    }
     const where = keyword
       ? {
-          $or: [
-            { account: { $regex: keyword, $options: 'i' } },
-            { nickname: { $regex: keyword, $options: 'i' } },
-          ],
+          $or: searchItems,
         }
       : {};
 
@@ -179,15 +307,110 @@ export class GmService {
 
     return {
       success: true,
-      players: players.map((player: any) => ({
-        id: String(player._id),
-        account: player.account || '',
-        nickname: player.nickname || '',
-        loginType: player.loginType || '',
-        lastLoginAt: player.lastLoginAt || null,
-        createdAt: player.createdAt || null,
-        updatedAt: player.updatedAt || null,
-      })),
+      players: players.map((player: any) => this.serializePlayer(player)),
+    };
+  }
+
+  async updatePlayerBanStatus(id: string, body: any) {
+    const player = (await this.mongoService.getById(
+      this.mongoService.userAccounts(),
+      id,
+    )) as UserAccountDocument | null;
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    const now = this.mongoService.nowIso();
+    const banned = body?.banned === true;
+    const reason = String(body?.reason || '').trim() || 'GM 手动封禁';
+    const details =
+      body?.details && typeof body.details === 'object' ? body.details : null;
+
+    await this.mongoService.updateById(this.mongoService.userAccounts(), id, {
+      banStatus: banned
+        ? {
+            bannedAt: now,
+            reason,
+            details,
+          }
+        : null,
+      updatedAt: now,
+    } as any);
+
+    const next = await this.mongoService.getById(
+      this.mongoService.userAccounts(),
+      id,
+    );
+    return {
+      success: true,
+      player: this.serializePlayer(next as any),
+    };
+  }
+
+  async updatePlayerSaveAuditBypass(id: string, body: any) {
+    const player = (await this.mongoService.getById(
+      this.mongoService.userAccounts(),
+      id,
+    )) as UserAccountDocument | null;
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    const now = this.mongoService.nowIso();
+    const enabled = body?.enabled === true;
+    const note = String(body?.note || '').trim() || 'GM 测试免审';
+    const saveAuditBypass: UserAccountSaveAuditBypass | null = enabled
+      ? {
+          enabled: true,
+          note,
+          updatedAt: now,
+        }
+      : null;
+
+    await this.mongoService.updateById(this.mongoService.userAccounts(), id, {
+      saveAuditBypass,
+      updatedAt: now,
+    } as any);
+
+    const next = await this.mongoService.getById(
+      this.mongoService.userAccounts(),
+      id,
+    );
+    return {
+      success: true,
+      player: this.serializePlayer(next as any),
+    };
+  }
+
+  private serializePlayer(player: any) {
+    if (!player) {
+      return null;
+    }
+    const banStatus = player?.banStatus?.bannedAt
+      ? {
+          bannedAt: player.banStatus.bannedAt,
+          reason: player.banStatus.reason || '存档异常',
+          details: player.banStatus.details || null,
+        }
+      : null;
+    const saveAuditBypass = player?.saveAuditBypass?.enabled
+      ? {
+          enabled: true,
+          note: player.saveAuditBypass.note || null,
+          updatedAt: player.saveAuditBypass.updatedAt || null,
+        }
+      : null;
+
+    return {
+      id: String(player._id || ''),
+      account: player.account || '',
+      nickname: player.nickname || '',
+      loginType: player.loginType || '',
+      lastLoginAt: player.lastLoginAt || null,
+      createdAt: player.createdAt || null,
+      updatedAt: player.updatedAt || null,
+      banStatus,
+      saveAuditBypass,
     };
   }
 
@@ -512,5 +735,223 @@ export class GmService {
 
   private clampLimit(value: any, fallback: number) {
     return Math.max(1, Math.min(1000, Number(value) || fallback));
+  }
+
+  async getSpecialBattleConfig() {
+    const config = await this.loadSpecialBattleConfig();
+    return {
+      success: true,
+      config,
+    };
+  }
+
+  async updateSpecialBattleConfig(body: any) {
+    const next = this.normalizeSpecialBattleConfig(body);
+    await fsp.mkdir(path.dirname(this.specialBattleConfigFile), { recursive: true });
+    await fsp.writeFile(this.specialBattleConfigFile, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+    return {
+      success: true,
+      config: next,
+    };
+  }
+
+  private async loadSpecialBattleConfig() {
+    try {
+      const raw = await fsp.readFile(this.specialBattleConfigFile, 'utf8');
+      return this.normalizeSpecialBattleConfig(JSON.parse(raw));
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') {
+        console.warn('[GmService] load special battle config failed:', error);
+      }
+      return this.normalizeSpecialBattleConfig(null);
+    }
+  }
+
+  private normalizeSpecialBattleConfig(value: any) {
+    const missions = Array.isArray(value?.escortMissions) ? value.escortMissions : [];
+    return {
+      escortMissions: missions
+        .map((mission, index) => this.normalizeEscortMission(mission, index))
+        .filter(Boolean),
+      updatedAt: String(value?.updatedAt || this.mongoService.nowIso()),
+    };
+  }
+
+  private normalizeEscortMission(entry: any, index: number) {
+    const chapterId = String(entry?.chapterId || '').trim();
+    const id =
+      String(entry?.id || '').trim() ||
+      (chapterId ? `escort_${chapterId}` : `escort_mission_${index + 1}`);
+    if (!chapterId || !id) {
+      return null;
+    }
+
+    const chapterIndex = Math.max(1, Number(entry?.chapterIndex || entry?.chapterNumber || index + 1) || index + 1);
+    const cartTemplate = entry?.cartTemplate && typeof entry.cartTemplate === 'object' ? entry.cartTemplate : {};
+    const baseRewards = entry?.baseRewards && typeof entry.baseRewards === 'object' ? entry.baseRewards : {};
+    const segments = Array.isArray(entry?.segments) ? entry.segments : [];
+
+    return {
+      id,
+      type: 'escort',
+      chapterId,
+      chapterIndex,
+      name: String(entry?.name || '资源护送战').trim() || '资源护送战',
+      subtitle: String(entry?.subtitle || '').trim(),
+      description: String(entry?.description || '').trim(),
+      background: String(entry?.background || '').trim(),
+      unlockAfterDungeonId: String(entry?.unlockAfterDungeonId || '').trim(),
+      recommendedLevel: Math.max(1, Number(entry?.recommendedLevel) || 1),
+      energyCost: Math.max(1, Number(entry?.energyCost) || 1),
+      fixedRewardRatio: this.clampRatio(entry?.fixedRewardRatio, 0.6),
+      durabilityRewardRatio: this.clampRatio(entry?.durabilityRewardRatio, 0.4),
+      baseRewards: Object.fromEntries(
+        Object.entries(baseRewards)
+          .map(([resourceId, amount]): [string, number] => [String(resourceId || '').trim(), Math.max(0, Math.floor(Number(amount) || 0))])
+          .filter(([resourceId, amount]) => resourceId && amount > 0),
+      ),
+      cartTemplate: {
+        name: String(cartTemplate?.name || '补给车').trim() || '补给车',
+        icon: String(cartTemplate?.icon || '车').trim() || '车',
+        hp: Math.max(1, Number(cartTemplate?.hp) || 1),
+        attack: Math.max(1, Number(cartTemplate?.attack) || 1),
+        defense: Math.max(0, Number(cartTemplate?.defense) || 0),
+        speed: Math.max(1, Number(cartTemplate?.speed) || 1),
+        attackRange: Math.max(1, Number(cartTemplate?.attackRange) || 1),
+        moveRange: Math.max(1, Number(cartTemplate?.moveRange) || 1),
+      },
+      segments: segments
+        .map((segment, segmentIndex) => this.normalizeEscortSegment(segment, id, segmentIndex))
+        .filter(Boolean),
+    };
+  }
+
+  private normalizeEscortSegment(entry: any, missionId: string, index: number) {
+    const segmentId =
+      String(entry?.id || '').trim() || `${missionId}_segment_${index + 1}`;
+    const battlefield = entry?.battlefield && typeof entry.battlefield === 'object' ? entry.battlefield : {};
+    const enemySpawn = battlefield?.enemySpawn && typeof battlefield.enemySpawn === 'object' ? battlefield.enemySpawn : {};
+
+    const normalizeCoordinateList = (list: any) =>
+      (Array.isArray(list) ? list : [])
+        .map((point) => {
+          if (Array.isArray(point)) {
+            return [Math.max(1, Number(point[0]) || 1), Math.max(1, Number(point[1]) || 1)];
+          }
+          if (point && typeof point === 'object') {
+            return [
+              Math.max(1, Number(point.row ?? point.y ?? 1) || 1),
+              Math.max(1, Number(point.col ?? point.x ?? 1) || 1),
+            ];
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+    const normalizeSpecialTiles = (tiles: any) =>
+      (Array.isArray(tiles) ? tiles : [])
+        .map((tile) => {
+          const type = String(tile?.type || tile?.kind || tile?.effect || '').trim();
+          const positions = normalizeCoordinateList(tile?.positions || tile?.coords || tile?.cells || tile?.points || tile?.list);
+          if (!type || positions.length === 0) {
+            return null;
+          }
+          return { type, positions };
+        })
+        .filter(Boolean);
+
+    const normalizeEnemyEntries = (entries: any) =>
+      (Array.isArray(entries) ? entries : [])
+        .map((enemy) => {
+          const id = String(enemy?.id || '').trim();
+          if (!id) {
+            return null;
+          }
+          const skillIds = (Array.isArray(enemy?.skillIds) ? enemy.skillIds : [])
+            .map((skillId: any) => String(skillId || '').trim())
+            .filter(Boolean);
+          const statsSource = enemy?.stats && typeof enemy.stats === 'object' ? enemy.stats : {};
+          const overrideStatsSource = enemy?.overrideStats && typeof enemy.overrideStats === 'object' ? enemy.overrideStats : {};
+          const numericObject = (source: Record<string, any>) =>
+            Object.fromEntries(
+              Object.entries(source)
+                .map(([key, raw]) => [key, Number(raw)])
+                .filter(([, raw]) => Number.isFinite(raw as number)),
+            );
+
+          const next: Record<string, any> = {
+            id,
+            rank: String(enemy?.rank || 'normal').trim() || 'normal',
+            count: Math.max(1, Number(enemy?.count) || 1),
+            positions: normalizeCoordinateList(enemy?.positions || enemy?.spawnPositions),
+          };
+          if (enemy?.duty !== undefined || enemy?.sourceType !== undefined) {
+            next.duty = String(enemy?.duty || enemy?.sourceType || 'escort_cart').trim() || 'escort_cart';
+          }
+          if (enemy?.multiplier !== undefined && enemy?.multiplier !== '') {
+            next.multiplier = Math.max(0.1, Number(enemy.multiplier) || 1);
+          }
+          if (skillIds.length) {
+            next.skillIds = skillIds;
+          }
+          const stats = numericObject(statsSource);
+          const overrideStats = numericObject(overrideStatsSource);
+          if (Object.keys(stats).length > 0) {
+            next.stats = stats;
+          }
+          if (Object.keys(overrideStats).length > 0) {
+            next.overrideStats = overrideStats;
+          }
+          return next;
+        })
+        .filter(Boolean);
+
+    return {
+      id: segmentId,
+      index: Math.max(1, Number(entry?.index) || index + 1),
+      sourceDungeonId: String(entry?.sourceDungeonId || '').trim(),
+      name: String(entry?.name || `第${index + 1}段`).trim() || `第${index + 1}段`,
+      description: String(entry?.description || '').trim(),
+      battlefield: {
+        cols: Math.max(1, Number(battlefield?.cols || battlefield?.width || 7) || 7),
+        rows: Math.max(1, Number(battlefield?.rows || battlefield?.height || 10) || 10),
+        actionTimeout: Math.max(1, Number(battlefield?.actionTimeout || 25) || 25),
+        heroSpawn: {
+          positions: normalizeCoordinateList(battlefield?.heroSpawn?.positions),
+        },
+        enemySpawn: {
+          positions: normalizeCoordinateList(enemySpawn?.positions),
+          startRow: enemySpawn?.startRow !== undefined ? Number(enemySpawn.startRow) : undefined,
+          direction: enemySpawn?.direction !== undefined ? Number(enemySpawn.direction) : undefined,
+        },
+        obstacles: normalizeCoordinateList(battlefield?.obstacles),
+        specialTiles: normalizeSpecialTiles(battlefield?.specialTiles),
+      },
+      route: normalizeCoordinateList(entry?.route),
+      goalPosition: (() => {
+        const list = normalizeCoordinateList(entry?.goalPosition ? [entry.goalPosition] : []);
+        return list[0] || null;
+      })(),
+      environmentEffect: String(entry?.environmentEffect || '').trim(),
+      storyDialogues: Array.isArray(entry?.storyDialogues) ? entry.storyDialogues : [],
+      initialEnemies: normalizeEnemyEntries(entry?.initialEnemies),
+      reinforcementEnemies: normalizeEnemyEntries(entry?.reinforcementEnemies),
+      bossWaves: (Array.isArray(entry?.bossWaves) ? entry.bossWaves : [])
+        .map((wave, waveIndex) => ({
+          id: String(wave?.id || `${segmentId}_boss_wave_${waveIndex + 1}`).trim(),
+          spawnRound: Math.max(1, Number(wave?.spawnRound) || 12),
+          spawnOnClearBeforeRound: wave?.spawnOnClearBeforeRound !== false,
+          bosses: normalizeEnemyEntries(wave?.bosses),
+        }))
+        .filter((wave) => Array.isArray(wave.bosses) && wave.bosses.length > 0),
+    };
+  }
+
+  private clampRatio(value: any, fallback: number) {
+    const next = Number(value);
+    if (!Number.isFinite(next)) {
+      return fallback;
+    }
+    return Math.max(0, Math.min(1, next));
   }
 }

@@ -11,6 +11,12 @@ const AudioConfig = {
             name: '云境',
             src: 'assets/audio/bgm/ParadiseBGM.MP3',
             loop: true
+        },
+        battle_theme: {
+            id: 'battle_theme',
+            name: '战斗',
+            src: 'assets/audio/bgm/ParadiseBGM.MP3',
+            loop: true
         }
     },
 
@@ -22,42 +28,24 @@ const AudioConfig = {
         recruit: 'yunjing_theme',
         dungeon: 'yunjing_theme',
         shop: 'yunjing_theme',
-        checkin: 'yunjing_theme'
+        checkin: 'yunjing_theme',
+        battle: 'battle_theme'
     },
+    voices: {},
 
-    voices: {
-        hero_010: {
-            select: {
-                name: '赤核浪客-夜刃·选中',
-                text: '夜色已至，刀锋会替我回答。',
-                src: 'assets/audio/voice/hero_010/select.wav'
-            },
-            battleStart: {
-                name: '赤核浪客-夜刃·出战',
-                text: '别眨眼，我会从他们身后回来。',
-                src: 'assets/audio/voice/hero_010/battle_start.wav'
-            }
+    voiceCues: {},
+    sfx: {
+        battle_attack: {
+            sources: []
         },
-        hero_024: {
-            select: {
-                name: '焰罚者-余烬·选中',
-                text: '火种还在，我会把黑暗烧穿。',
-                src: 'assets/audio/voice/hero_024/select.wav'
-            },
-            battleStart: {
-                name: '焰罚者-余烬·出战',
-                text: '灰烬之后，才看得见新的路。',
-                src: 'assets/audio/voice/hero_024/battle_start.wav'
-            }
+        battle_critical: {
+            sources: []
         }
     },
 
-    voiceCues: {},
-    sfx: {},
-
     preload: {
-        music: ['yunjing_theme'],
-        voices: ['hero_010.select', 'hero_024.select']
+        music: ['yunjing_theme', 'battle_theme'],
+        voices: []
     }
 };
 

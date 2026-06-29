@@ -16,6 +16,7 @@ class AudioManager {
         this.lastRequestedMusicLoop = true;
         this.lastRequestedMusicOptions = {};
         this.currentVoice = null;
+        this.currentVoicePriority = 0;
         this.musicVolume = 0.5;
         this.sfxVolume = 0.7;
         this.voiceVolume = 0.85;
@@ -129,6 +130,15 @@ class AudioManager {
             this.playOneShot(sfx.src, { type: 'sfx', volume });
             return;
         }
+        if (Array.isArray(sfx?.sources)) {
+            const sources = sfx.sources.map((entry) => String(entry || '').trim()).filter(Boolean);
+            if (!sources.length) {
+                return;
+            }
+            const src = sources[Math.floor(Math.random() * sources.length)];
+            this.playOneShot(src, { type: 'sfx', volume });
+            return;
+        }
         this.playBeep(volume);
     }
 
@@ -228,33 +238,83 @@ class AudioManager {
         requestAnimationFrame(fade);
     }
 
-    playVoice(voiceId, options = {}) {
-        const voice = this.findVoiceConfig(voiceId);
+    pickVoiceEntry(voiceConfig) {
+        if (Array.isArray(voiceConfig)) {
+            const entries = voiceConfig.filter(entry => entry?.src);
+            return entries.length > 0 ? entries[Math.floor(Math.random() * entries.length)] : null;
+        }
+        return voiceConfig?.src ? voiceConfig : null;
+    }
+
+    playVoiceEntry(voiceConfig, voiceId = '', options = {}) {
+        const voice = this.pickVoiceEntry(voiceConfig);
         if (!voice?.src || this.isMuted) return null;
-        if (options.interrupt !== false && this.currentVoice) {
+        const priority = Math.max(0, Number(options.priority) || 0);
+        if (this.currentVoice && !this.currentVoice.paused && !this.currentVoice.ended) {
+            if (options.interrupt === false || priority < this.currentVoicePriority) {
+                return null;
+            }
             this.currentVoice.pause();
             this.currentVoice.currentTime = 0;
         }
-        const key = voice.cacheKey || `voice:${voiceId}`;
+        const key = voice.cacheKey || options.cacheKey || `voice:${voiceId || voice.src}`;
         const audio = this.getCachedAudio(key, voice.src, { type: 'voice' });
         if (!audio) return null;
         audio.currentTime = 0;
         audio.volume = Math.max(0, Math.min(1, Number(options.volume ?? this.voiceVolume) || 0));
         this.currentVoice = audio;
+        this.currentVoicePriority = priority;
+        audio.onended = () => {
+            if (this.currentVoice === audio) {
+                this.currentVoice = null;
+                this.currentVoicePriority = 0;
+            }
+        };
         audio.play().catch((error) => console.warn('[AudioManager] voice play failed:', error));
         return audio;
     }
 
-    playHeroVoice(heroId, cue = 'select', options = {}) {
-        return this.playVoice(`${heroId}.${cue}`, options);
+    playVoice(voiceId, options = {}) {
+        const voice = this.findVoiceConfig(voiceId);
+        return this.playVoiceEntry(voice, voiceId, options);
+    }
+
+    playHeroVoice(heroId, cue = 'turnStart', options = {}) {
+        return null;
+    }
+
+    playHeroVoiceCue(hero, cue = 'turnStart', options = {}) {
+        if (!hero) return null;
+        const voiceCues = typeof hero === 'object' ? hero.voiceCues : null;
+        const voice = this.pickVoiceEntry(voiceCues?.[cue]);
+        if (voice?.src) {
+            const heroId = typeof hero === 'string' ? hero : (hero.configId || hero.id || '');
+            return this.playVoiceEntry(voice, `${heroId}.${cue}`, {
+                ...options,
+                cacheKey: voice.cacheKey || `voice:${heroId}:${cue}:${voice.src}`
+            });
+        }
+        return null;
+    }
+
+    hasHeroVoiceCue(hero, cue = 'turnStart') {
+        if (!hero) return false;
+        const voiceCues = typeof hero === 'object' ? hero.voiceCues : null;
+        return Boolean(this.pickVoiceEntry(voiceCues?.[cue])?.src);
     }
 
     findVoiceConfig(voiceId) {
         if (!voiceId) return null;
         const direct = this.config.voiceCues?.[voiceId];
+        if (Array.isArray(direct)) {
+            return direct.map((entry, index) => ({ ...entry, cacheKey: `voice:${voiceId}:${index}` }));
+        }
         if (direct) return { ...direct, cacheKey: `voice:${voiceId}` };
         const [heroId, cue] = String(voiceId).split('.');
         const voice = this.config.voices?.[heroId]?.[cue];
+        if (Array.isArray(voice)) {
+            return voice.map((entry, index) => ({ ...entry, cacheKey: `voice:${heroId}:${cue}:${index}` }));
+        }
         return voice ? { ...voice, cacheKey: `voice:${heroId}:${cue}` } : null;
     }
 

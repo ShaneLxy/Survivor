@@ -45,21 +45,19 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $projectRoot 'android\app\build\outputs\apk\debug'
 }
 
-if ([string]::IsNullOrWhiteSpace($ServerUrl)) {
-    throw 'ServerUrl is required. Please provide a full API base URL such as https://example.com/api'
+if (-not [string]::IsNullOrWhiteSpace($ServerUrl)) {
+    $normalizedServerUrl = $ServerUrl.Trim().TrimEnd('/')
+    if ($normalizedServerUrl -notmatch '^https?://') {
+        throw "Invalid ServerUrl: $ServerUrl"
+    }
+    if ($normalizedServerUrl -notmatch '/api$') {
+        throw "ServerUrl must end with /api : $ServerUrl"
+    }
+    if ($normalizedServerUrl -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?/api$') {
+        throw 'ServerUrl cannot use localhost or 127.0.0.1 for a real Android device. Use a LAN IP or a public domain instead.'
+    }
+    $ServerUrl = $normalizedServerUrl
 }
-
-$normalizedServerUrl = $ServerUrl.Trim().TrimEnd('/')
-if ($normalizedServerUrl -notmatch '^https?://') {
-    throw "Invalid ServerUrl: $ServerUrl"
-}
-if ($normalizedServerUrl -notmatch '/api$') {
-    throw "ServerUrl must end with /api : $ServerUrl"
-}
-if ($normalizedServerUrl -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?/api$') {
-    throw 'ServerUrl cannot use localhost or 127.0.0.1 for a real Android device. Use a LAN IP or a public domain instead.'
-}
-$ServerUrl = $normalizedServerUrl
 
 if ($VersionCode -notmatch '^[1-9]\d*$') {
     throw 'VersionCode must be a positive integer string.'
@@ -67,6 +65,17 @@ if ($VersionCode -notmatch '^[1-9]\d*$') {
 
 if ($ApplicationId -notmatch '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$') {
     throw "Invalid Android applicationId: $ApplicationId"
+}
+
+$localSigningConfigPath = Join-Path $projectRoot 'android\signing\signing.properties'
+$signingInputsBlank = @($SigningStoreFile, $SigningStorePassword, $SigningKeyAlias, $SigningKeyPassword) |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+if ($BuildChannel -eq 'formal' -and $signingInputsBlank.Count -eq 0 -and (Test-Path $localSigningConfigPath)) {
+    $localSigningConfig = Get-Content $localSigningConfigPath -Raw -Encoding UTF8 | ConvertFrom-StringData
+    $SigningStoreFile = [string]$localSigningConfig.SigningStoreFile
+    $SigningStorePassword = [string]$localSigningConfig.SigningStorePassword
+    $SigningKeyAlias = [string]$localSigningConfig.SigningKeyAlias
+    $SigningKeyPassword = [string]$localSigningConfig.SigningKeyPassword
 }
 
 $signingValues = @($SigningStoreFile, $SigningStorePassword, $SigningKeyAlias, $SigningKeyPassword) |
@@ -215,6 +224,71 @@ function Set-StagedRuntimeApiBaseUrl {
     Set-Content -LiteralPath $runtimeConfigPath -Value $updated -Encoding UTF8 -NoNewline
 }
 
+function Set-StagedRuntimeFlags {
+    param([bool]$EnableTapTapUpdate)
+
+    $runtimeConfigPath = Join-Path $mobileWebRoot 'js\config\RuntimeConfig.js'
+    if (-not (Test-Path $runtimeConfigPath)) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $runtimeConfigPath -Raw -Encoding UTF8
+    $replacement = if ($EnableTapTapUpdate) { 'enableTapTapUpdate: true' } else { 'enableTapTapUpdate: false' }
+    $updated = [regex]::Replace(
+        $content,
+        'enableTapTapUpdate:\s*(true|false)',
+        $replacement
+    )
+    Set-Content -LiteralPath $runtimeConfigPath -Value $updated -Encoding UTF8 -NoNewline
+}
+
+function Write-EmbeddedGmCatalogSnapshot {
+    param([string]$ApiBaseUrl)
+
+    $embeddedCatalogPath = Join-Path $mobileWebRoot 'js\config\EmbeddedGmCatalog.js'
+    $embeddedCatalogDir = Split-Path -Parent $embeddedCatalogPath
+    if (-not (Test-Path $embeddedCatalogDir)) {
+        New-Item -ItemType Directory -Path $embeddedCatalogDir -Force | Out-Null
+    }
+
+    $nodeScript = @'
+const fs = require('fs');
+const path = require('path');
+
+async function main() {
+  const projectRoot = process.argv[2];
+  const outputPath = process.argv[3];
+  const servicePath = path.join(projectRoot, 'server', 'dist', 'modules', 'gm', 'gm-catalog.service.js');
+  if (!fs.existsSync(servicePath)) {
+    throw new Error(`Missing server catalog service: ${servicePath}`);
+  }
+
+  const { GmCatalogService } = require(servicePath);
+  const service = new GmCatalogService();
+  const catalog = await service.getCatalog();
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(
+    outputPath,
+    `(function() {\n    window.__SURVIVOR_EMBEDDED_GM_CATALOG__ = ${JSON.stringify(catalog)};\n})();\n`,
+    'utf8'
+  );
+}
+
+main().catch((error) => {
+  console.error(error && error.stack ? error.stack : String(error));
+  process.exit(1);
+});
+'@
+
+    Write-Host "Embedding GM catalog snapshot from local server files"
+    $node = (Get-Command node.exe -ErrorAction Stop).Source
+    $nodeArgs = @('-e', $nodeScript, $projectRoot, $embeddedCatalogPath)
+    $result = Start-Process -FilePath $node -ArgumentList $nodeArgs -Wait -NoNewWindow -PassThru
+    if ($result.ExitCode -ne 0) {
+        throw 'Failed to generate embedded GM catalog snapshot from local files.'
+    }
+}
+
 function Set-CapacitorPackageConfig {
     param(
         [string]$Path,
@@ -329,6 +403,7 @@ try {
 
     Invoke-CheckedCommand -FilePath $powershell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'prepare-capacitor-web.ps1')) -WorkingDirectory $projectRoot
     Set-StagedRuntimeApiBaseUrl -BaseUrl $ServerUrl
+    Set-StagedRuntimeFlags -EnableTapTapUpdate ($BuildChannel -eq 'formal')
     Set-StagedBuildVersion -Version $BuildVersion
     Invoke-CheckedCommand -FilePath $npx -Arguments @('cap', 'sync', 'android') -WorkingDirectory $projectRoot
     Invoke-CheckedCommand -FilePath $powershell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'configure-capacitor-android.ps1')) -WorkingDirectory $projectRoot

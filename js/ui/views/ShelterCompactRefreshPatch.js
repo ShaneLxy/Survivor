@@ -42,6 +42,39 @@
         return `${name} ${output.amountPerHour}/小时`;
     };
 
+    function renderCurrentEffectBlock(building, metrics) {
+        if (building?.id === 'building_armory') {
+            const rules = shelterManager.getArmoryReforgeRules?.() || {};
+            const statNames = (rules.unlockedStats || []).map((statKey) => {
+                return window.HeroConfig?.getStatDefinition?.(statKey)?.name || statKey;
+            });
+            return `
+                <div class="shelter-detail-realtime">
+                    <span class="shelter-detail-realtime-label">已解锁洗炼属性</span>
+                    <strong class="shelter-detail-realtime-value">${statNames.length ? statNames.join(' · ') : '暂无'}</strong>
+                </div>
+                <div class="shelter-detail-realtime">
+                    <span class="shelter-detail-realtime-label">洗炼额外加成</span>
+                    <strong class="shelter-detail-realtime-value">+${Number(rules.bonus) || 0}</strong>
+                </div>
+            `;
+        }
+
+        const rows = (metrics || []).map((metric) => `
+            <div class="shelter-detail-realtime">
+                <span class="shelter-detail-realtime-label">${metric.label}</span>
+                <strong class="shelter-detail-realtime-value">${metric.current}</strong>
+            </div>
+        `).join('');
+
+        return rows || `
+            <div class="shelter-detail-realtime">
+                <span class="shelter-detail-realtime-label">当前效果</span>
+                <strong class="shelter-detail-realtime-value">-</strong>
+            </div>
+        `;
+    }
+
     // ====================================================================
     // 单建筑状态：可升级 / 可收取 / 已满级
     // ====================================================================
@@ -347,10 +380,21 @@
             const meta = TYPE_META[buildingId] || { kind: 'core', label: 'NODE' };
             const isMaxed = !info.canUpgrade;
             const metrics = self.getBuildingPreviewMetrics(building);
-            const productionStatus = info.effect?.type === 'production' ? shelterManager.getProductionStatus(buildingId) : null;
+            const isProductionBuilding = info.effect?.type === 'production';
+            const productionStatus = isProductionBuilding ? shelterManager.getProductionStatus(buildingId) : null;
             const currentIncome = productionStatus?.rewards?.length
                 ? productionStatus.rewards.map((reward) => self.formatShelterReward(reward)).join(' · ')
                 : '尚未达到结算条件';
+            const currentEffectRows = renderCurrentEffectBlock(building, metrics);
+            const realtimeBlock = isProductionBuilding ? `
+                    <div class="shelter-detail-section">
+                        <div class="shelter-detail-section-title">▸ 实时数据</div>
+                        <div class="shelter-detail-realtime">
+                            <span class="shelter-detail-realtime-label">累计可收取</span>
+                            <strong class="shelter-detail-realtime-value">${currentIncome}</strong>
+                        </div>
+                    </div>
+            ` : '';
 
             const cost = info.upgradeCost;
             const canAfford = cost && Object.entries(cost).every(([type, amount]) => shelterManager.getResource(type) >= amount);
@@ -383,12 +427,11 @@
                     </div>
 
                     <div class="shelter-detail-section">
-                        <div class="shelter-detail-section-title">▸ 实时数据</div>
-                        <div class="shelter-detail-realtime">
-                            <span class="shelter-detail-realtime-label">累计可收取</span>
-                            <strong class="shelter-detail-realtime-value">${currentIncome}</strong>
-                        </div>
+                        <div class="shelter-detail-section-title">▸ 当前生效效果</div>
+                        ${currentEffectRows}
                     </div>
+
+                    ${realtimeBlock}
 
                     <div class="shelter-detail-section">
                         <div class="shelter-detail-section-title">▸ 升级蓝图</div>

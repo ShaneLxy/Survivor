@@ -8,6 +8,7 @@ class Game {
             exp: 0,
             energy: 100,
             maxEnergy: 100,
+            lastEnergyRecoverAt: Date.now(),
             gold: 1000,
             diamond: 0,
             nickname: '幸存者',
@@ -40,18 +41,66 @@ class Game {
         this.loadingOverlay = null;
         this.loadingOverlayHideTimer = null;
         this.eventsBound = false;
+        this.energyRecoveryTimer = null;
     }
 
     resolveAssetUrl(path) {
         return window.VersionManager?.getVersionedAssetUrl?.(path) || path;
     }
 
-    preloadHeroCardPortraits() {
-        const heroConfigs = HeroConfig.getAllHeroes?.() || [];
-        if (!heroConfigs.length || !this.ui?.heroView?.preloadHeroPortraits) {
+    async loadAudioConfigOverride() {
+        const baseUrl = window.httpClient?.getBaseUrl?.();
+        if (!baseUrl || typeof fetch !== 'function' || !window.AudioConfig?.music?.battle_theme) {
             return;
         }
-        this.ui.heroView.preloadHeroPortraits(heroConfigs);
+        const normalizeAudioPathList = (value) => {
+            if (!Array.isArray(value)) {
+                return [];
+            }
+            return value.map((entry) => String(entry || '').trim()).filter(Boolean);
+        };
+        try {
+            const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/gm/audio-config/public`, {
+                method: 'GET',
+                cache: 'no-store'
+            });
+            if (!response.ok) {
+                return;
+            }
+            const result = await response.json();
+            const config = result?.config;
+            if (config?.battleBgmPath) {
+                window.AudioConfig.music.battle_theme.src = config.battleBgmPath;
+            }
+            if (config?.lobbyBgmPath) {
+                window.AudioConfig.music.yunjing_theme.src = config.lobbyBgmPath;
+            }
+            if (!window.AudioConfig.sfx) {
+                window.AudioConfig.sfx = {};
+            }
+            if (Array.isArray(config?.attackSfxPaths)) {
+                window.AudioConfig.sfx.battle_attack = {
+                    sources: normalizeAudioPathList(config.attackSfxPaths)
+                };
+            }
+            if (Array.isArray(config?.criticalSfxPaths)) {
+                window.AudioConfig.sfx.battle_critical = {
+                    sources: normalizeAudioPathList(config.criticalSfxPaths)
+                };
+            }
+        } catch (e) {
+            console.warn('[Game] audio config override failed:', e);
+        }
+    }
+
+    preloadHeroCardPortraits() {
+        const heroConfigs = HeroConfig.getAllHeroes?.() || [];
+        if (!heroConfigs.length || !this.ui?.heroView?.warmupHeroPortraits) {
+            return;
+        }
+        this.ui.heroView.warmupHeroPortraits(heroConfigs, {
+            firstScreenCount: this.ui.heroView.getHeroPortraitWarmupCount?.() || 12
+        });
     }
 
     async init() {
@@ -59,22 +108,23 @@ class Game {
         loginView.show();
         window.VersionManager?.bootstrap?.();
         await window.versionCheckService?.check?.();
-        loginView.render?.();
 
+        await this.loadAudioConfigOverride();
         audioManager.init();
         audioManager.playSceneBgm('login');
         if (window.UnitCatalogLoader?.load) {
             await window.UnitCatalogLoader.load();
         }
+        window.GmCatalogSync?.applyEmbeddedCatalog?.();
+        window.GmSpecialBattleSync?.applyEmbeddedConfig?.();
         await window.GmCatalogSync?.load?.();
+        await window.GmSpecialBattleSync?.load?.();
 
         // 强制每次打开都重新登录：清除本地登录状态
         authService.logout({ exitCompliance: false });
 
         // 初始化 HttpClient（设置 API 基地址等）
         await authService.init();
-        // 始终显示登录页，不自动跳转
-        loginView.show();
 
         // 监听登录成功事件
         eventManager.on('loginSuccess', () => this.onLoginSuccess());
@@ -120,6 +170,7 @@ class Game {
             mailManager.startAutoRefresh();
             saveManager.init();
             this.bindEvents();
+            this.startEnergyRecoveryTimer();
             eventManager.emit('authChange', { loggedIn: authService.isLoggedIn(), user: authService.getCurrentUser() });
 
             this.gameReady = true;
@@ -247,6 +298,66 @@ class Game {
         });
     }
 
+    getEnergyRecoveryInterval() {
+        return Math.max(1000, Number(GameConfig.energy?.recoveryInterval) || 300000);
+    }
+
+    settleEnergyRecovery(options = {}) {
+        if (!this.player) {
+            return false;
+        }
+        const now = Math.max(0, Number(options.now) || Date.now());
+        const maxEnergy = Math.max(0, Number(this.player.maxEnergy) || 0);
+        this.player.energy = Math.max(0, Math.min(Number(this.player.energy) || 0, maxEnergy));
+
+        if (maxEnergy <= 0 || this.player.energy >= maxEnergy) {
+            this.player.lastEnergyRecoverAt = now;
+            return false;
+        }
+
+        const interval = this.getEnergyRecoveryInterval();
+        const lastRecoverAt = Number(this.player.lastEnergyRecoverAt) || 0;
+        if (lastRecoverAt <= 0 || lastRecoverAt > now) {
+            this.player.lastEnergyRecoverAt = now;
+            return false;
+        }
+
+        const elapsedIntervals = Math.floor((now - lastRecoverAt) / interval);
+        if (elapsedIntervals <= 0) {
+            return false;
+        }
+
+        const amount = Math.max(1, Number(GameConfig.energy?.recoveryAmount) || 1);
+        const recovered = Math.min(maxEnergy - this.player.energy, elapsedIntervals * amount);
+        if (recovered <= 0) {
+            this.player.lastEnergyRecoverAt = now;
+            return false;
+        }
+
+        this.player.energy += recovered;
+        this.player.lastEnergyRecoverAt = this.player.energy >= maxEnergy ? now : lastRecoverAt + elapsedIntervals * interval;
+        eventManager.emit('playerUpdate', {
+            energy: this.player.energy,
+            maxEnergy: this.player.maxEnergy
+        });
+        if (options.save !== false && this.gameReady) {
+            this.save();
+        }
+        return true;
+    }
+
+    startEnergyRecoveryTimer() {
+        clearInterval(this.energyRecoveryTimer);
+        const tickInterval = Math.min(this.getEnergyRecoveryInterval(), 60000);
+        this.energyRecoveryTimer = setInterval(() => this.settleEnergyRecovery(), tickInterval);
+        this.settleEnergyRecovery({ save: false });
+    }
+
+    stopEnergyRecoveryTimer() {
+        clearInterval(this.energyRecoveryTimer);
+        this.energyRecoveryTimer = null;
+    }
+
     loadFromSave(saveData) {
         const data = saveData.data || {};
         if (data.player) {
@@ -262,6 +373,9 @@ class Game {
         }
 
         heroManager.init(data.heroData);
+        if (this.player.avatarHeroConfigId && !HeroConfig.getHeroConfig(this.player.avatarHeroConfigId, { includeDisabled: false })) {
+            this.player.avatarHeroConfigId = heroManager.getAllHeroes()[0]?.configId || null;
+        }
         shelterManager.init(data.shelterData);
         dungeonManager.init(data.dungeonData);
         itemManager.init(data.itemData);
@@ -269,9 +383,14 @@ class Game {
         shopView.init(data.shopData);
         checkinManager.init(data.checkinData);
         this.initialMailData = data.mailData || null;
+        this.specialBattleState = {
+            currentEscortRun: null,
+            completedSegmentIds: { ...(data.specialBattleData?.completedSegmentIds || {}) }
+        };
         mailManager.init(this.initialMailData);
         this.applyLegacyMigrations();
         this.recalculatePlayerMaxEnergy();
+        this.settleEnergyRecovery({ save: false });
     }
 
     initNewGame() {
@@ -280,6 +399,7 @@ class Game {
             exp: GameConfig.player.initialExp,
             energy: GameConfig.player.initialEnergy,
             maxEnergy: GameConfig.player.maxEnergy,
+            lastEnergyRecoverAt: Date.now(),
             gold: GameConfig.player.initialGold,
             diamond: 0,
             nickname: '幸存者',
@@ -295,6 +415,10 @@ class Game {
         shopView.init(null);
         checkinManager.init(null);
         this.initialMailData = null;
+        this.specialBattleState = {
+            currentEscortRun: null,
+            completedSegmentIds: {}
+        };
         mailManager.init(null);
         this.applyLegacyMigrations();
         this.recalculatePlayerMaxEnergy({ fillToMax: true });
@@ -317,8 +441,8 @@ class Game {
         });
         Object.entries(production?.items || {}).forEach(([itemId, amount]) => {
             if (amount > 0) {
-                itemManager.addItem(itemId, amount);
-                rewardEntries.push(RewardModal.createItemReward(itemId, amount));
+                const result = itemManager.grantItemReward(itemId, amount);
+                rewardEntries.push(...(result.rewards || []));
             }
         });
 
@@ -370,6 +494,7 @@ class Game {
         this.eventsBound = true;
         eventManager.on('viewChange', data => this.switchView(data.view));
         eventManager.on('enterBattle', async data => {
+            saveSyncService.setBattleActive?.(true);
             this.switchView('battle');
             await this.ui.battleView.startBattle(data.dungeonId, data.sceneId || 'standard_9x9');
         });
@@ -405,6 +530,9 @@ class Game {
     }
 
     switchView(viewId) {
+        if (viewId !== 'battle') {
+            saveSyncService.setBattleActive?.(false);
+        }
         this.hideCurrentView();
         this.showView(viewId);
         if (['shelter', 'hero', 'recruit', 'dungeon', 'shop', 'checkin'].includes(viewId)) {
@@ -559,6 +687,10 @@ class Game {
             }));
         }
         (rewards?.items || []).forEach(item => {
+            if (Array.isArray(item.resolvedRewards) && item.resolvedRewards.length > 0) {
+                item.resolvedRewards.forEach(reward => rewardEntries.push(reward));
+                return;
+            }
             if (shelterManager.isResourceType(item.id)) {
                 rewardEntries.push(RewardModal.createResourceReward(item.id, item.count || 1));
             } else if (ItemConfig.getItemConfig(item.id)?.type === 'fragment') {
@@ -595,6 +727,9 @@ class Game {
             } else if (ItemConfig.getItemConfig(item.id)?.type === 'fragment') {
                 const heroConfigId = ItemConfig.getItemConfig(item.id)?.fragmentHeroId || String(item.id || '').replace(/_fragment$/, '');
                 heroManager.addFragments(heroConfigId, item.count || 1);
+            } else if (ItemConfig.getItemConfig(item.id)?.effect?.type === 'random_hero_fragment') {
+                const result = itemManager.grantItemReward(item.id, item.count || 1);
+                item.resolvedRewards = result.rewards || [];
             } else {
                 const count = Math.max(1, Number(item.count) || 1);
                 const addableCount = itemManager.getAddableItemCount(item.id, count);
@@ -621,7 +756,7 @@ class Game {
 
         dungeonManager.completeDungeon(dungeon.id, 3);
         this.refreshRuntimeUI();
-        this.save();
+        this.save({ force: true });
 
         return {
             rewards,
@@ -631,8 +766,12 @@ class Game {
     }
 
     getSaveData() {
+        this.settleEnergyRecovery({ save: false });
+        const avatarHeroConfigId = HeroConfig.getHeroConfig(this.player.avatarHeroConfigId, { includeDisabled: false })
+            ? this.player.avatarHeroConfigId
+            : (heroManager.getAllHeroes()[0]?.configId || null);
         return {
-            player: { ...this.player },
+            player: { ...this.player, avatarHeroConfigId },
             settings: { ...this.settings },
             heroData: heroManager.getSaveData(),
             shelterData: shelterManager.getSaveData(),
@@ -642,11 +781,17 @@ class Game {
             shopData: shopView.getSaveData(),
             checkinData: checkinManager.getSaveData(),
             mailData: mailManager.getSaveData?.() || null,
+            specialBattleData: {
+                completedSegmentIds: { ...(this.specialBattleState?.completedSegmentIds || {}) }
+            },
             lastSaveTime: Date.now()
         };
     }
 
-    save() {
+    save(options = {}) {
+        if (this.currentView === 'battle' && options.force !== true) {
+            return false;
+        }
         return saveManager.save(this.getSaveData());
     }
 
@@ -655,6 +800,7 @@ class Game {
      */
     handleLogout() {
         this.gameReady = false;
+        this.stopEnergyRecoveryTimer();
         saveManager.stopAutoSave?.();
         mailManager.stopAutoRefresh?.();
         Modal.closeAll();
@@ -672,6 +818,7 @@ class Game {
 
     handleSessionExpired(message = '账号已在别处登录，请重新登录') {
         this.gameReady = false;
+        this.stopEnergyRecoveryTimer();
         saveManager.stopAutoSave?.();
         mailManager.stopAutoRefresh?.();
         Modal.closeAll();
@@ -713,4 +860,3 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('beforeunload', () => {
     window.game.save();
 });
-

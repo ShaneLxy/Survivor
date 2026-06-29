@@ -4,6 +4,8 @@
 class SaveSyncService {
     constructor() {
         this.syncTimer = null;
+        this.syncDelay = 60000;
+        this.battleActive = false;
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 this.uploadCurrentSave();
@@ -36,6 +38,14 @@ class SaveSyncService {
             timestamp: Date.now(),
             data: saveManager.collectGameData()
         };
+    }
+
+    setBattleActive(active) {
+        this.battleActive = Boolean(active);
+        if (this.battleActive) {
+            clearTimeout(this.syncTimer);
+            this.syncTimer = null;
+        }
     }
 
     async resolveInitialSave(localSave) {
@@ -72,8 +82,11 @@ class SaveSyncService {
         }
     }
 
-    async syncNow(saveWrapper) {
+    async syncNow(saveWrapper, options = {}) {
         if (!authService.isLoggedIn() || !saveWrapper) {
+            return false;
+        }
+        if (this.battleActive && options.force !== true) {
             return false;
         }
         clearTimeout(this.syncTimer);
@@ -91,15 +104,18 @@ class SaveSyncService {
         if (!authService.isLoggedIn() || !saveWrapper) {
             return;
         }
+        if (this.battleActive) {
+            return;
+        }
         clearTimeout(this.syncTimer);
         this.syncTimer = setTimeout(() => {
             this.syncNow(saveWrapper);
-        }, 400);
+        }, this.syncDelay);
     }
 
-    async uploadCurrentSave() {
+    async uploadCurrentSave(options = {}) {
         const currentSave = this.buildCurrentSaveWrapper();
-        return this.syncNow(currentSave);
+        return this.syncNow(currentSave, options);
     }
 
     applyAuthoritativeSave(saveWrapper, options = {}) {

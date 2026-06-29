@@ -240,3 +240,5 @@ android/.gradle/
 .env
 .env.local
 server/.env.local
+/android/signing/*.jks
+/android/signing/signing.properties

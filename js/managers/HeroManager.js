@@ -1,5 +1,5 @@
 ﻿/**
- * 鑻遍泟绠＄悊鍣?- 鍗曚緥妯″紡
+ * 英雄管理器 - 单例模式
  */
 class HeroManager {
     constructor() {
@@ -16,7 +16,12 @@ class HeroManager {
     init(saveData) {
         if (saveData && Array.isArray(saveData.heroes) && saveData.heroes.length > 0) {
             this.heroes = saveData.heroes.map(heroData => Hero.fromSaveData(heroData)).filter(Boolean);
-            this.team = Array.isArray(saveData.team) ? saveData.team.filter(id => this.heroes.some(hero => hero.id === id)) : [];
+            this.team = Array.isArray(saveData.team)
+                ? saveData.team.filter(id => {
+                    const hero = this.heroes.find(entry => entry.id === id);
+                    return hero && this.isHeroConfigEnabled(hero.configId);
+                })
+                : [];
         } else {
             this.heroes = [];
             this.team = [];
@@ -26,19 +31,26 @@ class HeroManager {
         this.fragments = new Map();
         if (saveData && saveData.fragments) {
             Object.entries(saveData.fragments).forEach(([configId, count]) => {
-                if (HeroConfig.getHeroConfig(configId)) {
+                if (HeroConfig.getHeroConfig(configId, { includeDisabled: true })) {
                     this.fragments.set(configId, Number(count) || 0);
                 }
             });
         }
 
-        if (this.heroes.length === 0) {
+        if (this.getAllHeroes().length === 0) {
             this.createInitialHero();
         }
     }
 
+    isHeroConfigEnabled(configId) {
+        const config = HeroConfig.getHeroConfig(configId, { includeDisabled: true });
+        return Boolean(config && HeroConfig.isHeroEnabled(config));
+    }
+
     createInitialHero() {
-        const config = HeroConfig.getHeroConfig('hero_023');
+        const config = HeroConfig.getHeroConfig('hero_023', { includeDisabled: false })
+            || HeroConfig.getAllHeroes()[0]
+            || null;
         if (!config) {
             return;
         }
@@ -48,6 +60,9 @@ class HeroManager {
     }
 
     addHero(hero) {
+        if (!hero || !this.isHeroConfigEnabled(hero.configId)) {
+            return false;
+        }
         if (this.heroes.some(h => h.configId === hero.configId)) {
             return true;
         }
@@ -72,8 +87,12 @@ class HeroManager {
         return this.heroes.find(hero => hero.id === heroId) || null;
     }
 
-    getAllHeroes() {
-        return [...this.heroes].sort((a, b) => {
+    getAllHeroes(options = {}) {
+        const includeDisabled = Boolean(options?.includeDisabled);
+        const heroes = includeDisabled
+            ? [...this.heroes]
+            : this.heroes.filter(hero => this.isHeroConfigEnabled(hero.configId));
+        return heroes.sort((a, b) => {
             const inTeamDiff = Number(this.isHeroInTeam(b.id)) - Number(this.isHeroInTeam(a.id));
             if (inTeamDiff !== 0) return inTeamDiff;
             const rarityDiff = this.getHeroRarityWeight(b.rarity) - this.getHeroRarityWeight(a.rarity);
@@ -186,7 +205,8 @@ class HeroManager {
     }
 
     addToTeam(heroId) {
-        if (this.team.length >= this.maxTeamSize || this.team.includes(heroId) || !this.getHero(heroId)) {
+        const hero = this.getHero(heroId);
+        if (this.team.length >= this.maxTeamSize || this.team.includes(heroId) || !hero || !this.isHeroConfigEnabled(hero.configId)) {
             return false;
         }
         this.team.push(heroId);
@@ -205,7 +225,9 @@ class HeroManager {
     }
 
     getTeam() {
-        return this.team.map(id => this.getHero(id)).filter(Boolean);
+        return this.team
+            .map(id => this.getHero(id))
+            .filter(hero => hero && this.isHeroConfigEnabled(hero.configId));
     }
 
     getTeamIds() {
@@ -278,8 +300,8 @@ class HeroManager {
             if (count <= 0) {
                 return;
             }
-            const heroConfig = HeroConfig.getHeroConfig(configId);
-            if (heroConfig) {
+            const heroConfig = HeroConfig.getHeroConfig(configId, { includeDisabled: false });
+            if (heroConfig && HeroConfig.isHeroEnabled(heroConfig)) {
                 result.push({ configId, count, heroConfig });
             }
         });
@@ -322,11 +344,11 @@ class HeroManager {
         if (this.heroes.some(hero => hero.configId === configId)) {
             return false;
         }
-        this.removeFragments(configId, 50);
-        const heroConfig = HeroConfig.getHeroConfig(configId);
+        const heroConfig = HeroConfig.getHeroConfig(configId, { includeDisabled: false });
         if (!heroConfig) {
             return false;
         }
+        this.removeFragments(configId, 50);
         const hero = new Hero(heroConfig, 1);
         this.addHero(hero);
         eventManager.emit('heroSynthesize', hero);
@@ -361,6 +383,7 @@ class HeroManager {
             passiveEffects: hero.passiveEffects,
             reactiveEffects: hero.reactiveEffects,
             skill: hero.skill,
+            voiceCues: hero.voiceCues,
             portrait: hero.cardPortrait || hero.portrait,
             professionIcon: hero.professionIcon,
             rank: 'player'

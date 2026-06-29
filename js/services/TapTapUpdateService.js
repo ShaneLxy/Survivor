@@ -27,6 +27,21 @@ class TapTapUpdateService {
         return window.Capacitor?.Plugins?.TapTapUpdate || null;
     }
 
+    _readBoolean(value) {
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase();
+            return normalized === '1'
+                || normalized === 'true'
+                || normalized === 'yes'
+                || normalized === 'on';
+        }
+        return value === true || value === 1;
+    }
+
+    isEnabled() {
+        return this._readBoolean(window.__SURVIVOR_RUNTIME_CONFIG__?.enableTapTapUpdate);
+    }
+
     _isNativeAndroid() {
         const cap = window.Capacitor;
         if (!cap) return false;
@@ -39,7 +54,7 @@ class TapTapUpdateService {
     }
 
     isSupported() {
-        return this._isNativeAndroid() && Boolean(this._getPlugin()?.checkUpdate);
+        return this.isEnabled() && this._isNativeAndroid() && Boolean(this._getPlugin()?.checkUpdate);
     }
 
     _bindCancelListener() {
@@ -67,6 +82,11 @@ class TapTapUpdateService {
         }
         if (this.pending) {
             return this.pending;
+        }
+        if (!this.isEnabled()) {
+            this.checked = true;
+            this.lastResult = { status: 'disabled' };
+            return this.lastResult;
         }
         if (!this.isSupported()) {
             this.checked = true;

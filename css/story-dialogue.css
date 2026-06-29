@@ -14,6 +14,32 @@
     animation: storyFadeIn 0.3s ease-out;
 }
 
+.story-dialogue-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--story-dialogue-bg);
+    background-position: center;
+    background-size: cover;
+    opacity: 0;
+    filter: saturate(0.95) blur(0.4px);
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.story-dialogue-overlay.has-scene-background {
+    background: rgba(3, 7, 12, 0.24);
+}
+
+.story-dialogue-overlay.has-scene-background::before {
+    opacity: 0.72;
+}
+
+.story-dialogue-overlay > * {
+    position: relative;
+    z-index: 1;
+}
+
 @keyframes storyFadeIn {
     from {
         opacity: 0;
@@ -109,6 +135,7 @@
     border-top: 2px solid #7accd6;
     padding: 20px 24px;
     padding-bottom: 24px;
+    padding-top: 48px;
     position: relative;
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6),
                 inset 0 1px 0 rgba(122, 204, 214, 0.2);
@@ -163,6 +190,35 @@
     word-break: break-word;
 }
 
+.story-dialogue-skip-all {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    min-width: 60px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid rgba(246, 201, 107, 0.42);
+    border-radius: 999px;
+    background: rgba(9, 14, 20, 0.68);
+    color: #f6c96b;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 4;
+}
+
+.story-dialogue-skip-all:hover {
+    background: rgba(18, 28, 42, 0.9);
+    border-color: rgba(246, 201, 107, 0.72);
+    box-shadow: 0 0 14px rgba(246, 201, 107, 0.22);
+}
+
+.story-dialogue-skip-all:active {
+    transform: scale(0.97);
+}
+
 /* 跳过按钮 */
 .story-dialogue-skip {
     position: absolute;
@@ -203,6 +259,32 @@
     transform: scale(0.95);
 }
 
+.battle-story-preview {
+    min-height: 100%;
+}
+
+.battle-loading-placeholder {
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.battle-loading-text {
+    padding: 14px 22px;
+    border-radius: 999px;
+    background: rgba(6, 10, 16, 0.58);
+    border: 1px solid rgba(122, 204, 214, 0.24);
+    color: #e8eef2;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
 /* 手机端优化 */
 @media (max-width: 768px) {
     .story-dialogue-avatar {
@@ -218,6 +300,7 @@
     .story-dialogue-box {
         padding: 16px 18px;
         padding-bottom: 20px;
+        padding-top: 42px;
         min-height: 120px;
     }
 
@@ -249,6 +332,19 @@
         bottom: 16px;
         right: 18px;
     }
+
+    .story-dialogue-skip-all {
+        top: 12px;
+        right: 14px;
+        min-width: 56px;
+        height: 28px;
+        font-size: 11px;
+    }
+
+    .battle-loading-text {
+        font-size: 14px;
+        padding: 12px 18px;
+    }
 }
 
 /* 极小屏幕优化 */
@@ -266,6 +362,7 @@
     .story-dialogue-box {
         padding: 14px 16px;
         padding-bottom: 18px;
+        padding-top: 40px;
         min-height: 110px;
     }
 
@@ -296,5 +393,19 @@
         font-size: 12px;
         bottom: 14px;
         right: 16px;
+    }
+
+    .story-dialogue-skip-all {
+        top: 10px;
+        right: 12px;
+        min-width: 52px;
+        height: 26px;
+        padding: 0 10px;
+        font-size: 10px;
+    }
+
+    .battle-loading-text {
+        font-size: 13px;
+        padding: 10px 16px;
     }
 }

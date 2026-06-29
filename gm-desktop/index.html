@@ -49,6 +49,10 @@
         <span class="nav-icon">▧</span>
         <span>副本关卡</span>
       </button>
+      <button class="nav-item" data-view="specialBattle" type="button">
+        <span class="nav-icon">护</span>
+        <span>特殊关卡</span>
+      </button>
       <button class="nav-item" data-view="shelter" type="button">
         <span class="nav-icon">⌂</span>
         <span>避难所建筑</span>
@@ -65,9 +69,17 @@
         <span class="nav-icon">APK</span>
         <span>打包模块</span>
       </button>
+      <button class="nav-item" data-view="serverDeploy" type="button">
+        <span class="nav-icon">云</span>
+        <span>服务器后端发布</span>
+      </button>
       <button class="nav-item" data-view="settings" type="button">
         <span class="nav-icon">⚙</span>
         <span>连接设置</span>
+      </button>
+      <button class="nav-item" data-view="audio" type="button">
+        <span class="nav-icon">♪</span>
+        <span>音乐配置</span>
       </button>
 
       <div class="nav-spacer"></div>
@@ -205,6 +217,10 @@
                     <label class="quest-field">
                       <span>目标计数</span>
                       <input id="questTarget" type="number" min="1" class="text-input">
+                    </label>
+                    <label class="quest-field">
+                      <span>排序</span>
+                      <input id="questSortOrder" type="number" class="text-input">
                     </label>
                   </div>
                 </div>
@@ -368,6 +384,10 @@
               <label>
                 <span>&#x804C;&#x4E1A;</span>
                 <input id="heroProfession" class="text-input" placeholder="defender / psionic / raider">
+              </label>
+              <label class="checkbox-field wide">
+                <input id="heroEnabled" type="checkbox" checked>
+                <span>&#x542F;&#x7528;&#x8BE5;&#x82F1;&#x96C4;&#xFF08;&#x5173;&#x95ED;&#x540E;&#x6E38;&#x620F;&#x5185;&#x4E0D;&#x518D;&#x6295;&#x653E;&#x6216;&#x663E;&#x793A;&#xFF09;</span>
               </label>
               <label class="wide">
                 <span>&#x7ACB;&#x7ED8;&#x8DEF;&#x5F84;</span>
@@ -676,6 +696,7 @@
                 <select id="welfareGiftKind" class="select-input">
                   <option value="gift">福利礼包</option>
                   <option value="monthCard">月卡</option>
+                  <option value="checkinCycle">签到循环奖励</option>
                 </select>
               </label>
               <label>
@@ -716,6 +737,13 @@
                   <button class="ghost-button" data-open-picker="welfare" type="button">添加奖励</button>
                 </div>
                 <div id="welfareGiftRewards" class="reward-list"></div>
+              </div>
+              <div class="wide reward-block checkin-cycle-only">
+                <div class="block-title">
+                  <span>7天签到额外奖励</span>
+                  <span class="table-meta">7天为一轮循环，DAY 1 至 DAY 7 会依次发放</span>
+                </div>
+                <div id="welfareCheckinCycleRewards" class="checkin-cycle-editor"></div>
               </div>
               <label class="wide">
                 <span>礼包描述</span>
@@ -897,14 +925,13 @@
               <div class="wide nested-editor">
                 <div class="block-title">
                   <span>&#x5267;&#x60C5;&#x5BF9;&#x8BDD;&#xFF08;&#x9996;&#x901A;&#x524D;&#x64AD;&#x653E;&#xFF09;</span>
-                  <div class="inline-tools">
-                    <button id="addStoryDialogueBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x5BF9;&#x8BDD;</button>
-                    <button id="previewStoryDialogueBtn" class="ghost-button" type="button">&#x9884;&#x89C8;&#x6548;&#x679C;</button>
-                  </div>
                 </div>
                 <div id="storyDialogueRows" class="editable-table"></div>
                 <div class="story-dialogue-hint" style="font-size:12px;color:#888;margin-top:8px;">
                   &#x652F;&#x6301;&#x591A;&#x8F6E;&#x5BF9;&#x8BDD;&#xFF0C;&#x53EF;&#x914D;&#x7F6E;&#x89D2;&#x8272;&#x540D;&#x3001;&#x7ACB;&#x7ED8;&#x7C7B;&#x578B;&#x3001;&#x5BF9;&#x8BDD;&#x6587;&#x672C;&#x7B49;
+                </div>
+                <div class="inline-tools" style="margin-top:8px;">
+                  <button id="addStoryDialogueBtn" class="ghost-button" type="button">&#x6DFB;&#x52A0;&#x5BF9;&#x8BDD;</button>
                 </div>
               </div>
 
@@ -919,6 +946,150 @@
               <div class="form-actions wide">
                 <button id="saveDungeonBtn" class="primary-button" type="submit">&#x4FDD;&#x5B58;</button>
                 <button id="deleteDungeonBtn" class="danger-button" type="button">&#x5220;&#x9664; / &#x64A4;&#x9500;</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="specialBattleView" class="view">
+        <div class="catalog-layout">
+          <section class="panel catalog-list-panel">
+            <div class="panel-toolbar">
+              <h2>章节与护送战</h2>
+              <div class="inline-tools">
+                <button id="newSpecialBattleBtn" class="primary-button" type="button">新建章节护送战</button>
+              </div>
+            </div>
+            <input id="specialBattleSearchInput" class="text-input" type="search" placeholder="搜索章节 / 护送战名称 / ID">
+            <div id="specialBattleList" class="data-list spaced"></div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="specialBattleEditorTitle">选择一个特殊关卡</h2>
+                <p id="specialBattleEditorMeta">为每个章节单独配置资源护送战、奖励结构、马车属性与多段地图</p>
+              </div>
+              <span id="specialBattleEditorSource" class="source-chip">GM配置</span>
+            </div>
+            <form id="specialBattleForm" class="form-grid">
+              <label>
+                <span>任务 ID</span>
+                <input id="specialBattleId" class="text-input" required>
+              </label>
+              <label>
+                <span>所属章节</span>
+                <select id="specialBattleChapterId" class="select-input"></select>
+              </label>
+              <label>
+                <span>章节序号</span>
+                <input id="specialBattleChapterIndex" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>任务名称</span>
+                <input id="specialBattleName" class="text-input">
+              </label>
+              <label>
+                <span>副标题</span>
+                <input id="specialBattleSubtitle" class="text-input">
+              </label>
+              <label>
+                <span>背景图</span>
+                <input id="specialBattleBackground" class="text-input" placeholder="assets/...">
+              </label>
+              <label>
+                <span>解锁前置关卡</span>
+                <select id="specialBattleUnlockDungeonId" class="select-input"></select>
+              </label>
+              <label>
+                <span>推荐等级</span>
+                <input id="specialBattleRecommendedLevel" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>体力消耗</span>
+                <input id="specialBattleEnergyCost" class="text-input" type="number" min="1">
+              </label>
+              <label>
+                <span>固定奖励比例</span>
+                <input id="specialBattleFixedRewardRatio" class="text-input" type="number" min="0" max="1" step="0.05">
+              </label>
+              <label>
+                <span>耐久奖励比例</span>
+                <input id="specialBattleDurabilityRewardRatio" class="text-input" type="number" min="0" max="1" step="0.05">
+              </label>
+              <label class="wide">
+                <span>任务描述</span>
+                <textarea id="specialBattleDescription" class="textarea-input" rows="3"></textarea>
+              </label>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>基础奖励资源</span>
+                  <button id="addSpecialBattleBaseRewardBtn" class="ghost-button" type="button">添加奖励</button>
+                </div>
+                <div id="specialBattleBaseRewardRows" class="editable-table"></div>
+              </div>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>马车属性</span>
+                </div>
+                <div class="special-battle-cart-grid">
+                  <label>
+                    <span>名称</span>
+                    <input id="specialBattleCartName" class="text-input">
+                  </label>
+                  <label>
+                    <span>图标</span>
+                    <input id="specialBattleCartIcon" class="text-input">
+                  </label>
+                  <label>
+                    <span>生命值</span>
+                    <input id="specialBattleCartHp" class="text-input" type="number" min="1">
+                  </label>
+                  <label>
+                    <span>攻击</span>
+                    <input id="specialBattleCartAttack" class="text-input" type="number" min="1">
+                  </label>
+                  <label>
+                    <span>防御</span>
+                    <input id="specialBattleCartDefense" class="text-input" type="number" min="0">
+                  </label>
+                  <label>
+                    <span>速度</span>
+                    <input id="specialBattleCartSpeed" class="text-input" type="number" min="1">
+                  </label>
+                  <label>
+                    <span>攻击范围</span>
+                    <input id="specialBattleCartAttackRange" class="text-input" type="number" min="1">
+                  </label>
+                  <label>
+                    <span>移动范围</span>
+                    <input id="specialBattleCartMoveRange" class="text-input" type="number" min="1">
+                  </label>
+                </div>
+              </div>
+
+              <div class="wide nested-editor">
+                <div class="block-title">
+                  <span>地图段配置</span>
+                  <button id="addSpecialBattleSegmentBtn" class="ghost-button" type="button">添加地图段</button>
+                </div>
+                <div id="specialBattleSegmentRows" class="editable-table"></div>
+              </div>
+
+              <label class="wide">
+                <span>批量 JSON</span>
+                <textarea id="specialBattleBatchJson" class="textarea-input code-input" rows="10"></textarea>
+              </label>
+              <div class="form-actions wide">
+                <button id="loadSpecialBattleBatchBtn" class="ghost-button" type="button">载入当前 JSON</button>
+                <button id="saveSpecialBattleBatchBtn" class="ghost-button" type="button">整包保存</button>
+              </div>
+              <div class="form-actions wide">
+                <button id="saveSpecialBattleBtn" class="primary-button" type="submit">保存特殊关卡</button>
+                <button id="deleteSpecialBattleBtn" class="danger-button" type="button">删除特殊关卡</button>
               </div>
             </form>
           </section>
@@ -983,7 +1154,7 @@
               </div>
             </div>
             <div class="inline-tools">
-              <input id="playerSearchInput" class="text-input" placeholder="账号 / 昵称">
+              <input id="playerSearchInput" class="text-input" placeholder="账号 / 昵称 / 账号ID">
               <button id="searchPlayersBtn" class="primary-button" type="button">查询</button>
             </div>
             <div id="playerList" class="table-list"></div>
@@ -1167,11 +1338,27 @@
             </label>
             <label>
               <span>签名库密码</span>
-              <input id="packageSigningStorePassword" class="text-input" type="password" placeholder="store password">
+              <div class="password-input">
+                <input id="packageSigningStorePassword" class="text-input" type="password" placeholder="store password">
+                <button class="password-toggle" type="button" data-password-toggle="packageSigningStorePassword" title="显示密码" aria-label="显示密码" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
             </label>
             <label>
               <span>签名密钥密码</span>
-              <input id="packageSigningKeyPassword" class="text-input" type="password" placeholder="key password">
+              <div class="password-input">
+                <input id="packageSigningKeyPassword" class="text-input" type="password" placeholder="key password">
+                <button class="password-toggle" type="button" data-password-toggle="packageSigningKeyPassword" title="显示密码" aria-label="显示密码" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
             </label>
             <label class="checkbox-field">
               <input id="packageWebViewDebugging" type="checkbox" checked>
@@ -1194,6 +1381,72 @@
           <label class="wide package-result-wrap">
             <span>打包结果</span>
             <textarea id="packageResultOutput" class="textarea-input package-result-output" readonly placeholder="打包日志、失败原因或成功后的 APK 路径会显示在这里"></textarea>
+          </label>
+        </section>
+      </section>
+
+      <section id="serverDeployView" class="view">
+        <section class="panel package-panel server-deploy-panel">
+          <div class="panel-header">
+            <div>
+              <h2>服务器后端发布</h2>
+              <p>将本地后端代码或 GM 资源配置上传到阿里云服务器，并自动执行构建、重启和健康检查</p>
+            </div>
+          </div>
+          <form id="serverDeployForm" class="form-grid package-form">
+            <label>
+              <span>服务器地址</span>
+              <input id="serverDeployHost" class="text-input" value="116.62.222.4" placeholder="公网 IP 或域名">
+            </label>
+            <label>
+              <span>SSH 端口</span>
+              <input id="serverDeployPort" class="text-input" value="22">
+            </label>
+            <label>
+              <span>SSH 用户名</span>
+              <input id="serverDeployUsername" class="text-input" value="root">
+            </label>
+            <label>
+              <span>SSH 密码</span>
+              <div class="password-input">
+                <input id="serverDeployPassword" class="text-input" type="password" placeholder="仅本次发布使用，不会保存">
+                <button class="password-toggle" type="button" data-password-toggle="serverDeployPassword" title="显示密码" aria-label="显示密码" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </label>
+            <label>
+              <span>远程根目录</span>
+              <input id="serverDeployRemoteRoot" class="text-input" value="/opt">
+            </label>
+            <label>
+              <span>后端目录</span>
+              <input id="serverDeployAppDir" class="text-input" value="/opt/survivor-server">
+            </label>
+            <label class="wide">
+              <span>健康检查地址</span>
+              <input id="serverDeployHealthUrl" class="text-input" value="https://geegeo.cn/api/health">
+            </label>
+            <label>
+              <span>发布动作</span>
+              <select id="serverDeployAction" class="select-input">
+                <option value="backend">发布后端代码</option>
+                <option value="sync">同步服务器 GM 配置</option>
+                <option value="restart">仅重启后端服务</option>
+                <option value="status">查看服务状态</option>
+              </select>
+            </label>
+            <div class="form-actions wide">
+              <button id="startServerDeployBtn" class="primary-button" type="submit">开始发布</button>
+              <button id="clearServerDeployLogBtn" class="ghost-button" type="button">清空日志</button>
+            </div>
+          </form>
+          <label class="wide package-result-wrap">
+            <span>发布日志</span>
+            <textarea id="serverDeployResultOutput" class="textarea-input package-result-output" readonly placeholder="发布过程、远程命令输出、失败原因和健康检查结果会显示在这里"></textarea>
           </label>
         </section>
       </section>
@@ -1230,6 +1483,55 @@
             <div class="form-actions wide">
               <button class="primary-button" type="submit">保存设置</button>
               <button id="resetSettingsBtn" class="ghost-button" type="button">恢复默认</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <section id="audioView" class="view">
+        <section class="panel settings-panel">
+          <div class="panel-header">
+            <div>
+              <h2>音乐配置</h2>
+              <p>上传战斗 BGM 并配置大厅和战斗场景的背景音乐路径</p>
+            </div>
+          </div>
+          <form id="audioConfigForm" class="form-grid">
+            <label class="wide">
+              <span>大厅 BGM 路径</span>
+              <input id="lobbyBgmPath" class="text-input" placeholder="assets/audio/bgm/ParadiseBGM.MP3">
+            </label>
+            <label class="wide">
+              <span>战斗 BGM 路径</span>
+              <input id="battleBgmPath" class="text-input" placeholder="assets/audio/bgm/battle.mp3">
+            </label>
+            <label class="wide">
+              <span>通用攻击音效路径</span>
+              <textarea id="attackSfxPaths" class="textarea-input" rows="4" placeholder="每行一个路径"></textarea>
+              <div class="file-upload-row" style="margin-top:8px;">
+                <input id="attackSfxFileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm,audio/aac">
+                <button id="uploadAttackSfxBtn" class="ghost-button" type="button">上传攻击音效</button>
+              </div>
+            </label>
+            <label class="wide">
+              <span>通用暴击音效路径</span>
+              <textarea id="criticalSfxPaths" class="textarea-input" rows="4" placeholder="每行一个路径"></textarea>
+              <div class="file-upload-row" style="margin-top:8px;">
+                <input id="criticalSfxFileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm,audio/aac">
+                <button id="uploadCriticalSfxBtn" class="ghost-button" type="button">上传暴击音效</button>
+              </div>
+            </label>
+            <label class="wide">
+              <span>上传战斗 BGM 文件（MP3/WAV/OGG，≤20MB）</span>
+              <div class="file-upload-row">
+                <input id="audioFileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm,audio/aac">
+                <button id="uploadAudioBtn" class="ghost-button" type="button">上传文件</button>
+              </div>
+            </label>
+            <div id="audioUploadStatus" class="audio-upload-status" style="display:none;"></div>
+            <div class="form-actions wide">
+              <button class="primary-button" type="submit">保存路径</button>
+              <button id="refreshAudioConfigBtn" class="ghost-button" type="button">刷新配置</button>
             </div>
           </form>
         </section>
@@ -1282,6 +1584,16 @@
           <button class="board-tool-btn" data-mode="swamp" data-tool-group="global" type="button">沼泽地格</button>
           <button class="board-tool-btn" data-mode="miasma" data-tool-group="global" type="button">瘴气地格</button>
           <button class="board-tool-btn" data-mode="enemy" data-tool-group="row" type="button" hidden>敌人出生点</button>
+          <button class="board-tool-btn" data-mode="hero" data-tool-group="special-segment" type="button" hidden>英雄出生点</button>
+          <button class="board-tool-btn" data-mode="enemy" data-tool-group="special-segment" type="button" hidden>敌人默认出生点</button>
+          <button class="board-tool-btn" data-mode="obstacle" data-tool-group="special-segment" type="button" hidden>障碍</button>
+          <button class="board-tool-btn" data-mode="route" data-tool-group="special-segment" type="button" hidden>马车路线</button>
+          <button class="board-tool-btn" data-mode="goal" data-tool-group="special-segment" type="button" hidden>终点</button>
+          <button class="board-tool-btn" data-mode="heal" data-tool-group="special-segment" type="button" hidden>恢复地格</button>
+          <button class="board-tool-btn" data-mode="fire" data-tool-group="special-segment" type="button" hidden>火焰地格</button>
+          <button class="board-tool-btn" data-mode="swamp" data-tool-group="special-segment" type="button" hidden>沼泽地格</button>
+          <button class="board-tool-btn" data-mode="miasma" data-tool-group="special-segment" type="button" hidden>瘴气地格</button>
+          <button class="board-tool-btn" data-mode="enemy" data-tool-group="special-row" type="button" hidden>敌人出生点</button>
           <button class="board-tool-btn board-tool-clear" id="boardEditorClear" type="button">清空全部</button>
         </div>
         <div class="board-editor-scroll">
@@ -1295,6 +1607,8 @@
           <span class="board-legend-item swamp">沼泽</span>
           <span class="board-legend-item miasma">瘴气</span>
           <span class="board-legend-item enemy">敌人</span>
+          <span class="board-legend-item route">路线</span>
+          <span class="board-legend-item goal">终点</span>
           <span class="board-legend-item other-spawn">其他行出生点</span>
         </div>
       </div>

@@ -121,6 +121,38 @@ class RareRewardReveal {
         return '\u9ad8\u54c1\u8d28\u6218\u5229\u54c1\u5df2\u5c01\u5b58\u5165\u5e93\uff0c\u53ef\u5728\u82f1\u96c4\u9875\u8fdb\u884c\u7a7f\u6234';
     }
 
+    static resolveHeroConfigForVoice(reward) {
+        const kind = this.getRewardKind(reward);
+        if (kind !== 'hero' && kind !== 'fragment') {
+            return null;
+        }
+        const heroConfigId = String(
+            reward?.heroConfigId
+            || reward?.configId
+            || (kind === 'fragment' ? String(reward?.id || '').replace(/_fragment$/, '') : reward?.id)
+            || ''
+        ).trim();
+        if (!heroConfigId) {
+            return null;
+        }
+        return window.HeroConfig?.getHeroConfig?.(heroConfigId) || null;
+    }
+
+    static playHeroMvpVoice(reward) {
+        if (!reward?.playMvpVoiceOnReveal) {
+            return null;
+        }
+        const heroConfig = this.resolveHeroConfigForVoice(reward);
+        if (!heroConfig) {
+            return null;
+        }
+        return window.audioManager?.playHeroVoiceCue?.(heroConfig, 'mvp', {
+            priority: 5,
+            interrupt: true,
+            volume: 1
+        }) || null;
+    }
+
     static getRewardVisualMarkup(reward) {
         const name = this.escapeHtml(reward?.name || 'reward');
         const visualKind = this.getVisualKind(reward);
@@ -220,6 +252,7 @@ class RareRewardReveal {
         await this.wait(theme.impactDuration);
         backdrop.classList.remove('is-impact');
         backdrop.classList.add('is-reveal');
+        this.playHeroMvpVoice(reward);
 
         await this.wait(theme.revealDelay);
 

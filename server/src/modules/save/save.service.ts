@@ -69,6 +69,11 @@ export class SaveService {
     const wrapper = this.normalizeIncomingWrapper(dto.saveData || {});
     const accountId = 'id' in user ? user.id : user._id;
     const existing = await this.getPlayerSave(accountId);
+    const account = (await this.mongoService.getById(
+      this.mongoService.userAccounts(),
+      accountId,
+    )) as UserAccountDocument | null;
+    const skipAudit = Boolean(account?.saveAuditBypass?.enabled);
 
     if (
       existing?._id &&
@@ -84,7 +89,7 @@ export class SaveService {
     // Phase 0：审计关键字段单次涨幅，超极端阈值则封号
     const beforeState = existing?.saveData || null;
     const afterState = wrapper.data || null;
-    if (beforeState && afterState) {
+    if (!skipAudit && beforeState && afterState) {
       const ctx = AuditService.extractContext(req);
       const result = await this.auditService.auditSaveDiff(
         accountId,
@@ -180,7 +185,7 @@ export class SaveService {
       throw new BadRequestException('今日已签到');
     }
 
-    const rewardsConfig = this.getDailyCheckinConfigs();
+    const rewardsConfig = await this.getDailyCheckinConfigs();
     const dailyRewards = this.getDailyFixedRewards();
     const claimedDay = this.normalizeCheckinDay(checkinData.checkinDay);
     const bonusConfig = rewardsConfig.find((entry) => Number(entry?.day) === claimedDay);
@@ -196,7 +201,7 @@ export class SaveService {
 
     checkinData.lastCheckinDate = today;
     checkinData.totalCheckins = Math.max(0, Number(checkinData.totalCheckins) || 0) + 1;
-    checkinData.checkinDay = claimedDay >= 7 ? 1 : claimedDay + 1;
+    checkinData.checkinDay = claimedDay >= rewardsConfig.length ? 1 : claimedDay + 1;
 
     const updated = await this.persistActionState(accountId, wrapper, state, existingSave?._id || null);
     return {
@@ -224,7 +229,7 @@ export class SaveService {
     const gift = gifts.find(
       (entry: any) =>
         String(entry?.id || '').trim() === giftId &&
-        String(entry?.kind || 'gift').trim() !== 'monthCard',
+        !['monthCard', 'checkinCycle'].includes(String(entry?.kind || 'gift').trim()),
     );
     if (!gift) {
       throw new NotFoundException('Welfare gift not found');
@@ -710,16 +715,36 @@ export class SaveService {
     });
   }
 
-  private getDailyCheckinConfigs() {
-    return [
-      { day: 1, rewards: [{ type: 'resource', id: 'gold', count: 100 }] },
-      { day: 2, rewards: [{ type: 'resource', id: 'wood', count: 50 }] },
-      { day: 3, rewards: [{ type: 'item', id: 'energy_potion', count: 1 }] },
-      { day: 4, rewards: [{ type: 'item', id: 'hero_summon', count: 1 }] },
-      { day: 5, rewards: [{ type: 'resource', id: 'gold', count: 200 }] },
-      { day: 6, rewards: [{ type: 'resource', id: 'meat', count: 3 }] },
-      { day: 7, rewards: [{ type: 'random_fragments', total: 50 }] },
-    ];
+  private async getDailyCheckinConfigs() {
+    const catalog = await this.gmCatalogService.getCatalog();
+    const gifts = Array.isArray(catalog?.welfareGifts) ? catalog.welfareGifts : [];
+    const cycleEntry = gifts.find(
+      (entry: any) => String(entry?.kind || '').trim() === 'checkinCycle',
+    );
+    const source = Array.isArray(cycleEntry?.cycleRewards) && cycleEntry.cycleRewards.length
+      ? cycleEntry.cycleRewards
+      : [
+          { day: 1, rewards: [{ type: 'resource', id: 'gold', count: 100 }] },
+          { day: 2, rewards: [{ type: 'resource', id: 'wood', count: 50 }] },
+          { day: 3, rewards: [{ type: 'item', id: 'energy_potion', count: 1 }] },
+          { day: 4, rewards: [{ type: 'item', id: 'hero_summon', count: 1 }] },
+          { day: 5, rewards: [{ type: 'resource', id: 'gold', count: 200 }] },
+          { day: 6, rewards: [{ type: 'resource', id: 'meat', count: 3 }] },
+          { day: 7, rewards: [{ type: 'item', id: 'hero_fragment_random', count: 50 }] },
+        ];
+    const byDay = new Map<number, any>();
+    source.forEach((entry: any, index: number) => {
+      const day = Math.min(7, Math.max(1, Number(entry?.day) || index + 1));
+      byDay.set(day, {
+        day,
+        rewards: Array.isArray(entry?.rewards) ? entry.rewards : [],
+      });
+    });
+    const result = [];
+    for (let day = 1; day <= 7; day += 1) {
+      result.push(byDay.get(day) || { day, rewards: [] });
+    }
+    return result;
   }
 
   private getDailyFixedRewards() {

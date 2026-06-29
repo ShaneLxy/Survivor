@@ -46,6 +46,8 @@
     Game.prototype.refreshRuntimeUI = function() {
         originalRefreshRuntimeUI.call(this);
         this.ui.taskView?.refresh?.();
+        // 领奖、存档应用、登录后同步等都会经过这里 → 顺手刷新红点
+        window.redDotManager?.refresh?.();
     };
 
     const originalHideCurrentView = Game.prototype.hideCurrentView;

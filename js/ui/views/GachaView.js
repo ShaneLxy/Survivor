@@ -142,7 +142,7 @@ class GachaView {
             seen.add(hero.id);
         };
 
-        ['legendary', 'epic', 'rare'].forEach((rarity) => {
+        ['legendary', 'epic', 'rare', 'common'].forEach((rarity) => {
             HeroConfig.getHeroesByRarity(rarity).forEach(pushHero);
         });
 
@@ -150,7 +150,7 @@ class GachaView {
     }
 
     getEquipmentShowcaseItems() {
-        const recruitRarities = new Set(['rare', 'epic', 'legendary']);
+        const recruitRarities = new Set(['common', 'rare', 'epic', 'legendary']);
         const items = EquipmentConfig.getAllTemplates()
             .filter((item) => Array.isArray(item?.rarities) && item.rarities.some((rarity) => recruitRarities.has(rarity)))
             .filter((item) => item?.iconSrc || item?.icon)
@@ -161,7 +161,7 @@ class GachaView {
                 image: item.iconSrc || '',
                 previewImage: EquipmentConfig.getRecruitPreviewIconSrc?.(item.id) || item.iconSrc || '',
                 icon: item.icon || '⚒️',
-                rarity: item.rarities.find((rarity) => recruitRarities.has(rarity)) || 'rare',
+                rarity: item.rarities.find((rarity) => recruitRarities.has(rarity)) || 'common',
                 slot: EquipmentConfig.getSlotName(item.slot)
             }));
 

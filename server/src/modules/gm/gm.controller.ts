@@ -7,8 +7,11 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { GmAuthGuard } from './gm-auth.guard';
 import { GmCatalogService } from './gm-catalog.service';
 import { GmService } from './gm.service';
@@ -30,6 +33,18 @@ export class GmController {
   @UseGuards(GmAuthGuard)
   listPlayers(@Query() query: any) {
     return this.gmService.listPlayers(query);
+  }
+
+  @Put('players/:id/ban-status')
+  @UseGuards(GmAuthGuard)
+  updatePlayerBanStatus(@Param('id') id: string, @Body() body: any) {
+    return this.gmService.updatePlayerBanStatus(id, body);
+  }
+
+  @Put('players/:id/save-audit-bypass')
+  @UseGuards(GmAuthGuard)
+  updatePlayerSaveAuditBypass(@Param('id') id: string, @Body() body: any) {
+    return this.gmService.updatePlayerSaveAuditBypass(id, body);
   }
 
   @Get('catalog')
@@ -165,5 +180,45 @@ export class GmController {
   @UseGuards(GmAuthGuard)
   bumpCacheVersion(@Body() body: any) {
     return this.gmService.bumpCacheVersion(body?.version);
+  }
+
+  @Get('audio-config')
+  getAudioConfig() {
+    return this.gmService.getAudioConfig();
+  }
+
+  @Get('audio-config/public')
+  getPublicAudioConfig() {
+    return this.gmService.getAudioConfig();
+  }
+
+  @Get('special-battles/public')
+  getPublicSpecialBattleConfig() {
+    return this.gmService.getSpecialBattleConfig();
+  }
+
+  @Get('special-battles')
+  @UseGuards(GmAuthGuard)
+  getSpecialBattleConfig() {
+    return this.gmService.getSpecialBattleConfig();
+  }
+
+  @Put('special-battles')
+  @UseGuards(GmAuthGuard)
+  updateSpecialBattleConfig(@Body() body: any) {
+    return this.gmService.updateSpecialBattleConfig(body);
+  }
+
+  @Put('audio-config')
+  @UseGuards(GmAuthGuard)
+  updateAudioConfig(@Body() body: any) {
+    return this.gmService.updateAudioConfig(body);
+  }
+
+  @Post('audio/upload')
+  @UseGuards(GmAuthGuard)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
+  uploadAudio(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
+    return this.gmService.uploadAudioFile(file, body?.category);
   }
 }

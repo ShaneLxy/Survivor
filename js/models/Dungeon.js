@@ -31,6 +31,7 @@ class Dungeon {
             id: wave.id || `${config.id}_boss_wave_${index + 1}`,
             spawnRound: Number(wave.spawnRound) || DungeonConfig.defaultBossSpawnRound,
             spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound !== false,
+            guardianKey: String(wave.guardianKey || wave.guardian?.key || wave.guardian?.enemyKey || '').trim(),
             bosses: [...(wave.bosses || [])]
         }));
         this.rewards = config.rewards || {};
@@ -52,10 +53,16 @@ class Dungeon {
             storm: 'storm_night',
             stormnight: 'storm_night',
             heavy_rain: 'storm_night',
-            lightning_rain: 'storm_night'
+            lightning_rain: 'storm_night',
+            ember: 'ash',
+            embers: 'ash',
+            cinder: 'ash',
+            cinders: 'ash',
+            ashes: 'ash',
+            black_ash: 'ash'
         };
         const normalized = aliases[type] || type;
-        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night'].includes(normalized) ? normalized : 'none';
+        return ['smoke', 'rain', 'snow', 'poison_fog', 'dust_smoke', 'storm_night', 'ash'].includes(normalized) ? normalized : 'none';
     }
 
     createUnitsFromEntries(entries = []) {
@@ -82,6 +89,7 @@ class Dungeon {
                 const skill = skills[0] || null;
                 const enemy = new BattleUnit({
                     id: Utils.generateId(),
+                    entryKey: enemyEntry.key || enemyEntry.entryKey || enemyEntry.spawnKey || null,
                     configId: enemyEntry.id,
                     name: enemyEntry.name || config.name,
                     icon: config.icon,
@@ -92,6 +100,9 @@ class Dungeon {
                     description: enemyEntry.description || config.description || '',
                     skills,
                     skill,
+                    passiveEffects: Array.isArray(config.passiveEffects) ? config.passiveEffects.map(effect => ({ ...effect })) : [],
+                    basicAttackEffects: Array.isArray(config.basicAttackEffects) ? config.basicAttackEffects.map(effect => ({ ...effect })) : [],
+                    reactiveEffects: Array.isArray(config.reactiveEffects) ? config.reactiveEffects.map(effect => ({ ...effect })) : [],
                     baseStats: stats
                 });
                 if (spawnPositions[index]) {
@@ -129,6 +140,7 @@ class Dungeon {
                 id: wave.id,
                 spawnRound: wave.spawnRound,
                 spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound,
+                guardianKey: wave.guardianKey || '',
                 bosses: this.createUnitsFromEntries((wave.bosses || []).map(entry => ({
                     ...entry,
                     sourceType: 'boss'

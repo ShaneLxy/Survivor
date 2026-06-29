@@ -235,6 +235,47 @@ p {
   resize: vertical;
 }
 
+.password-input {
+  position: relative;
+  width: 100%;
+}
+
+.password-input .text-input {
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.password-toggle:hover,
+.password-toggle.active {
+  background: var(--surface-2);
+  color: var(--teal);
+}
+
+.password-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .code-input {
   font-family: Consolas, "SFMono-Regular", monospace;
   font-size: 12px;
@@ -545,6 +586,33 @@ label span {
   min-height: 38px;
 }
 
+.checkin-cycle-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkin-cycle-day {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px;
+}
+
+.checkin-cycle-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.checkin-cycle-day-title {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--text);
+}
+
 .reward-pill {
   display: inline-flex;
   align-items: center;
@@ -601,6 +669,13 @@ label span {
   color: var(--muted);
   font-size: 12px;
   margin-top: 3px;
+}
+
+.player-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .query-grid {
@@ -671,6 +746,10 @@ label span {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 112px);
+}
+
+.server-deploy-panel {
+  max-width: 980px;
 }
 
 .package-form {
@@ -908,6 +987,12 @@ label span {
   gap: 8px;
 }
 
+.nested-editor-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-start;
+}
+
 #poolEntryRows,
 #dungeonEnemyRows,
 #dungeonBossRows {
@@ -919,6 +1004,31 @@ label span {
   display: grid;
   gap: 8px;
   align-items: center;
+}
+
+.editable-grid-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 4px;
+  align-items: stretch;
+}
+
+.editable-grid-header-cell {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #edf3f6;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.editable-grid-header .editable-grid-header-cell:last-child {
+  justify-content: center;
 }
 
 .pool-entry-grid {
@@ -938,15 +1048,20 @@ label span {
   grid-template-columns: 1.4fr 90px 90px 110px 38px;
 }
 
+.special-battle-reward-grid {
+  grid-template-columns: 1.6fr 120px 38px;
+}
+
 #chapterRewardRows .reward-range-grid {
   grid-template-columns: 1.4fr 90px 90px 38px;
 }
 
 .dungeon-enemy-grid {
-  min-width: 1935px;
+  min-width: 2050px;
   grid-template-columns:
     minmax(150px, 1.1fr)
     92px
+    110px
     76px
     minmax(140px, 1fr)
     minmax(180px, 1.2fr)
@@ -966,13 +1081,88 @@ label span {
 }
 
 .dungeon-boss-grid {
-  min-width: 2190px;
+  min-width: 2310px;
+  grid-template-columns:
+    minmax(140px, 1fr)
+    76px
+    118px
+    110px
+    minmax(150px, 1.05fr)
+    92px
+    76px
+    minmax(130px, 0.9fr)
+    minmax(180px, 1.15fr)
+    82px
+    82px
+    92px
+    92px
+    82px
+    82px
+    82px
+    82px
+    82px
+    82px
+    82px
+    minmax(180px, 1.2fr)
+    38px;
+}
+
+.special-battle-cart-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.special-battle-segment-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 12px;
+}
+
+.special-battle-segment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.special-battle-row-json-wrap {
+  display: none;
+}
+
+.special-battle-enemy-grid {
+  min-width: 2050px;
+  grid-template-columns:
+    minmax(150px, 1.1fr)
+    92px
+    96px
+    76px
+    minmax(140px, 1fr)
+    minmax(180px, 1.2fr)
+    82px
+    82px
+    92px
+    92px
+    82px
+    82px
+    82px
+    82px
+    82px
+    82px
+    82px
+    minmax(180px, 1.25fr)
+    38px;
+}
+
+.special-battle-boss-grid {
+  min-width: 2310px;
   grid-template-columns:
     minmax(140px, 1fr)
     76px
     118px
     minmax(150px, 1.05fr)
     92px
+    96px
     76px
     minmax(130px, 0.9fr)
     minmax(180px, 1.15fr)
@@ -1010,6 +1200,11 @@ label span {
   font-size: 12px;
 }
 
+.hero-voice-row {
+  grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.2fr) minmax(280px, 1.8fr) 64px;
+  margin-bottom: 8px;
+}
+
 .field-inline-label {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr);
@@ -1034,19 +1229,19 @@ label span {
 }
 
 .shelter-level-topbar {
-  display: grid;
-  grid-template-columns: minmax(140px, 0.75fr) minmax(220px, 1fr) minmax(320px, 1.35fr) 38px;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
-.shelter-level-topbar-energy,
-.shelter-level-topbar-stat {
-  grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1fr) minmax(320px, 1.4fr) 38px;
+.shelter-level-topbar > .field-inline-label {
+  min-width: 220px;
+  flex: 1;
 }
 
-.shelter-level-topbar-production {
-  grid-template-columns: minmax(140px, 0.75fr) minmax(320px, 1.35fr) 38px;
+.shelter-level-topbar > .icon-button {
+  margin-left: auto;
 }
 
 .shelter-level-label {
@@ -1059,6 +1254,15 @@ label span {
 }
 .shelter-cost-field {
   min-width: 0;
+}
+
+.shelter-cost-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.shelter-upgrade-cost-row {
+  grid-template-columns: minmax(260px, 1.2fr) minmax(160px, 0.8fr) 38px;
 }
 
 .shelter-level-media-grid {
@@ -1082,6 +1286,25 @@ label span {
   margin-top: 10px;
 }
 
+.file-upload-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-upload-row input[type="file"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.audio-upload-status {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--muted);
+}
+
 @media (max-width: 1260px) {
   .app-shell {
     grid-template-columns: 210px 1fr;
@@ -1100,9 +1323,12 @@ label span {
   }
 
   .reward-range-grid,
+  .special-battle-reward-grid,
   #chapterRewardRows .reward-range-grid,
-    .dungeon-enemy-grid,
-    .dungeon-boss-grid,
+  .dungeon-enemy-grid,
+  .dungeon-boss-grid,
+  .special-battle-cart-grid,
+  .special-battle-segment-grid,
   .range-grid {
     grid-template-columns: 1fr;
   }
@@ -1233,6 +1459,8 @@ label span {
 .board-cell.swamp    { background: #451a03; border-color: #b45309; color: #fcd34d; }
 .board-cell.miasma   { background: #3b0764; border-color: #a855f7; color: #d8b4fe; }
 .board-cell.enemy    { background: #7c2d12; border-color: #f97316; color: #fed7aa; }
+.board-cell.route    { background: #1d4ed8; border-color: #60a5fa; color: #dbeafe; }
+.board-cell.goal     { background: #166534; border-color: #4ade80; color: #dcfce7; }
 .board-cell.other-spawn { background: #1e293b; border-color: #475569; color: #94a3b8; }
 
 .board-cell.is-readonly {
@@ -1270,6 +1498,8 @@ label span {
 .board-legend-item.miasma   { background: #3b0764; border-color: #a855f7; color: #d8b4fe; }
 .board-legend-item.enemy    { background: #7c2d12; border-color: #f97316; color: #fed7aa; }
 .board-legend-item.other-spawn { background: #1e293b; border-color: #475569; color: #94a3b8; }
+.board-legend-item.route    { background: #1d4ed8; border-color: #60a5fa; color: #dbeafe; }
+.board-legend-item.goal     { background: #166534; border-color: #4ade80; color: #dcfce7; }
 
 .board-editor-subtitle {
   margin-left: 10px;

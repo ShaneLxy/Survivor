@@ -10,6 +10,7 @@ class Hero {
         this.icon = config.icon || '🧙';
         this.portrait = config.portrait || null;
         this.cardPortrait = config.cardPortrait || HeroConfig.getCardPortraitPath?.(config.portrait) || null;
+        this.voiceCues = HeroConfig.normalizeVoiceCues?.(config.voiceCues) || {};
         this.rarity = HeroConfig.normalizeRarity(config.rarity);
         this.profession = config.profession || null;
         this.professionIcon = config.professionIcon || HeroConfig.getProfessionIconPath?.(this.profession) || null;
@@ -89,13 +90,31 @@ class Hero {
             return { gainedExp: 0, leveledUp: false, reachedCap: this.isAtLevelCap(maxLevel), levelCap };
         }
 
-        const previousExp = this.exp;
-        this.exp = Math.min(this.getExpRequired(), this.exp + requestedExp);
-        const gainedExp = Math.max(0, this.exp - previousExp);
+        let remainingExp = requestedExp;
+        let gainedExp = 0;
         let leveledUp = false;
-        while (this.canLevelUp(maxLevel)) {
-            this.levelUpOnce(maxLevel);
-            leveledUp = true;
+
+        while (remainingExp > 0 && !this.isAtLevelCap(maxLevel)) {
+            const expRequired = Math.max(1, this.getExpRequired());
+            const expNeeded = Math.max(0, expRequired - this.exp);
+
+            if (expNeeded <= 0) {
+                if (!this.levelUpOnce(maxLevel)) {
+                    break;
+                }
+                leveledUp = true;
+                continue;
+            }
+
+            const appliedExp = Math.min(remainingExp, expNeeded);
+            this.exp += appliedExp;
+            gainedExp += appliedExp;
+            remainingExp -= appliedExp;
+
+            while (this.canLevelUp(maxLevel)) {
+                this.levelUpOnce(maxLevel);
+                leveledUp = true;
+            }
         }
 
         if (this.isAtLevelCap(maxLevel)) {
@@ -136,18 +155,20 @@ class Hero {
             attack: Math.floor((stats.attack + (Number(statBonuses.attack) || 0)) * starBonus * trainingMultiplier),
             attackCoefficient: Math.max(0.05, Number(stats.attackCoefficient) || 1),
             defense: Math.floor((stats.defense + (Number(statBonuses.defense) || 0)) * starBonus * trainingMultiplier),
-            speed: Math.floor((stats.speed + (Number(statBonuses.speed) || 0)) * starBonus * trainingMultiplier),
-            crit: Math.floor((stats.crit + (Number(statBonuses.crit) || 0)) * starBonus * trainingMultiplier),
-            antiCrit: Math.floor((stats.antiCrit + (Number(statBonuses.antiCrit) || 0)) * starBonus * trainingMultiplier),
-            defensePen: Math.floor((stats.defensePen + (Number(statBonuses.defensePen) || 0)) * starBonus * trainingMultiplier),
-            accuracy: Math.floor((stats.accuracy + (Number(statBonuses.accuracy) || 0)) * starBonus * trainingMultiplier),
-            dodge: Math.floor((stats.dodge + (Number(statBonuses.dodge) || 0)) * starBonus * trainingMultiplier),
+            speed: Math.floor(stats.speed + (Number(statBonuses.speed) || 0)),
+            crit: Math.floor(stats.crit + (Number(statBonuses.crit) || 0)),
+            antiCrit: Math.floor(stats.antiCrit + (Number(statBonuses.antiCrit) || 0)),
+            defensePen: Math.floor(stats.defensePen + (Number(statBonuses.defensePen) || 0)),
+            accuracy: Math.floor(stats.accuracy + (Number(statBonuses.accuracy) || 0)),
+            dodge: Math.floor(stats.dodge + (Number(statBonuses.dodge) || 0)),
             attackRange: Math.max(1, (stats.attackRange || 1) + (traitModifiers.attackRangeBonus || 0)),
             moveRange: Math.max(1, (stats.moveRange || 1) + (Number(statBonuses.moveRange) || 0))
         };
     }
 
     refreshSkills() {
+        const config = HeroConfig.getHeroConfig(this.configId) || {};
+        this.voiceCues = HeroConfig.normalizeVoiceCues?.(config.voiceCues) || {};
         this.skills = HeroConfig.getHeroSkillsForStarLevel(this.configId, this.stars);
         this.reactiveEffects = HeroConfig.getHeroReactiveEffectsForStarLevel(this.configId, this.stars);
         this.basicAttackEffects = HeroConfig.getHeroBasicAttackEffectsForStarLevel(this.configId, this.stars);

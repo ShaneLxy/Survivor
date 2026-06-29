@@ -8,6 +8,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.survivor.game.BuildConfig;
 import com.survivor.game.TapTapSdkInitializer;
 import com.taptap.sdk.update.TapTapUpdate;
 import com.taptap.sdk.update.TapTapUpdateCallback;
@@ -48,6 +49,13 @@ public class TapTapUpdatePlugin extends Plugin {
      */
     @PluginMethod
     public void checkUpdate(final PluginCall call) {
+        if (BuildConfig.DEBUG) {
+            JSObject result = new JSObject();
+            result.put("status", "debug_skipped");
+            call.resolve(result);
+            return;
+        }
+
         final Activity activity = getActivity();
         if (activity == null) {
             call.reject("TapTap update requires an Android activity.");
@@ -87,6 +95,13 @@ public class TapTapUpdatePlugin extends Plugin {
      */
     @PluginMethod
     public void checkForceUpdate(PluginCall call) {
+        if (BuildConfig.DEBUG) {
+            JSObject result = new JSObject();
+            result.put("status", "debug_skipped");
+            call.resolve(result);
+            return;
+        }
+
         try {
             Activity activity = getActivity();
             if (activity != null) {

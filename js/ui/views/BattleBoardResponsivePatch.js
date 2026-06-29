@@ -186,9 +186,9 @@
             return null;
         }
 
-        const snapshot = battleManager.getSnapshot();
-        const sceneWidth = Math.max(1, Number(snapshot?.scene?.width) || 1);
-        const sceneHeight = Math.max(1, Number(snapshot?.scene?.height) || 1);
+        const scene = battleManager.scene || {};
+        const sceneWidth = Math.max(1, Number(scene.width) || 1);
+        const sceneHeight = Math.max(1, Number(scene.height) || 1);
         if (x < 0 || y < 0 || x >= sceneWidth || y >= sceneHeight) {
             return null;
         }
@@ -211,6 +211,32 @@
         };
     };
 
+    BattleView.prototype.scheduleBattleBoardLayoutSync = function(markDirty = true) {
+        if (!this.visible) {
+            return;
+        }
+        if (markDirty) {
+            this.battleBoardLayoutDirty = true;
+            this.battleBoardLayoutCache = null;
+        }
+        if (this.battleBoardLayoutFrame) {
+            return;
+        }
+        this.battleBoardLayoutFrame = requestAnimationFrame(() => {
+            this.battleBoardLayoutFrame = null;
+            if (!this.visible) {
+                return;
+            }
+            this.syncBattleViewHeight?.();
+            const snapshot = battleManager.getSnapshot();
+            if (snapshot?.scene) {
+                this.renderBoard(snapshot);
+            } else {
+                this.syncBoardOverlayFrame();
+            }
+        });
+    };
+
     const originalRenderShell = BattleView.prototype.renderShell;
     BattleView.prototype.renderShell = function() {
         this.battleBoardLayoutDirty = true;
@@ -218,20 +244,8 @@
         originalRenderShell.call(this);
         this.syncBoardOverlayFrame();
         this.syncBattleViewHeight();
-        requestAnimationFrame(() => {
-            this.syncBattleViewHeight();
-            const snapshot = battleManager.getSnapshot();
-            if (snapshot?.scene && this.visible) {
-                this.renderBoard(snapshot);
-            }
-        });
-        setTimeout(() => {
-            this.syncBattleViewHeight();
-            const snapshot = battleManager.getSnapshot();
-            if (snapshot?.scene && this.visible) {
-                this.renderBoard(snapshot);
-            }
-        }, 80);
+        this.scheduleBattleBoardLayoutSync(true);
+        setTimeout(() => this.scheduleBattleBoardLayoutSync(true), 80);
     };
 
     window.addEventListener('resize', () => {
@@ -239,27 +253,13 @@
         if (!battleView?.visible) {
             return;
         }
-        battleView.battleBoardLayoutDirty = true;
-        battleView.battleBoardLayoutCache = null;
-        battleView.syncBattleViewHeight?.();
-        const snapshot = battleManager.getSnapshot();
-        if (snapshot?.scene) {
-            battleView.renderBoard(snapshot);
-        } else {
-            battleView.syncBoardOverlayFrame();
-        }
+        battleView.scheduleBattleBoardLayoutSync?.(true);
     });
     window.visualViewport?.addEventListener('resize', () => {
         const battleView = window.game?.ui?.battleView;
         if (!battleView?.visible) {
             return;
         }
-        battleView.battleBoardLayoutDirty = true;
-        battleView.battleBoardLayoutCache = null;
-        battleView.syncBattleViewHeight?.();
-        const snapshot = battleManager.getSnapshot();
-        if (snapshot?.scene) {
-            battleView.renderBoard(snapshot);
-        }
+        battleView.scheduleBattleBoardLayoutSync?.(true);
     }, { passive: true });
 })();

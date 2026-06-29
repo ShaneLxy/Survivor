@@ -4,6 +4,12 @@ export interface UserAccountBanStatus {
   details?: Record<string, any> | null;
 }
 
+export interface UserAccountSaveAuditBypass {
+  enabled: boolean;
+  note?: string | null;
+  updatedAt: string;
+}
+
 export interface UserAccountDocument {
   _id: string;
   account: string | null;
@@ -18,6 +24,7 @@ export interface UserAccountDocument {
   taptapAvatar?: string | null;
   lastLoginAt: string | null;
   banStatus?: UserAccountBanStatus | null;
+  saveAuditBypass?: UserAccountSaveAuditBypass | null;
   createdAt: string;
   updatedAt: string;
 }

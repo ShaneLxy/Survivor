@@ -55,7 +55,7 @@
       },
       "skill": {
         "name": "围猎",
-        "description": "锁定目标展开围猎，对1个敌方单位造成150%攻击伤害，不计算暴击。",
+        "description": "对1个敌方单位造成150%攻击伤害，不计算暴击。",
         "multiplier": 1.5,
         "cooldownTurns": 2,
         "range": 2,
@@ -70,7 +70,7 @@
       "skills": [
         {
           "name": "围猎",
-          "description": "锁定目标展开围猎，对1个敌方单位造成150%攻击伤害，不计算暴击。",
+          "description": "对1个敌方单位造成150%攻击伤害，不计算暴击。",
           "multiplier": 1.5,
           "cooldownTurns": 2,
           "range": 2,
@@ -84,7 +84,7 @@
         },
         {
           "name": "猎手战意",
-          "description": "以猎手战意压迫目标，对1个敌方单位造成80%攻击伤害，本次攻击额外无视5%防御，不计算暴击。",
+          "description": "对1个敌方单位造成80%攻击伤害，本次攻击额外无视5%防御；不计算暴击。",
           "multiplier": 0.8,
           "cooldownTurns": 1,
           "range": 2,
@@ -100,15 +100,15 @@
       ],
       "specialTraits": {
         "name": "追猎双技",
-        "summary": "稀有品质双单体技能成长路线，围绕高倍率点杀与短冷却破防压制逐步建立单核猎杀能力。",
+        "summary": "单点猎杀型稀有破袭者。靠高倍率点杀和短冷却破防持续压制关键目标。",
         "traits": [
           {
             "name": "围猎",
-            "description": "追猎的第一特技，默认不计算暴击，作为主要终结技能逐步提升伤害与终极穿防能力。"
+            "description": "核心终结技。高倍率、低冷却，专门用来点杀关键目标。"
           },
           {
             "name": "猎手战意",
-            "description": "追猎的第二特技，于6星解锁，定位为短冷却单点压制技能，随升星提高伤害与无视防御比例。"
+            "description": "短冷却压制技。伤害不高，但能稳定补伤并无视部分防御。"
           }
         ],
         "track": [
@@ -118,13 +118,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“围猎”：对目标单位造成150%攻击伤害；范围2格；冷却2回合；消耗2%当前生命值；不计算暴击。"
+            "description": "解锁“围猎”：对1个敌方单位造成150%攻击伤害；范围2格；冷却2回合；消耗2%当前生命值；不计算暴击。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一强化",
-            "description": "“围猎”伤害提升至170%攻击力，消耗提升至3%当前生命值。"
+            "description": "“围猎”伤害提升至170%攻击力，生命消耗提升至3%当前生命值。"
           },
           {
             "stage": 6,
@@ -132,25 +132,25 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁“猎手战意”：对目标单位造成80%攻击伤害，本次攻击额外无视5%防御；范围2格；冷却1回合；消耗4%当前生命值；不计算暴击。"
+            "description": "解锁“猎手战意”：对1个敌方单位造成80%攻击伤害，并额外无视5%防御；范围2格；冷却1回合；消耗4%当前生命值；不计算暴击。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "“猎手战意”伤害提升至90%攻击力，本次攻击额外无视7%防御。"
+            "description": "“猎手战意”伤害提升至90%攻击力，额外无视防御提升至7%。"
           },
           {
             "stage": 15,
             "kind": "boost",
             "label": "第二特技再强化",
-            "description": "“猎手战意”伤害提升至100%攻击力，本次攻击额外无视10%防御。"
+            "description": "“猎手战意”伤害提升至100%攻击力，额外无视防御提升至10%。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“围猎”伤害提升至200%攻击力，本次攻击额外无视15%防御。"
+            "description": "“围猎”伤害提升至200%攻击力，并额外无视15%防御。"
           }
         ],
         "battleGrowth": {
@@ -235,7 +235,7 @@
       "basicAttackEffects": [
         {
           "trigger": "hit",
-          "chance": 0.1,
+          "chance": 0.25,
           "statusEffects": [
             {
               "type": "burn",
@@ -243,7 +243,7 @@
               "effectType": "damage_over_time",
               "tickTiming": "turnStart",
               "stackMode": "stack",
-              "maxStacks": 5,
+              "maxStacks": 10,
               "durationTurns": 5,
               "damageRatioCurrentHp": 0.01,
               "healTakenMultiplier": 0.5,
@@ -254,9 +254,9 @@
       ],
       "skill": {
         "name": "引燃",
-        "description": "对1个敌方单位造成20%攻击力伤害，并附加1层灼烧，持续5回合。灼烧会使目标受到的回复效果降低50%，并在每回合开始时损失当前生命值的1%，最多叠加5层。本技能不计算暴击。",
-        "multiplier": 0.2,
-        "cooldownTurns": 3,
+        "description": "对1个敌方单位造成45%攻击伤害，并附加3层灼烧，持续5回合。灼烧会使目标受到的回复效果降低50%，并在每回合开始时损失1%当前生命值，最多叠加10层；不计算暴击。",
+        "multiplier": 0.45,
+        "cooldownTurns": 1,
         "range": 2,
         "targetType": "enemy",
         "targetCount": 1,
@@ -272,7 +272,31 @@
             "effectType": "damage_over_time",
             "tickTiming": "turnStart",
             "stackMode": "stack",
-            "maxStacks": 5,
+            "maxStacks": 10,
+            "durationTurns": 5,
+            "damageRatioCurrentHp": 0.01,
+            "healTakenMultiplier": 0.5,
+            "ignoreDefense": true
+          },
+          {
+            "type": "burn",
+            "name": "灼烧",
+            "effectType": "damage_over_time",
+            "tickTiming": "turnStart",
+            "stackMode": "stack",
+            "maxStacks": 10,
+            "durationTurns": 5,
+            "damageRatioCurrentHp": 0.01,
+            "healTakenMultiplier": 0.5,
+            "ignoreDefense": true
+          },
+          {
+            "type": "burn",
+            "name": "灼烧",
+            "effectType": "damage_over_time",
+            "tickTiming": "turnStart",
+            "stackMode": "stack",
+            "maxStacks": 10,
             "durationTurns": 5,
             "damageRatioCurrentHp": 0.01,
             "healTakenMultiplier": 0.5,
@@ -283,9 +307,9 @@
       "skills": [
         {
           "name": "引燃",
-          "description": "对1个敌方单位造成20%攻击力伤害，并附加1层灼烧，持续5回合。灼烧会使目标受到的回复效果降低50%，并在每回合开始时损失当前生命值的1%，最多叠加5层。本技能不计算暴击。",
-          "multiplier": 0.2,
-          "cooldownTurns": 3,
+          "description": "对1个敌方单位造成45%攻击伤害，并附加3层灼烧，持续5回合。灼烧会使目标受到的回复效果降低50%，并在每回合开始时损失1%当前生命值，最多叠加10层；不计算暴击。",
+          "multiplier": 0.45,
+          "cooldownTurns": 1,
           "range": 2,
           "targetType": "enemy",
           "targetCount": 1,
@@ -301,7 +325,31 @@
               "effectType": "damage_over_time",
               "tickTiming": "turnStart",
               "stackMode": "stack",
-              "maxStacks": 5,
+              "maxStacks": 10,
+              "durationTurns": 5,
+              "damageRatioCurrentHp": 0.01,
+              "healTakenMultiplier": 0.5,
+              "ignoreDefense": true
+            },
+            {
+              "type": "burn",
+              "name": "灼烧",
+              "effectType": "damage_over_time",
+              "tickTiming": "turnStart",
+              "stackMode": "stack",
+              "maxStacks": 10,
+              "durationTurns": 5,
+              "damageRatioCurrentHp": 0.01,
+              "healTakenMultiplier": 0.5,
+              "ignoreDefense": true
+            },
+            {
+              "type": "burn",
+              "name": "灼烧",
+              "effectType": "damage_over_time",
+              "tickTiming": "turnStart",
+              "stackMode": "stack",
+              "maxStacks": 10,
               "durationTurns": 5,
               "damageRatioCurrentHp": 0.01,
               "healTakenMultiplier": 0.5,
@@ -311,7 +359,7 @@
         },
         {
           "name": "燃烬",
-          "description": "对1个敌方单位造成80%攻击力伤害，并按目标身上灼烧层数结算额外伤害：每层造成30%攻击力伤害，随后移除目标身上的全部灼烧状态。本技能不计算暴击。",
+          "description": "对1个敌方单位造成80%攻击伤害，并按其灼烧层数结算额外伤害：每层额外造成30%攻击伤害；结算后移除目标身上的全部灼烧；不计算暴击。",
           "multiplier": 0.8,
           "cooldownTurns": 3,
           "range": 2,
@@ -326,6 +374,7 @@
             "type": "consume_status_damage",
             "statusType": "burn",
             "extraMultiplier": 0.3,
+            "sourceAttackMultiplier": true,
             "consumeStatus": true,
             "ignoreDefense": true
           }
@@ -333,15 +382,15 @@
       ],
       "specialTraits": {
         "name": "焚烬双技",
-        "summary": "稀有品质灼烧结算型异能者，通过引燃叠层与燃烬收束形成清晰的持续压制与单体斩杀节奏。",
+        "summary": "灼烧结算型稀有灵能者。先挂火，再引爆结算，单体压制节奏很清晰。",
         "traits": [
           {
             "name": "引燃",
-            "description": "余烬的核心铺火特技，不计算暴击，负责给敌人稳定附加灼烧并制造后续结算窗口。"
+            "description": "核心铺火特技。负责稳定挂灼烧，为后续结算创造窗口。"
           },
           {
             "name": "燃烬",
-            "description": "余烬的第二特技，于6星解锁，对目标造成直伤后按灼烧层数追加伤害，并清空目标身上的灼烧。"
+            "description": "收束爆发特技。按灼烧层数一次性结算额外伤害，适合斩杀被点燃的目标。"
           }
         ],
         "track": [
@@ -351,13 +400,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“引燃”：对1个敌方单位造成20%攻击力伤害并附加1层灼烧，持续5回合；范围2格；冷却3回合；消耗3%当前生命值；不计算暴击。"
+            "description": "解锁“引燃”：对1个敌方单位造成45%攻击伤害，并附加3层灼烧，持续5回合；范围2格；冷却1回合；消耗3%当前生命值；不计算暴击。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "“引燃”伤害提升至50%攻击力，其他效果不变。"
+            "description": "“引燃”伤害提升至65%攻击力，其他效果不变。"
           },
           {
             "stage": 6,
@@ -365,25 +414,25 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁“燃烬”：对1个敌方单位造成80%攻击力伤害，并按灼烧层数结算每层30%攻击力的额外伤害，随后移除目标灼烧；范围2格；冷却3回合；消耗4%当前生命值；不计算暴击。"
+            "description": "解锁“燃烬”：对1个敌方单位造成80%攻击伤害，并按灼烧层数结算每层30%攻击力的额外伤害；结算后移除目标灼烧；范围2格；冷却3回合；消耗4%当前生命值；不计算暴击。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "“燃烬”每层灼烧的追加伤害提升至40%攻击力，消耗提升至5%当前生命值。"
+            "description": "“燃烬”每层灼烧的追加伤害提升至40%攻击力，生命消耗提升至5%当前生命值。"
           },
           {
             "stage": 15,
             "kind": "boost",
             "label": "第二特技再强化",
-            "description": "“燃烬”每层灼烧的追加伤害提升至50%攻击力，消耗提升至7%当前生命值。"
+            "description": "“燃烬”每层灼烧的追加伤害提升至50%攻击力，生命消耗提升至7%当前生命值。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“引燃”命中目标时有10%概率额外再附加1层灼烧，消耗提升至5%当前生命值。"
+            "description": "“引燃”命中时有25%概率额外附加1层灼烧，生命消耗提升至5%当前生命值。"
           }
         ],
         "battleGrowth": {
@@ -393,12 +442,12 @@
               "stages": [
                 {
                   "stage": 2,
-                  "multiplier": 0.2,
+                  "multiplier": 0.45,
                   "range": 2,
                   "targetCount": 1,
                   "hpCostPercent": 3,
                   "hpCostBase": "current",
-                  "cooldownTurns": 3,
+                  "cooldownTurns": 1,
                   "canCrit": false,
                   "unlockStage": 2,
                   "statusEffects": [
@@ -408,7 +457,31 @@
                       "effectType": "damage_over_time",
                       "tickTiming": "turnStart",
                       "stackMode": "stack",
-                      "maxStacks": 5,
+                      "maxStacks": 10,
+                      "durationTurns": 5,
+                      "damageRatioCurrentHp": 0.01,
+                      "healTakenMultiplier": 0.5,
+                      "ignoreDefense": true
+                    },
+                    {
+                      "type": "burn",
+                      "name": "灼烧",
+                      "effectType": "damage_over_time",
+                      "tickTiming": "turnStart",
+                      "stackMode": "stack",
+                      "maxStacks": 10,
+                      "durationTurns": 5,
+                      "damageRatioCurrentHp": 0.01,
+                      "healTakenMultiplier": 0.5,
+                      "ignoreDefense": true
+                    },
+                    {
+                      "type": "burn",
+                      "name": "灼烧",
+                      "effectType": "damage_over_time",
+                      "tickTiming": "turnStart",
+                      "stackMode": "stack",
+                      "maxStacks": 10,
                       "durationTurns": 5,
                       "damageRatioCurrentHp": 0.01,
                       "healTakenMultiplier": 0.5,
@@ -418,12 +491,12 @@
                 },
                 {
                   "stage": 4,
-                  "multiplier": 0.5
+                  "multiplier": 0.65
                 },
                 {
                   "stage": 16,
                   "hpCostPercent": 5,
-                  "extraStatusEffectChance": 0.1,
+                  "extraStatusEffectChance": 0.25,
                   "extraStatusEffects": [
                     {
                       "type": "burn",
@@ -431,7 +504,7 @@
                       "effectType": "damage_over_time",
                       "tickTiming": "turnStart",
                       "stackMode": "stack",
-                      "maxStacks": 5,
+                      "maxStacks": 10,
                       "durationTurns": 5,
                       "damageRatioCurrentHp": 0.01,
                       "healTakenMultiplier": 0.5,
@@ -458,6 +531,7 @@
                     "type": "consume_status_damage",
                     "statusType": "burn",
                     "extraMultiplier": 0.3,
+                    "sourceAttackMultiplier": true,
                     "consumeStatus": true,
                     "ignoreDefense": true
                   }
@@ -469,6 +543,7 @@
                     "type": "consume_status_damage",
                     "statusType": "burn",
                     "extraMultiplier": 0.4,
+                    "sourceAttackMultiplier": true,
                     "consumeStatus": true,
                     "ignoreDefense": true
                   }
@@ -480,6 +555,7 @@
                     "type": "consume_status_damage",
                     "statusType": "burn",
                     "extraMultiplier": 0.5,
+                    "sourceAttackMultiplier": true,
                     "consumeStatus": true,
                     "ignoreDefense": true
                   }
@@ -514,13 +590,13 @@
       "basicAttackEffects": [
         {
           "trigger": "hit",
-          "chance": 0.1,
-          "selfHealMissingHpRatio": 0.05
+          "chance": 0.2,
+          "selfHealMissingHpRatio": 0.15
         }
       ],
       "skill": {
         "name": "御阵",
-        "description": "原地展开防御阵地，作用于铁御自身与其后方一排3格友方单位，直到铁御的位置发生变动。释放后的下一次自身行动开始后，阵地内友方单位获得5%伤害减免。维持期间铁御每次自身行动开始时消耗1%当前生命值。",
+        "description": "原地展开防御阵地，覆盖自身和身后一排3格友方单位。阵地内友方立即获得12%减伤；铁御移动后阵地消失，维持期间每次行动开始消耗1%当前生命值。",
         "multiplier": 0,
         "cooldownTurns": 3,
         "range": 0,
@@ -536,15 +612,15 @@
           "formationType": "defense",
           "name": "御阵",
           "shape": "self_and_rear_row",
-          "pendingOwnerTurns": 1,
+          "pendingOwnerTurns": 0,
           "upkeepHpCostPercent": 1,
-          "damageReduction": 0.05
+          "damageReduction": 0.12
         }
       },
       "skills": [
         {
           "name": "御阵",
-          "description": "原地展开防御阵地，作用于铁御自身与其后方一排3格友方单位，直到铁御的位置发生变动。释放后的下一次自身行动开始后，阵地内友方单位获得5%伤害减免。维持期间铁御每次自身行动开始时消耗1%当前生命值。",
+          "description": "原地展开防御阵地，覆盖自身和身后一排3格友方单位。阵地内友方立即获得12%减伤；铁御移动后阵地消失，维持期间每次行动开始消耗1%当前生命值。",
           "multiplier": 0,
           "cooldownTurns": 3,
           "range": 0,
@@ -560,14 +636,14 @@
             "formationType": "defense",
             "name": "御阵",
             "shape": "self_and_rear_row",
-            "pendingOwnerTurns": 1,
+            "pendingOwnerTurns": 0,
             "upkeepHpCostPercent": 1,
-            "damageReduction": 0.05
+            "damageReduction": 0.12
           }
         },
         {
           "name": "斗阵",
-          "description": "必须先展开“御阵”才能生效。铁御在原地为现有阵地追加攻击阵地效果，作用于铁御自身与其后方一排3格友方单位，直到铁御的位置发生变动。释放后的第二次自身行动开始后，阵地内友方单位获得各自自身4%攻击力提升。维持期间铁御每次自身行动开始时额外消耗3%当前生命值。",
+          "description": "需在“御阵”已展开时施放。为同一阵地追加攻击加成；下次自身行动开始后，阵地内友方攻击提升15%；维持期间每次行动开始额外消耗2%当前生命值。",
           "multiplier": 0,
           "cooldownTurns": 3,
           "range": 0,
@@ -585,23 +661,23 @@
             "formationType": "offense",
             "name": "斗阵",
             "shape": "self_and_rear_row",
-            "pendingOwnerTurns": 2,
-            "upkeepHpCostPercent": 3,
-            "attackPercentBonus": 0.04
+            "pendingOwnerTurns": 1,
+            "upkeepHpCostPercent": 2,
+            "attackPercentBonus": 0.15
           }
         }
       ],
       "specialTraits": {
         "name": "铁壁双阵",
-        "summary": "稀有品质的阵地守备者，通过原地展开双重阵地，为自身与后方友军持续提供减伤、防御与后期恢复支援。",
+        "summary": "阵地型稀有守备者。原地驻守后可为身后友军提供减伤、攻击和后期续航。",
         "traits": [
           {
             "name": "御阵",
-            "description": "铁御的核心阵地特技，需要铁御原地驻守。阵地覆盖自身与其后方一排3格友军，延迟生效后提供持续伤害减免，并在16星后额外为阵地内友军恢复生命，但该恢复不作用于铁御自身。"
+            "description": "核心阵地特技。铁御驻守后能为自己和身后友军提供稳定减伤，16星后还会追加续航。"
           },
           {
             "name": "斗阵",
-            "description": "铁御的联动阵地特技，必须在“御阵”已展开时才能追加生效。斗阵会为同一片阵地提供延迟生效的攻击力提升，并按阶段提高维持成本。"
+            "description": "联动阵地特技。需先展开“御阵”，为同一片阵地补上输出加成。"
           }
         ],
         "track": [
@@ -611,13 +687,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“御阵”：原地展开覆盖自身与后方一排3格的防御阵地；下一次自身行动开始后，阵地内友方单位获得5%伤害减免；维持期间每次自身行动开始时消耗1%当前生命值。"
+            "description": "解锁“御阵”：原地展开覆盖自身和身后一排3格友方的防御阵地；阵地内友方立即获得12%减伤；维持期间每次行动开始消耗1%当前生命值。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "“御阵”伤害减免提升至8%，维持消耗提升至2%当前生命值。"
+            "description": "“御阵”减伤提升至20%，维持消耗提升至2%当前生命值。"
           },
           {
             "stage": 6,
@@ -625,25 +701,25 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁“斗阵”：必须先展开“御阵”才能生效；原地为阵地追加攻击力加成；第二次自身行动开始后，阵地内友方单位获得各自自身4%攻击力提升；维持期间额外消耗3%当前生命值。"
+            "description": "解锁“斗阵”：需在“御阵”已展开时施放；为同一阵地追加攻击加成；下次自身行动开始后，阵地内友方攻击提升15%；维持期间每次行动开始额外消耗2%当前生命值。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "“斗阵”攻击力提升增加至6%，维持消耗提升至4%当前生命值。"
+            "description": "“斗阵”攻击提升至20%，维持消耗提升至3%当前生命值。"
           },
           {
             "stage": 15,
             "kind": "boost",
             "label": "第二特技再强化",
-            "description": "“斗阵”攻击力提升增加至10%，维持消耗提升至5%当前生命值。"
+            "description": "“斗阵”攻击提升至25%，维持消耗提升至4%当前生命值。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“御阵”额外获得恢复效果：处于阵地内的友方单位每回合恢复各自已损失生命值的15%，该效果不作用于铁御自身。"
+            "description": "“御阵”额外获得恢复效果：阵地内友方每回合恢复15%已损失生命；该效果不作用于铁御自身。"
           }
         ],
         "battleGrowth": {
@@ -668,9 +744,9 @@
                     "formationType": "defense",
                     "name": "御阵",
                     "shape": "self_and_rear_row",
-                    "pendingOwnerTurns": 1,
+                    "pendingOwnerTurns": 0,
                     "upkeepHpCostPercent": 1,
-                    "damageReduction": 0.05
+                    "damageReduction": 0.12
                   }
                 },
                 {
@@ -680,9 +756,9 @@
                     "formationType": "defense",
                     "name": "御阵",
                     "shape": "self_and_rear_row",
-                    "pendingOwnerTurns": 1,
+                    "pendingOwnerTurns": 0,
                     "upkeepHpCostPercent": 2,
-                    "damageReduction": 0.08
+                    "damageReduction": 0.2
                   }
                 },
                 {
@@ -692,9 +768,9 @@
                     "formationType": "defense",
                     "name": "御阵",
                     "shape": "self_and_rear_row",
-                    "pendingOwnerTurns": 1,
+                    "pendingOwnerTurns": 0,
                     "upkeepHpCostPercent": 2,
-                    "damageReduction": 0.08,
+                    "damageReduction": 0.2,
                     "healMissingHpRatio": 0.15,
                     "excludeOwnerFromHeal": true
                   }
@@ -723,9 +799,9 @@
                     "formationType": "offense",
                     "name": "斗阵",
                     "shape": "self_and_rear_row",
-                    "pendingOwnerTurns": 2,
-                    "upkeepHpCostPercent": 3,
-                    "attackPercentBonus": 0.04
+                    "pendingOwnerTurns": 1,
+                    "upkeepHpCostPercent": 2,
+                    "attackPercentBonus": 0.15
                   }
                 },
                 {
@@ -737,9 +813,9 @@
                     "formationType": "offense",
                     "name": "斗阵",
                     "shape": "self_and_rear_row",
-                    "pendingOwnerTurns": 2,
-                    "upkeepHpCostPercent": 4,
-                    "attackPercentBonus": 0.06
+                    "pendingOwnerTurns": 1,
+                    "upkeepHpCostPercent": 3,
+                    "attackPercentBonus": 0.2
                   }
                 },
                 {
@@ -751,9 +827,9 @@
                     "formationType": "offense",
                     "name": "斗阵",
                     "shape": "self_and_rear_row",
-                    "pendingOwnerTurns": 2,
-                    "upkeepHpCostPercent": 5,
-                    "attackPercentBonus": 0.1
+                    "pendingOwnerTurns": 1,
+                    "upkeepHpCostPercent": 4,
+                    "attackPercentBonus": 0.25
                   }
                 }
               ]
@@ -785,8 +861,8 @@
       },
       "skill": {
         "name": "迟滞之刃",
-        "description": "以禁断刀痕迟滞目标，对1个敌方单位造成50%当前攻击力伤害，并附加10%减速2回合，不计算暴击。",
-        "multiplier": 0.5,
+        "description": "对1个敌方单位造成60%当前攻击力伤害，并附加15%减速，持续2回合；不计算暴击。",
+        "multiplier": 0.6,
         "cooldownTurns": 3,
         "range": 2,
         "targetType": "enemy",
@@ -802,7 +878,7 @@
             "name": "减速",
             "stat": "speed",
             "modifierType": "percent",
-            "value": -0.1,
+            "value": -0.15,
             "durationTurns": 2
           }
         ]
@@ -810,8 +886,8 @@
       "skills": [
         {
           "name": "迟滞之刃",
-          "description": "以禁断刀痕迟滞目标，对1个敌方单位造成50%当前攻击力伤害，并附加10%减速2回合，不计算暴击。",
-          "multiplier": 0.5,
+          "description": "对1个敌方单位造成60%当前攻击力伤害，并附加15%减速，持续2回合；不计算暴击。",
+          "multiplier": 0.6,
           "cooldownTurns": 3,
           "range": 2,
           "targetType": "enemy",
@@ -827,14 +903,14 @@
               "name": "减速",
               "stat": "speed",
               "modifierType": "percent",
-              "value": -0.1,
+              "value": -0.15,
               "durationTurns": 2
             }
           ]
         },
         {
           "name": "破意之刃",
-          "description": "刺入目标意志缝隙，对1个敌方单位造成60%当前攻击力伤害并施加破意标记；被标记单位若存在除标记外的负面状态，2回合内受到的伤害增加8%，不计算暴击。",
+          "description": "对1个敌方单位造成60%当前攻击力伤害并施加破意标记。若目标身上存在其他负面状态，则其2回合内受到的伤害提高12%；不计算暴击。",
           "multiplier": 0.6,
           "cooldownTurns": 3,
           "range": 2,
@@ -852,7 +928,7 @@
               "effectType": "damage_taken_modifier",
               "durationTurns": 2,
               "countsAsDebuff": false,
-              "damageTakenDebuffBonus": 0.08,
+              "damageTakenDebuffBonus": 0.12,
               "excludedDebuffTypes": [
                 "haze_mark"
               ]
@@ -861,7 +937,7 @@
         },
         {
           "name": "静默之刃",
-          "description": "斩断目标特技回路，对1个敌方单位造成70%当前攻击力伤害并附加沉默2回合，不计算暴击。",
+          "description": "对1个敌方单位造成70%当前攻击力伤害，并附加沉默，持续2回合；不计算暴击。",
           "multiplier": 0.7,
           "cooldownTurns": 3,
           "range": 2,
@@ -924,19 +1000,19 @@
       ],
       "specialTraits": {
         "name": "禁断三刃",
-        "summary": "史诗品质三特技成长路线，围绕减速、破意标记、沉默与终极负面状态增伤构建短程控制压制能力。",
+        "summary": "控制压制型史诗灵能者。擅长减速、沉默和易伤联动，适合围绕负面状态集火。",
         "traits": [
           {
             "name": "迟滞之刃",
-            "description": "霾的核心特技，默认不计算暴击，对单体目标造成低倍率伤害并施加不可叠加的减速效果。"
+            "description": "核心起手特技。先挂减速压行动节奏，为后续控制和集火做准备。"
           },
           {
             "name": "破意之刃",
-            "description": "霾的第二特技，于6星解锁，对目标施加破意标记；标记本身不计为触发易伤条件的负面状态。"
+            "description": "联动特技。给目标打上破意标记，再借其他负面状态放大后续伤害。"
           },
           {
             "name": "静默之刃",
-            "description": "霾的第三特技，于15星解锁，对目标施加沉默，使其在自身回合内无法释放特技，但仍可移动、普通攻击或使用道具。"
+            "description": "终局控制特技。直接封住目标特技，限制其爆发或保命手段。"
           }
         ],
         "track": [
@@ -946,13 +1022,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“迟滞之刃”：对目标单位造成50%当前攻击力伤害，并附加10%减速，持续2回合；范围2格；冷却3回合；消耗3%当前生命值；不计算暴击。"
+            "description": "解锁“迟滞之刃”：对1个敌方单位造成60%当前攻击力伤害，并附加15%减速，持续2回合；范围2格；冷却3回合；消耗3%当前生命值；不计算暴击。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "“迟滞之刃”伤害提升至60%当前攻击力，减速效果提升至15%，持续2回合。"
+            "description": "“迟滞之刃”伤害提升至70%当前攻击力，减速提升至20%，持续2回合。"
           },
           {
             "stage": 6,
@@ -960,13 +1036,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁“破意之刃”：对目标单位造成60%当前攻击力伤害并施加破意标记；被标记单位若存在除标记外的负面状态，2回合内受到的伤害增加8%；范围2格；冷却3回合；消耗4%当前生命值；不计算暴击。"
+            "description": "解锁“破意之刃”：对1个敌方单位造成60%当前攻击力伤害并施加破意标记；若目标身上存在其他负面状态，则其2回合内受到的伤害提高12%；范围2格；冷却3回合；消耗4%当前生命值；不计算暴击。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "“破意之刃”伤害提升至70%当前攻击力，破意标记的条件易伤提升至15%，生命消耗提升至5%当前生命值。"
+            "description": "“破意之刃”伤害提升至70%当前攻击力，条件易伤提升至20%，生命消耗提升至5%当前生命值。"
           },
           {
             "stage": 15,
@@ -974,13 +1050,13 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁“静默之刃”：对目标单位造成70%当前攻击力伤害并附加沉默，持续2回合；范围2格；冷却3回合；消耗5%当前生命值；不计算暴击。"
+            "description": "解锁“静默之刃”：对1个敌方单位造成70%当前攻击力伤害，并附加沉默，持续2回合；范围2格；冷却3回合；消耗5%当前生命值；不计算暴击。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "霾自身对带有除破意标记外负面状态的单位造成的伤害额外增加20%；普通攻击命中后有10%概率触发禁断余波，触发后等概率施加10%减速或沉默，持续2回合。"
+            "description": "霾对带有其他负面状态（不含破意标记）的目标额外造成20%伤害；普攻命中后有10%概率触发禁断余波，随机附加10%减速或沉默，持续2回合。"
           }
         ],
         "battleGrowth": {
@@ -990,7 +1066,7 @@
               "stages": [
                 {
                   "stage": 3,
-                  "multiplier": 0.5,
+                  "multiplier": 0.6,
                   "range": 2,
                   "targetCount": 1,
                   "hpCostPercent": 3,
@@ -1004,21 +1080,21 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.1,
+                      "value": -0.15,
                       "durationTurns": 2
                     }
                   ]
                 },
                 {
                   "stage": 4,
-                  "multiplier": 0.6,
+                  "multiplier": 0.7,
                   "statusEffects": [
                     {
                       "type": "slow",
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.15,
+                      "value": -0.2,
                       "durationTurns": 2
                     }
                   ]
@@ -1045,7 +1121,7 @@
                       "effectType": "damage_taken_modifier",
                       "durationTurns": 2,
                       "countsAsDebuff": false,
-                      "damageTakenDebuffBonus": 0.08,
+                      "damageTakenDebuffBonus": 0.12,
                       "excludedDebuffTypes": [
                         "haze_mark"
                       ]
@@ -1063,7 +1139,7 @@
                       "effectType": "damage_taken_modifier",
                       "durationTurns": 2,
                       "countsAsDebuff": false,
-                      "damageTakenDebuffBonus": 0.15,
+                      "damageTakenDebuffBonus": 0.2,
                       "excludedDebuffTypes": [
                         "haze_mark"
                       ]
@@ -1203,7 +1279,7 @@
       ],
       "skill": {
         "name": "咆哮",
-        "description": "向近身敌人发出压迫咆哮，对1个敌方单位附加嘲讽，持续1回合。嘲讽期间目标行动阶段仅能对黑阀进行普通攻击；若黑阀不在攻击范围内，目标会自动向黑阀移动，移动后仍无法攻击则结束行动。",
+        "description": "对1个敌方单位附加嘲讽，持续1回合。嘲讽期间目标只能对黑阀进行普通攻击；若攻击不到黑阀，会自动向其移动，仍无法攻击则结束行动。",
         "multiplier": 0,
         "cooldownTurns": 3,
         "range": 1,
@@ -1227,7 +1303,7 @@
       "skills": [
         {
           "name": "咆哮",
-          "description": "向近身敌人发出压迫咆哮，对1个敌方单位附加嘲讽，持续1回合。嘲讽期间目标行动阶段仅能对黑阀进行普通攻击；若黑阀不在攻击范围内，目标会自动向黑阀移动，移动后仍无法攻击则结束行动。",
+          "description": "对1个敌方单位附加嘲讽，持续1回合。嘲讽期间目标只能对黑阀进行普通攻击；若攻击不到黑阀，会自动向其移动，仍无法攻击则结束行动。",
           "multiplier": 0,
           "cooldownTurns": 3,
           "range": 1,
@@ -1266,19 +1342,19 @@
       ],
       "specialTraits": {
         "name": "叹息壁垒",
-        "summary": "史诗品质承伤型守备者成长路线，围绕受击叠防、近身嘲讽、损血支援与终极团队减伤构建前排压力核心。",
+        "summary": "承伤支援型史诗守备者。越挨打越硬，还能用嘲讽和团队回血替队友分压。",
         "traits": [
           {
             "name": "铜墙铁壁",
-            "description": "黑阀的核心被动，于3星解锁。每次受到来自敌方单位的大于0伤害时，按基础防御叠加防御提升并刷新持续回合。"
+            "description": "核心承伤被动。每次受到有效伤害都会叠防，让黑阀越顶越硬。"
           },
           {
             "name": "咆哮",
-            "description": "黑阀的主动控制特技，于6星解锁。对近身敌人施加嘲讽，迫使其优先普通攻击黑阀，够不到时自动向黑阀移动。"
+            "description": "主动控制特技。把近身敌人强行拉到自己面前，替队友分担压力。"
           },
           {
             "name": "以战养战",
-            "description": "黑阀的团队支援被动，于15星解锁。自身累计承伤达到阈值时，治疗附近随机友方单位，16星后同时提供短时减伤。"
+            "description": "团队支援被动。自身累计损血达到阈值时，会治疗附近队友；16星后还能额外补减伤。"
           }
         ],
         "track": [
@@ -1288,13 +1364,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁被动“铜墙铁壁”：每次受到来自敌方单位的大于0伤害时，获得1层基础防御+5%，持续2回合，最多10层；每次受到伤害会刷新全部层数持续时间。"
+            "description": "解锁被动“铜墙铁壁”：每次受到大于0的敌方伤害时，获得1层基础防御+5%，持续2回合，最多10层；重复受击会刷新持续时间。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "“铜墙铁壁”每层额外提供0.5%伤害减免，持续2回合，最多10层；每次受到伤害会刷新全部层数持续时间。"
+            "description": "“铜墙铁壁”每层额外提供1%减伤，持续2回合，最多10层；重复受击会刷新持续时间。"
           },
           {
             "stage": 6,
@@ -1302,13 +1378,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁主动特技“咆哮”：对1格范围内1个敌方单位附加嘲讽，持续1回合；冷却3回合；消耗4%当前生命值。"
+            "description": "解锁“咆哮”：对1格内1个敌方单位附加嘲讽，持续1回合；冷却3回合；消耗4%当前生命值。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "“咆哮”的嘲讽持续时间提升至2回合，消耗提升至5%当前生命值。"
+            "description": "“咆哮”嘲讽持续时间提升至2回合，生命消耗提升至5%当前生命值。"
           },
           {
             "stage": 15,
@@ -1316,13 +1392,13 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁被动“以战养战”：黑阀每累计减少10%最大生命值，令1格范围内随机2名友方单位恢复其已损失生命值的5%，不包含自身；每次受到伤害最多触发3次。"
+            "description": "解锁被动“以战养战”：每累计损失10%最大生命时，使1格内随机2名友方单位各恢复5%已损失生命；不包含自身；每次受到伤害最多触发3次。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“以战养战”在为友方单位恢复生命值的同时，额外使目标获得5%伤害减免，持续2回合。普通攻击命中后仍有8%概率恢复自身5%已损失生命值。"
+            "description": "“以战养战”治疗友方时，额外赋予其5%减伤，持续2回合；普通攻击命中后还有8%概率回复自身5%已损失生命值。"
           }
         ],
         "battleGrowth": {
@@ -1358,7 +1434,7 @@
                       "effectType": "stat_modifier",
                       "modifierType": "percent",
                       "value": 0.05,
-                      "damageReduction": 0.005,
+                      "damageReduction": 0.01,
                       "durationTurns": 2,
                       "stackMode": "stack",
                       "maxStacks": 10,
@@ -1474,10 +1550,11 @@
       },
       "skill": {
         "name": "拔刀斩",
-        "description": "对以自身为中心1格范围内的两名敌方单位各造成100%攻击力伤害，不计算暴击。",
+        "description": "对自身周围1格内的两名敌方单位各造成100%攻击伤害；不计算暴击。",
         "multiplier": 1,
         "cooldownTurns": 3,
         "range": 1,
+        "rangeMetric": "chebyshev",
         "targetType": "enemy",
         "targetCount": 2,
         "hpCostPercent": 4,
@@ -1489,10 +1566,11 @@
       "skills": [
         {
           "name": "拔刀斩",
-          "description": "对以自身为中心1格范围内的两名敌方单位各造成100%攻击力伤害，不计算暴击。",
+          "description": "对自身周围1格内的两名敌方单位各造成100%攻击伤害；不计算暴击。",
           "multiplier": 1,
           "cooldownTurns": 3,
           "range": 1,
+          "rangeMetric": "chebyshev",
           "targetType": "enemy",
           "targetCount": 2,
           "hpCostPercent": 4,
@@ -1526,19 +1604,19 @@
       ],
       "specialTraits": {
         "name": "夜刃三式",
-        "summary": "重做后的夜刃以位移追击、近身双斩与击杀连锁为核心，通过不断收头滚起个人与团队的战斗节奏。",
+        "summary": "位移收割型史诗破袭者。靠移动追击、近身双斩和击杀连锁不断滚起节奏。",
         "traits": [
           {
             "name": "闪击之刃",
-            "description": "夜刃的核心位移特技，在夜刃的行动阶段内，每次位移结束后都会对攻击范围内随机一名敌人发动一次不计算暴击的追击；只有成功对有效目标造成实际伤害后才会消耗生命。"
+            "description": "核心追击被动。夜刃在自己回合里每次移动后，都会顺手追斩附近目标。"
           },
           {
             "name": "拔刀斩",
-            "description": "夜刃的主动双目标斩击特技，于6星解锁，围绕近身爆发与破防追击构建稳定输出节奏。"
+            "description": "近身爆发特技。一次压两名敌人，适合贴脸补刀或破阵。"
           },
           {
             "name": "极诣剑心",
-            "description": "夜刃的击杀连锁被动，于15星解锁；击杀敌人后回复自身生命并立即追击攻击范围内随机目标，若继续击杀则再次触发，但每次连锁伤害系数降低35%，最低降至30%。16星后，击杀时还会为所有队友提供可叠加至3层的攻击增益。"
+            "description": "击杀连锁被动。收掉目标后会立刻追击下一人，16星时还能顺带给全队抬攻击。"
           }
         ],
         "track": [
@@ -1548,7 +1626,7 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“闪击之刃”：在夜刃行动阶段内，每次位移结束后，对攻击范围内随机一名敌方单位造成70%当前攻击力的伤害；只有成功造成实际伤害后才消耗1%当前生命值；不计算暴击。"
+            "description": "解锁“闪击之刃”：在夜刃自身行动阶段内，每次位移结束后，对攻击范围内随机1名敌方单位造成70%当前攻击力伤害；只有实际造成伤害时才消耗1%当前生命值；不计算暴击。"
           },
           {
             "stage": 4,
@@ -1562,13 +1640,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁“拔刀斩”：对以自身为中心1格范围内的两名敌方单位各造成100%当前攻击力伤害；冷却3回合；消耗4%当前生命值；不计算暴击。"
+            "description": "解锁“拔刀斩”：对自身周围1格内的两名敌方单位各造成100%当前攻击力伤害；冷却3回合；消耗4%当前生命值；不计算暴击。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "“拔刀斩”伤害提升至120%当前攻击力，且使用“拔刀斩”攻击敌人时无视敌方单位10%的防御。"
+            "description": "“拔刀斩”伤害提升至120%当前攻击力，并额外无视10%防御。"
           },
           {
             "stage": 15,
@@ -1576,13 +1654,13 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁“极诣剑心”：击杀敌方单位时，回复自身已损失生命值的5%，并立即对攻击范围内随机一名敌人造成150%当前攻击力伤害；若继续击杀则连锁触发，每次后续伤害系数降低35%，最低为30%。"
+            "description": "解锁“极诣剑心”：击杀敌方单位时，回复自身5%已损失生命，并立即对攻击范围内随机1名敌人造成150%当前攻击力伤害；若继续击杀则连锁触发，每次后续伤害系数降低35%，最低为30%。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“极诣剑心”额外获得团队增益：每次击杀敌方单位时，在原有效果基础上额外使所有队友（包括自身）获得10%攻击力提升，持续3回合，可叠加，最多3层。"
+            "description": "“极诣剑心”在触发时，额外使所有队友获得10%攻击提升，持续3回合；可叠加，最多3层。"
           }
         ],
         "battleGrowth": {
@@ -1594,6 +1672,7 @@
                   "stage": 6,
                   "multiplier": 1,
                   "range": 1,
+                  "rangeMetric": "chebyshev",
                   "targetCount": 2,
                   "hpCostPercent": 4,
                   "hpCostBase": "current",
@@ -1688,7 +1767,7 @@
       },
       "skill": {
         "name": "破伤之刃",
-        "description": "贴身挥出带伤铁刃，对单体敌人造成150%攻击伤害，不计算暴击。",
+        "description": "对1名敌方单位造成150%攻击伤害，不计算暴击。",
         "multiplier": 1.5,
         "cooldownTurns": 2,
         "range": 1,
@@ -1701,7 +1780,7 @@
       "skills": [
         {
           "name": "破伤之刃",
-          "description": "贴身挥出带伤铁刃，对单体敌人造成150%攻击伤害，不计算暴击。",
+          "description": "对1名敌方单位造成150%攻击伤害，不计算暴击。",
           "multiplier": 1.5,
           "cooldownTurns": 2,
           "range": 1,
@@ -1714,11 +1793,11 @@
       ],
       "specialTraits": {
         "name": "破伤之刃",
-        "summary": "普通品质单特技成长路线，围绕近身爆发、范围延展与终局双目标斩击展开。",
+        "summary": "近身爆发型普通破袭者。成长方向简单直接，靠高倍率斩击逐步扩大打击范围和目标数。",
         "traits": [
           {
             "name": "破伤之刃",
-            "description": "断钉的核心特技，默认不计算暴击，随升星逐步强化伤害、作用范围与打击目标数。"
+            "description": "核心输出特技。随升星逐步提高伤害、作用范围和最终的双目标斩击能力。"
           }
         ],
         "track": [
@@ -1728,7 +1807,7 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“破伤之刃”：对1个敌方单位造成150%攻击伤害，范围1，冷却2回合，消耗2%当前生命值，不计算暴击。"
+            "description": "解锁“破伤之刃”：对1个敌方单位造成150%攻击伤害；范围1格；冷却2回合；消耗2%当前生命值；不计算暴击。"
           },
           {
             "stage": 2,
@@ -1746,7 +1825,7 @@
             "stage": 6,
             "kind": "boost",
             "label": "第四强化",
-            "description": "“破伤之刃”可使用范围提升至2格，生命消耗提升至3%。"
+            "description": "“破伤之刃”施放范围提升至2格，生命消耗提升至3%当前生命值。"
           },
           {
             "stage": 11,
@@ -1758,13 +1837,13 @@
             "stage": 15,
             "kind": "boost",
             "label": "第六强化",
-            "description": "“破伤之刃”现在可以暴击，生命消耗提升至4%。"
+            "description": "“破伤之刃”现在可以暴击，生命消耗提升至4%当前生命值。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "攻击距离提升至2；若范围内有至少2个敌人则必须选择2个不同目标施放“破伤之刃”，若仅有1个敌人则可只选择该目标；生命消耗提升至5%。"
+            "description": "攻击距离提升至2格；若范围内至少有2个敌人，施放“破伤之刃”时必须选择2个不同目标；若只有1个敌人，则仍可只选该目标；生命消耗提升至5%当前生命值。"
           }
         ],
         "battleGrowth": {
@@ -1842,8 +1921,8 @@
       },
       "skill": {
         "name": "灵魂撕裂",
-        "description": "撕扯目标灵魂，对1个敌方单位造成40%攻击伤害，并减少目标10%速度1个回合，不计算暴击。",
-        "multiplier": 0.4,
+        "description": "对1个敌方单位造成55%攻击伤害，并降低其10%速度，持续1回合；不计算暴击。",
+        "multiplier": 0.55,
         "cooldownTurns": 2,
         "range": 2,
         "targetType": "enemy",
@@ -1866,8 +1945,8 @@
       "skills": [
         {
           "name": "灵魂撕裂",
-          "description": "撕扯目标灵魂，对1个敌方单位造成40%攻击伤害，并减少目标10%速度1个回合，不计算暴击。",
-          "multiplier": 0.4,
+          "description": "对1个敌方单位造成55%攻击伤害，并降低其10%速度，持续1回合；不计算暴击。",
+          "multiplier": 0.55,
           "cooldownTurns": 2,
           "range": 2,
           "targetType": "enemy",
@@ -1890,11 +1969,11 @@
       ],
       "specialTraits": {
         "name": "灵魂撕裂",
-        "summary": "普通品质单特技成长路线，围绕远程削速与双目标灵魂撕裂逐步展开。",
+        "summary": "远程减速型普通灵能者。用低消耗单体压制拖慢敌人节奏，后期还能同时压制两个目标。",
         "traits": [
           {
             "name": "灵魂撕裂",
-            "description": "心渊的核心特技，默认不计算暴击，随升星逐步强化伤害、减速幅度、持续回合与作用目标数。"
+            "description": "核心压制特技。随升星逐步强化伤害、减速幅度、持续时间和最终的双目标能力。"
           }
         ],
         "track": [
@@ -1904,43 +1983,43 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“灵魂撕裂”：对目标单位造成40%攻击伤害，并减少目标10%速度1个回合；范围2格；冷却2回合；消耗2%当前生命值；不计算暴击。"
+            "description": "解锁“灵魂撕裂”：对1个敌方单位造成55%攻击伤害，并降低其10%速度，持续1回合；范围2格；冷却2回合；消耗2%当前生命值；不计算暴击。"
           },
           {
             "stage": 2,
             "kind": "boost",
             "label": "第二强化",
-            "description": "“灵魂撕裂”减速效果提升至15%，持续1回合。"
+            "description": "“灵魂撕裂”减速提升至15%，持续1回合。"
           },
           {
             "stage": 3,
             "kind": "boost",
             "label": "第三强化",
-            "description": "“灵魂撕裂”伤害提升至50%攻击力，减速效果保持15%。"
+            "description": "“灵魂撕裂”伤害提升至70%攻击力，减速保持15%。"
           },
           {
             "stage": 6,
             "kind": "boost",
             "label": "第四强化",
-            "description": "“灵魂撕裂”可使用范围提升至3格，消耗提升至3%当前生命值。"
+            "description": "“灵魂撕裂”施放范围提升至3格，生命消耗提升至3%当前生命值。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第五强化",
-            "description": "“灵魂撕裂”减速效果提升至20%，持续1回合。"
+            "description": "“灵魂撕裂”减速提升至25%，持续1回合。"
           },
           {
             "stage": 15,
             "kind": "boost",
             "label": "第六强化",
-            "description": "“灵魂撕裂”减速效果提升至20%，持续2回合，消耗提升至4%当前生命值。"
+            "description": "“灵魂撕裂”减速提升至25%，持续时间延长至2回合，生命消耗提升至4%当前生命值。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“灵魂撕裂”现在可以选择2个敌方目标，消耗提升至5%当前生命值。"
+            "description": "“灵魂撕裂”现在可以选择2个敌方目标，生命消耗提升至5%当前生命值。"
           }
         ],
         "battleGrowth": {
@@ -1950,7 +2029,7 @@
               "stages": [
                 {
                   "stage": 1,
-                  "multiplier": 0.4,
+                  "multiplier": 0.55,
                   "range": 2,
                   "targetCount": 1,
                   "hpCostPercent": 2,
@@ -1982,7 +2061,7 @@
                 },
                 {
                   "stage": 3,
-                  "multiplier": 0.5,
+                  "multiplier": 0.7,
                   "statusEffects": [
                     {
                       "type": "slow",
@@ -2007,7 +2086,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.2,
+                      "value": -0.25,
                       "durationTurns": 1
                     }
                   ]
@@ -2021,7 +2100,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.2,
+                      "value": -0.25,
                       "durationTurns": 2
                     }
                   ]
@@ -2058,8 +2137,56 @@
         "attackRange": 1,
         "moveRange": 2
       },
-      "skill": null,
-      "skills": [],
+      "skill": {
+        "name": "固守",
+        "description": "使自身获得15%减伤，持续1回合。",
+        "multiplier": 0,
+        "cooldownTurns": 3,
+        "range": 0,
+        "targetType": "self",
+        "targetCount": 1,
+        "hpCostPercent": 0,
+        "hpCostBase": "current",
+        "effectType": "utility",
+        "canCrit": false,
+        "statusEffects": [
+          {
+            "type": "stonewall_guard",
+            "name": "固守",
+            "effectType": "battle_modifier",
+            "damageReduction": 0.15,
+            "durationTurns": 1,
+            "countsAsDebuff": false,
+            "stackMode": "replace"
+          }
+        ]
+      },
+      "skills": [
+        {
+          "name": "固守",
+          "description": "使自身获得15%减伤，持续1回合。",
+          "multiplier": 0,
+          "cooldownTurns": 3,
+          "range": 0,
+          "targetType": "self",
+          "targetCount": 1,
+          "hpCostPercent": 0,
+          "hpCostBase": "current",
+          "effectType": "utility",
+          "canCrit": false,
+          "statusEffects": [
+            {
+              "type": "stonewall_guard",
+              "name": "固守",
+              "effectType": "battle_modifier",
+              "damageReduction": 0.15,
+              "durationTurns": 1,
+              "countsAsDebuff": false,
+              "stackMode": "replace"
+            }
+          ]
+        }
+      ],
       "reactiveEffects": [
         {
           "name": "扼守",
@@ -2072,19 +2199,23 @@
               "name": "减速",
               "stat": "speed",
               "modifierType": "percent",
-              "value": -0.05,
+              "value": -0.08,
               "durationTurns": 1
             }
           ]
         }
       ],
       "specialTraits": {
-        "name": "扼守",
-        "summary": "普通品质反制型守备者成长路线，围绕承伤后反向压慢攻击者的行动节奏逐步强化。",
+        "name": "固守与扼守",
+        "summary": "反制型普通守备者。靠短时减伤稳住前排，并在受击后拖慢敌方进攻节奏。",
         "traits": [
           {
+            "name": "固守",
+            "description": "主动防守特技。在关键回合顶住火力，是石墙最稳定的自保手段。"
+          },
+          {
             "name": "扼守",
-            "description": "石墙的核心被动，只有在自身受到大于0的有效伤害后才会触发，使伤害来源陷入减速。该效果不可叠加，重复触发时仅刷新持续回合。"
+            "description": "受击反制被动。只有在受到有效伤害后才会触发，使攻击者减速。"
           }
         ],
         "track": [
@@ -2093,59 +2224,108 @@
             "kind": "unlock",
             "slot": 1,
             "unlocksSlot": true,
-            "label": "解锁核心特技",
-            "description": "解锁“扼守”：受到有效伤害时，使伤害来源速度降低5%，持续1回合；被闪避或最终伤害不大于0时不触发。"
+            "label": "解锁主动特技",
+            "description": "解锁“固守”：使自身获得15%减伤，持续1回合；范围0；冷却3回合。"
           },
           {
             "stage": 2,
             "kind": "boost",
             "label": "第二强化",
-            "description": "“扼守”减速效果提升至7%，持续1回合。"
+            "description": "解锁“扼守”：受到大于0的有效伤害后，使伤害来源速度降低10%，持续1回合。"
           },
           {
             "stage": 3,
             "kind": "boost",
             "label": "第三强化",
-            "description": "“扼守”减速效果提升至9%，持续1回合。"
+            "description": "“扼守”减速提升至12%，持续1回合。"
           },
           {
             "stage": 6,
             "kind": "boost",
             "label": "第四强化",
-            "description": "基础速度额外提高2点。"
+            "description": "“固守”减伤提升至20%。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第五强化",
-            "description": "“扼守”减速效果提升至11%，持续1回合。"
+            "description": "“扼守”减速提升至15%，持续1回合。"
           },
           {
             "stage": 15,
             "kind": "boost",
             "label": "第六强化",
-            "description": "“扼守”减速效果提升至15%，持续1回合。"
+            "description": "“扼守”减速提升至18%，持续1回合。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "基础防御额外提高2点；“扼守”减速效果保持15%，持续提升至2回合。"
+            "description": "基础防御额外提高2点；“固守”减伤提升至25%；“扼守”减速保持18%，持续时间延长至2回合。"
           }
         ],
         "battleGrowth": {
           "statStages": [
             {
-              "stage": 6,
-              "stats": {
-                "speed": 2
-              }
-            },
-            {
               "stage": 16,
               "stats": {
                 "defense": 2
               }
+            }
+          ],
+          "skills": [
+            {
+              "index": 0,
+              "stages": [
+                {
+                  "stage": 1,
+                  "multiplier": 0,
+                  "range": 0,
+                  "targetCount": 1,
+                  "hpCostPercent": 0,
+                  "hpCostBase": "current",
+                  "canCrit": false,
+                  "statusEffects": [
+                    {
+                      "type": "stonewall_guard",
+                      "name": "固守",
+                      "effectType": "battle_modifier",
+                      "damageReduction": 0.15,
+                      "durationTurns": 1,
+                      "countsAsDebuff": false,
+                      "stackMode": "replace"
+                    }
+                  ]
+                },
+                {
+                  "stage": 6,
+                  "statusEffects": [
+                    {
+                      "type": "stonewall_guard",
+                      "name": "固守",
+                      "effectType": "battle_modifier",
+                      "damageReduction": 0.2,
+                      "durationTurns": 1,
+                      "countsAsDebuff": false,
+                      "stackMode": "replace"
+                    }
+                  ]
+                },
+                {
+                  "stage": 16,
+                  "statusEffects": [
+                    {
+                      "type": "stonewall_guard",
+                      "name": "固守",
+                      "effectType": "battle_modifier",
+                      "damageReduction": 0.25,
+                      "durationTurns": 1,
+                      "countsAsDebuff": false,
+                      "stackMode": "replace"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "reactiveEffects": [
@@ -2160,7 +2340,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.05,
+                      "value": -0.08,
                       "durationTurns": 1
                     }
                   ]
@@ -2173,7 +2353,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.07,
+                      "value": -0.1,
                       "durationTurns": 1
                     }
                   ]
@@ -2186,7 +2366,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.09,
+                      "value": -0.12,
                       "durationTurns": 1
                     }
                   ]
@@ -2199,7 +2379,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.11,
+                      "value": -0.15,
                       "durationTurns": 1
                     }
                   ]
@@ -2212,7 +2392,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.15,
+                      "value": -0.18,
                       "durationTurns": 1
                     }
                   ]
@@ -2225,7 +2405,7 @@
                       "name": "减速",
                       "stat": "speed",
                       "modifierType": "percent",
-                      "value": -0.15,
+                      "value": -0.18,
                       "durationTurns": 2
                     }
                   ]
@@ -2260,7 +2440,7 @@
       },
       "skill": {
         "name": "砾心相授",
-        "description": "消耗当前生命值，为范围内1个友方单位恢复莹尘当前攻击力100%的生命值。该消耗不会使莹尘死亡。",
+        "description": "消耗当前生命值，为1个友方单位恢复等同于自身当前攻击力100%的生命。该消耗不会使莹尘死亡。",
         "multiplier": 1,
         "cooldownTurns": 1,
         "range": 2,
@@ -2275,7 +2455,7 @@
       "skills": [
         {
           "name": "砾心相授",
-          "description": "消耗当前生命值，为范围内1个友方单位恢复莹尘当前攻击力100%的生命值。该消耗不会使莹尘死亡。",
+          "description": "消耗当前生命值，为1个友方单位恢复等同于自身当前攻击力100%的生命。该消耗不会使莹尘死亡。",
           "multiplier": 1,
           "cooldownTurns": 1,
           "range": 2,
@@ -2290,11 +2470,11 @@
       ],
       "specialTraits": {
         "name": "砾心相授",
-        "summary": "普通品质单体治疗辅助成长路线，围绕消耗自身当前生命为友方提供稳定治疗，并在终极强化后附加短期续愈。",
+        "summary": "自损治疗型普通灵能者。用自身生命换稳定单体治疗，后期还能补上短时续愈。",
         "traits": [
           {
             "name": "砾心相授",
-            "description": "莹尘的核心特技，治疗量按战斗中的当前攻击力结算，包含装备、训练场与临时增减益等全部当前修正。生命消耗不会使莹尘死亡。"
+            "description": "核心治疗特技。治疗量随当前攻击力变化，适合持续保住前排或核心输出。"
           }
         ],
         "track": [
@@ -2304,13 +2484,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁“砾心相授”：以自身为中心2格内选择1个友方单位，恢复莹尘当前攻击力100%的生命值；冷却1回合；消耗10%当前生命值，且不会使莹尘死亡。"
+            "description": "解锁“砾心相授”：以自身为中心2格内选择1个友方单位，恢复等同于莹尘当前攻击力100%的生命；冷却1回合；消耗10%当前生命值，且不会使莹尘死亡。"
           },
           {
             "stage": 2,
             "kind": "boost",
             "label": "第二强化",
-            "description": "“砾心相授”治疗量提升至莹尘当前攻击力120%，生命消耗提升至11%当前生命值。"
+            "description": "“砾心相授”治疗量提升至当前攻击力120%，生命消耗提升至11%当前生命值。"
           },
           {
             "stage": 3,
@@ -2322,25 +2502,25 @@
             "stage": 6,
             "kind": "boost",
             "label": "第四强化",
-            "description": "“砾心相授”治疗量提升至莹尘当前攻击力150%，生命消耗提升至13%当前生命值。"
+            "description": "“砾心相授”治疗量提升至当前攻击力150%，生命消耗提升至13%当前生命值。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第五强化",
-            "description": "“砾心相授”治疗量提升至莹尘当前攻击力180%，生命消耗提升至15%当前生命值。"
+            "description": "“砾心相授”治疗量提升至当前攻击力180%，生命消耗提升至15%当前生命值。"
           },
           {
             "stage": 15,
             "kind": "boost",
             "label": "第六强化",
-            "description": "“砾心相授”治疗量提升至莹尘当前攻击力200%，生命消耗保持15%当前生命值。"
+            "description": "“砾心相授”治疗量提升至当前攻击力200%，生命消耗保持15%当前生命值。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "“砾心相授”治疗量保持莹尘当前攻击力200%，生命消耗提升至20%当前生命值；施放后目标单位和莹尘自身在之后2次自身回合开始时，各恢复当前已损失生命值的10%。"
+            "description": "“砾心相授”治疗量保持当前攻击力200%，生命消耗提升至20%当前生命值；施放后，目标和莹尘自身在之后2次自身回合开始时，各恢复10%已损失生命。"
           }
         ],
         "battleGrowth": {
@@ -2430,7 +2610,7 @@
       },
       "skill": {
         "name": "绝境刃闪",
-        "description": "以自身为中心，对2格内全部敌方单位造成130%攻击伤害，不计算暴击。若施放时生命值低于20%，范围扩大至3格，伤害提升至150%，且每命中1个敌方单位额外恢复自身当前已损失生命值的5%。",
+        "description": "对自身周围2格内全部敌人造成130%攻击伤害，不计算暴击。若施放时生命低于20%，范围扩大至3格，伤害提升至150%，且每命中1个目标回复5%已损失生命。",
         "multiplier": 1.3,
         "cooldownTurns": 3,
         "range": 2,
@@ -2452,7 +2632,7 @@
       "skills": [
         {
           "name": "绝境刃闪",
-          "description": "以自身为中心，对2格内全部敌方单位造成130%攻击伤害，不计算暴击。若施放时生命值低于20%，范围扩大至3格，伤害提升至150%，且每命中1个敌方单位额外恢复自身当前已损失生命值的5%。",
+          "description": "对自身周围2格内全部敌人造成130%攻击伤害，不计算暴击。若施放时生命低于20%，范围扩大至3格，伤害提升至150%，且每命中1个目标回复5%已损失生命。",
           "multiplier": 1.3,
           "cooldownTurns": 3,
           "range": 2,
@@ -2515,23 +2695,23 @@
       ],
       "specialTraits": {
         "name": "绝境四式",
-        "summary": "围绕残血增伤、持续燃命、范围爆发与一次锁血反打构建的传奇破袭者成长路线。",
+        "summary": "残血爆发型传说破袭者。主动压血后能换来更高输出、范围斩杀和一次锁血反打。",
         "traits": [
           {
             "name": "绝境本能",
-            "description": "根据当前生命值比例持续提升攻击与暴击；当生命值低于30%时进入绝境状态，攻击额外无视目标30%防御，并在击杀后回复自身8%最大生命值。"
+            "description": "核心被动。生命越低，攻击和暴击越高；进入绝境后还会额外破防并在击杀时回血。"
           },
           {
             "name": "刃嗜",
-            "description": "回合开始时自动损失最大生命值，用于主动压低血线，以更快进入绝境本能的高收益区间。"
+            "description": "压血被动。每回合自动损失生命，加快进入绝境状态。"
           },
           {
             "name": "绝境刃闪",
-            "description": "自我施放的范围爆发特技，低血量时会扩展范围并附带命中回血效果。"
+            "description": "残血爆发技。低血量施放时范围更大、伤害更高，还能边打边回血。"
           },
           {
             "name": "不屈之刃",
-            "description": "每场战斗仅一次的锁血与反打机制，触发后下回合优先回血，并为全队提供战斗内减伤。"
+            "description": "每场一次的锁血反打。濒死时保留1点生命，下回合优先回血，并顺带保护全队。"
           }
         ],
         "track": [
@@ -2541,13 +2721,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁核心特技",
-            "description": "解锁被动“绝境本能”：根据已损失生命值比例提升攻击与暴击；生命值低于30%时，攻击额外无视目标30%防御，并在击杀后回复自身8%最大生命值。"
+            "description": "解锁被动“绝境本能”：根据已损失生命比例提升攻击和暴击；生命低于30%时，攻击额外无视目标30%防御，击杀后回复8%最大生命。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "“绝境本能”的增益成长由每损失5%生命结算一次，强化为每损失3%生命结算一次。"
+            "description": "“绝境本能”的成长频率由每损失5%生命结算一次，提升为每损失3%生命结算一次。"
           },
           {
             "stage": 6,
@@ -2569,7 +2749,7 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁“绝境刃闪”：以自身为中心，对2格内全部敌方单位造成130%攻击伤害；若施放时生命值低于20%，则范围扩大至3格，伤害提升至150%，且每命中1个敌方单位额外恢复自身当前已损失生命值的5%。"
+            "description": "解锁“绝境刃闪”：对自身周围2格内全部敌人造成130%攻击伤害；若施放时生命低于20%，范围扩大至3格，伤害提升至150%，且每命中1个目标回复5%已损失生命。"
           },
           {
             "stage": 16,
@@ -2577,7 +2757,7 @@
             "slot": 4,
             "unlocksSlot": true,
             "label": "终极强化",
-            "description": "解锁“不屈之刃”：受到致命伤害时生命锁定为1，并在下回合开始时优先恢复30%生命；同时为所有队友提供10%减伤直到战斗结束，并重置“绝境刃闪”的冷却。此效果每场战斗仅触发一次。"
+            "description": "解锁“不屈之刃”：受到致命伤害时生命锁定为1，并在下回合开始时优先恢复30%生命；同时为所有队友及自身提供10%减伤直到战斗结束，并重置“绝境刃闪”的冷却。此效果每场战斗仅触发一次。"
           }
         ],
         "battleGrowth": {
@@ -2671,12 +2851,14 @@
       },
       "skill": {
         "name": "穿甲弹",
-        "description": "对攻击范围内任意一名敌人造成130%攻击力伤害，无视目标25%防御，命中后附加1层破甲标记",
+        "description": "对射程内1名敌方单位造成130%攻击伤害，无视25%防御，并附加1层破甲标记；消耗3%当前生命值。",
         "multiplier": 1.3,
         "cooldownTurns": 3,
         "range": 4,
         "targetType": "enemy",
         "targetCount": 1,
+        "hpCostPercent": 3,
+        "hpCostBase": "current",
         "effectType": "damage",
         "canCrit": true,
         "unlockStage": 6
@@ -2684,15 +2866,30 @@
       "skills": [
         {
           "name": "穿甲弹",
-          "description": "对攻击范围内任意一名敌人造成130%攻击力伤害，无视目标25%防御，命中后附加1层破甲标记",
+          "description": "对射程内1名敌方单位造成130%攻击伤害，无视25%防御，并附加1层破甲标记；消耗3%当前生命值。",
           "multiplier": 1.3,
           "cooldownTurns": 3,
           "range": 4,
           "targetType": "enemy",
           "targetCount": 1,
+          "hpCostPercent": 3,
+          "hpCostBase": "current",
           "effectType": "damage",
           "canCrit": true,
-          "unlockStage": 6
+          "unlockStage": 6,
+          "statusEffects": [
+            {
+              "type": "break_armor",
+              "name": "破甲标记",
+              "effectType": "damage_taken_modifier",
+              "durationTurns": 3,
+              "damageTakenDebuffBonus": 0.08,
+              "countsAsDebuff": true,
+              "stackMode": "stack",
+              "maxStacks": 3,
+              "refreshAllStacksOnApply": true
+            }
+          ]
         }
       ],
       "basicAttackEffects": [
@@ -2702,8 +2899,8 @@
           "unlockStage": 3,
           "chance": 1,
           "damageBonus": 0.15,
-          "damageBonusType": "stationary",
-          "conditionMovesNotMadeThisTurn": true,
+          "damageBonusType": "focused_stationary",
+          "requiredIdleTurns": 2,
           "extraCritChance": 10
         }
       ],
@@ -2719,19 +2916,19 @@
       ],
       "specialTraits": {
         "name": "寒夜三息",
-        "summary": "寒鸦以远程狙击和破甲标记叠加为核心，站桩输出伤害可翻倍，击杀获得额外行动发起追击。",
+        "summary": "远程狙击型破袭者。靠站桩增伤和破甲标记逐步抬高单点击杀能力，击杀后还能继续追击。",
         "traits": [
           {
             "name": "冷凝瞄准",
-            "description": "寒鸦本回合未移动时普攻附加15%攻击额外伤且暴击率+10%"
+            "description": "站桩输出被动。本回合未移动时，普攻会额外增伤并提高暴击率。"
           },
           {
             "name": "穿甲弹",
-            "description": "对远程单体造成130%伤并附加破甲标记(最多5层每层受伤+8%)"
+            "description": "单体破甲特技。造成高额远程伤害并叠加破甲标记，为后续点杀做准备。"
           },
           {
             "name": "死亡定理",
-            "description": "击杀带破甲标记的敌人获得1次额外行动(每回合最多2次),16星后该行动必暴击"
+            "description": "追击被动。击杀带破甲标记的敌人后可获得额外行动，16星时该次行动必定暴击。"
           }
         ],
         "track": [
@@ -2741,13 +2938,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁第一特技",
-            "description": "解锁冷凝瞄准：未移动时普攻附加15%攻击力额外伤害，暴击率额外+10%"
+            "description": "解锁“冷凝瞄准”：本回合未移动时，普攻额外造成15%攻击伤害，并额外获得10%暴击率。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "冷凝瞄准额外伤害提升至25%，暴击率额外+15%"
+            "description": "“冷凝瞄准”额外伤害提升至25%，额外暴击率提升至15%。"
           },
           {
             "stage": 6,
@@ -2755,13 +2952,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁穿甲弹：对攻击范围内一名敌人造成130%攻击力伤害，无视25%防御，附加1层破甲标记(最多3层，每层受伤+8%，持续到战斗结束)"
+            "description": "解锁“穿甲弹”：对射程内1名敌方单位造成130%攻击伤害，无视25%防御，并附加1层破甲标记；破甲最多叠3层，每层使目标额外承受8%伤害；消耗3%当前生命值。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "穿甲弹伤害提升至160%，破甲标记上限提升至5层"
+            "description": "“穿甲弹”伤害提升至160%，破甲标记上限提升至5层。"
           },
           {
             "stage": 15,
@@ -2769,7 +2966,7 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁死亡定理：击杀带破甲标记的敌人获得1次额外行动(每回合最多2次)"
+            "description": "解锁“死亡定理”：击杀带破甲标记的敌人后，获得1次额外行动；每回合最多触发2次。"
           },
           {
             "stage": 16,
@@ -2777,7 +2974,7 @@
             "slot": 4,
             "unlocksSlot": true,
             "label": "终极强化",
-            "description": "死亡定理触发额外行动时该次行动必定暴击"
+            "description": "“死亡定理”触发的额外行动必定暴击。"
           }
         ],
         "battleGrowth": {
@@ -2790,6 +2987,8 @@
                   "multiplier": 1.3,
                   "range": 4,
                   "targetCount": 1,
+                  "hpCostPercent": 3,
+                  "hpCostBase": "current",
                   "cooldownTurns": 3,
                   "canCrit": true,
                   "defensePenBonus": 25,
@@ -2797,7 +2996,20 @@
                 },
                 {
                   "stage": 11,
-                  "multiplier": 1.6
+                  "multiplier": 1.6,
+                  "statusEffects": [
+                    {
+                      "type": "break_armor",
+                      "name": "破甲标记",
+                      "effectType": "damage_taken_modifier",
+                      "durationTurns": 3,
+                      "damageTakenDebuffBonus": 0.08,
+                      "countsAsDebuff": true,
+                      "stackMode": "stack",
+                      "maxStacks": 5,
+                      "refreshAllStacksOnApply": true
+                    }
+                  ]
                 }
               ]
             }
@@ -2812,7 +3024,8 @@
                 },
                 {
                   "stage": 4,
-                  "damageBonus": 0.25
+                  "damageBonus": 0.25,
+                  "extraCritChance": 15
                 }
               ]
             }
@@ -2861,12 +3074,14 @@
       },
       "skill": {
         "name": "晨曦祝祷",
-        "description": "对全体队友回复10%最大生命并随机清除1个负面状态，赋予加速效果持续2回合",
+        "description": "为全体队友回复10%最大生命，随机清除1个负面状态，并附加2回合加速；消耗6%当前生命值。",
         "multiplier": 0.1,
         "cooldownTurns": 4,
         "range": 99,
         "targetType": "ally",
         "targetCount": 99,
+        "hpCostPercent": 6,
+        "hpCostBase": "current",
         "effectType": "group_heal",
         "healRatioMaxHp": 0.1,
         "cleanseCount": 1,
@@ -2888,12 +3103,14 @@
       "skills": [
         {
           "name": "晨曦祝祷",
-          "description": "对全体队友回复10%最大生命并随机清除1个负面状态，赋予加速效果持续2回合",
+          "description": "为全体队友回复10%最大生命，随机清除1个负面状态，并附加2回合加速；消耗6%当前生命值。",
           "multiplier": 0.1,
           "cooldownTurns": 4,
           "range": 99,
           "targetType": "ally",
           "targetCount": 99,
+          "hpCostPercent": 6,
+          "hpCostBase": "current",
           "effectType": "group_heal",
           "healRatioMaxHp": 0.1,
           "cleanseCount": 1,
@@ -2936,19 +3153,19 @@
       ],
       "specialTraits": {
         "name": "灯火三守",
-        "summary": "星烬以持续治疗和紧急救援为核心，每回合自动治疗残血队友，主动技能群体恢复并清除debuff，关键时刻能将队友从死亡边缘拉回。",
+        "summary": "治疗救援型史诗灵能者。既能稳定群疗和净化，也能在致命时刻把队友拉回来。",
         "traits": [
           {
             "name": "灯语",
-            "description": "每回合开始为生命百分比最低的队友回复其已损失生命的12%"
+            "description": "持续治疗被动。每回合自动照顾血量最低的队友，稳住队伍血线。"
           },
           {
             "name": "晨曦祝祷",
-            "description": "全体队友回复最大生命10%并随机清除1个负面状态+加速"
+            "description": "群体治疗特技。兼顾抬血、净化和加速，是星烬的核心救场手段。"
           },
           {
             "name": "星烬复燃",
-            "description": "队友致命伤时抵消伤害返回30%生命(每队友1次，整场战斗2次)"
+            "description": "保命被动。队友受到致命伤时会被拉回安全血线，但全场触发次数有限。"
           }
         ],
         "track": [
@@ -2958,13 +3175,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁第一特技",
-            "description": "解锁灯语：每回合开始为生命百分比最低的队友回复已损失生命的12%"
+            "description": "解锁“灯语”：每回合开始时，为生命百分比最低的队友回复12%已损失生命。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "灯语治疗量提升至18%已损失生命，若目标生命低于30%则额外赋予50点护盾"
+            "description": "“灯语”治疗提升至18%已损失生命；若目标生命低于30%，额外赋予50点护盾。"
           },
           {
             "stage": 6,
@@ -2972,13 +3189,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁晨曦祝祷：全体队友回复10%最大生命+清除1个负面状态+加速20%持续2回合，冷却4回合"
+            "description": "解锁“晨曦祝祷”：为全体队友回复10%最大生命，随机清除1个负面状态，并附加20%加速，持续2回合；冷却4回合；消耗6%当前生命值。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "晨曦祝祷治疗提升至15%最大生命，清除2个负面状态，加速延长至3回合"
+            "description": "“晨曦祝祷”治疗提升至15%最大生命，改为清除2个负面状态，加速延长至3回合；生命消耗提升至8%当前生命值。"
           },
           {
             "stage": 15,
@@ -2986,7 +3203,7 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁星烬复燃：队友受到致命伤害时抵消该伤害并将生命拉到30%（每队友每场1次，全场最多2次）"
+            "description": "解锁“星烬复燃”：队友受到致命伤害时抵消该伤害，并将生命拉回30%；每名队友每场最多触发1次，全场最多触发2次。"
           },
           {
             "stage": 16,
@@ -2994,7 +3211,7 @@
             "slot": 4,
             "unlocksSlot": true,
             "label": "终极强化",
-            "description": "星烬复燃触发后被救队友获得星烬庇护：3回合内受伤-30%并每回合回复8%最大生命"
+            "description": "“星烬复燃”触发后，被救目标获得“星烬庇护”：3回合内受到伤害降低30%，并在每回合回复8%最大生命。"
           }
         ],
         "battleGrowth": {
@@ -3009,7 +3226,8 @@
                 },
                 {
                   "stage": 4,
-                  "healMissingHpRatio": 0.18
+                  "healMissingHpRatio": 0.18,
+                  "shieldIfLowHp": 50
                 }
               ]
             },
@@ -3030,9 +3248,9 @@
                     {
                       "type": "starjin_shelter",
                       "name": "星烬庇护",
-                      "effectType": "stat_modifier",
-                      "damageReduction": 0.3,
-                      "healMissingHpRatio": 0.08,
+                      "effectType": "heal_over_time",
+                      "damageReduction": 0.2,
+                      "healRatioMaxHp": 0.08,
                       "durationTurns": 3,
                       "countsAsDebuff": false,
                       "stackMode": "replace"
@@ -3048,6 +3266,8 @@
               "stages": [
                 {
                   "stage": 6,
+                  "hpCostPercent": 6,
+                  "hpCostBase": "current",
                   "healRatioMaxHp": 0.1,
                   "cleanseCount": 1,
                   "cooldownTurns": 4,
@@ -3055,8 +3275,21 @@
                 },
                 {
                   "stage": 11,
+                  "hpCostPercent": 8,
                   "healRatioMaxHp": 0.15,
-                  "cleanseCount": 2
+                  "cleanseCount": 2,
+                  "allyStatusEffects": [
+                    {
+                      "type": "hasten",
+                      "name": "鍔犻€?",
+                      "effectType": "stat_modifier",
+                      "stat": "speed",
+                      "value": 0.2,
+                      "modifierType": "percent",
+                      "durationTurns": 3,
+                      "countsAsDebuff": false
+                    }
+                  ]
                 }
               ]
             }
@@ -3087,7 +3320,8 @@
       },
       "skill": null,
       "skills": [],
-      "reactiveEffects": [
+      "reactiveEffects": [],
+      "passiveEffects": [
         {
           "name": "荆棘甲",
           "trigger": "damaged",
@@ -3096,9 +3330,7 @@
           "reflectRatio": 0.2,
           "hpThresholdPercent": 50,
           "belowThresholdMultiplier": 2
-        }
-      ],
-      "passiveEffects": [
+        },
         {
           "name": "怒锤反击",
           "trigger": "hit",
@@ -3106,25 +3338,33 @@
           "type": "counter_attack",
           "chance": 1,
           "multiplier": 1,
-          "maxPerRound": 1,
+          "maxDamageAttackRatio": 2,
           "canCrit": true
+        },
+        {
+          "name": "不灭熔炉",
+          "trigger": "custom",
+          "unlockStage": 16,
+          "type": "reflect_lifesteal",
+          "lifestealRatio": 0.5,
+          "hpThresholdPercent": 50
         }
       ],
       "specialTraits": {
         "name": "淬钢三律",
-        "summary": "赫斯以受击反击和反弹为核心，挨打越多伤害越重，残血时反弹翻倍并吸血。",
+        "summary": "反伤反击型史诗守备者。越挨打越危险，半血后反伤、反击和续航都会明显增强。",
         "traits": [
           {
             "name": "荆棘甲",
-            "description": "受普攻伤害时反弹20%给攻击者(忽视防御不可暴击)"
+            "description": "核心反伤被动。专门惩罚近战普攻，越被打越容易把伤害反弹回去。"
           },
           {
             "name": "怒锤反击",
-            "description": "受击后若攻击者在范围内立即普攻反击(每回合1次)"
+            "description": "受击反打被动。敌人敢靠近输出，就有可能立刻吃到一次回击。"
           },
           {
             "name": "不灭熔炉",
-            "description": "生命低于50%时反弹翻倍(40%/60%)并每次反弹/反击回复造成伤害的50%生命"
+            "description": "残血强化被动。半血后反伤和反击都会变猛，16星时还能把伤害转成自愈。"
           }
         ],
         "track": [
@@ -3134,13 +3374,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁第一特技",
-            "description": "解锁荆棘甲：受到普通攻击时反弹该次伤害的20%给攻击者(无视防御不暴击)"
+            "description": "解锁“荆棘甲”：受到普通攻击时，反弹本次伤害的20%给攻击者；无视防御，且不计算暴击。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "荆棘甲反弹提升至30%，并赋予攻击者裂伤(下次受伤+10%)"
+            "description": "“荆棘甲”反弹提升至30%，并为攻击者附加“裂伤”，使其下次受到的伤害提高10%。"
           },
           {
             "stage": 6,
@@ -3148,13 +3388,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁怒锤反击：受击后攻击者在范围内时发起普攻反击(每回合1次)"
+            "description": "解锁“怒锤反击”：受击后，若攻击者仍在攻击范围内，立即对其发起1次普攻反击；单次反击造成的伤害最高不超过自身攻击力的200%。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "怒锤反击改为120%攻击力伤害，每回合可触发2次"
+            "description": "“怒锤反击”改为造成120%攻击伤害；单次反击造成的伤害仍最高不超过自身攻击力的200%。"
           },
           {
             "stage": 15,
@@ -3162,23 +3402,28 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁不灭熔炉：生命低于50%时反弹比例翻倍(到60%)，反击次数+1"
+            "description": "解锁“不灭熔炉”：生命低于50%时，反弹比例提升至60%。"
           },
           {
             "stage": 16,
             "kind": "ultimate",
             "label": "终极强化",
-            "description": "不灭熔炉状态下反弹/反击命中敌人时为自己回复伤害量50%的生命"
+            "description": "“不灭熔炉”状态下，反弹或反击命中敌人时，会回复相当于本次伤害50%的生命。"
           }
         ],
         "battleGrowth": {
-          "reactiveEffects": [
+          "reactiveEffects": [],
+          "passiveEffects": [
             {
               "index": 0,
               "stages": [
                 {
                   "stage": 3,
+                  "trigger": "damaged",
+                  "type": "damage_reflect",
                   "reflectRatio": 0.2,
+                  "hpThresholdPercent": 50,
+                  "belowThresholdMultiplier": 2,
                   "unlockStage": 3
                 },
                 {
@@ -3191,37 +3436,15 @@
                       "effectType": "stat_modifier",
                       "damageTakenDebuffBonus": 0.1,
                       "durationTurns": 2,
-                      "countsAsDebuff": true
+                      "countsAsDebuff": true,
+                      "requiresOtherDebuff": false
                     }
                   ]
                 },
                 {
                   "stage": 15,
                   "reflectRatio": 0.6,
-                  "belowThresholdMultiplier": 1,
-                  "unlockStage": 15
-                }
-              ]
-            }
-          ],
-          "passiveEffects": [
-            {
-              "index": 0,
-              "stages": [
-                {
-                  "stage": 6,
-                  "maxPerRound": 1,
-                  "multiplier": 1,
-                  "unlockStage": 6
-                },
-                {
-                  "stage": 11,
-                  "maxPerRound": 2,
-                  "multiplier": 1.2
-                },
-                {
-                  "stage": 15,
-                  "maxPerRound": 3
+                  "belowThresholdMultiplier": 1
                 }
               ]
             },
@@ -3229,9 +3452,28 @@
               "index": 1,
               "stages": [
                 {
+                  "stage": 6,
+                  "multiplier": 1,
+                  "maxDamageAttackRatio": 2,
+                  "unlockStage": 6
+                },
+                {
+                  "stage": 11,
+                  "multiplier": 1.2
+                },
+                {
+                  "stage": 15
+                }
+              ]
+            },
+            {
+              "index": 2,
+              "stages": [
+                {
                   "stage": 16,
                   "type": "reflect_lifesteal",
-                  "lifestealRatio": 0.5
+                  "lifestealRatio": 0.5,
+                  "hpThresholdPercent": 50
                 }
               ]
             }
@@ -3262,39 +3504,45 @@
       },
       "skill": {
         "name": "解析过载",
-        "description": "引爆攻击范围内所有敌人身上的噪点标记，每层造成30%攻击力伤害，冷却5回合",
-        "multiplier": 0.3,
+        "description": "引爆攻击范围内所有敌人的噪点标记，每层造成30%攻击伤害；冷却5回合，消耗4%当前生命值。",
+        "multiplier": 0,
         "cooldownTurns": 5,
         "range": 3,
         "targetType": "enemy",
         "targetCount": 99,
+        "hpCostPercent": 4,
+        "hpCostBase": "current",
         "effectType": "damage",
         "canCrit": false,
         "unlockStage": 15,
         "customEffect": {
           "type": "consume_status_damage",
           "statusType": "haze_noise",
-          "damageMultiplierPerStack": 0.3,
-          "sourceAttackMultiplier": true
+          "extraMultiplier": 0.3,
+          "consumeStatus": true,
+          "ignoreDefense": true
         }
       },
       "skills": [
         {
           "name": "解析过载",
-          "description": "引爆攻击范围内所有敌人身上的噪点标记，每层造成30%攻击力伤害，冷却5回合",
-          "multiplier": 0.3,
+          "description": "引爆攻击范围内所有敌人的噪点标记，每层造成30%攻击伤害；冷却5回合，消耗4%当前生命值。",
+          "multiplier": 0,
           "cooldownTurns": 5,
           "range": 3,
           "targetType": "enemy",
           "targetCount": 99,
+          "hpCostPercent": 4,
+          "hpCostBase": "current",
           "effectType": "damage",
           "canCrit": false,
           "unlockStage": 15,
           "customEffect": {
             "type": "consume_status_damage",
             "statusType": "haze_noise",
-            "damageMultiplierPerStack": 0.3,
-            "sourceAttackMultiplier": true
+            "extraMultiplier": 0.3,
+            "consumeStatus": true,
+            "ignoreDefense": true
           }
         }
       ],
@@ -3334,23 +3582,23 @@
       ],
       "specialTraits": {
         "name": "赫尔墨四曲",
-        "summary": "赫尔墨以信噪干涉为核心，普攻叠加噪点使目标受到伤害递增，共振为所有灵能者提供群体强化，解析过载引爆噪点进行AOE清场。",
+        "summary": "噪点引爆型传说灵能者。先挂噪点再引爆，还能随着队伍里的灵能者数量持续放大收益。",
         "traits": [
           {
             "name": "信号污染",
-            "description": "普攻命中后目标获噪点标记(可叠5层每层+4%受伤)"
+            "description": "挂噪点被动。普攻命中后叠加噪点，让目标后续承受更多伤害。"
           },
           {
             "name": "频段共振",
-            "description": "队伍中每有1个灵能者所有灵能者技能伤害+12%治疗+10%最多4层"
+            "description": "灵能共振被动。队伍里的灵能者越多，全体灵能者的技能伤害和治疗越高。"
           },
           {
             "name": "解析过载",
-            "description": "引爆噪点每层30%攻击力AOE"
+            "description": "引爆特技。把铺好的噪点一次结算，适合打群体爆发或收割残血。"
           },
           {
             "name": "协议:终焉",
-            "description": "整场战斗限1次追加:全场敌人+2层噪点+再次解析过载"
+            "description": "终局爆发特技。整场只能触发一次，让全场敌人再吃一轮噪点叠加和过载引爆。"
           }
         ],
         "track": [
@@ -3360,13 +3608,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁第一特技",
-            "description": "解锁信号污染：普攻命中目标后目标获噪点标记(可叠5层每层+4%受伤持续3回合刷新)"
+            "description": "解锁“信号污染”：普攻命中后，为目标附加1层噪点；噪点最多叠5层，每层使目标额外承受4%伤害，持续3回合，可刷新。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "普攻同时为攻击范围内所有敌人叠1层噪点"
+            "description": "普攻命中时，会同时为攻击范围内所有敌人附加1层噪点。"
           },
           {
             "stage": 6,
@@ -3374,13 +3622,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁频段共振：每有1个灵能者所有灵能者技能伤害+12%治疗+10%(最多4层)"
+            "description": "解锁“频段共振”：队伍中每有1名灵能者，所有灵能者技能伤害提升12%、治疗提升10%；最多叠4层。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "共振效果提升为+18%/+15%，为所有灵能者增加1点攻击距离"
+            "description": "“频段共振”提升为技能伤害+18%、治疗+15%，并使所有灵能者攻击距离+1。"
           },
           {
             "stage": 15,
@@ -3388,7 +3636,7 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁解析过载：引爆噪点每层30%攻击力AOE伤害"
+            "description": "解锁“解析过载”：引爆攻击范围内所有敌人的噪点，每层造成30%攻击伤害；消耗4%当前生命值。"
           },
           {
             "stage": 16,
@@ -3396,7 +3644,7 @@
             "slot": 4,
             "unlocksSlot": true,
             "label": "解锁第四特技",
-            "description": "解锁协议终焉：整场战斗限1次，使用解析过载后追加全场敌人+2层噪点并再次解析过载"
+            "description": "解锁“协议终焉”：整场战斗限1次；使用“解析过载”后，为全场敌人额外附加2层噪点，并立刻再次触发1次“解析过载”；本次消耗提升至5%当前生命值。"
           }
         ],
         "battleGrowth": {
@@ -3466,24 +3714,29 @@
               "stages": [
                 {
                   "stage": 15,
-                  "multiplier": 0.3,
+                  "multiplier": 0,
                   "cooldownTurns": 5,
+                  "hpCostPercent": 4,
+                  "hpCostBase": "current",
                   "canCrit": false,
                   "unlockStage": 15,
                   "customEffect": {
                     "type": "consume_status_damage",
                     "statusType": "haze_noise",
-                    "damageMultiplierPerStack": 0.3,
-                    "sourceAttackMultiplier": true
+                    "extraMultiplier": 0.3,
+                    "consumeStatus": true,
+                    "ignoreDefense": true
                   }
                 },
                 {
                   "stage": 16,
+                  "hpCostPercent": 5,
                   "customEffect": {
                     "type": "consume_status_damage",
                     "statusType": "haze_noise",
-                    "damageMultiplierPerStack": 0.3,
-                    "sourceAttackMultiplier": true,
+                    "extraMultiplier": 0.3,
+                    "consumeStatus": true,
+                    "ignoreDefense": true,
                     "doubleTrigger": true,
                     "doubleTriggerLimit": 1,
                     "preAddStacksToAll": 2
@@ -3497,102 +3750,184 @@
     },
     {
       "id": "hero_034",
-      "name": "磐石-沃伦",
-      "icon": "⚓",
-      "portrait": "assets/media/heroes/_placeholder_Wolun.png",
+      "name": "镇锋-铁誓",
+      "icon": "锋",
+      "portrait": "assets/media/heroes/placeholder_guardian_portrait.svg",
+      "cardPortrait": "assets/media/heroes/placeholder_guardian_portrait.svg",
       "rarity": "legendary",
       "profession": "defender",
+      "description": "重甲守备者，以击退、眩晕和破阵压制敌方前线，为队友撕开集火突破口。",
       "attackCoefficient": 1,
       "baseStats": {
-        "hp": 180,
-        "attack": 18,
-        "defense": 28,
-        "speed": 6,
-        "crit": 3,
-        "antiCrit": 20,
+        "hp": 170,
+        "attack": 20,
+        "defense": 25,
+        "speed": 8,
+        "crit": 4,
+        "antiCrit": 18,
         "defensePen": 0,
-        "accuracy": 6,
-        "dodge": 2,
+        "accuracy": 10,
+        "dodge": 3,
         "attackRange": 1,
         "moveRange": 2
       },
       "skill": {
-        "name": "庇护壁垒",
-        "description": "为所有队友赋予护盾(沃伦最大生命的8%)持续2回合，冷却4回合",
-        "multiplier": 0.08,
-        "cooldownTurns": 4,
-        "range": 99,
-        "targetType": "ally",
-        "targetCount": 99,
-        "effectType": "group_grant_shield",
-        "shieldRatioMaxHp": 0.08,
-        "shieldSourceMaxHp": true,
-        "shieldDurationTurns": 2,
-        "canCrit": false,
-        "unlockStage": 6
+        "name": "崩锋推进",
+        "description": "对1名敌方单位造成130%攻击伤害并击退1格。若成功击退，铁誓会前压到目标原位；若无法击退，则改为眩晕目标1回合；消耗2%当前生命值。",
+        "multiplier": 1.3,
+        "cooldownTurns": 2,
+        "range": 1,
+        "targetType": "enemy",
+        "targetCount": 1,
+        "hpCostPercent": 2,
+        "hpCostBase": "current",
+        "effectType": "damage",
+        "canCrit": true,
+        "unlockStage": 15,
+        "customEffect": {
+          "type": "displace",
+          "mode": "push",
+          "distance": 1,
+          "followToSourcePositionOnSuccess": true,
+          "blockedStatusEffects": [
+            {
+              "type": "stun",
+              "name": "眩晕",
+              "durationTurns": 1,
+              "stackMode": "replace"
+            }
+          ]
+        }
       },
       "skills": [
         {
-          "name": "庇护壁垒",
-          "description": "为所有队友赋予护盾(沃伦最大生命的8%)持续2回合，冷却4回合",
-          "multiplier": 0.08,
+          "name": "崩锋推进",
+          "description": "对1名敌方单位造成130%攻击伤害并击退1格。若成功击退，铁誓会前压到目标原位；若无法击退，则改为眩晕目标1回合；消耗2%当前生命值。",
+          "multiplier": 1.3,
+          "cooldownTurns": 2,
+          "range": 1,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 2,
+          "hpCostBase": "current",
+          "effectType": "damage",
+          "canCrit": true,
+          "unlockStage": 15,
+          "customEffect": {
+            "type": "displace",
+            "mode": "push",
+            "distance": 1,
+            "followToSourcePositionOnSuccess": true,
+            "blockedStatusEffects": [
+              {
+                "type": "stun",
+                "name": "眩晕",
+                "durationTurns": 1,
+                "stackMode": "replace"
+              }
+            ]
+          }
+        },
+        {
+          "name": "震岳裁断",
+          "description": "对1名敌方单位造成120%攻击伤害并眩晕1回合。若目标处于“破阵”状态，则额外施加“裂隙”，使其受到的伤害提升20%，持续1回合；消耗3%当前生命值。",
+          "multiplier": 1.2,
           "cooldownTurns": 4,
-          "range": 99,
-          "targetType": "ally",
-          "targetCount": 99,
-          "effectType": "group_grant_shield",
-          "shieldRatioMaxHp": 0.08,
-          "shieldSourceMaxHp": true,
-          "shieldDurationTurns": 2,
-          "canCrit": false,
-          "unlockStage": 6
+          "range": 1,
+          "targetType": "enemy",
+          "targetCount": 1,
+          "hpCostPercent": 3,
+          "hpCostBase": "current",
+          "effectType": "damage",
+          "canCrit": true,
+          "unlockStage": 16,
+          "statusEffects": [
+            {
+              "type": "stun",
+              "name": "眩晕",
+              "durationTurns": 1,
+              "stackMode": "replace"
+            }
+          ],
+          "customEffect": {
+            "type": "apply_status_if_target_has_status",
+            "requiredStatusType": "break_formation",
+            "statusEffects": [
+              {
+                "type": "break_wound",
+                "name": "裂隙",
+                "effectType": "damage_taken_modifier",
+                "damageTakenDebuffBonus": 0.2,
+                "durationTurns": 1,
+                "countsAsDebuff": true,
+                "requiresOtherDebuff": false,
+                "stackMode": "replace"
+              }
+            ]
+          }
+        }
+      ],
+      "basicAttackEffects": [
+        {
+          "name": "重锋斩",
+          "trigger": "hit",
+          "unlockStage": 3,
+          "chance": 0.35,
+          "customEffect": {
+            "type": "displace",
+            "mode": "push",
+            "distance": 1,
+            "blockedStatusReasons": [
+              "edge",
+              "obstacle"
+            ],
+            "blockedStatusEffects": [
+              {
+                "type": "stun",
+                "name": "眩晕",
+                "durationTurns": 1,
+                "stackMode": "replace"
+              }
+            ]
+          }
         }
       ],
       "passiveEffects": [
         {
-          "name": "铁壁誓约",
-          "trigger": "team_damage_reduction",
-          "unlockStage": 3,
-          "type": "team_damage_reduction",
-          "reductionPerAlly": 0.08,
-          "maxReduction": 0.12
-        },
-        {
-          "name": "死誓",
-          "trigger": "fatal_survival_once",
-          "unlockStage": 15,
-          "type": "fatal_survival_once",
-          "healRatio": 0
-        }
-      ],
-      "reactiveEffects": [
-        {
-          "name": "死誓-团队恢复",
-          "trigger": "fatal_survival_once",
-          "unlockStage": 16,
-          "type": "on_fatal_survival_team_heal",
-          "teamHealRatio": 0.3
+          "name": "破阵威压",
+          "trigger": "custom",
+          "unlockStage": 6,
+          "type": "control_mark",
+          "markStatusEffect": {
+            "type": "break_formation",
+            "name": "破阵",
+            "effectType": "damage_taken_modifier",
+            "alliedDefensePenBonus": 12,
+            "durationTurns": 2,
+            "countsAsDebuff": true,
+            "stackMode": "replace"
+          }
         }
       ],
       "specialTraits": {
-        "name": "磐石四诫",
-        "summary": "沃伦为全队提供减伤光环和护盾保护，自身拥有一次免死保障，触发免死后为全队恢复大量生命。",
+        "name": "破阵统御",
+        "summary": "扰阵型传说守备者。通过击退、眩晕和前压打散敌阵，为队友打开集火缺口。",
         "traits": [
           {
-            "name": "铁壁誓约",
-            "description": "队友受到伤害-8%(沃伦在场即生效)"
+            "name": "重锋斩",
+            "description": "普攻扰阵被动。命中后有概率击退目标，顶到障碍或边界时则改为眩晕。"
           },
           {
-            "name": "庇护壁垒",
-            "description": "全队护盾(沃伦8%最大生命)持续2回合"
+            "name": "破阵威压",
+            "description": "团队破防被动。铁誓打出击退或眩晕后，会给目标挂上更容易被集火的“破阵”。"
           },
           {
-            "name": "死誓",
-            "description": "首次致命伤保留1血并获得增益"
+            "name": "崩锋推进",
+            "description": "主动冲阵特技。先击退再前压，能直接冲散敌方站位。"
           },
           {
-            "name": "磐石之心",
-            "description": "死誓触发时额外为全队恢复30%最大生命+赋予一层不会死亡(每队友1次)"
+            "name": "震岳裁断",
+            "description": "定点控制特技。稳定眩晕单体，并为队友补上短时易伤窗口。"
           }
         ],
         "track": [
@@ -3602,13 +3937,13 @@
             "slot": 1,
             "unlocksSlot": true,
             "label": "解锁第一特技",
-            "description": "解锁铁壁誓约：队友受到伤害-8%"
+            "description": "解锁“重锋斩”：普攻命中时有35%概率击退目标1格；若目标背后是障碍物或地图边界，无法击退时改为眩晕1回合。"
           },
           {
             "stage": 4,
             "kind": "boost",
             "label": "第一特技强化",
-            "description": "减伤提升至12%，队友受到致命伤害时沃伦为其承担50%伤害"
+            "description": "“重锋斩”触发概率由35%提升至50%。"
           },
           {
             "stage": 6,
@@ -3616,13 +3951,13 @@
             "slot": 2,
             "unlocksSlot": true,
             "label": "解锁第二特技",
-            "description": "解锁庇护壁垒：全队护盾(沃伦8%HP)持续2回合冷却4回合"
+            "description": "解锁“破阵威压”：当铁誓造成击退或眩晕时，为目标附加持续2回合的“破阵”；友军攻击该目标时额外获得12%破防。"
           },
           {
             "stage": 11,
             "kind": "boost",
             "label": "第二特技强化",
-            "description": "护盾提升至沃伦14%最大HP，护盾存续期间受攻击反弹30固定伤害"
+            "description": "“破阵威压”提供的额外破防由12%提升至18%。"
           },
           {
             "stage": 15,
@@ -3630,7 +3965,7 @@
             "slot": 3,
             "unlocksSlot": true,
             "label": "解锁第三特技",
-            "description": "解锁死誓：首次致命伤保留1血并获激怒(速度+50%攻击+50%持续3回合)"
+            "description": "解锁“崩锋推进”：对1名敌方单位造成130%攻击伤害并击退1格；若成功击退，铁誓立即前压至目标原位；若无法击退，则改为眩晕目标1回合；消耗2%当前生命值。"
           },
           {
             "stage": 16,
@@ -3638,37 +3973,73 @@
             "slot": 4,
             "unlocksSlot": true,
             "label": "解锁第四特技",
-            "description": "解锁磐石之心：死誓触发时为全队恢复30%最大生命+赋予每队友1次免死"
+            "description": "解锁“震岳裁断”：对1名敌方单位造成120%攻击伤害并眩晕1回合；若目标处于“破阵”状态，则额外施加“裂隙”，使其受到的伤害提升20%，持续1回合；消耗3%当前生命值。"
           }
         ],
         "battleGrowth": {
-          "passiveEffects": [
+          "basicAttackEffects": [
             {
               "index": 0,
               "stages": [
                 {
                   "stage": 3,
-                  "reductionPerAlly": 0.08,
-                  "maxReduction": 0.12,
-                  "unlockStage": 3
+                  "unlockStage": 3,
+                  "chance": 0.35,
+                  "customEffect": {
+                    "type": "displace",
+                    "mode": "push",
+                    "distance": 1,
+                    "blockedStatusReasons": [
+                      "edge",
+                      "obstacle"
+                    ],
+                    "blockedStatusEffects": [
+                      {
+                        "type": "stun",
+                        "name": "眩晕",
+                        "durationTurns": 1,
+                        "stackMode": "replace"
+                      }
+                    ]
+                  }
                 },
                 {
                   "stage": 4,
-                  "reductionPerAlly": 0.12,
-                  "maxReduction": 0.12
+                  "chance": 0.5
                 }
               ]
-            },
+            }
+          ],
+          "passiveEffects": [
             {
-              "index": 1,
+              "index": 0,
               "stages": [
                 {
-                  "stage": 15,
-                  "type": "fatal_survival_once",
-                  "healRatio": 0,
-                  "unlockStage": 15,
-                  "teamDamageReduction": 0,
-                  "teamDamageReductionDurationTurns": 0
+                  "stage": 6,
+                  "type": "control_mark",
+                  "trigger": "custom",
+                  "unlockStage": 6,
+                  "markStatusEffect": {
+                    "type": "break_formation",
+                    "name": "破阵",
+                    "effectType": "damage_taken_modifier",
+                    "alliedDefensePenBonus": 12,
+                    "durationTurns": 2,
+                    "countsAsDebuff": true,
+                    "stackMode": "replace"
+                  }
+                },
+                {
+                  "stage": 11,
+                  "markStatusEffect": {
+                    "type": "break_formation",
+                    "name": "破阵",
+                    "effectType": "damage_taken_modifier",
+                    "alliedDefensePenBonus": 18,
+                    "durationTurns": 2,
+                    "countsAsDebuff": true,
+                    "stackMode": "replace"
+                  }
                 }
               ]
             }
@@ -3678,29 +4049,73 @@
               "index": 0,
               "stages": [
                 {
-                  "stage": 6,
-                  "shieldRatioMaxHp": 0.08,
-                  "shieldDurationTurns": 2,
-                  "cooldownTurns": 4,
-                  "unlockStage": 6
-                },
-                {
-                  "stage": 11,
-                  "shieldRatioMaxHp": 0.14,
-                  "shieldDurationTurns": 2,
-                  "shieldReflectDamage": 30
+                  "stage": 15,
+                  "multiplier": 1.3,
+                  "cooldownTurns": 2,
+                  "range": 1,
+                  "targetType": "enemy",
+                  "targetCount": 1,
+                  "hpCostPercent": 2,
+                  "hpCostBase": "current",
+                  "effectType": "damage",
+                  "canCrit": true,
+                  "unlockStage": 15,
+                  "customEffect": {
+                    "type": "displace",
+                    "mode": "push",
+                    "distance": 1,
+                    "followToSourcePositionOnSuccess": true,
+                    "blockedStatusEffects": [
+                      {
+                        "type": "stun",
+                        "name": "眩晕",
+                        "durationTurns": 1,
+                        "stackMode": "replace"
+                      }
+                    ]
+                  }
                 }
               ]
-            }
-          ],
-          "reactiveEffects": [
+            },
             {
-              "index": 0,
+              "index": 1,
               "stages": [
                 {
                   "stage": 16,
-                  "teamHealRatio": 0.3,
-                  "unlockStage": 16
+                  "multiplier": 1.2,
+                  "cooldownTurns": 4,
+                  "range": 1,
+                  "targetType": "enemy",
+                  "targetCount": 1,
+                  "hpCostPercent": 3,
+                  "hpCostBase": "current",
+                  "effectType": "damage",
+                  "canCrit": true,
+                  "unlockStage": 16,
+                  "statusEffects": [
+                    {
+                      "type": "stun",
+                      "name": "眩晕",
+                      "durationTurns": 1,
+                      "stackMode": "replace"
+                    }
+                  ],
+                  "customEffect": {
+                    "type": "apply_status_if_target_has_status",
+                    "requiredStatusType": "break_formation",
+                    "statusEffects": [
+                      {
+                        "type": "break_wound",
+                        "name": "裂隙",
+                        "effectType": "damage_taken_modifier",
+                        "damageTakenDebuffBonus": 0.2,
+                        "durationTurns": 1,
+                        "countsAsDebuff": true,
+                        "requiresOtherDebuff": false,
+                        "stackMode": "replace"
+                      }
+                    ]
+                  }
                 }
               ]
             }
@@ -3860,8 +4275,8 @@
       "effectType": "heal"
     },
     "enemy_skill_charge_quake": {
-      "name": "\u84c4\u529b\u9707\u8361",
-      "description": "\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u5bf9\u81ea\u8eab\u5468\u56f41\u683c\u9020\u6210115%\u653b\u51fb\u4f24\u5bb3\u3002",
+      "name": "蓄力震荡",
+      "description": "蓄力2次自身行动后，对自身周围4格造成170%攻击伤害，并附加2回合40%减速。",
       "multiplier": 1,
       "cooldownTurns": 4,
       "range": 4,
@@ -3871,14 +4286,24 @@
       "customEffect": {
         "type": "warning_area_damage",
         "shape": "around_self",
-        "radius": 1,
+        "radius": 4,
         "delayTurns": 2,
-        "multiplier": 1.15
+        "multiplier": 1.7,
+        "statusEffects": [
+          {
+            "type": "slow",
+            "name": "震荡迟滞",
+            "value": -0.4,
+            "durationTurns": 2,
+            "modifierType": "percent",
+            "stackMode": "replace"
+          }
+        ]
       }
     },
     "enemy_skill_line_crack": {
-      "name": "\u76f4\u7ebf\u88c2\u51fb",
-      "description": "\u84c4\u529b1\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u6cbf\u76ee\u6807\u65b9\u5411\u76f4\u7ebf\u9020\u6210130%\u653b\u51fb\u4f24\u5bb3\u3002",
+      "name": "直线裂击",
+      "description": "蓄力1次自身行动后，沿目标方向直线造成175%攻击伤害，并附加2回合25%防御下降。",
       "multiplier": 1,
       "cooldownTurns": 3,
       "range": 5,
@@ -3890,12 +4315,23 @@
         "shape": "line_to_target",
         "length": 8,
         "delayTurns": 1,
-        "multiplier": 1.3
+        "multiplier": 1.75,
+        "statusEffects": [
+          {
+            "type": "crack_armor",
+            "name": "裂甲",
+            "stat": "defense",
+            "value": -0.25,
+            "durationTurns": 2,
+            "modifierType": "percent",
+            "stackMode": "replace"
+          }
+        ]
       }
     },
     "enemy_skill_random_fall": {
-      "name": "\u968f\u673a\u5760\u51fb",
-      "description": "\u84c4\u529b2\u6b21\u81ea\u8eab\u884c\u52a8\u540e\uff0c\u968f\u673a4\u4e2a\u683c\u5b50\u9020\u621090%-130%\u653b\u51fb\u4f24\u5bb3\u3002",
+      "name": "随机坠击",
+      "description": "蓄力2次自身行动后，在英雄周围随机8个格子造成160%攻击伤害，并附加1回合眩晕。",
       "multiplier": 1,
       "cooldownTurns": 4,
       "range": 6,
@@ -3905,10 +4341,20 @@
       "customEffect": {
         "type": "warning_area_damage",
         "shape": "random_cells",
-        "count": 4,
+        "count": 8,
         "delayTurns": 2,
-        "multiplier": 1.1,
-        "randomDamageRatio": 0.2
+        "multiplier": 1.6,
+        "randomDamageRatio": 0.15,
+        "preferHeroes": true,
+        "heroRadius": 2,
+        "statusEffects": [
+          {
+            "type": "stun",
+            "name": "坠击震慑",
+            "durationTurns": 1,
+            "stackMode": "replace"
+          }
+        ]
       }
     }
   },

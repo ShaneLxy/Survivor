@@ -4,6 +4,12 @@
 class HeroView {
     constructor() {
         this.preloadedPortraitUrls = new Set();
+        this.decodedPortraitUrls = new Set();
+        this.portraitPreloadTasks = new Map();
+        this.portraitKeepAliveImages = new Map();
+        this.deferredPortraitWarmupQueue = [];
+        this.deferredPortraitWarmupSet = new Set();
+        this.deferredPortraitWarmupHandle = null;
         this.element = document.getElementById('main-display');
         this.visible = false;
         this.teamModal = null;
@@ -13,6 +19,9 @@ class HeroView {
         this.activeHeroId = null;
         this.statTooltip = null;
         this.boundOutsideClick = null;
+        this.boundHeroPortraitPreviewEsc = null;
+        this.heroPortraitPreviewLayer = null;
+        this.heroPortraitPreviewCleanupTimer = null;
         this.equipmentBubble = null;
         this.professionFilter = 'all';
         this.activePanel = 'home';
@@ -26,6 +35,7 @@ class HeroView {
     hide() {
         this.visible = false;
         this.cleanupStatTooltip();
+        this.cleanupHeroPortraitPreview();
         this.closeHeroPreview();
         this.equipmentBubble = null;
         this.activePanel = 'home';
@@ -114,7 +124,6 @@ class HeroView {
                 </div>
             </div>
         `;
-        this.preloadHeroPortraits(allHeroes);
         this.renderHeroes();
     }
 
@@ -322,12 +331,11 @@ class HeroView {
         return `<div class="hero-roster-rarity-strip">${items}</div>`;
     }
 
-    getHeroAlbumCardMarkup(heroConfig, isOwned) {
-        const rarityColor = this.getRarityColor(heroConfig.rarity);
+    getHeroAlbumCardMarkup(heroConfig, isOwned, portraitOptions = null) {
         return `
-            <div class="hero-card hero-card-compact hero-roster-card hero-album-card card ${isOwned ? 'is-owned' : 'is-locked'}" style="--hero-card-rarity:${rarityColor};" title="${heroConfig.name}" data-hero-config-id="${heroConfig.id}" role="button" tabindex="0">
+            <div class="hero-card hero-card-compact hero-roster-card hero-album-card card ${isOwned ? 'is-owned' : 'is-locked'}" style="${this.getHeroCardRarityStyle(heroConfig.rarity)}" title="${heroConfig.name}" data-hero-config-id="${heroConfig.id}" data-rarity="${heroConfig.rarity || 'common'}" role="button" tabindex="0">
                 ${this.getProfessionBadgeMarkup(heroConfig)}
-                ${this.getHeroAvatarMarkup(heroConfig)}
+                ${this.getHeroAvatarMarkup(heroConfig, 'default', portraitOptions)}
                 <div class="hero-name">${heroConfig.name}</div>
                 <div class="hero-roster-card-status ${isOwned ? 'is-owned' : 'is-locked'}">${isOwned ? '已拥有' : '未获得'}</div>
             </div>
@@ -336,12 +344,17 @@ class HeroView {
 
     getHeroAlbumModalContent() {
         const allHeroConfigs = this.getSortedHeroAlbumConfigs();
-        this.preloadHeroPortraits(allHeroConfigs);
+        const portraitWarmupCount = this.getHeroPortraitWarmupCount();
+        this.warmupHeroPortraits(allHeroConfigs, { firstScreenCount: portraitWarmupCount });
         const ownedConfigIds = new Set(heroManager.getAllHeroes().map(hero => hero.configId));
         const ownedCount = allHeroConfigs.filter(heroConfig => ownedConfigIds.has(heroConfig.id)).length;
         const ownedHeroes = heroManager.getAllHeroes();
         const cards = allHeroConfigs
-            .map(heroConfig => this.getHeroAlbumCardMarkup(heroConfig, ownedConfigIds.has(heroConfig.id)))
+            .map((heroConfig, index) => this.getHeroAlbumCardMarkup(
+                heroConfig,
+                ownedConfigIds.has(heroConfig.id),
+                this.getHeroPortraitRenderOptions(index, portraitWarmupCount)
+            ))
             .join('');
 
         return `
@@ -518,7 +531,7 @@ class HeroView {
             grid.innerHTML = '<div class="hero-grid-empty">暂无英雄，快去招募吧！</div>';
             return;
         }
-        this.preloadHeroPortraits(heroes);
+        this.warmupHeroPortraits(heroes);
         heroes.forEach(hero => {
             const card = new HeroCard({
                 hero,
@@ -552,6 +565,7 @@ class HeroView {
 
     closeHeroDetail(closeModal = true) {
         this.cleanupStatTooltip();
+        this.cleanupHeroPortraitPreview();
         this.equipmentBubble = null;
         this.closeEquipmentSelectionModal();
         if (closeModal && this.heroDetailModal) {
@@ -563,7 +577,13 @@ class HeroView {
 
     getHeroStarMarkup(starLevel, extraClass = '') {
         const starInfo = HeroConfig.getStarDisplayInfo(starLevel);
-        return `<div class="hero-stars ${starInfo.className} ${extraClass}" title="${starInfo.label}">${starInfo.text}</div>`;
+        const textChars = Array.from(String(starInfo.text || ''));
+        const shouldWrap = String(extraClass || '').includes('hero-detail-stars') && textChars.length > 3;
+        const firstLineCount = Math.max(1, textChars.length - 3);
+        const content = shouldWrap
+            ? `<span class="hero-detail-star-lines"><span>${textChars.slice(0, firstLineCount).join('')}</span><span>${textChars.slice(firstLineCount).join('')}</span></span>`
+            : starInfo.text;
+        return `<div class="hero-stars ${starInfo.className} ${extraClass}" title="${starInfo.label}">${content}</div>`;
     }
 
     getProfessionBadgeMarkup(entity) {
@@ -580,39 +600,212 @@ class HeroView {
         `;
     }
 
-    getHeroAvatarMarkup(entity, size = 'default') {
+    getHeroPortraitRenderOptions(index, eagerCount = this.getHeroPortraitWarmupCount()) {
+        const normalizedIndex = Math.max(0, Number(index) || 0);
+        const normalizedEagerCount = Math.max(0, Number(eagerCount) || 0);
+        const isFirstScreen = normalizedIndex < normalizedEagerCount;
+        return {
+            loading: isFirstScreen ? 'eager' : 'lazy',
+            decoding: 'async',
+            highPriority: isFirstScreen
+        };
+    }
+
+    getHeroAvatarMarkup(entity, size = 'default', options = null) {
         const portrait = entity?.cardPortrait || entity?.portrait || null;
         const baseClass = size === 'large'
             ? 'hero-avatar hero-detail-avatar hero-avatar-portrait hero-avatar-portrait-large'
             : 'hero-avatar hero-avatar-portrait';
         if (portrait) {
             const src = this.resolveAssetUrl(portrait);
-            const loading = size === 'large' ? 'eager' : 'lazy';
-            return `<div class="${baseClass}"><img class="hero-avatar-image" src="${src}" alt="${entity?.name || 'hero'}" loading="${loading}" decoding="async" draggable="false"></div>`;
+            const loading = options?.loading || (size === 'large' ? 'eager' : 'lazy');
+            const decoding = options?.decoding || 'async';
+            const fetchPriority = options?.highPriority ? 'high' : null;
+            return `<div class="${baseClass}"><img class="hero-avatar-image" src="${src}" alt="${entity?.name || 'hero'}" loading="${loading}" decoding="${decoding}"${fetchPriority ? ` fetchpriority="${fetchPriority}"` : ''} draggable="false"></div>`;
         }
         const style = size === 'large' ? ' style="font-size:56px;"' : '';
         return `<div class="hero-avatar"${style}>${entity?.icon || '❓'}</div>`;
     }
 
-    preloadHeroPortraits(heroes) {
-        if (!Array.isArray(heroes) || typeof Image === 'undefined') {
-            return;
+    getHeroPortraitWarmupCount() {
+        return 12;
+    }
+
+    collectHeroPortraitUrls(heroes, limit = Infinity) {
+        if (!Array.isArray(heroes)) {
+            return [];
         }
-        heroes.forEach(hero => {
+        const urls = [];
+        const seen = new Set();
+        for (const hero of heroes) {
             const portrait = hero?.cardPortrait || hero?.portrait;
             if (!portrait) {
-                return;
+                continue;
             }
             const resolvedPortrait = this.resolveAbsoluteAssetUrl(portrait);
-            if (!resolvedPortrait || this.preloadedPortraitUrls.has(resolvedPortrait)) {
+            if (!resolvedPortrait || seen.has(resolvedPortrait)) {
+                continue;
+            }
+            seen.add(resolvedPortrait);
+            urls.push(resolvedPortrait);
+            if (urls.length >= limit) {
+                break;
+            }
+        }
+        return urls;
+    }
+
+    preloadPortraitUrl(url, options = {}) {
+        if (!url || typeof Image === 'undefined') {
+            return Promise.resolve(false);
+        }
+
+        const keepAlive = options.keepAlive === true;
+        if (keepAlive && this.decodedPortraitUrls.has(url) && !this.portraitKeepAliveImages.has(url)) {
+            const cachedImage = new Image();
+            cachedImage.decoding = 'async';
+            cachedImage.loading = 'eager';
+            cachedImage.src = url;
+            this.portraitKeepAliveImages.set(url, cachedImage);
+        }
+
+        const existingTask = this.portraitPreloadTasks.get(url);
+        if (existingTask) {
+            return existingTask;
+        }
+
+        const image = new Image();
+        image.decoding = 'async';
+        image.loading = 'eager';
+        if ('fetchPriority' in image) {
+            image.fetchPriority = options.highPriority ? 'high' : 'low';
+        }
+        if (keepAlive) {
+            this.portraitKeepAliveImages.set(url, image);
+        }
+
+        const task = new Promise(resolve => {
+            let settled = false;
+            const finish = (loaded) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                image.onload = null;
+                image.onerror = null;
+                if (loaded) {
+                    this.preloadedPortraitUrls.add(url);
+                }
+                resolve(loaded);
+            };
+
+            image.onload = () => finish(true);
+            image.onerror = () => finish(false);
+            image.src = url;
+
+            if (image.complete) {
+                finish(image.naturalWidth > 0);
+            }
+        }).then(async loaded => {
+            if (!loaded) {
+                return false;
+            }
+            if (options.decode && typeof image.decode === 'function') {
+                try {
+                    await image.decode();
+                } catch (error) {
+                    return true;
+                }
+            }
+            if (options.decode) {
+                this.decodedPortraitUrls.add(url);
+            }
+            return true;
+        });
+
+        this.portraitPreloadTasks.set(url, task);
+        return task;
+    }
+
+    preloadHeroPortraits(heroes, options = {}) {
+        const limit = Number.isFinite(Number(options.limit)) ? Math.max(0, Number(options.limit)) : Infinity;
+        const urls = this.collectHeroPortraitUrls(heroes, limit);
+        return Promise.all(urls.map(url => this.preloadPortraitUrl(url, options)));
+    }
+
+    enqueueDeferredPortraitWarmup(urls) {
+        if (!Array.isArray(urls) || urls.length === 0) {
+            return;
+        }
+
+        urls.forEach(url => {
+            if (!url || this.preloadedPortraitUrls.has(url) || this.deferredPortraitWarmupSet.has(url) || this.portraitPreloadTasks.has(url)) {
                 return;
             }
-            this.preloadedPortraitUrls.add(resolvedPortrait);
-            const image = new Image();
-            image.decoding = 'async';
-            image.loading = 'eager';
-            image.src = resolvedPortrait;
+            this.deferredPortraitWarmupSet.add(url);
+            this.deferredPortraitWarmupQueue.push(url);
         });
+
+        if (this.deferredPortraitWarmupQueue.length > 0) {
+            this.scheduleDeferredPortraitWarmup();
+        }
+    }
+
+    scheduleDeferredPortraitWarmup() {
+        if (this.deferredPortraitWarmupHandle || this.deferredPortraitWarmupQueue.length === 0) {
+            return;
+        }
+
+        const runner = (deadline) => {
+            this.deferredPortraitWarmupHandle = null;
+            let processed = 0;
+            while (this.deferredPortraitWarmupQueue.length > 0) {
+                if (processed >= 4) {
+                    break;
+                }
+                if (deadline && typeof deadline.timeRemaining === 'function' && deadline.timeRemaining() < 6) {
+                    break;
+                }
+                const url = this.deferredPortraitWarmupQueue.shift();
+                this.deferredPortraitWarmupSet.delete(url);
+                this.preloadPortraitUrl(url, { decode: false, keepAlive: false, highPriority: false });
+                processed++;
+            }
+
+            if (this.deferredPortraitWarmupQueue.length > 0) {
+                this.scheduleDeferredPortraitWarmup();
+            }
+        };
+
+        if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+            this.deferredPortraitWarmupHandle = window.requestIdleCallback(runner, { timeout: 800 });
+            return;
+        }
+
+        this.deferredPortraitWarmupHandle = window.setTimeout(() => runner(), 80);
+    }
+
+    warmupHeroPortraits(heroes, options = {}) {
+        const urls = this.collectHeroPortraitUrls(heroes);
+        if (urls.length === 0) {
+            return;
+        }
+
+        const warmupCount = Number.isFinite(Number(options.firstScreenCount))
+            ? Math.max(1, Number(options.firstScreenCount))
+            : this.getHeroPortraitWarmupCount();
+        const firstBatch = urls.slice(0, warmupCount);
+        const restBatch = urls.slice(warmupCount);
+
+        firstBatch.forEach(url => {
+            this.preloadPortraitUrl(url, {
+                decode: true,
+                keepAlive: true,
+                highPriority: true
+            });
+        });
+
+        this.enqueueDeferredPortraitWarmup(restBatch);
     }
 
     getEquipmentIconMarkup(equipment, imageClass = 'hero-equipment-slot-icon-image') {
@@ -702,12 +895,17 @@ class HeroView {
                 <div class="hero-detail-hero-card hero-detail-rarity-${hero.rarity}">
                     <div class="hero-detail-header">
                         <div class="hero-detail-visual">
-                            <div class="hero-detail-visual-frame">
+                            <button
+                                type="button"
+                                class="hero-detail-visual-frame hero-detail-visual-frame-trigger"
+                                data-hero-portrait-trigger
+                                aria-label="查看${hero.name}完整立绘">
                                 ${this.getHeroAvatarMarkup(info, 'large')}
                                 ${this.getProfessionBadgeMarkup(info)}
+                                <span class="hero-detail-visual-tap-hint">预览</span>
                                 <div class="hero-detail-overlay hero-detail-level-overlay">LV.${info.level}</div>
                                 ${this.getHeroStarMarkup(info.stars, 'hero-detail-stars')}
-                            </div>
+                            </button>
                         </div>
                         <div class="hero-detail-info">
                             <div class="hero-detail-info-row hero-detail-info-row-top">
@@ -790,6 +988,29 @@ class HeroView {
             });
         });
 
+        const portraitTrigger = this.heroDetailModal.element.querySelector('[data-hero-portrait-trigger]');
+        if (portraitTrigger) {
+            portraitTrigger.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.openHeroPortraitPreview(hero);
+            });
+        }
+
+        if (this.boundHeroPortraitPreviewEsc) {
+            document.removeEventListener('keydown', this.boundHeroPortraitPreviewEsc);
+        }
+        this.boundHeroPortraitPreviewEsc = (event) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            if (this.heroPortraitPreviewLayer?.classList.contains('is-visible')) {
+                event.preventDefault();
+                this.closeHeroPortraitPreview();
+            }
+        };
+        document.addEventListener('keydown', this.boundHeroPortraitPreviewEsc);
+
         if (this.boundOutsideClick) {
             document.removeEventListener('click', this.boundOutsideClick, true);
         }
@@ -799,6 +1020,94 @@ class HeroView {
             }
         };
         document.addEventListener('click', this.boundOutsideClick, true);
+    }
+
+    ensureHeroPortraitPreviewLayer(hero) {
+        const overlayHost = this.heroDetailModal?.overlay;
+        if (!overlayHost) {
+            return null;
+        }
+
+        if (!this.heroPortraitPreviewLayer || !overlayHost.contains(this.heroPortraitPreviewLayer)) {
+            const layer = document.createElement('div');
+            layer.className = 'hero-portrait-preview-layer';
+            layer.setAttribute('aria-hidden', 'true');
+            layer.addEventListener('click', () => this.closeHeroPortraitPreview());
+            overlayHost.appendChild(layer);
+            this.heroPortraitPreviewLayer = layer;
+        }
+
+        return this.heroPortraitPreviewLayer;
+    }
+
+    getHeroPortraitPreviewContent(hero) {
+        const info = typeof hero?.getInfo === 'function' ? hero.getInfo() : (hero || {});
+        const portrait = info.portrait || info.cardPortrait || '';
+        const portraitSrc = portrait ? this.resolveAssetUrl(portrait) : '';
+        const rarity = hero?.rarity || info?.rarity || 'common';
+        const accent = this.getRarityColor(rarity);
+        const rarityName = this.getRarityName(rarity);
+        const professionName = HeroConfig.getProfessionName(info.profession || hero?.profession);
+        const name = hero?.name || info?.name || '未命名英雄';
+
+        return `
+            <div class="hero-portrait-preview-stage" style="--hero-portrait-accent:${accent};">
+                <div class="hero-portrait-preview-art-shell">
+                    ${portraitSrc
+                        ? `<img class="hero-portrait-preview-art" src="${portraitSrc}" alt="${name}" loading="eager" decoding="async" draggable="false">`
+                        : `<div class="hero-portrait-preview-fallback">${info.icon || hero?.icon || '英雄'}</div>`}
+                    <div class="hero-portrait-preview-screen" aria-hidden="true">
+                        <span class="hero-portrait-preview-screen-grid"></span>
+                    </div>
+                </div>
+                <div class="hero-portrait-preview-footer">
+                    <div class="hero-portrait-preview-nameplate">
+                        <span class="hero-portrait-preview-kicker">${rarityName} · ${professionName}</span>
+                        <strong class="hero-portrait-preview-name">${name}</strong>
+                    </div>
+                </div>
+                <div class="hero-portrait-preview-dismiss">点击任意位置关闭</div>
+            </div>
+        `;
+    }
+
+    openHeroPortraitPreview(hero) {
+        const layer = this.ensureHeroPortraitPreviewLayer(hero);
+        if (!layer) {
+            return;
+        }
+        this.hideStatTooltip();
+        if (this.heroPortraitPreviewCleanupTimer) {
+            window.clearTimeout(this.heroPortraitPreviewCleanupTimer);
+            this.heroPortraitPreviewCleanupTimer = null;
+        }
+        layer.innerHTML = this.getHeroPortraitPreviewContent(hero);
+        layer.setAttribute('aria-hidden', 'false');
+        layer.classList.remove('is-visible');
+        requestAnimationFrame(() => {
+            layer.classList.add('is-visible');
+        });
+    }
+
+    closeHeroPortraitPreview() {
+        if (!this.heroPortraitPreviewLayer) {
+            return;
+        }
+        const layer = this.heroPortraitPreviewLayer;
+        layer.classList.remove('is-visible');
+        layer.setAttribute('aria-hidden', 'true');
+        if (this.heroPortraitPreviewCleanupTimer) {
+            window.clearTimeout(this.heroPortraitPreviewCleanupTimer);
+        }
+        this.heroPortraitPreviewCleanupTimer = window.setTimeout(() => {
+            if (this.heroPortraitPreviewLayer === layer && layer.getAttribute('aria-hidden') === 'true') {
+                if (layer.parentNode) {
+                    layer.parentNode.removeChild(layer);
+                }
+                this.heroPortraitPreviewLayer = null;
+            }
+            this.heroPortraitPreviewCleanupTimer = null;
+        }, 220);
     }
 
     showStatTooltip(target, statKey) {
@@ -835,11 +1144,27 @@ class HeroView {
         }
     }
 
+    cleanupHeroPortraitPreview() {
+        if (this.heroPortraitPreviewCleanupTimer) {
+            window.clearTimeout(this.heroPortraitPreviewCleanupTimer);
+            this.heroPortraitPreviewCleanupTimer = null;
+        }
+        if (this.boundHeroPortraitPreviewEsc) {
+            document.removeEventListener('keydown', this.boundHeroPortraitPreviewEsc);
+            this.boundHeroPortraitPreviewEsc = null;
+        }
+        if (this.heroPortraitPreviewLayer?.parentNode) {
+            this.heroPortraitPreviewLayer.parentNode.removeChild(this.heroPortraitPreviewLayer);
+        }
+        this.heroPortraitPreviewLayer = null;
+    }
+
     updateHeroDetailModal(hero) {
         if (!this.heroDetailModal || !this.heroDetailModal.isShown()) {
             this.onHeroClick(hero);
             return;
         }
+        this.closeHeroPortraitPreview();
         const bodyEl = this.heroDetailModal.element.querySelector('.modal-body');
         if (bodyEl) {
             bodyEl.innerHTML = this.getHeroDetailContent(hero);
@@ -851,21 +1176,264 @@ class HeroView {
         }
     }
 
-    levelUpHero(heroId) {
+    showHeroExpUseModal(heroId) {
         const hero = heroManager.getHero(heroId);
-        if (!hero) return;
-        const result = heroManager.levelUpHero(hero.id);
-        if (result?.success) {
-            Toast.success(`${hero.name}升级了！`);
-            this.render();
-            this.updateTeamPowerDisplay();
-            this.updateHeroDetailModal(hero);
-            window.game.save();
-        } else if (result?.reason === 'star_level_cap') {
-            Toast.info('等级已达到当前星级上限！');
-        } else {
-            Toast.info('当前经验不足');
+        if (!hero) {
+            return;
         }
+
+        const item = itemManager.getItem('exp_potion');
+        const totalCount = itemManager.getItemCount('exp_potion');
+        const expValue = Math.max(1, Number(item?.effect?.value) || 1);
+        const effectiveLevelCap = hero.getLevelCap(window.game.player.level);
+        const atLevelCap = hero.isAtLevelCap(window.game.player.level);
+        const canUse = Boolean(item) && totalCount > 0 && !atLevelCap;
+        const quantityMax = Math.max(1, totalCount);
+        const quantityInputId = `hero-exp-potion-count-${hero.id}`;
+        const tipText = !item || totalCount <= 0
+            ? '当前没有可用的经验药水。'
+            : (atLevelCap
+                ? `当前已达到可培养上限 Lv.${effectiveLevelCap}，请先提升玩家等级或英雄星级。`
+                : `每瓶提供 ${expValue} 点英雄经验，输入数量后会直接对当前英雄生效。`);
+        const itemVisual = item?.iconSrc
+            ? `<img class="item-icon-image" src="${item.iconSrc}" alt="${item?.name || '经验药水'}">`
+            : `<span class="equipment-icon-text">${item?.icon || '📦'}</span>`;
+        const expRequired = hero.getExpRequired();
+        const currentExp = Math.max(0, Number(hero.exp) || 0);
+        const rarity = item?.rarity || 'rare';
+        const refreshExpUseModal = (activeModal) => {
+            const latestHero = heroManager.getHero(heroId);
+            if (!latestHero || !activeModal?.isShown?.()) {
+                return;
+            }
+            const latestItem = itemManager.getItem('exp_potion');
+            const latestTotalCount = itemManager.getItemCount('exp_potion');
+            const latestExpValue = Math.max(1, Number(latestItem?.effect?.value) || 1);
+            const latestLevelCap = latestHero.getLevelCap(window.game.player.level);
+            const latestAtLevelCap = latestHero.isAtLevelCap(window.game.player.level);
+            const latestQuantityMax = Math.max(1, latestTotalCount);
+            const latestExpRequired = latestHero.getExpRequired();
+            const latestCurrentExp = Math.max(0, Number(latestHero.exp) || 0);
+            const latestTipText = !latestItem || latestTotalCount <= 0
+                ? '当前没有可用的经验药水。'
+                : (latestAtLevelCap
+                    ? `当前已达到可培养上限 Lv.${latestLevelCap}，请先提升玩家等级或英雄星级。`
+                    : `每瓶提供 ${latestExpValue} 点英雄经验，输入数量后会直接对当前英雄生效。`);
+            const latestItemVisual = latestItem?.iconSrc
+                ? `<img class="item-icon-image" src="${latestItem.iconSrc}" alt="${latestItem?.name || '经验药水'}">`
+                : `<span class="equipment-icon-text">${latestItem?.icon || '📦'}</span>`;
+            const latestRarity = latestItem?.rarity || 'rare';
+            activeModal.setContent(`
+                <div class="inventory-detail-panel inventory-detail-rarity-${latestRarity}">
+                    <div class="inventory-detail-visual-card">
+                        <div class="inventory-detail-icon">${latestItemVisual}</div>
+                    </div>
+                    <div class="inventory-detail-info-card">
+                        <div class="inventory-detail-kicker">INVENTORY ITEM</div>
+                        <div class="inventory-detail-name" style="color:${this.getRarityColor(latestRarity)};">${latestItem?.name || '经验药水'}</div>
+                        <div class="inventory-detail-tags">
+                            <span>${this.getRarityName(latestRarity)}</span>
+                            <span>英雄培养</span>
+                        </div>
+                        <div class="inventory-detail-desc">${latestTipText}</div>
+                        <div class="inventory-detail-stats">
+                            <div class="inventory-detail-stat">
+                                <span>当前英雄</span>
+                                <strong>${latestHero.name}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>当前等级</span>
+                                <strong>Lv.${latestHero.level}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>当前经验</span>
+                                <strong>${latestCurrentExp}/${latestExpRequired}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>持有数量</span>
+                                <strong>${latestTotalCount}</strong>
+                            </div>
+                            <div class="inventory-detail-stat inventory-detail-stat-accent">
+                                <span>使用效果</span>
+                                <strong>每瓶 +${latestExpValue} 经验</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>等级上限</span>
+                                <strong>Lv.${latestLevelCap}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="inventory-detail-batch-field">
+                        <label for="${quantityInputId}">使用数量</label>
+                        <input id="${quantityInputId}" type="number" min="1" max="${latestQuantityMax}" value="1">
+                        <div>最多可使用 ${latestQuantityMax} 瓶</div>
+                    </div>
+                </div>
+            `);
+        };
+        const useExpPotion = (quantity, activeModal) => {
+            const latestHero = heroManager.getHero(heroId);
+            if (!latestHero) {
+                Toast.error('英雄不存在');
+                return;
+            }
+            if (itemManager.getItemCount('exp_potion') <= 0) {
+                Toast.error('道具不足');
+                return;
+            }
+            if (latestHero.isAtLevelCap(window.game.player.level)) {
+                Toast.info('已达到最高等级');
+                return;
+            }
+            const safeQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+            const result = itemManager.useItem('exp_potion', latestHero.id, { quantity: safeQuantity });
+            if (result.success) {
+                Toast.success(result.message);
+                this.refresh();
+                this.updateHeroDetailModal(result.hero || latestHero);
+                window.game.save();
+                refreshExpUseModal(activeModal);
+            } else if (result.message && result.message.includes('等级已达到')) {
+                Toast.info(result.message);
+            } else {
+                Toast.error(result.message || '经验药水使用失败');
+            }
+        };
+        const useExpPotionForLevels = (levelCount, activeModal) => {
+            const latestHero = heroManager.getHero(heroId);
+            if (!latestHero) {
+                Toast.error('英雄不存在');
+                return;
+            }
+            if (latestHero.isAtLevelCap(window.game.player.level)) {
+                Toast.info('已达到最高等级');
+                return;
+            }
+            const neededExp = this.getHeroExpNeededForLevels(latestHero, levelCount, window.game.player.level);
+            if (neededExp <= 0) {
+                if (latestHero.levelUpOnce(window.game.player.level)) {
+                    eventManager.emit('heroLevelUp', latestHero);
+                    eventManager.emit('heroUpdate', latestHero);
+                    Toast.success(`${latestHero.name} 升级到 Lv.${latestHero.level}`);
+                    this.refresh();
+                    this.updateHeroDetailModal(latestHero);
+                    window.game.save();
+                    refreshExpUseModal(activeModal);
+                } else {
+                    Toast.info('已达到最高等级');
+                }
+                return;
+            }
+            const ownedCount = itemManager.getItemCount('exp_potion');
+            if (ownedCount <= 0) {
+                Toast.error('道具不足');
+                return;
+            }
+            const neededCount = Math.max(1, Math.ceil(neededExp / expValue));
+            useExpPotion(Math.min(ownedCount, neededCount), activeModal);
+        };
+
+        const modal = new Modal({
+            title: '使用经验药水',
+            className: 'inventory-detail-modal-shell hero-command-modal-shell',
+            content: `
+                <div class="inventory-detail-panel inventory-detail-rarity-${rarity}">
+                    <div class="inventory-detail-visual-card">
+                        <div class="inventory-detail-icon">${itemVisual}</div>
+                    </div>
+                    <div class="inventory-detail-info-card">
+                        <div class="inventory-detail-kicker">INVENTORY ITEM</div>
+                        <div class="inventory-detail-name" style="color:${this.getRarityColor(rarity)};">${item?.name || '经验药水'}</div>
+                        <div class="inventory-detail-tags">
+                            <span>${this.getRarityName(rarity)}</span>
+                            <span>英雄培养</span>
+                        </div>
+                        <div class="inventory-detail-desc">${tipText}</div>
+                        <div class="inventory-detail-stats">
+                            <div class="inventory-detail-stat">
+                                <span>当前英雄</span>
+                                <strong>${hero.name}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>当前等级</span>
+                                <strong>Lv.${hero.level}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>当前经验</span>
+                                <strong>${currentExp}/${expRequired}</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>持有数量</span>
+                                <strong>${totalCount}</strong>
+                            </div>
+                            <div class="inventory-detail-stat inventory-detail-stat-accent">
+                                <span>使用效果</span>
+                                <strong>每瓶 +${expValue} 经验</strong>
+                            </div>
+                            <div class="inventory-detail-stat">
+                                <span>等级上限</span>
+                                <strong>Lv.${effectiveLevelCap}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="inventory-detail-batch-field">
+                        <label for="${quantityInputId}">使用数量</label>
+                        <input id="${quantityInputId}" type="number" min="1" max="${quantityMax}" value="1">
+                        <div>最多可使用 ${quantityMax} 瓶</div>
+                    </div>
+                </div>
+            `,
+            buttons: [
+                {
+                    text: '使用',
+                    className: 'btn-primary',
+                    disabled: !canUse,
+                    onClick: () => {
+                        const input = document.getElementById(quantityInputId);
+                        const quantity = Math.min(quantityMax, Math.max(1, Math.floor(Number(input?.value) || 1)));
+                        useExpPotion(quantity, modal);
+                    }
+                },
+                {
+                    text: '升一级',
+                    className: 'btn-secondary',
+                    disabled: atLevelCap,
+                    onClick: () => useExpPotionForLevels(1, modal)
+                },
+                {
+                    text: '升十级',
+                    className: 'btn-secondary',
+                    disabled: atLevelCap,
+                    onClick: () => useExpPotionForLevels(10, modal)
+                },
+                { text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }
+            ]
+        });
+        modal.show();
+    }
+
+    getHeroExpNeededForLevels(hero, levelCount, playerLevel) {
+        const targetLevelCount = Math.max(1, Math.floor(Number(levelCount) || 1));
+        const levelCap = hero.getLevelCap(playerLevel);
+        let level = Math.max(1, Number(hero.level) || 1);
+        let exp = Math.max(0, Number(hero.exp) || 0);
+        let needed = 0;
+        let gainedLevels = 0;
+
+        while (level < levelCap && gainedLevels < targetLevelCount) {
+            const required = Math.max(1, GameConfig.getExpRequired(level));
+            const missing = Math.max(0, required - exp);
+            needed += missing;
+            level++;
+            exp = 0;
+            gainedLevels++;
+        }
+
+        return needed;
+    }
+
+    levelUpHero(heroId) {
+        this.showHeroExpUseModal(heroId);
     }
 
     upgradeStars(heroId) {
@@ -1193,7 +1761,8 @@ class HeroView {
 
     getTeamModalContent() {
         const heroes = heroManager.getAllHeroes();
-        this.preloadHeroPortraits(heroes);
+        const portraitWarmupCount = this.getHeroPortraitWarmupCount();
+        this.warmupHeroPortraits(heroes, { firstScreenCount: portraitWarmupCount });
         const maxTeamSize = Number(heroManager.maxTeamSize) || 4;
         const teamHeroes = typeof heroManager.getTeam === 'function'
             ? heroManager.getTeam()
@@ -1220,21 +1789,21 @@ class HeroView {
                 </button>
             `;
         }).join('');
-        const cards = heroes.map(hero => {
+        const cards = heroes.map((hero, index) => {
             const inTeam = heroManager.isHeroInTeam(hero.id);
-            const rarityColor = this.getRarityColor(hero.rarity);
             const blocked = !inTeam && isTeamFull;
             return `
                 <div
                     class="hero-card hero-card-compact hero-roster-card hero-team-roster-card card ${inTeam ? 'selected is-in-team' : ''} ${blocked ? 'is-team-blocked' : ''}"
                     data-hero-id="${hero.id}"
                     data-hero-config-id="${hero.configId || ''}"
-                    style="--hero-card-rarity:${rarityColor};"
+                    data-rarity="${hero.rarity || 'common'}"
+                    style="${this.getHeroCardRarityStyle(hero.rarity)}"
                     onclick="window.game.ui.heroView.toggleTeam('${hero.id}')"
                     title="${inTeam ? '点击移出编队' : '点击加入编队'}">
                     ${inTeam ? '<div class="hero-team-badge">参战</div>' : ''}
                     ${this.getProfessionBadgeMarkup(hero)}
-                    ${this.getHeroAvatarMarkup(hero)}
+                    ${this.getHeroAvatarMarkup(hero, 'default', this.getHeroPortraitRenderOptions(index, portraitWarmupCount))}
                     <div class="hero-level">Lv.${hero.level}</div>
                     ${this.getHeroStarMarkup(hero.stars)}
                     <div class="hero-card-meta-row">
@@ -1312,6 +1881,23 @@ class HeroView {
         return GameConfig.getRarityConfig(rarity || 'common').color;
     }
 
+    getHeroCardRarityStyle(rarity) {
+        const palette = {
+            common: { color: '#a0a0a0', soft: 'rgba(160, 160, 160, 0.42)', glow: 'rgba(160, 160, 160, 0.22)', edge: 'rgba(160, 160, 160, 0.18)' },
+            rare: { color: '#a335ee', soft: 'rgba(163, 53, 238, 0.62)', glow: 'rgba(163, 53, 238, 0.30)', edge: 'rgba(163, 53, 238, 0.22)' },
+            epic: { color: '#d6a85a', soft: 'rgba(161, 88, 58, 0.48)', glow: 'rgba(120, 54, 36, 0.18)', edge: 'rgba(236, 201, 140, 0.18)' },
+            legendary: { color: '#ffcc00', soft: 'rgba(255, 204, 0, 0.66)', glow: 'rgba(255, 215, 96, 0.36)', edge: 'rgba(255, 244, 176, 0.34)' }
+        };
+        const normalized = rarity || 'common';
+        const item = palette[normalized] || palette.common;
+        return [
+            `--hero-card-rarity:${item.color}`,
+            `--hero-card-rarity-soft:${item.soft}`,
+            `--hero-card-rarity-glow:${item.glow}`,
+            `--hero-card-rarity-edge:${item.edge}`
+        ].join(';');
+    }
+
     getRarityName(rarity) {
         return GameConfig.getRarityConfig(rarity || 'common').name;
     }
@@ -1332,4 +1918,3 @@ class HeroView {
 
 const heroView = new HeroView();
 window.heroView = heroView;
-

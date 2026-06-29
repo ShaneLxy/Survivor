@@ -9,6 +9,8 @@ class TopBar {
         this.playerInfoModal = null;
         this.avatarPickerModal = null;
         this.pendingAvatarHeroConfigId = null;
+        this.playerInfoSaveTimer = null;
+        this.playerInfoSaveDirty = false;
         this.init();
     }
 
@@ -24,7 +26,7 @@ class TopBar {
                     <div class="avatar-icon topbar-player-avatar-image"></div>
                 </div>
                 <span class="topbar-player-meta">
-                    <span class="topbar-player-kicker">PLAYER</span>
+                    <span class="topbar-player-kicker" id="topbar-player-name">幸存者</span>
                     <span class="topbar-player-level" id="player-level">Lv.1</span>
                 </span>
             </button>
@@ -38,13 +40,14 @@ class TopBar {
                     <span class="status-value text-gold" id="player-gold">0</span>
                 </div>
                 <div class="status-item status-item-diamond">
-                    <span class="status-icon status-icon-diamond">◆</span>
+                    <span class="status-icon status-icon-resource status-icon-diamond">◆</span>
                     <span class="status-value text-diamond" id="player-diamond">0</span>
                 </div>
             </div>
         `;
         this.avatarElement = this.element.querySelector('#player-avatar');
         this.avatarIconElement = this.element.querySelector('.avatar-icon');
+        this.playerNameElement = this.element.querySelector('#topbar-player-name');
         this.levelElement = this.element.querySelector('#player-level');
         this.energyElement = this.element.querySelector('#player-energy');
         this.goldElement = this.element.querySelector('#player-gold');
@@ -61,8 +64,12 @@ class TopBar {
             return;
         }
         const goldIcon = this.element.querySelector('.status-icon-gold');
+        const diamondIcon = this.element.querySelector('.status-icon-diamond');
         if (goldIcon) {
             goldIcon.innerHTML = ResourceVisualConfig.getIconMarkup('gold', 'resource-icon-image status-icon-image');
+        }
+        if (diamondIcon) {
+            diamondIcon.innerHTML = ResourceVisualConfig.getIconMarkup('diamond', 'resource-icon-image status-icon-image');
         }
     }
 
@@ -217,8 +224,52 @@ class TopBar {
     selectAvatarHero(configId) {
         this.pendingAvatarHeroConfigId = configId;
         this.updatePlayerAvatarPreview();
+        this.applyPlayerInfoDraft();
+        this.schedulePlayerInfoSave();
         if (this.avatarPickerModal?.isShown()) {
             this.avatarPickerModal.close();
+        }
+    }
+
+    getAccountIdMarkup() {
+        const user = authService.getCurrentUser();
+        const accountId = String(user?.id || user?._id || '').trim();
+        const text = accountId || '未登录';
+        const copyButton = accountId
+            ? '<button type="button" class="btn btn-secondary btn-small player-info-copy-id-btn" onclick="window.game.ui.topBar.copyAccountId()">复制</button>'
+            : '';
+        return `
+            <div class="player-info-stat-inline player-info-account-id">
+                <span>账号ID：</span>
+                <strong class="player-info-account-value">${this.escapeHtml(text)}</strong>
+                ${copyButton}
+            </div>
+        `;
+    }
+
+    async copyAccountId() {
+        const user = authService.getCurrentUser();
+        const accountId = String(user?.id || user?._id || '').trim();
+        if (!accountId) {
+            Toast.info('未登录账号');
+            return;
+        }
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(accountId);
+            } else {
+                const input = document.createElement('textarea');
+                input.value = accountId;
+                input.style.position = 'fixed';
+                input.style.left = '-9999px';
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                input.remove();
+            }
+            Toast.success('已复制');
+        } catch (error) {
+            Toast.error('复制失败');
         }
     }
 
@@ -238,6 +289,7 @@ class TopBar {
                             <div class="player-info-stats">
                                 <div class="player-info-stat-inline">玩家等级：<strong id="info-level">${window.game.player.level}</strong></div>
                                 <div class="player-info-stat-inline">玩家经验：<strong><span id="info-exp">${window.game.player.exp}</span>/<span id="info-exp-required">${GameConfig.getExpRequired(window.game.player.level)}</span></strong></div>
+                                ${this.getAccountIdMarkup()}
                             </div>
                             <button class="btn btn-secondary btn-small player-avatar-config-btn" onclick="window.game.ui.topBar.openAvatarPicker()">设置头像</button>
                         </div>
@@ -460,6 +512,7 @@ class TopBar {
         eventManager.on('playerUpdate', data => {
             if (data.level !== undefined) this.updateLevel(data.level);
             if (data.energy !== undefined) this.updateEnergy(data.energy, data.maxEnergy);
+            if (data.nickname !== undefined) this.updatePlayerName();
         });
         eventManager.on('authChange', () => this.refreshAccountStatus());
         eventManager.on('heroAdd', () => this.refreshAccountStatus());
@@ -467,12 +520,27 @@ class TopBar {
 
     refreshAccountStatus() {
         this.updateTopBarAvatar();
+        this.updatePlayerName();
         if (this.avatarElement) {
             const user = authService.getCurrentUser();
             this.avatarElement.title = authService.isLoggedIn()
                 ? `当前已登录：${user?.nickname || user?.account || '账号'}`
                 : '点击查看玩家信息';
         }
+    }
+
+    getDisplayPlayerName() {
+        const user = authService.getCurrentUser?.() || {};
+        return String(window.game?.player?.nickname || user.nickname || user.account || '幸存者').trim() || '幸存者';
+    }
+
+    updatePlayerName() {
+        if (!this.playerNameElement) {
+            return;
+        }
+        const name = this.getDisplayPlayerName();
+        this.playerNameElement.textContent = name;
+        this.playerNameElement.title = name;
     }
 
     updateLevel(level) {
@@ -515,3 +583,135 @@ class TopBar {
 
 const topBar = new TopBar();
 window.topBar = topBar;
+
+TopBar.prototype.bindPlayerInfoAutoSave = function() {
+    const modalElement = this.playerInfoModal?.element;
+    if (!modalElement) {
+        return;
+    }
+    ['auto-battle-setting', 'mute-setting', 'environment-effects-setting'].forEach((id) => {
+        const input = modalElement.querySelector(`#${id}`);
+        if (input) {
+            input.addEventListener('change', () => {
+                this.applyPlayerInfoDraft();
+                this.schedulePlayerInfoSave();
+            });
+        }
+    });
+};
+
+TopBar.prototype.applyPlayerInfoDraft = function() {
+    const autoBattleCheckbox = document.getElementById('auto-battle-setting');
+    const muteCheckbox = document.getElementById('mute-setting');
+    const environmentEffectsCheckbox = document.getElementById('environment-effects-setting');
+
+    window.game.player.avatarHeroConfigId = this.pendingAvatarHeroConfigId || this.getCurrentAvatarHeroConfigId();
+    if (autoBattleCheckbox) {
+        window.game.settings.autoBattle = autoBattleCheckbox.checked;
+    }
+    if (muteCheckbox) {
+        window.game.settings.muted = muteCheckbox.checked;
+        audioManager.setMuted(window.game.settings.muted);
+    }
+    if (environmentEffectsCheckbox) {
+        window.game.settings.environmentEffectsDisabled = environmentEffectsCheckbox.checked;
+    }
+
+    if (window.game.currentView === 'battle') {
+        window.game.ui?.battleView?.applyAutoBattleSettingChange?.();
+        window.game.ui?.battleView?.applyEnvironmentEffectSettingChange?.();
+    }
+
+    this.refreshAccountStatus();
+};
+
+TopBar.prototype.schedulePlayerInfoSave = function() {
+    this.playerInfoSaveDirty = true;
+    if (this.playerInfoSaveTimer) {
+        clearTimeout(this.playerInfoSaveTimer);
+    }
+    this.playerInfoSaveTimer = setTimeout(() => this.flushPlayerInfoSave(), 240);
+};
+
+TopBar.prototype.flushPlayerInfoSave = function() {
+    if (this.playerInfoSaveTimer) {
+        clearTimeout(this.playerInfoSaveTimer);
+        this.playerInfoSaveTimer = null;
+    }
+    if (!this.playerInfoSaveDirty) {
+        return;
+    }
+    window.game?.save?.();
+    this.playerInfoSaveDirty = false;
+};
+
+TopBar.prototype.selectAvatarHero = function(configId) {
+    this.pendingAvatarHeroConfigId = configId;
+    this.updatePlayerAvatarPreview();
+    this.applyPlayerInfoDraft();
+    this.schedulePlayerInfoSave();
+    if (this.avatarPickerModal?.isShown()) {
+        this.avatarPickerModal.close();
+    }
+};
+
+TopBar.prototype.showPlayerInfo = function() {
+    this.pendingAvatarHeroConfigId = this.getCurrentAvatarHeroConfigId();
+    const modal = new Modal({
+        title: '玩家信息',
+        className: 'player-info-modal',
+        content: `
+            <div class="player-info-panel">
+                <div class="player-info-header">
+                    <div class="player-info-avatar-column">
+                        <div id="player-avatar-preview">${this.getAvatarMarkup(this.getCurrentAvatarHeroConfig(), { sizeClass: 'player-info-avatar-large' })}</div>
+                        ${this.getPlayerNameMarkup()}
+                    </div>
+                    <div class="player-info-meta">
+                        <div class="player-info-stats">
+                            <div class="player-info-stat-inline">玩家等级：<strong id="info-level">${window.game.player.level}</strong></div>
+                            <div class="player-info-stat-inline">玩家经验：<strong><span id="info-exp">${window.game.player.exp}</span>/<span id="info-exp-required">${GameConfig.getExpRequired(window.game.player.level)}</span></strong></div>
+                            ${this.getAccountIdMarkup()}
+                        </div>
+                        <button class="btn btn-secondary btn-small player-avatar-config-btn" onclick="window.game.ui.topBar.openAvatarPicker()">设置头像</button>
+                    </div>
+                </div>
+                <div class="player-info-toggle-row">
+                    <label class="player-info-toggle ${window.battleManager?.isAutoBattleAllowed?.() ? '' : 'is-disabled'}">
+                        <input type="checkbox" id="auto-battle-setting" ${window.game.settings.autoBattle ? 'checked' : ''} ${window.battleManager?.isAutoBattleAllowed?.() ? '' : 'disabled'}>
+                        <span>自动战斗${window.battleManager?.isAutoBattleAllowed?.() ? '' : '<em class="player-info-toggle-hint">（需卓越特权）</em>'}</span>
+                    </label>
+                    <label class="player-info-toggle">
+                        <input type="checkbox" id="mute-setting" ${window.game.settings.muted ? 'checked' : ''}>
+                        <span>关闭游戏声音</span>
+                    </label>
+                    <label class="player-info-toggle">
+                        <input type="checkbox" id="environment-effects-setting" ${window.game.settings.environmentEffectsDisabled ? 'checked' : ''}>
+                        <span>关闭游戏特效</span>
+                    </label>
+                </div>
+                ${this.getPlayerInfoToolsMarkup()}
+            </div>
+        `,
+        buttons: [
+            { text: '关闭', className: 'btn-secondary', onClick: () => modal.close() }
+        ],
+        onClose: () => {
+            this.flushPlayerInfoSave();
+            this.playerInfoModal = null;
+            this.pendingAvatarHeroConfigId = null;
+            if (this.avatarPickerModal?.isShown()) {
+                this.avatarPickerModal.close();
+            }
+        }
+    });
+    this.playerInfoModal = modal;
+    modal.show();
+    this.bindPlayerInfoAutoSave();
+};
+
+TopBar.prototype.savePlayerInfo = function(modal) {
+    this.applyPlayerInfoDraft();
+    this.flushPlayerInfoSave();
+    modal?.close?.();
+};

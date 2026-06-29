@@ -1,5 +1,5 @@
 ﻿const state = {
-  baseUrl: localStorage.getItem('survivor_gm_base_url') || 'http://localhost:3000/api',
+  baseUrl: localStorage.getItem('survivor_gm_base_url') || 'https://geegeo.cn/api',
   gmSecret: localStorage.getItem('survivor_gm_secret') || 'Qp9ZxK3mLvBnH4tYjC7wRfDsE2uA8oFiNgMxV5kJ6yT0aBrLcWqHePsUiZdGoXv',
   view: 'catalog',
   catalogType: 'items',
@@ -14,14 +14,18 @@
   selectedShopItem: null,
   selectedWelfareGift: null,
   selectedShelterBuilding: null,
+  specialBattleConfig: { escortMissions: [], updatedAt: null },
+  selectedSpecialBattle: null,
   mailRewards: [],
   cdkeyRewards: [],
   welfareGiftRewards: [],
+  welfareCheckinCycleRewards: {},
   pickerTarget: 'mail',
   cdkeys: [],
   operationConfig: { gameStatus: 'normal', announcements: [] },
   packageRunning: false,
-  packageLastOutputPath: ''
+  packageLastOutputPath: '',
+  serverDeployRunning: false
 };
 
 const viewMeta = {
@@ -33,10 +37,13 @@ const viewMeta = {
   quest: ['任务成就', '维护日常/周常任务、永久成就的触发条件、目标与奖励'],
   gacha: ['招募奖池', '配置英雄招募和装备打造的奖励条目、数量范围和概率'],
   dungeon: ['副本关卡', '配置章节、关卡、敌人、奖励和棋盘布局'],
+  specialBattle: ['特殊关卡', '按章节配置资源护送战，多段地图、路线、敌人与奖励都会进入实战'],
   mail: ['玩家邮件', '向玩家 ID 或全体玩家发送系统邮件'],
   cdkey: ['CDKEY', '批量创建、查询、修改兑换码'],
   package: ['打包模块', '选择正式或测试版本并生成 Android 安装包'],
-  settings: ['连接设置', '配置服务端地址、GM 密钥、游戏状态和公告']
+  serverDeploy: ['服务器后端发布', '上传后端代码或 GM 运行时资源到阿里云，并自动构建、重启和健康检查'],
+  settings: ['连接设置', '配置服务端地址、GM 密钥、游戏状态和公告'],
+  audio: ['音乐配置', '上传战斗BGM文件，自定义大厅和战斗场景背景音乐路径']
 };
 
 const catalogConfig = {
@@ -76,6 +83,15 @@ const heroBaseStatFields = [
   ['moveRange', '#heroStatMoveRange']
 ];
 
+const heroVoiceCueDefs = [
+  { key: 'turnStart', label: '轮到英雄回合' },
+  { key: 'critical', label: '造成暴击' },
+  { key: 'kill', label: '造成击杀' },
+  { key: 'death', label: '英雄阵亡' },
+  { key: 'mvp', label: 'MVP语音' },
+  { key: 'heal', label: '治疗生效' }
+];
+
 const dungeonEnvironmentEffectOptions = new Set(['none', 'smoke', 'poison_fog', 'dust_smoke', 'rain', 'storm_night', 'snow', 'ash']);
 
 const gachaEntryTypeLabels = {
@@ -86,12 +102,38 @@ const gachaEntryTypeLabels = {
   equipment: '随机装备'
 };
 
+const catalogTypeValueLabels = {
+  resource: '资源',
+  consumable: '消耗品',
+  material: '材料',
+  special: '特殊',
+  fragment: '英雄碎片',
+  weapon: '武器',
+  armor: '护甲',
+  clothes: '衣服',
+  pants: '裤子',
+  shoes: '鞋子',
+  damage: '伤害',
+  heal: '治疗',
+  utility: '辅助',
+  warning_area_damage: '预警范围伤害',
+  daily: '每日',
+  weekly: '每周',
+  permanent: '永久'
+};
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const DEFAULT_PACKAGE_APPLICATION_ID = 'game.taptap.yunjing.game';
 const DEFAULT_PACKAGE_APP_NAME = '云境Paradise';
 const DEFAULT_PACKAGE_OUTPUT_DIR = 'E:\\AIGame\\Survivor\\android\\app\\build\\outputs\\apk\\debug';
+const PACKAGE_SIGNING_STORAGE_KEYS = {
+  signingStoreFile: 'survivor_package_signing_store_file',
+  signingStorePassword: 'survivor_package_signing_store_password',
+  signingKeyAlias: 'survivor_package_signing_key_alias',
+  signingKeyPassword: 'survivor_package_signing_key_password'
+};
 const EXPANDED_SELECT_SIZE = 12;
 
 viewMeta.shelter = ['避难所建筑', '配置农场、林场、水井等建筑的图标、描述、每级收益和升级消耗'];
@@ -100,8 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
   bindScrollableSelects();
   bindPackageLogStream();
+  bindServerDeployLogStream();
   syncSettingsInputs();
   syncPackageDefaults();
+  loadPackageSigningDefaults();
   syncPackageChannelDefaults();
   refreshAll();
 });
@@ -151,6 +195,11 @@ function bindEvents() {
 
   $('#settingsForm').addEventListener('submit', saveSettings);
   $('#resetSettingsBtn').addEventListener('click', resetSettings);
+  $('#audioConfigForm').addEventListener('submit', saveAudioConfig);
+  $('#uploadAudioBtn').addEventListener('click', uploadAudioFile);
+  $('#uploadAttackSfxBtn').addEventListener('click', () => uploadAudioAsset('battle_attack'));
+  $('#uploadCriticalSfxBtn').addEventListener('click', () => uploadAudioAsset('battle_critical'));
+  $('#refreshAudioConfigBtn').addEventListener('click', loadAudioConfig);
   $('#gameStatusInput').addEventListener('change', () => {
     state.operationConfig.gameStatus = $('#gameStatusInput').value === 'maintenance' ? 'maintenance' : 'normal';
   });
@@ -169,6 +218,11 @@ function bindEvents() {
   $('#clearPackageLogBtn').addEventListener('click', clearPackageLog);
   $('#openPackageOutputBtn').addEventListener('click', openPackageOutputPath);
   $('#cacheBumpBtn').addEventListener('click', bumpCacheVersion);
+  $('#serverDeployForm')?.addEventListener('submit', startServerDeploy);
+  $('#clearServerDeployLogBtn')?.addEventListener('click', clearServerDeployLog);
+  $$('[data-password-toggle]').forEach((button) => {
+    button.addEventListener('click', () => togglePasswordVisibility(button));
+  });
 
   $('#mailForm').addEventListener('submit', sendMail);
   $('#mailScope').addEventListener('change', () => {
@@ -267,9 +321,38 @@ function bindEvents() {
   $('#addStoryDialogueBtn').addEventListener('click', () => {
     renderStoryDialogueRows([...readStoryDialogueEntries(), createBlankStoryDialogueEntry()]);
   });
-  $('#previewStoryDialogueBtn').addEventListener('click', previewStoryDialogue);
   $('#loadDungeonBatchBtn').addEventListener('click', loadDungeonBatchJson);
   $('#saveDungeonBatchBtn').addEventListener('click', saveDungeonBatch);
+  $('#specialBattleSearchInput').addEventListener('input', renderSpecialBattles);
+  $('#newSpecialBattleBtn').addEventListener('click', createBlankSpecialBattle);
+  $('#specialBattleForm').addEventListener('submit', saveSpecialBattle);
+  $('#deleteSpecialBattleBtn').addEventListener('click', deleteSpecialBattle);
+  $('#specialBattleChapterId').addEventListener('change', () => {
+    renderSpecialBattleUnlockDungeonOptions();
+    const chapterId = $('#specialBattleChapterId').value.trim();
+    const chapter = getDungeonChapters().find((entry) => entry.id === chapterId) || null;
+    if (!chapter) return;
+    if (!$('#specialBattleChapterIndex').value) {
+      $('#specialBattleChapterIndex').value = chapter.index || chapter.chapterNumber || 1;
+    }
+    if (!$('#specialBattleSubtitle').value.trim()) {
+      $('#specialBattleSubtitle').value = chapter.name || chapter.title || chapter.id;
+    }
+    if (!$('#specialBattleBackground').value.trim()) {
+      $('#specialBattleBackground').value = chapter.background || '';
+    }
+    if (!$('#specialBattleUnlockDungeonId').value && chapter.stages?.length) {
+      $('#specialBattleUnlockDungeonId').value = chapter.stages[chapter.stages.length - 1].id || '';
+    }
+  });
+  $('#addSpecialBattleBaseRewardBtn').addEventListener('click', () => {
+    renderSpecialBattleBaseRewardRows([...readSpecialBattleBaseRewardRows(), { id: '', amount: 1 }]);
+  });
+  $('#addSpecialBattleSegmentBtn').addEventListener('click', () => {
+    renderSpecialBattleSegmentRows([...readSpecialBattleSegmentRows(), createBlankSpecialBattleSegment()]);
+  });
+  $('#loadSpecialBattleBatchBtn').addEventListener('click', loadSpecialBattleBatchJson);
+  $('#saveSpecialBattleBatchBtn').addEventListener('click', saveSpecialBattleBatch);
 }
 
 function collapseScrollableSelect(select) {
@@ -351,6 +434,7 @@ async function refreshAll() {
   }
   await loadOperationConfig();
   await loadCatalog();
+  await loadSpecialBattleConfig();
   if (state.view === 'cdkey') {
     await loadCdkeys();
   }
@@ -423,8 +507,15 @@ function setView(view) {
     renderDungeons();
     renderDungeonEditor(state.selectedDungeon);
   }
+  if (view === 'specialBattle') {
+    renderSpecialBattles();
+    renderSpecialBattleEditor(state.selectedSpecialBattle);
+  }
   if (view === 'package') {
     syncPackageChannelDefaults();
+  }
+  if (view === 'audio') {
+    loadAudioConfig();
   }
 }
 
@@ -501,6 +592,118 @@ async function saveOperationConfig() {
   syncSettingsInputs();
 }
 
+async function loadAudioConfig() {
+  try {
+    const result = await api('/gm/audio-config');
+    const config = result?.config || result || {};
+    $('#battleBgmPath').value = config.battleBgmPath || '';
+    $('#lobbyBgmPath').value = config.lobbyBgmPath || '';
+    $('#attackSfxPaths').value = formatAudioPathList(config.attackSfxPaths);
+    $('#criticalSfxPaths').value = formatAudioPathList(config.criticalSfxPaths);
+  } catch (error) {
+    showToast(`音乐配置加载失败：${error.message}`);
+  }
+}
+
+async function saveAudioConfig(event) {
+  event.preventDefault();
+  try {
+    const body = {
+      battleBgmPath: $('#battleBgmPath').value.trim(),
+      lobbyBgmPath: $('#lobbyBgmPath').value.trim(),
+      attackSfxPaths: parseAudioPathList($('#attackSfxPaths').value),
+      criticalSfxPaths: parseAudioPathList($('#criticalSfxPaths').value)
+    };
+    await api('/gm/audio-config', { method: 'PUT', body });
+    showToast('音乐配置已保存');
+  } catch (error) {
+    showToast(`保存失败：${error.message}`);
+  }
+}
+
+async function uploadAudioFile() {
+  return uploadAudioAsset('bgm');
+}
+
+async function uploadAudioAsset(category) {
+  const uploadConfig = resolveAudioUploadConfig(category);
+  const fileInput = $(uploadConfig.inputSelector);
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    showToast(`请先选择${uploadConfig.label}`);
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('category', category);
+
+  const statusEl = $('#audioUploadStatus');
+  statusEl.style.display = '';
+  statusEl.textContent = `正在上传${uploadConfig.label}...`;
+
+  try {
+    const url = `${normalizeBaseUrl(state.baseUrl)}/gm/audio/upload`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'x-gm-secret': state.gmSecret },
+      body: formData
+    });
+    const text = await response.text();
+    let payload = null;
+    try { payload = JSON.parse(text); } catch { payload = { message: text }; }
+    if (!response.ok) {
+      throw new Error(payload?.message || `HTTP ${response.status}`);
+    }
+    applyUploadedAudioConfig(payload?.config || {}, category);
+    statusEl.textContent = `上传成功：${payload?.path || ''}`;
+    statusEl.style.color = '#4ade80';
+    fileInput.value = '';
+    showToast(`${uploadConfig.label}上传成功`);
+  } catch (error) {
+    statusEl.textContent = `上传失败：${error.message}`;
+    statusEl.style.color = '#f87171';
+    showToast(`上传失败：${error.message}`);
+  }
+}
+
+function resolveAudioUploadConfig(category) {
+  if (category === 'battle_attack') {
+    return { inputSelector: '#attackSfxFileInput', label: '攻击音效' };
+  }
+  if (category === 'battle_critical') {
+    return { inputSelector: '#criticalSfxFileInput', label: '暴击音效' };
+  }
+  return { inputSelector: '#audioFileInput', label: 'BGM 文件' };
+}
+
+function applyUploadedAudioConfig(config, category) {
+  if (category === 'battle_attack') {
+    $('#attackSfxPaths').value = formatAudioPathList(config.attackSfxPaths);
+    return;
+  }
+  if (category === 'battle_critical') {
+    $('#criticalSfxPaths').value = formatAudioPathList(config.criticalSfxPaths);
+    return;
+  }
+  if (config?.battleBgmPath) {
+    $('#battleBgmPath').value = config.battleBgmPath;
+  }
+}
+
+function parseAudioPathList(value) {
+  return String(value || '')
+    .split(/[\r\n,;，；]+/)
+    .map(entry => entry.trim())
+    .filter(Boolean);
+}
+
+function formatAudioPathList(value) {
+  if (!Array.isArray(value)) {
+    return '';
+  }
+  return value.map(entry => String(entry || '').trim()).filter(Boolean).join('\n');
+}
+
 function normalizeOperationConfig(config) {
   return {
     gameStatus: config?.gameStatus === 'maintenance' ? 'maintenance' : 'normal',
@@ -569,6 +772,13 @@ function bindPackageLogStream() {
   });
 }
 
+function bindServerDeployLogStream() {
+  if (!window.gmDesktop?.onServerDeployLog) return;
+  window.gmDesktop.onServerDeployLog((payload) => {
+    appendServerDeployLog(payload?.text || '');
+  });
+}
+
 function formatPackageVersionCode(date = new Date()) {
   const parts = [
     date.getFullYear(),
@@ -599,6 +809,49 @@ function syncPackageDefaults() {
   if (outputDirInput && !outputDirInput.value.trim()) {
     outputDirInput.value = DEFAULT_PACKAGE_OUTPUT_DIR;
   }
+  syncPackageSigningDefaults();
+}
+
+function syncPackageSigningDefaults() {
+  Object.entries(PACKAGE_SIGNING_STORAGE_KEYS).forEach(([field, key]) => {
+    const input = $(`#package${field[0].toUpperCase()}${field.slice(1)}`);
+    if (input && !input.value) {
+      input.value = localStorage.getItem(key) || '';
+    }
+  });
+}
+
+function savePackageSigningDefaults(options) {
+  Object.entries(PACKAGE_SIGNING_STORAGE_KEYS).forEach(([field, key]) => {
+    localStorage.setItem(key, options[field] || '');
+  });
+}
+
+function togglePasswordVisibility(button) {
+  const input = $(`#${button.dataset.passwordToggle}`);
+  if (!input) return;
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.classList.toggle('active', visible);
+  button.setAttribute('aria-pressed', String(visible));
+  button.title = visible ? '隐藏密码' : '显示密码';
+  button.setAttribute('aria-label', button.title);
+}
+
+async function loadPackageSigningDefaults() {
+  if (!window.gmDesktop?.getAndroidSigningConfig) return;
+  try {
+    const config = await window.gmDesktop.getAndroidSigningConfig();
+    Object.keys(PACKAGE_SIGNING_STORAGE_KEYS).forEach((field) => {
+      const input = $(`#package${field[0].toUpperCase()}${field.slice(1)}`);
+      if (input && config?.[field]) {
+        input.value = config[field];
+      }
+    });
+    savePackageSigningDefaults(config || {});
+  } catch (error) {
+    console.warn('Failed to load Android signing config:', error);
+  }
 }
 
 function syncPackageChannelDefaults() {
@@ -625,6 +878,105 @@ function appendPackageLog(text) {
 
 function appendPackageLine(text = '') {
   appendPackageLog(`${text}\n`);
+}
+
+function clearServerDeployLog() {
+  const output = $('#serverDeployResultOutput');
+  if (output) {
+    output.value = '';
+  }
+}
+
+function appendServerDeployLog(text) {
+  const output = $('#serverDeployResultOutput');
+  if (!output || !text) return;
+  output.value += text;
+  output.scrollTop = output.scrollHeight;
+}
+
+function appendServerDeployLine(text = '') {
+  appendServerDeployLog(`${text}\n`);
+}
+
+function readServerDeployOptions() {
+  return {
+    host: $('#serverDeployHost').value.trim(),
+    port: $('#serverDeployPort').value.trim(),
+    username: $('#serverDeployUsername').value.trim(),
+    password: $('#serverDeployPassword').value,
+    remoteRoot: $('#serverDeployRemoteRoot').value.trim(),
+    appDir: $('#serverDeployAppDir').value.trim(),
+    healthUrl: $('#serverDeployHealthUrl').value.trim(),
+    action: $('#serverDeployAction').value
+  };
+}
+
+function validateServerDeployOptions(options) {
+  if (!options.host) return '请填写服务器地址';
+  if (!/^[1-9]\d*$/.test(String(options.port || ''))) return 'SSH 端口必须是正整数';
+  if (!options.username) return '请填写 SSH 用户名';
+  if (!options.password) return '请填写 SSH 密码';
+  if (!options.remoteRoot.startsWith('/')) return '远程根目录必须是 Linux 绝对路径';
+  if (!options.appDir.startsWith('/')) return '后端目录必须是 Linux 绝对路径';
+  if (!/^https?:\/\/.+/i.test(options.healthUrl)) return '健康检查地址必须以 http:// 或 https:// 开头';
+  return '';
+}
+
+function setServerDeployRunning(running) {
+  state.serverDeployRunning = running;
+  const button = $('#startServerDeployBtn');
+  if (button) {
+    button.textContent = running ? '发布中...' : '开始发布';
+    button.disabled = running;
+  }
+}
+
+function getServerDeployActionLabel(action) {
+  return {
+    backend: '发布后端代码',
+    sync: '同步服务器 GM 配置',
+    restart: '仅重启后端服务',
+    status: '查看服务状态'
+  }[action] || '发布';
+}
+
+async function startServerDeploy(event) {
+  event.preventDefault();
+  if (state.serverDeployRunning) return;
+  if (!window.gmDesktop?.runServerDeploy) {
+    showToast('当前 GM 壳层不支持服务器发布，请重启 GM 工具');
+    return;
+  }
+
+  const options = readServerDeployOptions();
+  const errorMessage = validateServerDeployOptions(options);
+  if (errorMessage) {
+    showToast(errorMessage);
+    return;
+  }
+
+  clearServerDeployLog();
+  setServerDeployRunning(true);
+  appendServerDeployLine(`开始：${getServerDeployActionLabel(options.action)}`);
+  appendServerDeployLine('----------------------------------------');
+  try {
+    const result = await window.gmDesktop.runServerDeploy(options);
+    appendServerDeployLine('----------------------------------------');
+    if (result?.success) {
+      appendServerDeployLine('执行成功');
+      showToast('服务器发布完成');
+    } else {
+      const message = result?.error || '未知错误';
+      appendServerDeployLine(`执行失败：${message}`);
+      showToast(`发布失败：${message}`);
+    }
+  } catch (error) {
+    appendServerDeployLine('----------------------------------------');
+    appendServerDeployLine(`执行失败：${error.message || error}`);
+    showToast(`发布失败：${error.message || error}`);
+  } finally {
+    setServerDeployRunning(false);
+  }
 }
 
 function readPackageOptions() {
@@ -711,6 +1063,7 @@ async function startAndroidPackage(event) {
     showToast(errorMessage);
     return;
   }
+  savePackageSigningDefaults(options);
 
   clearPackageLog();
   setPackageRunning(true);
@@ -850,8 +1203,36 @@ async function loadCatalog() {
     renderDungeons();
     renderRewardLists();
     renderRewardPicker();
+    renderSpecialBattleChapterOptions();
+    renderSpecialBattleUnlockDungeonOptions();
+    if (state.view === 'specialBattle') {
+      renderSpecialBattles();
+      renderSpecialBattleEditor(state.selectedSpecialBattle);
+    }
   } catch (error) {
     showToast(`资源目录加载失败：${error.message}`);
+  }
+}
+
+async function loadSpecialBattleConfig() {
+  try {
+    const result = await api('/gm/special-battles');
+    const config = result?.config || result || {};
+    state.specialBattleConfig = {
+      escortMissions: Array.isArray(config.escortMissions) ? config.escortMissions : [],
+      updatedAt: config.updatedAt || null,
+    };
+    state.selectedSpecialBattle = state.selectedSpecialBattle?.id
+      ? (state.specialBattleConfig.escortMissions.find((entry) => entry.id === state.selectedSpecialBattle.id) || null)
+      : (state.specialBattleConfig.escortMissions[0] || null);
+    renderSpecialBattleChapterOptions();
+    renderSpecialBattleUnlockDungeonOptions();
+    if (state.view === 'specialBattle') {
+      renderSpecialBattles();
+      renderSpecialBattleEditor(state.selectedSpecialBattle);
+    }
+  } catch (error) {
+    showToast(`特殊关卡配置加载失败：${error.message}`);
   }
 }
 
@@ -861,7 +1242,7 @@ function renderTypeFilter() {
   const values = [...new Set((state.catalog[state.catalogType] || []).map((entry) => entry[key]).filter(Boolean))];
   select.innerHTML = '<option value="">全部类型</option>';
   values.sort((left, right) => String(left).localeCompare(String(right), 'zh-Hans-CN-u-co-pinyin')).forEach((value) => {
-    select.append(new Option(value, value));
+    select.append(new Option(getCatalogTypeValueLabel(value), value));
   });
 }
 
@@ -889,7 +1270,7 @@ function renderCatalogList() {
       ${renderThumb(entry)}
       <span>
         <span class="row-title">${escapeHtml(entry.name || entry.title || entry.id)}</span>
-        <span class="row-meta">${escapeHtml(entry.id)} · ${escapeHtml(entry.type || entry.slot || entry.period || entry.category || '')}</span>
+        <span class="row-meta">${escapeHtml(entry.id)} · ${escapeHtml(getCatalogTypeValueLabel(entry.type || entry.slot || entry.period || entry.category || ''))}</span>
       </span>
       ${renderRarity(entry)}
     </button>
@@ -1148,7 +1529,9 @@ const QUEST_EVENT_DEFINITIONS = [
   { event: 'heroLevelUp', label: '英雄升级', conditions: ['heroId'] },
   { event: 'heroStarsUp', label: '英雄升星', conditions: ['heroId', 'stars'] },
   { event: 'equipmentAdd', label: '获得装备', conditions: ['rarity', 'slot'] },
-  { event: 'checkinComplete', label: '完成签到', conditions: [] }
+  { event: 'checkinComplete', label: '完成签到', conditions: [] },
+  { event: 'battleCommand', label: '战斗指令', conditions: ['commandType', 'battleMode'] },
+  { event: 'battleSpecialTileEnter', label: '进入特殊地格', conditions: ['tileType', 'battleMode'] }
 ];
 
 const QUEST_REWARD_TYPES = [
@@ -1159,12 +1542,14 @@ const QUEST_REWARD_TYPES = [
 const questEditor = {
   period: 'daily',
   target: 1,
+  sortOrder: 0,
   trigger: { event: '', conditions: {}, mode: 'increment' },
   rewards: [],
 
   loadFromEntry(entry, defaultPeriod = 'daily') {
     this.period = entry?.period || defaultPeriod;
     this.target = Math.max(1, Number(entry?.target) || 1);
+    this.sortOrder = Number.isFinite(Number(entry?.sortOrder)) ? Number(entry.sortOrder) : 0;
     const triggerRaw = entry?.trigger || {};
     const eventName = String(triggerRaw?.event || '').trim();
     const knownEvent = QUEST_EVENT_DEFINITIONS.find((def) => def.event === eventName);
@@ -1202,6 +1587,7 @@ const questEditor = {
     return {
       period: this.period,
       target: Math.max(1, Math.floor(Number(this.target) || 1)),
+      sortOrder: Number.isFinite(Number(this.sortOrder)) ? Number(this.sortOrder) : 0,
       trigger: {
         event: this.trigger.event || '',
         conditions,
@@ -1220,10 +1606,12 @@ const questEditor = {
   render() {
     const periodEl = $('#questPeriod');
     const targetEl = $('#questTarget');
+    const sortOrderEl = $('#questSortOrder');
     const eventSelect = $('#questTriggerEvent');
     const modeSelect = $('#questTriggerMode');
     if (periodEl) periodEl.value = this.period;
     if (targetEl) targetEl.value = String(this.target);
+    if (sortOrderEl) sortOrderEl.value = String(this.sortOrder || 0);
 
     if (eventSelect) {
       eventSelect.innerHTML = '';
@@ -1385,6 +1773,7 @@ const questEditor = {
   bindForm() {
     const periodEl = $('#questPeriod');
     const targetEl = $('#questTarget');
+    const sortOrderEl = $('#questSortOrder');
     const eventSelect = $('#questTriggerEvent');
     const modeSelect = $('#questTriggerMode');
     if (periodEl) periodEl.addEventListener('change', () => {
@@ -1392,6 +1781,9 @@ const questEditor = {
     });
     if (targetEl) targetEl.addEventListener('input', () => {
       this.target = Math.max(1, Math.floor(Number(targetEl.value) || 1));
+    });
+    if (sortOrderEl) sortOrderEl.addEventListener('input', () => {
+      this.sortOrder = Number(sortOrderEl.value) || 0;
     });
     if (eventSelect) eventSelect.addEventListener('change', () => {
       this.trigger.event = eventSelect.value;
@@ -1545,6 +1937,7 @@ async function saveCatalogEntry(event) {
       payload.title = payload.name;
       payload.period = data.period;
       payload.target = data.target;
+      payload.sortOrder = data.sortOrder;
       payload.trigger = data.trigger;
       payload.rewards = data.rewards;
       delete payload.rarity;
@@ -1597,7 +1990,7 @@ async function generateFirstClearAchievements() {
     showToast('所有副本已经有对应首通成就了');
     return;
   }
-  if (!confirm(`将为 ${candidates.length} 个未覆盖的副本生成首通成就(每个 100 钻石),继续吗？`)) {
+  if (!confirm(`将为 ${candidates.length} 个未覆盖的副本生成首通成就(每个 100 钻石 + 50 随机英雄碎片),继续吗？`)) {
     return;
   }
   let success = 0;
@@ -1611,12 +2004,16 @@ async function generateFirstClearAchievements() {
       description: `首次通关副本 ${dungeonTitle}`,
       period: 'permanent',
       target: 1,
+      sortOrder: 10000 + (Number(String(dungeon.id || '').match(/\d+/)?.[0]) || 0),
       trigger: {
         event: 'dungeonComplete',
         conditions: { dungeonId: dungeon.id },
         mode: 'mark'
       },
-      rewards: [{ type: 'resource', id: 'diamond', count: 100 }]
+      rewards: [
+        { type: 'resource', id: 'diamond', count: 100 },
+        { type: 'item', id: 'hero_fragment_random', count: 50 }
+      ]
     };
     try {
       await api(`/gm/catalog/achievements/${encodeURIComponent(id)}`, { method: 'PUT', body: payload });
@@ -1675,7 +2072,7 @@ function renderHeroList() {
       ${renderThumb({ ...entry, portrait: entry.cardPortrait || entry.portrait || '' })}
       <span>
         <span class="row-title">${escapeHtml(entry.name || entry.id)}</span>
-        <span class="row-meta">${escapeHtml([entry.id, entry.profession].filter(Boolean).join(' · '))}</span>
+        <span class="row-meta">${escapeHtml([entry.id, entry.profession, entry.enabled === false ? '已禁用' : ''].filter(Boolean).join(' · '))}</span>
       </span>
       ${renderRarity(entry)}
     </button>
@@ -1707,6 +2104,7 @@ function renderHeroEditor(entry) {
   $('#heroName').value = effective.name || '';
   $('#heroRarity').value = effective.rarity || 'common';
   $('#heroProfession').value = effective.profession || '';
+  $('#heroEnabled').checked = effective.enabled !== false;
   $('#heroPortrait').value = effective.portrait || '';
   $('#heroCardPortrait').value = effective.cardPortrait || '';
   $('#heroDescription').value = effective.description || '';
@@ -1803,8 +2201,110 @@ function renderHeroExtraTextSections(effective) {
   if (specialTraits) {
     sectionFragments.push(renderSpecialTraitsBlock(specialTraits));
   }
+  sectionFragments.push(renderHeroVoiceCueBlock(effective.voiceCues || {}));
 
   container.innerHTML = sectionFragments.join('');
+  bindHeroVoiceCueEvents();
+}
+
+function renderHeroVoiceCueBlock(voiceCues = {}) {
+  const cueBlocks = heroVoiceCueDefs.map((cueDef) => {
+    const entries = Array.isArray(voiceCues[cueDef.key]) && voiceCues[cueDef.key].length > 0
+      ? voiceCues[cueDef.key]
+      : [{}];
+    const rows = entries.map((entry, index) => `
+      <div class="editable-row hero-voice-row" data-hero-voice-cue="${escapeAttr(cueDef.key)}">
+        <input class="text-input" data-field="name" value="${escapeAttr(entry?.name || '')}" placeholder="备注名，可选">
+        <input class="text-input" data-field="text" value="${escapeAttr(entry?.text || '')}" placeholder="字幕/台词文本，可选">
+        <input class="text-input code-input" data-field="src" value="${escapeAttr(entry?.src || '')}" placeholder="assets/audio/voice/${escapeAttr($('#heroId')?.value || 'hero_xxx')}/${escapeAttr(cueDef.key)}_${index + 1}.wav">
+        <button class="ghost-button" data-pick-hero-voice type="button" title="选择音频文件">选择文件</button>
+        <button class="ghost-button" data-remove-hero-voice type="button">删除</button>
+      </div>
+    `).join('');
+    return `
+      <div class="reward-block" style="margin-top:8px;">
+        <div class="block-title">
+          <span>${escapeHtml(cueDef.label)}</span>
+          <button class="ghost-button" data-add-hero-voice="${escapeAttr(cueDef.key)}" type="button">新增语音</button>
+        </div>
+        <div class="hero-voice-cue-rows">${rows}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="reward-block">
+      <div class="block-title"><span>战斗语音</span></div>
+      <p class="muted-text">每个场景可配置多条，战斗触发时会随机播放；未填写音频路径的行会自动忽略。</p>
+      ${cueBlocks}
+    </div>`;
+}
+
+function bindHeroVoiceCueEvents() {
+  $('#heroExtraTextSections')?.querySelectorAll('[data-add-hero-voice]').forEach((button) => {
+    if (button.dataset.bound === 'true') return;
+    button.dataset.bound = 'true';
+    button.addEventListener('click', () => {
+      const cue = button.dataset.addHeroVoice;
+      const root = button.closest('.reward-block')?.querySelector('.hero-voice-cue-rows');
+      if (!root) return;
+      const row = document.createElement('div');
+      row.className = 'editable-row hero-voice-row';
+      row.dataset.heroVoiceCue = cue;
+      row.innerHTML = `
+        <input class="text-input" data-field="name" placeholder="备注名，可选">
+        <input class="text-input" data-field="text" placeholder="字幕/台词文本，可选">
+        <input class="text-input code-input" data-field="src" placeholder="assets/audio/voice/${escapeAttr($('#heroId')?.value || 'hero_xxx')}/${escapeAttr(cue)}_${root.children.length + 1}.wav">
+        <button class="ghost-button" data-pick-hero-voice type="button" title="选择音频文件">选择文件</button>
+        <button class="ghost-button" data-remove-hero-voice type="button">删除</button>
+      `;
+      root.appendChild(row);
+      bindHeroVoiceCueEvents();
+    });
+  });
+  $('#heroExtraTextSections')?.querySelectorAll('[data-remove-hero-voice]').forEach((button) => {
+    if (button.dataset.bound === 'true') return;
+    button.dataset.bound = 'true';
+    button.addEventListener('click', () => {
+      const row = button.closest('.hero-voice-row');
+      const group = row?.parentElement;
+      if (!row || !group || group.children.length <= 1) {
+        row?.querySelectorAll('input').forEach(input => { input.value = ''; });
+        return;
+      }
+      row.remove();
+    });
+  });
+  $('#heroExtraTextSections')?.querySelectorAll('[data-pick-hero-voice]').forEach((button) => {
+    if (button.dataset.bound === 'true') return;
+    button.dataset.bound = 'true';
+    button.addEventListener('click', async () => {
+      if (!window.gmDesktop?.pickVoiceFile) {
+        showToast('当前 GM 壳层不支持文件选择，请重启 GM 工具');
+        return;
+      }
+      const row = button.closest('.hero-voice-row');
+      const srcInput = row?.querySelector('input[data-field="src"]');
+      if (!srcInput) return;
+
+      // 传 heroId 让对话框默认打开到该英雄的语音目录
+      const heroId = ($('#heroId')?.value || '').trim();
+      try {
+        const result = await window.gmDesktop.pickVoiceFile({ heroId });
+        if (!result || result.canceled) return;
+        if (result.error) {
+          showToast(result.error);
+          return;
+        }
+        if (result.relativePath) {
+          srcInput.value = result.relativePath;
+          // 触发 change 事件,以防有别的逻辑监听这个 input 的修改
+          srcInput.dispatchEvent(new Event('change', { bubbles: true }));
+          srcInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      } catch (error) {
+        showToast(`选择文件失败：${error.message || error}`);
+      }
+    });
+  });
 }
 
 function renderTextListBlock({ title, idPrefix, items, fields, labelOf }) {
@@ -2028,6 +2528,22 @@ function collectHeroExtraTextPayload(currentHero) {
   return payload;
 }
 
+function collectHeroVoiceCuesFromForm() {
+  return heroVoiceCueDefs.reduce((acc, cueDef) => {
+    const entries = $$(`.hero-voice-row[data-hero-voice-cue="${cueDef.key}"]`)
+      .map((row) => ({
+        name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
+        text: row.querySelector('[data-field="text"]')?.value?.trim() || '',
+        src: row.querySelector('[data-field="src"]')?.value?.trim() || ''
+      }))
+      .filter(entry => entry.src);
+    if (entries.length > 0) {
+      acc[cueDef.key] = entries;
+    }
+    return acc;
+  }, {});
+}
+
 function readHeroBaseStatsFromForm(fallback = {}) {
   return heroBaseStatFields.reduce((acc, [key, selector]) => {
     const input = $(selector);
@@ -2075,6 +2591,7 @@ async function saveHeroEntry(event) {
     name: $('#heroName').value.trim(),
     rarity: $('#heroRarity').value || current.rarity || 'common',
     profession: $('#heroProfession').value.trim(),
+    enabled: $('#heroEnabled').checked,
     professionIcon: null,
     portrait: $('#heroPortrait').value.trim(),
     cardPortrait: $('#heroCardPortrait').value.trim(),
@@ -2082,6 +2599,7 @@ async function saveHeroEntry(event) {
     baseStats: readHeroBaseStatsFromForm(current.baseStats || {}),
     primarySkillName: $('#heroSkillName').value.trim(),
     primarySkillDescription: $('#heroSkillDescription').value.trim(),
+    voiceCues: collectHeroVoiceCuesFromForm(),
     ...collectHeroExtraTextPayload(current)
   };
 
@@ -2283,12 +2801,9 @@ function updateEnemyImagePreview(entry) {
 function handleImageFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    $('#catalogIconSrc').value = String(reader.result || '');
-    updateImagePreviewFromForm();
-  };
-  reader.readAsDataURL(file);
+  const relativePath = toRelativeAssetPath(file.path || file.name || '');
+  $('#catalogIconSrc').value = relativePath;
+  updateImagePreviewFromForm();
 }
 
 function updateImagePreviewFromForm() {
@@ -2319,15 +2834,79 @@ async function loadPlayers() {
         <div>
           <div class="table-title">${escapeHtml(player.nickname || player.account || player.id)}</div>
           <div class="table-meta">${escapeHtml(player.id)} · ${escapeHtml(player.account || '')}</div>
+          <div class="table-meta">${escapeHtml(formatPlayerAuditStatus(player))}</div>
         </div>
-        <button class="ghost-button" data-player-id="${escapeAttr(player.id)}" type="button">加入</button>
+        <div class="player-actions">
+          <button class="ghost-button" data-player-id="${escapeAttr(player.id)}" type="button">加入</button>
+          <button class="ghost-button" data-player-unban="${escapeAttr(player.id)}" type="button"${player.banStatus ? '' : ' disabled'}>解封</button>
+          <button class="ghost-button" data-player-bypass-enable="${escapeAttr(player.id)}" type="button"${player.saveAuditBypass?.enabled ? ' disabled' : ''}>设为测试免审</button>
+          <button class="danger-button" data-player-bypass-disable="${escapeAttr(player.id)}" type="button"${player.saveAuditBypass?.enabled ? '' : ' disabled'}>取消测试免审</button>
+        </div>
       </div>
     `).join('') : '<div class="empty-state">没有匹配玩家</div>';
     $('#playerList').querySelectorAll('[data-player-id]').forEach((button) => {
       button.addEventListener('click', () => appendAccountId(button.dataset.playerId));
     });
+    $('#playerList').querySelectorAll('[data-player-unban]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        await setPlayerBanStatus(button.dataset.playerUnban, false);
+      });
+    });
+    $('#playerList').querySelectorAll('[data-player-bypass-enable]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        await setPlayerSaveAuditBypass(button.dataset.playerBypassEnable, true);
+      });
+    });
+    $('#playerList').querySelectorAll('[data-player-bypass-disable]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        await setPlayerSaveAuditBypass(button.dataset.playerBypassDisable, false);
+      });
+    });
   } catch (error) {
     showToast(`玩家查询失败：${error.message}`);
+  }
+}
+
+function formatPlayerAuditStatus(player) {
+  const bannedText = player?.banStatus?.bannedAt
+    ? `封禁中${player.banStatus.reason ? `：${player.banStatus.reason}` : ''}`
+    : '未封禁';
+  const bypassText = player?.saveAuditBypass?.enabled
+    ? `测试免审已开启${player.saveAuditBypass.note ? `：${player.saveAuditBypass.note}` : ''}`
+    : '测试免审未开启';
+  return `${bannedText} · ${bypassText}`;
+}
+
+async function setPlayerBanStatus(playerId, banned) {
+  if (!playerId) return;
+  if (banned) return;
+  if (!confirm('确认解封该玩家吗？解封后将允许重新登录。')) return;
+  try {
+    await api(`/gm/players/${encodeURIComponent(playerId)}/ban-status`, {
+      method: 'PUT',
+      body: { banned: false }
+    });
+    showToast('玩家已解封');
+    await loadPlayers();
+  } catch (error) {
+    showToast(`玩家解封失败：${error.message}`);
+  }
+}
+
+async function setPlayerSaveAuditBypass(playerId, enabled) {
+  if (!playerId) return;
+  const tip = enabled ? '确认将该玩家设为测试免审吗？后续异常存档将不触发封禁。' : '确认取消该玩家的测试免审吗？';
+  if (!confirm(tip)) return;
+  const note = enabled ? 'GM 测试免审' : '';
+  try {
+    await api(`/gm/players/${encodeURIComponent(playerId)}/save-audit-bypass`, {
+      method: 'PUT',
+      body: { enabled, note }
+    });
+    showToast(enabled ? '已开启测试免审' : '已取消测试免审');
+    await loadPlayers();
+  } catch (error) {
+    showToast(`${enabled ? '开启' : '取消'}测试免审失败：${error.message}`);
   }
 }
 
@@ -2391,8 +2970,12 @@ function closeRewardDrawer() {
 function renderRewardPicker() {
   const keyword = $('#rewardSearchInput')?.value?.trim().toLowerCase() || $('#globalSearchInput').value.trim().toLowerCase();
   const category = $('#rewardCategoryFilter')?.value || '';
-  const entries = [...(state.catalog.resources || []), ...(state.catalog.items || [])].filter((entry) => {
-    if (category && entry.category !== category) return false;
+  const entries = [
+    ...(state.catalog.resources || []),
+    ...(state.catalog.items || []),
+    ...getRewardOptions().filter((entry) => entry.rewardType === 'random_fragments')
+  ].filter((entry) => {
+    if (category && entry.category !== category && !(category === 'item' && entry.rewardType === 'random_fragments')) return false;
     const text = `${entry.id || ''} ${entry.name || ''} ${entry.description || ''}`.toLowerCase();
     return !keyword || text.includes(keyword);
   });
@@ -2411,7 +2994,9 @@ function renderRewardPicker() {
 
   list.querySelectorAll('.drawer-item').forEach((button) => {
     button.addEventListener('click', () => {
-      const source = button.dataset.category === 'resource' ? state.catalog.resources : state.catalog.items;
+      const source = button.dataset.category === 'resource'
+        ? state.catalog.resources
+        : [...(state.catalog.items || []), ...getRewardOptions().filter((entry) => entry.rewardType === 'random_fragments')];
       const entry = source.find((item) => item.id === button.dataset.id);
       addReward(entry);
     });
@@ -2422,12 +3007,13 @@ function addReward(entry) {
   if (!entry) return;
   const amount = Math.max(1, Number($('#rewardAmountInput').value) || 1);
   const target = getRewardCollection(state.pickerTarget);
-  const type = entry.category === 'resource' ? 'resource' : (entry.type === 'fragment' ? 'fragment' : 'item');
-  const existing = target.find((reward) => reward.type === type && reward.id === entry.id);
+  const type = entry.rewardType || (entry.category === 'resource' ? 'resource' : (entry.type === 'fragment' ? 'fragment' : 'item'));
+  const rewardId = type === 'random_fragments' ? 'random_fragments' : entry.id;
+  const existing = target.find((reward) => reward.type === type && reward.id === rewardId);
   if (existing) {
     existing.amount += amount;
   } else {
-    target.push({ type, id: entry.id, amount });
+    target.push({ type, id: rewardId, amount });
   }
   renderRewardLists();
 }
@@ -2435,6 +3021,13 @@ function addReward(entry) {
 function getRewardCollection(targetKey) {
   if (targetKey === 'cdkey') return state.cdkeyRewards;
   if (targetKey === 'welfare') return state.welfareGiftRewards;
+  if (String(targetKey || '').startsWith('welfareCheckinDay:')) {
+    const day = Math.min(7, Math.max(1, Number(String(targetKey).split(':')[1]) || 1));
+    state.welfareCheckinCycleRewards[day] = Array.isArray(state.welfareCheckinCycleRewards[day])
+      ? state.welfareCheckinCycleRewards[day]
+      : [];
+    return state.welfareCheckinCycleRewards[day];
+  }
   return state.mailRewards;
 }
 
@@ -2442,6 +3035,7 @@ function renderRewardLists() {
   renderRewardList('#mailRewards', state.mailRewards);
   renderRewardList('#cdkeyRewards', state.cdkeyRewards);
   renderRewardList('#welfareGiftRewards', state.welfareGiftRewards, '未添加奖励');
+  renderWelfareCheckinCycleEditor();
 }
 
 function renderRewardList(selector, rewards, emptyText = '未添加附件') {
@@ -2465,8 +3059,13 @@ function renderRewardList(selector, rewards, emptyText = '未添加附件') {
 }
 
 function findRewardCatalogEntry(reward) {
+  if (reward?.type === 'random_fragments' || reward?.id === 'random_fragments') {
+    return { id: 'random_fragments', name: '随机英雄碎片(直发)', category: 'item' };
+  }
   const source = reward.type === 'resource' ? state.catalog.resources : state.catalog.items;
-  return source.find((entry) => entry.id === reward.id);
+  return source.find((entry) => entry.id === reward.id)
+    || getRewardOptions().find((entry) => entry.id === reward.id)
+    || null;
 }
 
 function getRewardOptions() {
@@ -2474,6 +3073,7 @@ function getRewardOptions() {
     ...(state.catalog.resources || []).map((entry) => ({ id: entry.id, name: entry.name || entry.id, typeLabel: getRewardTypeLabel(entry) })),
     ...(state.catalog.items || []).map((entry) => ({ id: entry.id, name: entry.name || entry.id, typeLabel: getRewardTypeLabel(entry) })),
     { id: 'random_fragment', name: '随机英雄碎片', typeLabel: '商城' },
+    { id: 'random_fragments', name: '随机英雄碎片(直发)', typeLabel: '特殊', rewardType: 'random_fragments' },
     { id: 'rare_fragment', name: '稀有英雄碎片', typeLabel: '商城' },
     { id: 'epic_fragment', name: '史诗英雄碎片', typeLabel: '商城' },
     ...Object.entries(rarityLabels).map(([id, name]) => ({ id, name: `${name}品质`, typeLabel: '品质' }))
@@ -2534,6 +3134,22 @@ function renderRewardSelectOptions(selectedId = '', placeholder = '请选择') {
     </option>
   `).join('');
   return `${placeholderOption}${customOption}${rewardOptions}`;
+}
+
+function renderResourceSelectOptions(selectedId = '', placeholder = '请选择资源') {
+  const normalizedSelectedId = String(selectedId || '').trim();
+  const options = state.catalog.resources || [];
+  const placeholderOption = `<option value="">${escapeHtml(placeholder)}</option>`;
+  const selectedExists = normalizedSelectedId && options.some((entry) => entry.id === normalizedSelectedId);
+  const customOption = normalizedSelectedId && !selectedExists
+    ? `<option value="${escapeAttr(normalizedSelectedId)}" selected>${escapeHtml(formatRewardDisplay(normalizedSelectedId))}</option>`
+    : '';
+  const resourceOptions = options.map((entry) => `
+    <option value="${escapeAttr(entry.id)}" ${entry.id === normalizedSelectedId ? 'selected' : ''}>
+      ${escapeHtml(`${entry.name || entry.id} (${entry.id})`)}
+    </option>
+  `).join('');
+  return `${placeholderOption}${customOption}${resourceOptions}`;
 }
 
 function renderEnemySelectOptions(selectedId = '', placeholder = '请选择怪物') {
@@ -2651,6 +3267,12 @@ function getRewardTypeLabel(entry) {
   if (entry?.category === 'resource') return '资源';
   if (entry?.type === 'fragment') return '英雄碎片';
   return '道具';
+}
+
+function getCatalogTypeValueLabel(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  return catalogTypeValueLabels[normalized] || normalized;
 }
 
 function renderGachaPools() {
@@ -3042,7 +3664,7 @@ function renderWelfareGifts() {
       <span class="thumb">礼</span>
       <span>
         <span class="row-title">${escapeHtml(gift.name || gift.title || gift.id)}</span>
-        <span class="row-meta">${escapeHtml(gift.id)} · ${escapeHtml(getWelfareEntryKindLabel(gift))} · 排序 ${Number(gift.sortOrder) || 0} · ${formatWelfareRewardSummary(getWelfareRewardList(gift))}</span>
+        <span class="row-meta">${escapeHtml(gift.id)} · ${escapeHtml(getWelfareEntryKindLabel(gift))} · 排序 ${Number(gift.sortOrder) || 0} · ${escapeHtml(isCheckinCycleEntry(gift) ? formatCheckinCycleRewardSummary(gift) : formatWelfareRewardSummary(getWelfareRewardList(gift)))}</span>
       </span>
       <span class="rarity-chip">${gift.source === 'gm' ? 'GM' : '基础'}</span>
     </button>
@@ -3069,12 +3691,50 @@ function formatWelfareRewardSummary(rewards) {
   }).join(' / ');
 }
 
+function formatCheckinCycleRewardSummary(entry) {
+  const rewards = Array.isArray(entry?.cycleRewards) ? entry.cycleRewards : [];
+  if (!rewards.length) {
+    return '7天循环未配置';
+  }
+  const parts = rewards
+    .slice(0, 2)
+    .map((row) => `DAY ${Number(row?.day) || 0} ${formatWelfareRewardSummary(row?.rewards || [])}`);
+  return parts.join(' / ');
+}
+
 function toRewardDrafts(rewards) {
   return (Array.isArray(rewards) ? rewards : []).map((reward) => ({
     type: reward.type,
-    id: reward.id,
-    amount: Math.max(1, Number(reward.amount ?? reward.count ?? 1) || 1)
+    id: reward.id || (reward.type === 'random_fragments' ? 'random_fragments' : ''),
+    amount: Math.max(1, Number(reward.amount ?? reward.count ?? reward.total ?? 1) || 1)
   }));
+}
+
+function getDefaultCheckinCycleRewards() {
+  return [
+    { day: 1, rewards: [{ type: 'resource', id: 'gold', count: 100 }] },
+    { day: 2, rewards: [{ type: 'resource', id: 'wood', count: 50 }] },
+    { day: 3, rewards: [{ type: 'item', id: 'energy_potion', count: 1 }] },
+    { day: 4, rewards: [{ type: 'item', id: 'hero_summon', count: 1 }] },
+    { day: 5, rewards: [{ type: 'resource', id: 'gold', count: 200 }] },
+    { day: 6, rewards: [{ type: 'resource', id: 'meat', count: 3 }] },
+    { day: 7, rewards: [{ type: 'random_fragments', total: 50 }] }
+  ];
+}
+
+function normalizeCheckinCycleRewards(rows) {
+  const byDay = {};
+  const sourceRows = Array.isArray(rows) && rows.length ? rows : getDefaultCheckinCycleRewards();
+  sourceRows.forEach((entry, index) => {
+    const day = Math.min(7, Math.max(1, Number(entry?.day) || index + 1));
+    byDay[day] = toRewardDrafts(Array.isArray(entry?.rewards) ? entry.rewards : []);
+  });
+  for (let day = 1; day <= 7; day += 1) {
+    if (!Array.isArray(byDay[day])) {
+      byDay[day] = [];
+    }
+  }
+  return byDay;
 }
 
 function isMonthCardEntry(entry) {
@@ -3082,11 +3742,19 @@ function isMonthCardEntry(entry) {
   return entry?.kind === 'monthCard' || id.includes('month_card');
 }
 
+function isCheckinCycleEntry(entry) {
+  return String(entry?.kind || '').trim() === 'checkinCycle';
+}
+
 function getWelfareEntryKindLabel(entry) {
+  if (isCheckinCycleEntry(entry)) return '签到循环';
   return isMonthCardEntry(entry) ? '月卡' : '礼包';
 }
 
 function getWelfareRewardList(entry) {
+  if (isCheckinCycleEntry(entry)) {
+    return [];
+  }
   if (isMonthCardEntry(entry)) {
     return Array.isArray(entry?.dailyRewards) ? entry.dailyRewards : [];
   }
@@ -3095,30 +3763,83 @@ function getWelfareRewardList(entry) {
 
 function toggleWelfareGiftModeFields() {
   const isMonthCard = $('#welfareGiftKind').value === 'monthCard';
+  const isCheckinCycle = $('#welfareGiftKind').value === 'checkinCycle';
   $$('.month-card-only').forEach((node) => {
     node.style.display = isMonthCard ? '' : 'none';
   });
   $$('.welfare-gift-only').forEach((node) => {
-    node.style.display = isMonthCard ? 'none' : '';
+    node.style.display = isMonthCard || isCheckinCycle ? 'none' : '';
+  });
+  $$('.checkin-cycle-only').forEach((node) => {
+    node.style.display = isCheckinCycle ? '' : 'none';
   });
   const rewardTitle = $('#welfareRewardBlockTitle');
   if (rewardTitle) {
     rewardTitle.textContent = isMonthCard ? '每日领取奖励' : '奖励内容';
   }
+  const rewardBlock = $('#welfareGiftRewards')?.closest('.reward-block');
+  if (rewardBlock) {
+    rewardBlock.style.display = isCheckinCycle ? 'none' : '';
+  }
+}
+
+function renderWelfareCheckinCycleEditor() {
+  const root = $('#welfareCheckinCycleRewards');
+  if (!root) return;
+  let html = '';
+  for (let day = 1; day <= 7; day += 1) {
+    const rewards = state.welfareCheckinCycleRewards[day] || [];
+    html += `
+      <div class="checkin-cycle-day">
+        <div class="checkin-cycle-day-top">
+          <span class="checkin-cycle-day-title">DAY ${day}</span>
+          <button class="ghost-button" type="button" data-open-checkin-cycle-day="${day}">编辑奖励</button>
+        </div>
+        <div class="reward-list" data-checkin-cycle-day-list="${day}">
+          ${rewards.length ? rewards.map((reward, index) => {
+            const entry = findRewardCatalogEntry(reward);
+            return `
+              <span class="reward-pill">
+                ${escapeHtml(entry?.name || reward.id)} × ${reward.amount}
+                <button data-remove-checkin-cycle-reward="${index}" data-day="${day}" type="button">×</button>
+              </span>
+            `;
+          }).join('') : '<span class="table-meta">未添加奖励</span>'}
+        </div>
+      </div>
+    `;
+  }
+  root.innerHTML = html;
+  root.querySelectorAll('[data-open-checkin-cycle-day]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.pickerTarget = `welfareCheckinDay:${button.dataset.openCheckinCycleDay}`;
+      openRewardDrawer(state.pickerTarget);
+    });
+  });
+  root.querySelectorAll('[data-remove-checkin-cycle-reward]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const day = Number(button.dataset.day) || 1;
+      const rewards = state.welfareCheckinCycleRewards[day] || [];
+      rewards.splice(Number(button.dataset.removeCheckinCycleReward), 1);
+      state.welfareCheckinCycleRewards[day] = rewards;
+      renderWelfareCheckinCycleEditor();
+    });
+  });
 }
 
 function renderWelfareGiftEditor(gift) {
   const effective = gift || {};
   const hasGmOverride = effective.source === 'gm';
   const isMonthCard = isMonthCardEntry(effective);
+  const isCheckinCycle = isCheckinCycleEntry(effective);
   $('#welfareGiftEditorTitle').textContent = gift ? (gift.name || gift.title || gift.id) : '新建福利配置';
   $('#welfareGiftEditorMeta').textContent = gift
-    ? `${gift.id} · ${getWelfareEntryKindLabel(gift)} · 排序 ${Number(gift.sortOrder) || 0} · ${formatWelfareRewardSummary(getWelfareRewardList(gift))}`
+    ? `${gift.id} · ${getWelfareEntryKindLabel(gift)} · 排序 ${Number(gift.sortOrder) || 0} · ${isCheckinCycle ? formatCheckinCycleRewardSummary(gift) : formatWelfareRewardSummary(getWelfareRewardList(gift))}`
     : '填写配置 ID 后保存';
   $('#welfareGiftEditorSource').textContent = hasGmOverride ? 'GM改动' : '基础配置';
   $('#welfareGiftId').value = effective.id || '';
   $('#welfareGiftId').disabled = Boolean(gift?.id);
-  $('#welfareGiftKind').value = isMonthCard ? 'monthCard' : 'gift';
+  $('#welfareGiftKind').value = isCheckinCycle ? 'checkinCycle' : (isMonthCard ? 'monthCard' : 'gift');
   $('#welfareGiftName').value = effective.name || effective.title || '';
   $('#welfareGiftSortOrder').value = effective.sortOrder ?? '';
   $('#welfareGiftDescription').value = effective.description || '';
@@ -3129,8 +3850,10 @@ function renderWelfareGiftEditor(gift) {
   $('#welfareGiftRequiredViews').value = effective.requiredViews ?? effective.activationViews ?? 1;
   $('#welfareGiftBadge').value = effective.badge || '';
   state.welfareGiftRewards = toRewardDrafts(getWelfareRewardList(effective));
+  state.welfareCheckinCycleRewards = normalizeCheckinCycleRewards(effective.cycleRewards);
   toggleWelfareGiftModeFields();
   renderRewardLists();
+  renderWelfareCheckinCycleEditor();
   $('#deleteWelfareGiftBtn').disabled = !effective.id;
 }
 
@@ -3138,6 +3861,7 @@ function createBlankWelfareGift() {
   const nextIndex = (state.catalog.welfareGifts || []).length + 1;
   state.selectedWelfareGift = null;
   state.welfareGiftRewards = [];
+  state.welfareCheckinCycleRewards = normalizeCheckinCycleRewards([]);
   renderWelfareGifts();
   renderWelfareGiftEditor({
     id: `welfare_gift_${String(nextIndex).padStart(2, '0')}`,
@@ -3157,12 +3881,21 @@ async function saveWelfareGift(event) {
     showToast('请填写礼包 ID');
     return;
   }
-  if (!state.welfareGiftRewards.length) {
+  const kindValue = $('#welfareGiftKind').value;
+  const isCheckinCycle = kindValue === 'checkinCycle';
+  if (!isCheckinCycle && !state.welfareGiftRewards.length) {
     showToast('请至少添加一个奖励');
     return;
   }
+  if (isCheckinCycle) {
+    const hasAnyCheckinReward = Object.values(state.welfareCheckinCycleRewards || {}).some((rewards) => Array.isArray(rewards) && rewards.length > 0);
+    if (!hasAnyCheckinReward) {
+      showToast('请至少为1天配置奖励');
+      return;
+    }
+  }
 
-  const kind = $('#welfareGiftKind').value === 'monthCard' ? 'monthCard' : 'gift';
+  const kind = kindValue === 'monthCard' ? 'monthCard' : (isCheckinCycle ? 'checkinCycle' : 'gift');
 
   const payload = {
     id,
@@ -3185,6 +3918,16 @@ async function saveWelfareGift(event) {
     payload.activationViews = payload.requiredViews;
     payload.badge = $('#welfareGiftBadge').value.trim();
     payload.dailyRewards = rewardPayload;
+  } else if (kind === 'checkinCycle') {
+    payload.cycleRewards = Array.from({ length: 7 }, (_, index) => {
+      const day = index + 1;
+      const rewards = (state.welfareCheckinCycleRewards[day] || []).map((reward) => ({
+        type: reward.type,
+        id: reward.id,
+        count: Math.max(1, Number(reward.amount) || 1)
+      }));
+      return { day, rewards };
+    });
   } else {
     payload.adLimits = {
       normal: Math.max(0, Number($('#welfareGiftLimitNormal').value) || 0),
@@ -3196,7 +3939,7 @@ async function saveWelfareGift(event) {
 
   try {
     await api(`/gm/catalog/welfareGifts/${encodeURIComponent(id)}`, { method: 'PUT', body: payload });
-    showToast(kind === 'monthCard' ? '月卡配置已保存' : '福利礼包已保存');
+    showToast(kind === 'monthCard' ? '月卡配置已保存' : (kind === 'checkinCycle' ? '签到循环奖励已保存' : '福利礼包已保存'));
     await loadCatalog();
     state.selectedWelfareGift = (state.catalog.welfareGifts || []).find((entry) => entry.id === id) || null;
     renderWelfareGifts();
@@ -3529,6 +4272,47 @@ function renderShelterBuildingArmoryRows(level) {
   `;
 }
 
+function renderShelterUpgradeCostRows(upgradeCost, levelIndex) {
+  const entries = Object.entries(upgradeCost || {});
+  const rows = entries.length ? entries : [['gold', 0]];
+  return `
+    <div class="shelter-cost-editor">
+      <div class="block-title compact">
+        <span>升级消耗</span>
+        <button class="ghost-button" data-add-cost="${levelIndex}" type="button">添加消耗</button>
+      </div>
+      <div class="editable-table">
+        ${rows.map(([resourceId, amount], costIndex) => `
+          <div class="editable-row shelter-upgrade-cost-row" data-cost-index="${costIndex}">
+            <label class="field-inline-label">
+              <span>资源</span>
+              <select class="select-input" data-field="upgradeCostResource">
+                ${renderResourceSelectOptions(resourceId, '请选择资源')}
+              </select>
+            </label>
+            <label class="field-inline-label">
+              <span>数量</span>
+              <input class="text-input" data-field="upgradeCostAmount" type="number" min="0" value="${escapeAttr(amount ?? 0)}" placeholder="0">
+            </label>
+            <button class="icon-button" data-remove-cost="${levelIndex}:${costIndex}" type="button">-</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function readShelterUpgradeCost(row) {
+  const result = {};
+  row.querySelectorAll('.shelter-upgrade-cost-row').forEach((costRow) => {
+    const resourceId = parseRewardInput(costRow.querySelector('[data-field="upgradeCostResource"]')?.value) || '';
+    if (!resourceId) return;
+    const amount = Math.max(0, Number(costRow.querySelector('[data-field="upgradeCostAmount"]')?.value) || 0);
+    result[resourceId] = (result[resourceId] || 0) + amount;
+  });
+  return result;
+}
+
 // ──────────────────────── 补给箱奖池编辑器 ────────────────────────
 
 function createBlankChestPoolEntry(kind = 'resource', id = 'diamond', min = 1, max = 10, weight = 10) {
@@ -3734,12 +4518,9 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
               <input class="text-input" data-field="reforgeBonus" type="number" min="0" value="${escapeAttr(level.reforgeBonus ?? 0)}" placeholder="0">
             </label>
           ` : ''}
-          <label class="field-inline-label shelter-cost-field">
-            <span>升级消耗 JSON</span>
-            <input class="text-input code-input" data-field="upgradeCost" value="${escapeAttr(stringifyInlineJson(level.upgradeCost || {}))}" placeholder='{"gold":100,"wood":20}'>
-          </label>
           <button class="icon-button" data-remove-level="${Number(level.level) || 1}" type="button">-</button>
         </div>
+        ${renderShelterUpgradeCostRows(level.upgradeCost || {}, levelIndex)}
         ${renderShelterBuildingMediaRows(level, buildingId)}
         ${renderShelterTdRows(level, buildingId)}
         ${buildingMode === 'armory' ? renderShelterBuildingArmoryRows(level) : ''}
@@ -3784,6 +4565,36 @@ function renderShelterBuildingLevelRows(levels, building = state.selectedShelter
       renderShelterBuildingLevelRows(nextLevels, building);
     });
   });
+
+  root.querySelectorAll('[data-add-cost]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextLevels = readShelterBuildingLevels();
+      const levelIndex = Number(button.dataset.addCost);
+      if (!nextLevels[levelIndex]) {
+        return;
+      }
+      const cost = { ...(nextLevels[levelIndex].upgradeCost || {}) };
+      const nextResourceId = (state.catalog.resources || []).find((option) => cost[option.id] === undefined)?.id || '';
+      nextLevels[levelIndex].upgradeCost = nextResourceId ? { ...cost, [nextResourceId]: 0 } : cost;
+      renderShelterBuildingLevelRows(nextLevels, building);
+    });
+  });
+
+  root.querySelectorAll('[data-remove-cost]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const [levelIndexRaw, costIndexRaw] = String(button.dataset.removeCost || '').split(':');
+      const levelIndex = Number(levelIndexRaw);
+      const costIndex = Number(costIndexRaw);
+      const nextLevels = readShelterBuildingLevels();
+      if (!nextLevels[levelIndex]) {
+        return;
+      }
+      const entries = Object.entries(nextLevels[levelIndex].upgradeCost || {});
+      entries.splice(costIndex, 1);
+      nextLevels[levelIndex].upgradeCost = Object.fromEntries(entries);
+      renderShelterBuildingLevelRows(nextLevels, building);
+    });
+  });
 }
 
 function readShelterBuildingLevels() {
@@ -3791,18 +4602,9 @@ function readShelterBuildingLevels() {
   const buildingMode = getShelterBuildingMode({ id: buildingId });
   const isShelterCore = isShelterCoreBuildingId(buildingId);
   return [...document.querySelectorAll('#shelterBuildingLevelRows .shelter-building-level-row')].map((row, index) => {
-    const costRaw = row.querySelector('[data-field="upgradeCost"]').value.trim();
-    let upgradeCost = {};
-    if (costRaw) {
-      try {
-        upgradeCost = JSON.parse(costRaw);
-      } catch (error) {
-        throw new Error(`等级 ${index + 1} 的升级消耗 JSON 格式错误`);
-      }
-    }
     const entry = {
       level: Math.max(1, Number(row.dataset.level) || index + 1),
-      upgradeCost,
+      upgradeCost: readShelterUpgradeCost(row),
     };
     if (isShelterCore) {
       Object.assign(entry, getShelterLevelMediaPayload({
@@ -4310,6 +5112,14 @@ function createBlankDungeonEnemy(rank = 'normal') {
   return { id: '', rank, count: 1, positions: [], stats: {} };
 }
 
+function renderEditableGridHeader(gridClassName, labels) {
+  return `
+    <div class="editable-grid-header ${gridClassName}">
+      ${labels.map((label) => `<div class="editable-grid-header-cell">${escapeHtml(label)}</div>`).join('')}
+    </div>
+  `;
+}
+
 function renderDungeonEnemyRows(enemies) {
   const root = $('#dungeonEnemyRows');
   if (!root) return;
@@ -4357,12 +5167,34 @@ function readDungeonEnemyRows() {
 function renderDungeonEnemyRows(enemies) {
   const root = $('#dungeonEnemyRows');
   if (!root) return;
-  root.innerHTML = enemies.length ? enemies.map((enemy, index) => `
+  const header = renderEditableGridHeader('dungeon-enemy-grid', [
+    '怪物',
+    '品阶',
+    '标记',
+    '数量',
+    '出生点',
+    '技能',
+    '生命',
+    '攻击',
+    '攻击距离',
+    '移动距离',
+    '防御',
+    '速度',
+    '暴击',
+    '抗暴',
+    '破防',
+    '命中',
+    '闪避',
+    '其他属性',
+    '操作'
+  ]);
+  root.innerHTML = enemies.length ? `${header}${enemies.map((enemy, index) => `
     <div class="editable-row dungeon-enemy-grid" data-enemy-index="${index}">
       <select class="select-input" data-field="id">
         ${renderEnemySelectOptions(enemy.id || '', '请选择怪物')}
       </select>
       <select class="select-input" data-field="rank">${renderRankOptions(enemy.rank || 'normal')}</select>
+      <input class="text-input" data-field="key" value="${escapeAttr(enemy.key || enemy.entryKey || enemy.spawnKey || '')}" placeholder="如 guard_01">
       <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(enemy.count || 1)}" placeholder="数量">
       <div class="positions-cell"><input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(enemy.positions || enemy.spawnPositions || []))}" placeholder="出生点 2,3;2,4"><button class="board-edit-btn" data-row-board="enemy" type="button" title="用棋盘编辑器设置出生点">🖼</button></div>
       <div class="skills-cell"><input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(enemy)))}" placeholder="技能，可逗号分隔"><button class="board-edit-btn" data-row-skill="enemy" type="button" title="从技能列表中勾选">🎯</button></div>
@@ -4380,7 +5212,7 @@ function renderDungeonEnemyRows(enemies) {
       <input class="text-input code-input" data-field="extraStats" value="${escapeAttr(stringifyInlineJson(getExtraStats(enemy.stats || enemy.overrideStats || {})))}" placeholder='其他属性 JSON'>
       <button class="icon-button" data-remove-row="${index}" type="button">×</button>
     </div>
-  `).join('') : '<div class="empty-state">暂未配置敌人</div>';
+  `).join('')}` : '<div class="empty-state">暂未配置敌人</div>';
 
   root.querySelectorAll('[data-remove-row]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -4421,6 +5253,10 @@ function readDungeonEnemyRows() {
       count: Math.max(1, Number(row.querySelector('[data-field="count"]').value) || 1),
       positions: parseCoordinateInput(row.querySelector('[data-field="positions"]').value)
     };
+    const key = row.querySelector('[data-field="key"]')?.value.trim();
+    if (key) {
+      entry.key = key;
+    }
     const skillIds = parseEnemySkillListInput(row.querySelector('[data-field="skillIds"]')?.value || '');
     if (skillIds.length) {
       entry.skillIds = skillIds;
@@ -4440,7 +5276,31 @@ function renderDungeonBossRows(waves) {
   const root = $('#dungeonBossRows');
   if (!root) return;
   const entries = flattenBossWaveEntries(waves);
-  root.innerHTML = entries.length ? entries.map((entry, index) => `
+  const header = renderEditableGridHeader('dungeon-boss-grid', [
+    '波次ID',
+    '回合',
+    '出现规则',
+    '守卫标记',
+    'BOSS',
+    '品阶',
+    '数量',
+    '出生点',
+    '技能',
+    '生命',
+    '攻击',
+    '攻击距离',
+    '移动距离',
+    '防御',
+    '速度',
+    '暴击',
+    '抗暴',
+    '破防',
+    '命中',
+    '闪避',
+    '其他属性',
+    '操作'
+  ]);
+  root.innerHTML = entries.length ? `${header}${entries.map((entry, index) => `
     <div class="editable-row dungeon-boss-grid" data-boss-index="${index}">
       <input class="text-input" data-field="waveId" value="${escapeAttr(entry.waveId || '')}" placeholder="波次 ID">
       <input class="text-input" data-field="spawnRound" type="number" min="1" value="${escapeAttr(entry.spawnRound || 12)}" placeholder="回合">
@@ -4448,6 +5308,7 @@ function renderDungeonBossRows(waves) {
         <option value="true" ${entry.spawnOnClearBeforeRound !== false ? 'selected' : ''}>清场前可出现</option>
         <option value="false" ${entry.spawnOnClearBeforeRound === false ? 'selected' : ''}>固定回合</option>
       </select>
+      <input class="text-input" data-field="guardianKey" value="${escapeAttr(entry.guardianKey || '')}" placeholder="敌人标记">
       <select class="select-input" data-field="id">
         ${renderEnemySelectOptions(entry.id || '', '请选择BOSS')}
       </select>
@@ -4469,7 +5330,7 @@ function renderDungeonBossRows(waves) {
       <input class="text-input code-input" data-field="extraStats" value="${escapeAttr(stringifyInlineJson(getExtraStats(entry.stats || entry.overrideStats || {})))}" placeholder='其他属性 JSON'>
       <button class="icon-button" data-remove-boss-row="${index}" type="button">×</button>
     </div>
-  `).join('') : '<div class="empty-state">暂未配置 BOSS</div>';
+  `).join('')}` : '<div class="empty-state">暂未配置 BOSS</div>';
 
   root.querySelectorAll('[data-remove-boss-row]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -4508,14 +5369,15 @@ function flattenBossWaveEntries(waves) {
       ...boss,
       waveId,
       spawnRound: wave.spawnRound ?? 12,
-      spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound !== false
+      spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound !== false,
+      guardianKey: wave.guardianKey || wave.guardian?.key || wave.guardian?.enemyKey || ''
     }));
   });
 }
 
 function isBossEntryLike(entry) {
   if (!entry || typeof entry !== 'object') return false;
-  return ['id', 'waveId', 'rank', 'count', 'positions', 'spawnPositions', 'skillIds', 'skillRefs', 'skills', 'skill', 'stats', 'overrideStats'].some((field) =>
+  return ['id', 'waveId', 'rank', 'count', 'positions', 'spawnPositions', 'guardianKey', 'skillIds', 'skillRefs', 'skills', 'skill', 'stats', 'overrideStats'].some((field) =>
     Object.prototype.hasOwnProperty.call(entry, field)
   );
 }
@@ -4531,6 +5393,7 @@ function readDungeonBossEntries() {
       waveId: row.querySelector('[data-field="waveId"]').value.trim(),
       spawnRound: Math.max(1, Number(row.querySelector('[data-field="spawnRound"]').value) || 12),
       spawnOnClearBeforeRound: row.querySelector('[data-field="spawnOnClearBeforeRound"]').value !== 'false',
+      guardianKey: row.querySelector('[data-field="guardianKey"]')?.value.trim() || '',
       id: parseEnemyInput(row.querySelector('[data-field="id"]').value),
       rank: row.querySelector('[data-field="rank"]').value || 'boss',
       count: Math.max(1, Number(row.querySelector('[data-field="count"]').value) || 1),
@@ -4568,6 +5431,9 @@ function groupBossWaveEntries(entries) {
       });
     }
     const wave = waveMap.get(waveId);
+    if (entry.guardianKey) {
+      wave.guardianKey = entry.guardianKey;
+    }
     const boss = { id: entry.id, rank: entry.rank || 'boss', count: Math.max(1, Number(entry.count) || 1) };
     if (entry.positions?.length) {
       boss.positions = entry.positions;
@@ -4894,6 +5760,1011 @@ async function saveDungeonBatch() {
     showToast(`已批量保存 ${chapterCount} 个章节、${dungeonCount} 个副本`);
     await loadCatalog();
     renderDungeons();
+  } catch (error) {
+    showToast(`批量保存失败：${error.message}`);
+  }
+}
+
+function getSpecialBattleChapterOptionsMarkup(selected = '') {
+  const selectedId = String(selected || '').trim();
+  const chapters = getDungeonChapters();
+  const placeholder = '<option value="">请选择章节</option>';
+  const options = chapters.map((chapter) => `
+    <option value="${escapeAttr(chapter.id)}" ${chapter.id === selectedId ? 'selected' : ''}>
+      ${escapeHtml(`${chapter.name || chapter.title || chapter.id} (${chapter.id})`)}
+    </option>
+  `).join('');
+  return `${placeholder}${options}`;
+}
+
+function getSpecialBattleDungeonOptionsMarkup(chapterId, selected = '') {
+  const selectedId = String(selected || '').trim();
+  const normalizedChapterId = String(chapterId || '').trim();
+  const chapters = getDungeonChapters();
+  const chapter = chapters.find((entry) => entry.id === normalizedChapterId) || null;
+  const stages = chapter?.stages || [];
+  const placeholder = '<option value="">无前置 / 章节内全部已解锁</option>';
+  const customOption = selectedId && !stages.some((stage) => stage.id === selectedId)
+    ? `<option value="${escapeAttr(selectedId)}" selected>${escapeHtml(selectedId)}</option>`
+    : '';
+  const options = stages.map((stage) => `
+    <option value="${escapeAttr(stage.id)}" ${stage.id === selectedId ? 'selected' : ''}>
+      ${escapeHtml(`${stage.name || stage.id} (${stage.id})`)}
+    </option>
+  `).join('');
+  return `${placeholder}${customOption}${options}`;
+}
+
+function renderSpecialBattleChapterOptions() {
+  const select = $('#specialBattleChapterId');
+  if (!select) return;
+  const currentValue = select.value || state.selectedSpecialBattle?.chapterId || '';
+  select.innerHTML = getSpecialBattleChapterOptionsMarkup(currentValue);
+  if (currentValue) {
+    select.value = currentValue;
+  }
+}
+
+function renderSpecialBattleUnlockDungeonOptions() {
+  const select = $('#specialBattleUnlockDungeonId');
+  if (!select) return;
+  const chapterId = $('#specialBattleChapterId')?.value || state.selectedSpecialBattle?.chapterId || '';
+  const currentValue = select.dataset.currentValue || select.value || state.selectedSpecialBattle?.unlockAfterDungeonId || '';
+  select.innerHTML = getSpecialBattleDungeonOptionsMarkup(chapterId, currentValue);
+  select.value = currentValue;
+  select.dataset.currentValue = '';
+}
+
+function getSpecialBattleDisplayName(mission) {
+  if (!mission) return '';
+  const chapter = getDungeonChapters().find((entry) => entry.id === mission.chapterId);
+  const chapterName = chapter?.name || chapter?.title || mission.chapterId || '';
+  return `${chapterName} · ${mission.name || mission.id}`;
+}
+
+function renderSpecialBattles() {
+  const root = $('#specialBattleList');
+  if (!root) return;
+  const keyword = $('#specialBattleSearchInput')?.value?.trim().toLowerCase() || '';
+  const rows = (state.specialBattleConfig.escortMissions || [])
+    .filter((mission) => {
+      const text = `${mission.id || ''} ${mission.name || ''} ${mission.subtitle || ''} ${mission.description || ''} ${mission.chapterId || ''}`.toLowerCase();
+      return !keyword || text.includes(keyword);
+    })
+    .sort((left, right) => {
+      const chapterDelta = Number(left.chapterIndex || 1) - Number(right.chapterIndex || 1);
+      if (chapterDelta !== 0) return chapterDelta;
+      return String(left.id || '').localeCompare(String(right.id || ''), 'zh-Hans-CN-u-co-pinyin');
+    });
+
+  root.innerHTML = rows.length ? rows.map((mission) => `
+    <button class="catalog-row ${state.selectedSpecialBattle?.id === mission.id ? 'active' : ''}" data-special-battle-id="${escapeAttr(mission.id)}" type="button">
+      <span class="thumb">${escapeHtml(String(mission.chapterIndex || '?'))}</span>
+      <span>
+        <span class="row-title">${escapeHtml(mission.name || mission.id)}</span>
+        <span class="row-meta">${escapeHtml(`${mission.id} · ${mission.chapterId} · ${mission.segments?.length || 0} 段地图`)}</span>
+      </span>
+      <span class="rarity-chip">${escapeHtml(mission.unlockAfterDungeonId ? '需解锁' : '直开')}</span>
+    </button>
+  `).join('') : '<div class="empty-state">暂无特殊关卡配置</div>';
+
+  root.querySelectorAll('[data-special-battle-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.selectedSpecialBattle = (state.specialBattleConfig.escortMissions || []).find((entry) => entry.id === button.dataset.specialBattleId) || null;
+      renderSpecialBattles();
+      renderSpecialBattleEditor(state.selectedSpecialBattle);
+    });
+  });
+}
+
+function createBlankSpecialBattleSegment(index = 1) {
+  return {
+    id: `segment_${index}`,
+    index,
+    sourceDungeonId: '',
+    name: `第${index}段`,
+    description: '',
+    battlefield: {
+      cols: 7,
+      rows: 10,
+      actionTimeout: 25,
+      heroSpawn: { positions: [[10, 2], [10, 6], [9, 2], [9, 6]] },
+      enemySpawn: { positions: [[2, 2], [2, 4], [2, 6], [1, 3], [1, 5]] },
+      obstacles: [],
+      specialTiles: []
+    },
+    route: [[10, 4], [9, 4], [8, 4], [7, 4], [6, 4], [5, 4], [4, 4], [3, 4], [2, 4], [1, 4]],
+    goalPosition: [1, 4],
+    environmentEffect: 'none',
+    storyDialogues: [],
+    initialEnemies: [],
+    bossWaves: []
+  };
+}
+
+function createBlankSpecialBattleEnemy(rank = 'normal') {
+  return {
+    id: '',
+    rank,
+    count: 1,
+    duty: 'escort_cart',
+    positions: [],
+    skillIds: [],
+    stats: {}
+  };
+}
+
+function createBlankSpecialBattleBossEntry() {
+  return {
+    waveId: '',
+    spawnRound: 12,
+    spawnOnClearBeforeRound: true,
+    id: '',
+    rank: 'boss',
+    count: 1,
+    duty: 'escort_cart',
+    positions: [],
+    skillIds: [],
+    stats: {}
+  };
+}
+
+function createBlankSpecialBattle() {
+  const chapters = getDungeonChapters();
+  const selectedChapter = chapters.find((entry) => entry.id === state.selectedChapterKey) || chapters[0] || null;
+  const chapterId = selectedChapter?.id || 'chapter_01';
+  const chapterIndex = Number(selectedChapter?.index || selectedChapter?.chapterNumber || 1) || 1;
+  const mission = {
+    id: `escort_${chapterId}`,
+    type: 'escort',
+    chapterId,
+    chapterIndex,
+    name: '资源护送战',
+    subtitle: selectedChapter?.name || `第${chapterIndex}章`,
+    description: '',
+    background: selectedChapter?.background || '',
+    unlockAfterDungeonId: selectedChapter?.stages?.[selectedChapter.stages.length - 1]?.id || '',
+    recommendedLevel: Number(selectedChapter?.recommendedLevel || selectedChapter?.level || 1) || 1,
+    energyCost: 12,
+    fixedRewardRatio: 0.6,
+    durabilityRewardRatio: 0.4,
+    baseRewards: { gold: 300, wood: 60 },
+    cartTemplate: {
+      name: '补给车',
+      icon: '车',
+      hp: 1200,
+      attack: 1,
+      defense: 30,
+      speed: 6,
+      attackRange: 1,
+      moveRange: 1
+    },
+    segments: [createBlankSpecialBattleSegment(1)]
+  };
+  state.selectedSpecialBattle = mission;
+  renderSpecialBattleChapterOptions();
+  renderSpecialBattles();
+  renderSpecialBattleEditor(mission);
+}
+
+function renderSpecialBattleBaseRewardRows(rows) {
+  const root = $('#specialBattleBaseRewardRows');
+  if (!root) return;
+  root.innerHTML = rows.length ? rows.map((reward, index) => `
+    <div class="editable-row special-battle-reward-grid" data-special-battle-reward-index="${index}">
+      <select class="select-input" data-field="id">
+        ${renderRewardSelectOptions(reward.id || '', '请选择资源或道具')}
+      </select>
+      <input class="text-input" data-field="amount" type="number" min="1" value="${escapeAttr(reward.amount ?? 1)}" placeholder="数量">
+      <button class="icon-button" data-remove-special-battle-reward="${index}" type="button">×</button>
+    </div>
+  `).join('') : '<div class="empty-state">暂未配置基础奖励</div>';
+  root.querySelectorAll('[data-remove-special-battle-reward]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = readSpecialBattleBaseRewardRows();
+      next.splice(Number(button.dataset.removeSpecialBattleReward), 1);
+      renderSpecialBattleBaseRewardRows(next);
+    });
+  });
+}
+
+function readSpecialBattleBaseRewardRows() {
+  return $$('#specialBattleBaseRewardRows .editable-row').map((row) => ({
+    id: parseRewardInput(row.querySelector('[data-field="id"]').value),
+    amount: Math.max(1, Math.floor(Number(row.querySelector('[data-field="amount"]').value) || 1))
+  })).filter((entry) => entry.id);
+}
+
+function renderEscortEnemyDutyOptions(selectedDuty = 'escort_cart') {
+  const labels = {
+    escort_cart: '攻车怪',
+    intercept: '拦截怪',
+    chase: '追击怪'
+  };
+  return Object.entries(labels).map(([value, label]) =>
+    `<option value="${value}" ${selectedDuty === value ? 'selected' : ''}>${label}</option>`
+  ).join('');
+}
+
+function getSegmentFieldValue(card, fieldName) {
+  return card.querySelector(`[data-field="${fieldName}"]`)?.value || '';
+}
+
+function getSpecialBattleSegmentSeed(rows, card, fieldName) {
+  const index = Number(card?.dataset?.specialBattleSegmentIndex || 0);
+  const value = rows?.[index]?.[fieldName];
+  return Array.isArray(value) ? value : [];
+}
+
+function syncSpecialBattleSegmentJsonFromRows(card, fieldName, markClean = true) {
+  const field = card?.querySelector(`[data-field="${fieldName}"]`);
+  if (!field) return;
+  const previousDirty = field.dataset.dirty;
+  field.dataset.dirty = 'false';
+  field.value = stringifyJson(fieldName === 'initialEnemies'
+    ? readSpecialBattleEnemyRows(card)
+    : readSpecialBattleBossWaves(card));
+  field.dataset.dirty = markClean ? 'false' : previousDirty || 'false';
+}
+
+function readSpecialBattleEnemyRows(card) {
+  const jsonField = card?.querySelector('[data-field="initialEnemies"]');
+  if (jsonField?.dataset.dirty === 'true') {
+    const raw = jsonField.value.trim();
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      throw new Error('首发敌人 JSON 格式错误');
+    }
+  }
+  const rows = card ? [...card.querySelectorAll('.special-battle-enemy-rows .editable-row')] : [];
+  return rows.map((row) => {
+    const stats = readEnemyStatsFromRow(row);
+    const entry = {
+      id: parseEnemyInput(row.querySelector('[data-field="id"]').value),
+      rank: row.querySelector('[data-field="rank"]').value || 'normal',
+      count: Math.max(1, Number(row.querySelector('[data-field="count"]').value) || 1),
+      duty: row.querySelector('[data-field="duty"]').value || 'escort_cart',
+      positions: parseCoordinateInput(row.querySelector('[data-field="positions"]').value)
+    };
+    const skillIds = parseEnemySkillListInput(row.querySelector('[data-field="skillIds"]')?.value || '');
+    if (skillIds.length) {
+      entry.skillIds = skillIds;
+    }
+    if (Object.keys(stats).length) {
+      entry.stats = stats;
+    }
+    return entry;
+  }).filter((entry) => entry.id);
+}
+
+function flattenSpecialBattleBossWaveEntries(waves) {
+  return (Array.isArray(waves) ? waves : []).flatMap((wave, waveIndex) => {
+    const waveId = wave.id || `boss_wave_${waveIndex + 1}`;
+    const bosses = Array.isArray(wave.bosses) ? wave.bosses : [];
+    return bosses.map((boss) => ({
+      ...boss,
+      waveId,
+      spawnRound: wave.spawnRound ?? 12,
+      spawnOnClearBeforeRound: wave.spawnOnClearBeforeRound !== false
+    }));
+  });
+}
+
+function readSpecialBattleBossEntries(card) {
+  const jsonField = card?.querySelector('[data-field="bossWaves"]');
+  if (jsonField?.dataset.dirty === 'true') {
+    const raw = jsonField.value.trim();
+    if (!raw) return [];
+    try {
+      return flattenSpecialBattleBossWaveEntries(JSON.parse(raw));
+    } catch (error) {
+      throw new Error('波次敌人 JSON 格式错误');
+    }
+  }
+  const rows = card ? [...card.querySelectorAll('.special-battle-boss-rows .editable-row')] : [];
+  return rows.map((row) => {
+    const stats = readEnemyStatsFromRow(row);
+    const entry = {
+      waveId: row.querySelector('[data-field="waveId"]').value.trim(),
+      spawnRound: Math.max(1, Number(row.querySelector('[data-field="spawnRound"]').value) || 12),
+      spawnOnClearBeforeRound: row.querySelector('[data-field="spawnOnClearBeforeRound"]').value !== 'false',
+      id: parseEnemyInput(row.querySelector('[data-field="id"]').value),
+      rank: row.querySelector('[data-field="rank"]').value || 'boss',
+      count: Math.max(1, Number(row.querySelector('[data-field="count"]').value) || 1),
+      duty: row.querySelector('[data-field="duty"]').value || 'escort_cart',
+      positions: parseCoordinateInput(row.querySelector('[data-field="positions"]').value)
+    };
+    const skillIds = parseEnemySkillListInput(row.querySelector('[data-field="skillIds"]')?.value || '');
+    if (skillIds.length) {
+      entry.skillIds = skillIds;
+    }
+    if (Object.keys(stats).length) {
+      entry.stats = stats;
+    }
+    return entry;
+  }).filter((entry) => entry.id);
+}
+
+function groupSpecialBattleBossWaveEntries(entries) {
+  const waveMap = new Map();
+  entries.forEach((entry, index) => {
+    const waveId = entry.waveId || `boss_wave_${index + 1}`;
+    if (!waveMap.has(waveId)) {
+      waveMap.set(waveId, {
+        id: waveId,
+        spawnRound: entry.spawnRound || 12,
+        spawnOnClearBeforeRound: entry.spawnOnClearBeforeRound !== false,
+        bosses: []
+      });
+    }
+    const wave = waveMap.get(waveId);
+    const boss = {
+      id: entry.id,
+      rank: entry.rank || 'boss',
+      count: Math.max(1, Number(entry.count) || 1),
+      duty: entry.duty || 'escort_cart'
+    };
+    if (entry.positions?.length) {
+      boss.positions = entry.positions;
+    }
+    if (entry.skillIds?.length) {
+      boss.skillIds = entry.skillIds;
+    }
+    if (entry.stats && Object.keys(entry.stats).length) {
+      boss.stats = entry.stats;
+    }
+    wave.bosses.push(boss);
+  });
+  return [...waveMap.values()];
+}
+
+function readSpecialBattleBossWaves(card) {
+  const jsonField = card?.querySelector('[data-field="bossWaves"]');
+  if (jsonField?.dataset.dirty === 'true') {
+    const raw = jsonField.value.trim();
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      throw new Error('波次敌人 JSON 格式错误');
+    }
+  }
+  return groupSpecialBattleBossWaveEntries(readSpecialBattleBossEntries(card));
+}
+
+function renderSpecialBattleEnemyRows(card, enemies) {
+  const root = card?.querySelector('.special-battle-enemy-rows');
+  if (!root) return;
+  const header = renderEditableGridHeader('special-battle-enemy-grid', [
+    '怪物',
+    '品阶',
+    '职责',
+    '数量',
+    '出生点',
+    '技能',
+    '生命',
+    '攻击',
+    '攻击距离',
+    '移动距离',
+    '防御',
+    '速度',
+    '暴击',
+    '抗暴',
+    '破防',
+    '命中',
+    '闪避',
+    '其他属性',
+    '操作'
+  ]);
+  root.innerHTML = enemies.length ? `${header}${enemies.map((enemy, index) => `
+    <div class="editable-row special-battle-enemy-grid" data-special-battle-enemy-index="${index}">
+      <select class="select-input" data-field="id">
+        ${renderEnemySelectOptions(enemy.id || '', '请选择怪物')}
+      </select>
+      <select class="select-input" data-field="rank">${renderRankOptions(enemy.rank || 'normal')}</select>
+      <select class="select-input" data-field="duty">${renderEscortEnemyDutyOptions(enemy.duty || enemy.sourceType || 'escort_cart')}</select>
+      <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(enemy.count || 1)}" placeholder="数量">
+      <div class="positions-cell"><input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(enemy.positions || enemy.spawnPositions || []))}" placeholder="出生点"><button class="board-edit-btn" data-row-board="special-enemy" type="button" title="用棋盘编辑器设置出生点">🖼</button></div>
+      <div class="skills-cell"><input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(enemy)))}" placeholder="技能，可逗号分隔"><button class="board-edit-btn" data-row-skill="special-enemy" type="button" title="从技能列表中勾选">🎯</button></div>
+      <input class="text-input" data-field="hp" type="number" min="1" value="${escapeAttr(enemy.stats?.hp ?? enemy.overrideStats?.hp ?? '')}" placeholder="生命">
+      <input class="text-input" data-field="attack" type="number" min="1" value="${escapeAttr(enemy.stats?.attack ?? enemy.overrideStats?.attack ?? '')}" placeholder="攻击">
+      <input class="text-input" data-field="attackRange" type="number" min="1" value="${escapeAttr(enemy.stats?.attackRange ?? enemy.overrideStats?.attackRange ?? '')}" placeholder="攻击距离">
+      <input class="text-input" data-field="moveRange" type="number" min="1" value="${escapeAttr(enemy.stats?.moveRange ?? enemy.overrideStats?.moveRange ?? '')}" placeholder="移动距离">
+      <input class="text-input" data-field="defense" type="number" min="0" value="${escapeAttr(enemy.stats?.defense ?? enemy.overrideStats?.defense ?? '')}" placeholder="防御">
+      <input class="text-input" data-field="speed" type="number" min="1" value="${escapeAttr(enemy.stats?.speed ?? enemy.overrideStats?.speed ?? '')}" placeholder="速度">
+      <input class="text-input" data-field="crit" type="number" min="0" value="${escapeAttr(enemy.stats?.crit ?? enemy.overrideStats?.crit ?? '')}" placeholder="暴击">
+      <input class="text-input" data-field="antiCrit" type="number" min="0" value="${escapeAttr(enemy.stats?.antiCrit ?? enemy.overrideStats?.antiCrit ?? '')}" placeholder="抗暴">
+      <input class="text-input" data-field="defensePen" type="number" min="0" value="${escapeAttr(enemy.stats?.defensePen ?? enemy.overrideStats?.defensePen ?? '')}" placeholder="破防">
+      <input class="text-input" data-field="accuracy" type="number" min="0" value="${escapeAttr(enemy.stats?.accuracy ?? enemy.overrideStats?.accuracy ?? '')}" placeholder="命中">
+      <input class="text-input" data-field="dodge" type="number" min="0" value="${escapeAttr(enemy.stats?.dodge ?? enemy.overrideStats?.dodge ?? '')}" placeholder="闪避">
+      <input class="text-input code-input" data-field="extraStats" value="${escapeAttr(stringifyInlineJson(getExtraStats(enemy.stats || enemy.overrideStats || {})))}" placeholder='其他属性 JSON'>
+      <button class="icon-button" data-remove-special-enemy-row="${index}" type="button">×</button>
+    </div>
+  `).join('')}` : '<div class="empty-state">暂未配置首发敌人</div>';
+  root.querySelectorAll('[data-remove-special-enemy-row]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rows = readSpecialBattleEnemyRows(card);
+      rows.splice(Number(button.dataset.removeSpecialEnemyRow), 1);
+      renderSpecialBattleEnemyRows(card, rows);
+    });
+  });
+  root.querySelectorAll('[data-row-board="special-enemy"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rowEl = button.closest('.editable-row');
+      if (rowEl) window.openBoardEditorForSpecialBattleRow(rowEl, 'special-enemy');
+    });
+  });
+  root.querySelectorAll('[data-row-skill="special-enemy"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rowEl = button.closest('.editable-row');
+      if (rowEl) window.openSkillPickerForRow(rowEl, 'special-enemy');
+    });
+  });
+  root.querySelectorAll('input, select').forEach((field) => {
+    field.addEventListener('input', () => syncSpecialBattleSegmentJsonFromRows(card, 'initialEnemies'));
+    field.addEventListener('change', () => syncSpecialBattleSegmentJsonFromRows(card, 'initialEnemies'));
+  });
+  syncSpecialBattleSegmentJsonFromRows(card, 'initialEnemies', false);
+}
+
+function renderSpecialBattleBossRows(card, waves) {
+  const root = card?.querySelector('.special-battle-boss-rows');
+  if (!root) return;
+  const entries = flattenSpecialBattleBossWaveEntries(waves);
+  const header = renderEditableGridHeader('special-battle-boss-grid', [
+    '波次ID',
+    '回合',
+    '出现规则',
+    'BOSS',
+    '品阶',
+    '职责',
+    '数量',
+    '出生点',
+    '技能',
+    '生命',
+    '攻击',
+    '攻击距离',
+    '移动距离',
+    '防御',
+    '速度',
+    '暴击',
+    '抗暴',
+    '破防',
+    '命中',
+    '闪避',
+    '其他属性',
+    '操作'
+  ]);
+  root.innerHTML = entries.length ? `${header}${entries.map((entry, index) => `
+    <div class="editable-row special-battle-boss-grid" data-special-battle-boss-index="${index}">
+      <input class="text-input" data-field="waveId" value="${escapeAttr(entry.waveId || '')}" placeholder="波次 ID">
+      <input class="text-input" data-field="spawnRound" type="number" min="1" value="${escapeAttr(entry.spawnRound || 12)}" placeholder="回合">
+      <select class="select-input" data-field="spawnOnClearBeforeRound">
+        <option value="true" ${entry.spawnOnClearBeforeRound !== false ? 'selected' : ''}>清场前可出现</option>
+        <option value="false" ${entry.spawnOnClearBeforeRound === false ? 'selected' : ''}>固定回合</option>
+      </select>
+      <select class="select-input" data-field="id">
+        ${renderEnemySelectOptions(entry.id || '', '请选择BOSS')}
+      </select>
+      <select class="select-input" data-field="rank">${renderRankOptions(entry.rank || 'boss')}</select>
+      <select class="select-input" data-field="duty">${renderEscortEnemyDutyOptions(entry.duty || entry.sourceType || 'escort_cart')}</select>
+      <input class="text-input" data-field="count" type="number" min="1" value="${escapeAttr(entry.count || 1)}" placeholder="数量">
+      <div class="positions-cell"><input class="text-input" data-field="positions" value="${escapeAttr(formatCoordinates(entry.positions || entry.spawnPositions || []))}" placeholder="出生点"><button class="board-edit-btn" data-row-board="special-boss" type="button" title="用棋盘编辑器设置出生点">🖼</button></div>
+      <div class="skills-cell"><input class="text-input" data-field="skillIds" list="enemySkillOptions" value="${escapeAttr(formatEnemySkillListDisplay(getEnemySkillIdsFromEntry(entry)))}" placeholder="技能，可逗号分隔"><button class="board-edit-btn" data-row-skill="special-boss" type="button" title="从技能列表中勾选">🎯</button></div>
+      <input class="text-input" data-field="hp" type="number" min="1" value="${escapeAttr(entry.stats?.hp ?? entry.overrideStats?.hp ?? '')}" placeholder="生命">
+      <input class="text-input" data-field="attack" type="number" min="1" value="${escapeAttr(entry.stats?.attack ?? entry.overrideStats?.attack ?? '')}" placeholder="攻击">
+      <input class="text-input" data-field="attackRange" type="number" min="1" value="${escapeAttr(entry.stats?.attackRange ?? entry.overrideStats?.attackRange ?? '')}" placeholder="攻击距离">
+      <input class="text-input" data-field="moveRange" type="number" min="1" value="${escapeAttr(entry.stats?.moveRange ?? entry.overrideStats?.moveRange ?? '')}" placeholder="移动距离">
+      <input class="text-input" data-field="defense" type="number" min="0" value="${escapeAttr(entry.stats?.defense ?? entry.overrideStats?.defense ?? '')}" placeholder="防御">
+      <input class="text-input" data-field="speed" type="number" min="1" value="${escapeAttr(entry.stats?.speed ?? entry.overrideStats?.speed ?? '')}" placeholder="速度">
+      <input class="text-input" data-field="crit" type="number" min="0" value="${escapeAttr(entry.stats?.crit ?? entry.overrideStats?.crit ?? '')}" placeholder="暴击">
+      <input class="text-input" data-field="antiCrit" type="number" min="0" value="${escapeAttr(entry.stats?.antiCrit ?? entry.overrideStats?.antiCrit ?? '')}" placeholder="抗暴">
+      <input class="text-input" data-field="defensePen" type="number" min="0" value="${escapeAttr(entry.stats?.defensePen ?? entry.overrideStats?.defensePen ?? '')}" placeholder="破防">
+      <input class="text-input" data-field="accuracy" type="number" min="0" value="${escapeAttr(entry.stats?.accuracy ?? entry.overrideStats?.accuracy ?? '')}" placeholder="命中">
+      <input class="text-input" data-field="dodge" type="number" min="0" value="${escapeAttr(entry.stats?.dodge ?? entry.overrideStats?.dodge ?? '')}" placeholder="闪避">
+      <input class="text-input code-input" data-field="extraStats" value="${escapeAttr(stringifyInlineJson(getExtraStats(entry.stats || entry.overrideStats || {})))}" placeholder='其他属性 JSON'>
+      <button class="icon-button" data-remove-special-boss-row="${index}" type="button">×</button>
+    </div>
+  `).join('')}` : '<div class="empty-state">暂未配置波次敌人</div>';
+  root.querySelectorAll('[data-remove-special-boss-row]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rows = readSpecialBattleBossEntries(card);
+      rows.splice(Number(button.dataset.removeSpecialBossRow), 1);
+      renderSpecialBattleBossRows(card, groupSpecialBattleBossWaveEntries(rows));
+    });
+  });
+  root.querySelectorAll('[data-row-board="special-boss"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rowEl = button.closest('.editable-row');
+      if (rowEl) window.openBoardEditorForSpecialBattleRow(rowEl, 'special-boss');
+    });
+  });
+  root.querySelectorAll('[data-row-skill="special-boss"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const rowEl = button.closest('.editable-row');
+      if (rowEl) window.openSkillPickerForRow(rowEl, 'special-boss');
+    });
+  });
+  root.querySelectorAll('input, select').forEach((field) => {
+    field.addEventListener('input', () => syncSpecialBattleSegmentJsonFromRows(card, 'bossWaves'));
+    field.addEventListener('change', () => syncSpecialBattleSegmentJsonFromRows(card, 'bossWaves'));
+  });
+  syncSpecialBattleSegmentJsonFromRows(card, 'bossWaves', false);
+}
+
+function renderSpecialBattleSegmentRows(rows) {
+  const root = $('#specialBattleSegmentRows');
+  if (!root) return;
+  root.innerHTML = rows.length ? rows.map((segment, index) => {
+    const battlefield = segment.battlefield || {};
+    const heroSpawn = battlefield.heroSpawn?.positions || [];
+    const enemySpawn = battlefield.enemySpawn?.positions || [];
+    const bossWaves = Array.isArray(segment.bossWaves) ? segment.bossWaves : [];
+    return `
+      <div class="special-battle-segment-card" data-special-battle-segment-index="${index}">
+        <div class="block-title">
+          <span>地图段 ${index + 1}</span>
+          <button class="danger-button" data-remove-special-battle-segment="${index}" type="button">删除本段</button>
+        </div>
+        <div class="special-battle-segment-grid">
+          <label>
+            <span>段 ID</span>
+            <input class="text-input" data-field="id" value="${escapeAttr(segment.id || '')}">
+          </label>
+          <label>
+            <span>序号</span>
+            <input class="text-input" data-field="index" type="number" min="1" value="${escapeAttr(segment.index || index + 1)}">
+          </label>
+          <label>
+            <span>名称</span>
+            <input class="text-input" data-field="name" value="${escapeAttr(segment.name || '')}">
+          </label>
+          <label>
+            <span>源副本 ID</span>
+            <input class="text-input" data-field="sourceDungeonId" value="${escapeAttr(segment.sourceDungeonId || '')}" placeholder="可选，用于继承旧副本敌人">
+          </label>
+          <label class="wide">
+            <span>描述</span>
+            <textarea class="textarea-input" data-field="description" rows="2">${escapeHtml(segment.description || '')}</textarea>
+          </label>
+          <label>
+            <span>列数</span>
+            <input class="text-input" data-field="cols" type="number" min="1" value="${escapeAttr(battlefield.cols || battlefield.width || 7)}">
+          </label>
+          <label>
+            <span>行数</span>
+            <input class="text-input" data-field="rows" type="number" min="1" value="${escapeAttr(battlefield.rows || battlefield.height || 10)}">
+          </label>
+          <label>
+            <span>行动超时</span>
+            <input class="text-input" data-field="actionTimeout" type="number" min="1" value="${escapeAttr(battlefield.actionTimeout || 25)}">
+          </label>
+          <label>
+            <span>环境效果</span>
+            <select class="select-input" data-field="environmentEffect">
+              ${Array.from(dungeonEnvironmentEffectOptions).map((value) => `<option value="${escapeAttr(value)}" ${String(segment.environmentEffect || 'none') === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="wide">
+            <span>英雄出生点</span>
+            <div class="positions-cell"><input class="text-input code-input" data-field="heroSpawn" value="${escapeAttr(formatCoordinates(heroSpawn))}" placeholder="10,2;10,6;9,2;9,6"><button class="board-edit-btn" data-segment-board="heroSpawn" type="button" title="用棋盘编辑器设置英雄出生点">🖼</button></div>
+          </label>
+          <label class="wide">
+            <span>敌人默认出生点</span>
+            <div class="positions-cell"><input class="text-input code-input" data-field="enemySpawn" value="${escapeAttr(formatCoordinates(enemySpawn))}" placeholder="2,2;2,4;2,6"><button class="board-edit-btn" data-segment-board="enemySpawn" type="button" title="用棋盘编辑器设置敌人默认出生点">🖼</button></div>
+          </label>
+          <label class="wide">
+            <span>障碍</span>
+            <div class="positions-cell"><input class="text-input code-input" data-field="obstacles" value="${escapeAttr(formatCoordinates(battlefield.obstacles || []))}" placeholder="4,2;4,6"><button class="board-edit-btn" data-segment-board="obstacles" type="button" title="用棋盘编辑器设置障碍">🖼</button></div>
+          </label>
+          <label class="wide">
+            <span>特殊地格</span>
+            <div class="positions-cell"><textarea class="textarea-input code-input" data-field="specialTiles" rows="4">${escapeHtml(formatSpecialTiles(battlefield.specialTiles || []))}</textarea><button class="board-edit-btn" data-segment-board="specialTiles" type="button" title="用棋盘编辑器设置特殊地格">🖼</button></div>
+          </label>
+          <label class="wide">
+            <span>马车路线</span>
+            <div class="positions-cell"><input class="text-input code-input" data-field="route" value="${escapeAttr(formatCoordinates(segment.route || []))}" placeholder="10,4;9,4;8,4"><button class="board-edit-btn" data-segment-board="route" type="button" title="用棋盘编辑器设置马车路线">🖼</button></div>
+          </label>
+          <label>
+            <span>终点</span>
+            <div class="positions-cell"><input class="text-input" data-field="goalPosition" value="${escapeAttr(formatCoordinates(segment.goalPosition ? [segment.goalPosition] : []))}" placeholder="1,4"><button class="board-edit-btn" data-segment-board="goalPosition" type="button" title="用棋盘编辑器设置终点">🖼</button></div>
+          </label>
+          <div class="wide nested-editor">
+            <div class="block-title">
+              <span>剧情对话（首次通关前播放）</span>
+            </div>
+            <div class="special-battle-story-rows"></div>
+            <div class="nested-editor-actions">
+              <button class="ghost-button" data-add-special-story type="button">添加对话</button>
+            </div>
+          </div>
+          <div class="wide nested-editor">
+            <div class="block-title">
+              <span>首发敌人</span>
+              <div class="inline-tools">
+                <button class="ghost-button" data-add-special-enemy="normal" type="button">添加普通怪</button>
+                <button class="ghost-button" data-add-special-enemy="elite" type="button">添加精英怪</button>
+              </div>
+            </div>
+            <div class="special-battle-row-json-wrap">
+              <textarea class="textarea-input code-input special-battle-hidden-json" data-field="initialEnemies" rows="6">${escapeHtml(stringifyJson(segment.initialEnemies || []))}</textarea>
+            </div>
+            <div class="editable-table special-battle-enemy-rows"></div>
+          </div>
+          <div class="wide nested-editor">
+            <div class="block-title">
+              <span>波次敌人</span>
+              <button class="ghost-button" data-add-special-boss type="button">添加波次怪</button>
+            </div>
+            <div class="special-battle-row-json-wrap">
+              <textarea class="textarea-input code-input special-battle-hidden-json" data-field="bossWaves" rows="6">${escapeHtml(stringifyJson(bossWaves))}</textarea>
+            </div>
+            <div class="editable-table special-battle-boss-rows"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="empty-state">暂未配置地图段</div>';
+
+  root.querySelectorAll('[data-remove-special-battle-segment]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = readSpecialBattleSegmentRows();
+      next.splice(Number(button.dataset.removeSpecialBattleSegment), 1);
+      renderSpecialBattleSegmentRows(next);
+    });
+  });
+  root.querySelectorAll('[data-segment-board]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const card = button.closest('[data-special-battle-segment-index]');
+      if (card) window.openBoardEditorForSpecialBattleSegment(card, button.dataset.segmentBoard);
+    });
+  });
+  root.querySelectorAll('[data-add-special-enemy]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const card = button.closest('[data-special-battle-segment-index]');
+      if (!card) return;
+      renderSpecialBattleEnemyRows(card, [...readSpecialBattleEnemyRows(card), createBlankSpecialBattleEnemy(button.dataset.addSpecialEnemy || 'normal')]);
+    });
+  });
+  root.querySelectorAll('[data-add-special-boss]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const card = button.closest('[data-special-battle-segment-index]');
+      if (!card) return;
+      renderSpecialBattleBossRows(card, groupSpecialBattleBossWaveEntries([
+        ...readSpecialBattleBossEntries(card),
+        createBlankSpecialBattleBossEntry()
+      ]));
+    });
+  });
+  root.querySelectorAll('[data-add-special-story]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const card = button.closest('[data-special-battle-segment-index]');
+      if (!card) return;
+      renderSpecialBattleStoryDialogueRows(card, [...readSpecialBattleStoryDialogueEntries(card), createBlankStoryDialogueEntry()]);
+    });
+  });
+  root.querySelectorAll('[data-field="initialEnemies"], [data-field="bossWaves"]').forEach((field) => {
+    field.addEventListener('input', () => {
+      field.dataset.dirty = 'true';
+    });
+  });
+  root.querySelectorAll('[data-special-battle-segment-index]').forEach((card) => {
+    renderSpecialBattleStoryDialogueRows(card, Array.isArray(rows?.[Number(card.dataset.specialBattleSegmentIndex || 0)]?.storyDialogues) ? rows[Number(card.dataset.specialBattleSegmentIndex || 0)].storyDialogues : []);
+    renderSpecialBattleEnemyRows(card, getSpecialBattleSegmentSeed(rows, card, 'initialEnemies'));
+    renderSpecialBattleBossRows(card, getSpecialBattleSegmentSeed(rows, card, 'bossWaves'));
+  });
+}
+
+function readSpecialBattleSegmentRows() {
+  return $$('#specialBattleSegmentRows [data-special-battle-segment-index]').map((card, index) => {
+    const goalPosition = parseCoordinateInput(card.querySelector('[data-field="goalPosition"]').value)[0] || null;
+    return {
+      id: card.querySelector('[data-field="id"]').value.trim() || `segment_${index + 1}`,
+      index: Math.max(1, Number(card.querySelector('[data-field="index"]').value) || index + 1),
+      sourceDungeonId: card.querySelector('[data-field="sourceDungeonId"]').value.trim(),
+      name: card.querySelector('[data-field="name"]').value.trim() || `第${index + 1}段`,
+      description: card.querySelector('[data-field="description"]').value.trim(),
+      battlefield: {
+        cols: Math.max(1, Number(card.querySelector('[data-field="cols"]').value) || 7),
+        rows: Math.max(1, Number(card.querySelector('[data-field="rows"]').value) || 10),
+        actionTimeout: Math.max(1, Number(card.querySelector('[data-field="actionTimeout"]').value) || 25),
+        heroSpawn: { positions: parseCoordinateInput(card.querySelector('[data-field="heroSpawn"]').value) },
+        enemySpawn: { positions: parseCoordinateInput(card.querySelector('[data-field="enemySpawn"]').value) },
+        obstacles: parseCoordinateInput(card.querySelector('[data-field="obstacles"]').value),
+        specialTiles: parseSpecialTileInput(card.querySelector('[data-field="specialTiles"]').value)
+      },
+      route: parseCoordinateInput(card.querySelector('[data-field="route"]').value),
+      goalPosition,
+      environmentEffect: card.querySelector('[data-field="environmentEffect"]').value || 'none',
+      storyDialogues: readSpecialBattleStoryDialogueEntries(card),
+      initialEnemies: readSpecialBattleEnemyRows(card),
+      bossWaves: readSpecialBattleBossWaves(card)
+    };
+  });
+}
+
+function readSpecialBattleStoryDialogueEntries(card) {
+  const rows = card ? [...card.querySelectorAll('.special-battle-story-rows .editable-row')] : [];
+  return rows.map((row) => ({
+    speaker: row.querySelector('[data-field="speaker"]')?.value?.trim() || '',
+    speakerName: row.querySelector('[data-field="speakerName"]')?.value?.trim() || '',
+    avatarType: row.querySelector('[data-field="avatarType"]')?.value || 'hero',
+    position: row.querySelector('[data-field="position"]')?.value || 'left',
+    text: row.querySelector('[data-field="text"]')?.value?.trim() || ''
+  })).filter((entry) => entry.text);
+}
+
+function renderSpecialBattleStoryDialogueRows(card, entries) {
+  const container = card?.querySelector('.special-battle-story-rows');
+  if (!container) return;
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  container.innerHTML = '';
+  if (safeEntries.length === 0) {
+    container.innerHTML = '<div class="editable-table-empty">还没有添加剧情对话</div>';
+    return;
+  }
+
+  safeEntries.forEach((entry, index) => {
+    const row = document.createElement('div');
+    row.className = 'editable-row';
+    const speakerOptions = buildSpeakerOptions(entry.avatarType || 'hero', entry.speaker || '');
+    row.innerHTML = `
+      <div class="editable-row-index">${index + 1}</div>
+      <div class="editable-row-fields">
+        <label>
+          <span>说话者</span>
+          <select data-field="speaker" class="select-input speaker-select">
+            <option value="">-- 请选择 --</option>
+            ${speakerOptions}
+          </select>
+        </label>
+        <label>
+          <span>显示名称</span>
+          <input type="text" data-field="speakerName" class="text-input" value="${escapeHtml(entry.speakerName || '')}" placeholder="角色名">
+        </label>
+        <label>
+          <span>立绘类型</span>
+          <select data-field="avatarType" class="select-input avatar-type-select">
+            <option value="hero" ${entry.avatarType === 'hero' ? 'selected' : ''}>玩家英雄</option>
+            <option value="enemy" ${entry.avatarType === 'enemy' ? 'selected' : ''}>敌人</option>
+            <option value="none" ${entry.avatarType === 'none' ? 'selected' : ''}>无(旁白)</option>
+          </select>
+        </label>
+        <label>
+          <span>立绘位置</span>
+          <select data-field="position" class="select-input">
+            <option value="left" ${entry.position === 'left' ? 'selected' : ''}>左侧</option>
+            <option value="right" ${entry.position === 'right' ? 'selected' : ''}>右侧</option>
+          </select>
+        </label>
+        <label class="wide">
+          <span>对话文本</span>
+          <textarea data-field="text" class="textarea-input" rows="2" placeholder="输入对话内容...">${escapeHtml(entry.text || '')}</textarea>
+        </label>
+      </div>
+      <div class="editable-row-actions">
+        <button type="button" class="icon-button" data-special-story-move="-1" title="上移">↑</button>
+        <button type="button" class="icon-button" data-special-story-move="1" title="下移">↓</button>
+        <button type="button" class="icon-button danger" data-special-story-remove="${index}" title="删除">×</button>
+      </div>
+    `;
+    container.appendChild(row);
+
+    const avatarTypeSelect = row.querySelector('.avatar-type-select');
+    if (avatarTypeSelect) {
+      avatarTypeSelect.addEventListener('change', (e) => {
+        const speakerSelect = row.querySelector('.speaker-select');
+        if (speakerSelect) {
+          const currentValue = speakerSelect.value;
+          speakerSelect.innerHTML = `<option value="">-- 请选择 --</option>${buildSpeakerOptions(e.target.value, currentValue)}`;
+        }
+      });
+    }
+
+    const speakerSelect = row.querySelector('.speaker-select');
+    const speakerNameInput = row.querySelector('[data-field="speakerName"]');
+    if (speakerSelect && speakerNameInput) {
+      speakerSelect.addEventListener('change', (e) => {
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        const speakerName = selectedOption.dataset.name || '';
+        if (speakerName && !speakerNameInput.value) {
+          speakerNameInput.value = speakerName;
+        }
+      });
+    }
+  });
+
+  container.querySelectorAll('[data-special-story-move]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const row = button.closest('.editable-row');
+      if (!row) return;
+      const allRows = [...container.querySelectorAll('.editable-row')];
+      const rowIndex = allRows.indexOf(row);
+      const direction = Number(button.dataset.specialStoryMove || 0);
+      const nextIndex = rowIndex + direction;
+      if (rowIndex < 0 || nextIndex < 0 || nextIndex >= safeEntries.length) return;
+      const nextEntries = readSpecialBattleStoryDialogueEntries(card);
+      [nextEntries[rowIndex], nextEntries[nextIndex]] = [nextEntries[nextIndex], nextEntries[rowIndex]];
+      renderSpecialBattleStoryDialogueRows(card, nextEntries);
+    });
+  });
+
+  container.querySelectorAll('[data-special-story-remove]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextEntries = readSpecialBattleStoryDialogueEntries(card);
+      nextEntries.splice(Number(button.dataset.specialStoryRemove), 1);
+      renderSpecialBattleStoryDialogueRows(card, nextEntries);
+    });
+  });
+}
+
+function renderSpecialBattleEditor(mission) {
+  const effective = mission || {};
+  $('#specialBattleEditorTitle').textContent = effective.name || '新建特殊关卡';
+  $('#specialBattleEditorMeta').textContent = effective.id
+    ? `${effective.id} · ${effective.chapterId || '未绑定章节'} · ${(effective.segments || []).length || 0} 段地图`
+    : '按章节配置资源护送战';
+  $('#specialBattleEditorSource').textContent = effective.id && (state.specialBattleConfig.escortMissions || []).some((entry) => entry.id === effective.id)
+    ? 'GM配置'
+    : '新建草稿';
+  $('#specialBattleId').value = effective.id || '';
+  $('#specialBattleId').disabled = Boolean(state.specialBattleConfig.escortMissions.find((entry) => entry.id === effective.id));
+  renderSpecialBattleChapterOptions();
+  $('#specialBattleChapterId').value = effective.chapterId || '';
+  $('#specialBattleChapterIndex').value = effective.chapterIndex || 1;
+  $('#specialBattleName').value = effective.name || '';
+  $('#specialBattleSubtitle').value = effective.subtitle || '';
+  $('#specialBattleBackground').value = effective.background || '';
+  $('#specialBattleUnlockDungeonId').dataset.currentValue = effective.unlockAfterDungeonId || '';
+  renderSpecialBattleUnlockDungeonOptions();
+  $('#specialBattleUnlockDungeonId').value = effective.unlockAfterDungeonId || '';
+  $('#specialBattleRecommendedLevel').value = effective.recommendedLevel || 1;
+  $('#specialBattleEnergyCost').value = effective.energyCost || 12;
+  $('#specialBattleFixedRewardRatio').value = effective.fixedRewardRatio ?? 0.6;
+  $('#specialBattleDurabilityRewardRatio').value = effective.durabilityRewardRatio ?? 0.4;
+  $('#specialBattleDescription').value = effective.description || '';
+  const baseRewardRows = Object.entries(effective.baseRewards || {}).map(([id, amount]) => ({ id, amount }));
+  renderSpecialBattleBaseRewardRows(baseRewardRows);
+  const cart = effective.cartTemplate || {};
+  $('#specialBattleCartName').value = cart.name || '补给车';
+  $('#specialBattleCartIcon').value = cart.icon || '车';
+  $('#specialBattleCartHp').value = cart.hp || 1200;
+  $('#specialBattleCartAttack').value = cart.attack || 1;
+  $('#specialBattleCartDefense').value = cart.defense || 30;
+  $('#specialBattleCartSpeed').value = cart.speed || 6;
+  $('#specialBattleCartAttackRange').value = cart.attackRange || 1;
+  $('#specialBattleCartMoveRange').value = cart.moveRange || 1;
+  renderSpecialBattleSegmentRows((effective.segments || []).length ? effective.segments : [createBlankSpecialBattleSegment(1)]);
+  $('#specialBattleBatchJson').value = '';
+}
+
+async function saveSpecialBattle(event) {
+  event.preventDefault();
+  const id = $('#specialBattleId').value.trim();
+  if (!id) {
+    showToast('请填写任务 ID');
+    return;
+  }
+  const chapterId = $('#specialBattleChapterId').value.trim();
+  if (!chapterId) {
+    showToast('请选择所属章节');
+    return;
+  }
+
+  let segments = [];
+  try {
+    segments = readSpecialBattleSegmentRows();
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+  if (!segments.length) {
+    showToast('至少需要配置一个地图段');
+    return;
+  }
+
+  const payload = {
+    escortMissions: [
+      ...(state.specialBattleConfig.escortMissions || []).filter((entry) => entry.id !== id),
+      {
+        id,
+        type: 'escort',
+        chapterId,
+        chapterIndex: Math.max(1, Number($('#specialBattleChapterIndex').value) || 1),
+        name: $('#specialBattleName').value.trim() || '资源护送战',
+        subtitle: $('#specialBattleSubtitle').value.trim(),
+        description: $('#specialBattleDescription').value.trim(),
+        background: $('#specialBattleBackground').value.trim(),
+        unlockAfterDungeonId: $('#specialBattleUnlockDungeonId').value.trim(),
+        recommendedLevel: Math.max(1, Number($('#specialBattleRecommendedLevel').value) || 1),
+        energyCost: Math.max(1, Number($('#specialBattleEnergyCost').value) || 1),
+        fixedRewardRatio: Math.max(0, Math.min(1, Number($('#specialBattleFixedRewardRatio').value) || 0)),
+        durabilityRewardRatio: Math.max(0, Math.min(1, Number($('#specialBattleDurabilityRewardRatio').value) || 0)),
+        baseRewards: Object.fromEntries(readSpecialBattleBaseRewardRows().map((entry) => [entry.id, entry.amount])),
+        cartTemplate: {
+          name: $('#specialBattleCartName').value.trim() || '补给车',
+          icon: $('#specialBattleCartIcon').value.trim() || '车',
+          hp: Math.max(1, Number($('#specialBattleCartHp').value) || 1),
+          attack: Math.max(1, Number($('#specialBattleCartAttack').value) || 1),
+          defense: Math.max(0, Number($('#specialBattleCartDefense').value) || 0),
+          speed: Math.max(1, Number($('#specialBattleCartSpeed').value) || 1),
+          attackRange: Math.max(1, Number($('#specialBattleCartAttackRange').value) || 1),
+          moveRange: Math.max(1, Number($('#specialBattleCartMoveRange').value) || 1)
+        },
+        segments
+      }
+    ]
+  };
+
+  payload.escortMissions.sort((left, right) => {
+    const chapterDelta = Number(left.chapterIndex || 1) - Number(right.chapterIndex || 1);
+    if (chapterDelta !== 0) return chapterDelta;
+    return String(left.id || '').localeCompare(String(right.id || ''), 'zh-Hans-CN-u-co-pinyin');
+  });
+
+  try {
+    const result = await api('/gm/special-battles', { method: 'PUT', body: payload });
+    state.specialBattleConfig = result?.config || payload;
+    state.selectedSpecialBattle = (state.specialBattleConfig.escortMissions || []).find((entry) => entry.id === id) || null;
+    showToast('特殊关卡已保存');
+    renderSpecialBattles();
+    renderSpecialBattleEditor(state.selectedSpecialBattle);
+  } catch (error) {
+    showToast(`特殊关卡保存失败：${error.message}`);
+  }
+}
+
+async function deleteSpecialBattle() {
+  const id = $('#specialBattleId').value.trim();
+  if (!id) {
+    showToast('请先选择特殊关卡');
+    return;
+  }
+  if (!(state.specialBattleConfig.escortMissions || []).some((entry) => entry.id === id)) {
+    showToast('当前是未保存草稿，无需删除');
+    return;
+  }
+  if (!confirm(`确认删除特殊关卡 ${id} 吗？`)) return;
+  const payload = {
+    escortMissions: (state.specialBattleConfig.escortMissions || []).filter((entry) => entry.id !== id)
+  };
+  try {
+    const result = await api('/gm/special-battles', { method: 'PUT', body: payload });
+    state.specialBattleConfig = result?.config || payload;
+    state.selectedSpecialBattle = state.specialBattleConfig.escortMissions[0] || null;
+    showToast('特殊关卡已删除');
+    renderSpecialBattles();
+    renderSpecialBattleEditor(state.selectedSpecialBattle);
+  } catch (error) {
+    showToast(`特殊关卡删除失败：${error.message}`);
+  }
+}
+
+function loadSpecialBattleBatchJson() {
+  $('#specialBattleBatchJson').value = JSON.stringify(state.specialBattleConfig || { escortMissions: [] }, null, 2);
+}
+
+async function saveSpecialBattleBatch() {
+  let payload = null;
+  try {
+    payload = JSON.parse($('#specialBattleBatchJson').value || '{}');
+  } catch (error) {
+    showToast('批量 JSON 格式错误');
+    return;
+  }
+  if (!payload || !Array.isArray(payload.escortMissions)) {
+    showToast('批量 JSON 需要包含 escortMissions 数组');
+    return;
+  }
+  try {
+    const result = await api('/gm/special-battles', { method: 'PUT', body: payload });
+    state.specialBattleConfig = result?.config || payload;
+    state.selectedSpecialBattle = state.specialBattleConfig.escortMissions[0] || null;
+    showToast(`已批量保存 ${state.specialBattleConfig.escortMissions.length || 0} 个特殊关卡`);
+    renderSpecialBattles();
+    renderSpecialBattleEditor(state.selectedSpecialBattle);
   } catch (error) {
     showToast(`批量保存失败：${error.message}`);
   }
@@ -5335,6 +7206,150 @@ function escapeAttr(value) {
     $('#boardEditorOverlay').style.display = 'flex';
   }
 
+  function openBoardEditorForSpecialBattleSegment(card, fieldName) {
+    if (!card) return;
+    const rows = parseInt(getSegmentFieldValue(card, 'rows')) || 10;
+    const cols = parseInt(getSegmentFieldValue(card, 'cols')) || 7;
+    if (rows < 1 || cols < 1) { showToast('请先填写地图段行数和列数'); return; }
+
+    boardState = new Map();
+    readOnlyState = new Map();
+    editTarget = { kind: 'special-segment', card, fieldName };
+    currentMode = fieldName === 'specialTiles'
+      ? 'heal'
+      : (fieldName === 'heroSpawn' ? 'hero' : (fieldName === 'enemySpawn' ? 'enemy' : 'obstacle'));
+
+    const heroSpawn = parseCoordinateInput(getSegmentFieldValue(card, 'heroSpawn'));
+    const enemySpawn = parseCoordinateInput(getSegmentFieldValue(card, 'enemySpawn'));
+    const obstacles = parseCoordinateInput(getSegmentFieldValue(card, 'obstacles'));
+    const route = parseCoordinateInput(getSegmentFieldValue(card, 'route'));
+    const goalList = parseCoordinateInput(getSegmentFieldValue(card, 'goalPosition'));
+    const goal = goalList[0] ? [goalList[0]] : [];
+    const specialTiles = parseSpecialTileInput(getSegmentFieldValue(card, 'specialTiles'));
+
+    if (fieldName === 'heroSpawn') heroSpawn.forEach(([r, c]) => boardState.set(`${r},${c}`, 'hero'));
+    if (fieldName === 'enemySpawn') enemySpawn.forEach(([r, c]) => boardState.set(`${r},${c}`, 'enemy'));
+    if (fieldName === 'obstacles') obstacles.forEach(([r, c]) => boardState.set(`${r},${c}`, 'obstacle'));
+    if (fieldName === 'route') route.forEach(([r, c]) => boardState.set(`${r},${c}`, 'route'));
+    if (fieldName === 'goalPosition') goal.forEach(([r, c]) => boardState.set(`${r},${c}`, 'goal'));
+    if (fieldName === 'specialTiles') {
+      specialTiles.forEach((entry) => {
+        const type = entry.type;
+        (entry.positions || []).forEach(([r, c]) => boardState.set(`${r},${c}`, type));
+      });
+    }
+
+    heroSpawn.forEach(([r, c]) => {
+      if (fieldName !== 'heroSpawn') readOnlyState.set(`${r},${c}`, 'hero');
+    });
+    enemySpawn.forEach(([r, c]) => {
+      if (fieldName !== 'enemySpawn') readOnlyState.set(`${r},${c}`, 'enemy');
+    });
+    obstacles.forEach(([r, c]) => {
+      if (fieldName !== 'obstacles') readOnlyState.set(`${r},${c}`, 'obstacle');
+    });
+    route.forEach(([r, c]) => {
+      if (fieldName !== 'route') readOnlyState.set(`${r},${c}`, 'route');
+    });
+    goal.forEach(([r, c]) => {
+      if (fieldName !== 'goalPosition') readOnlyState.set(`${r},${c}`, 'goal');
+    });
+    specialTiles.forEach((entry) => {
+      (entry.positions || []).forEach(([r, c]) => {
+        if (fieldName !== 'specialTiles') readOnlyState.set(`${r},${c}`, entry.type);
+      });
+    });
+
+    applyToolGroupVisibility('special-segment');
+    syncSpecialSegmentBoardTools(fieldName);
+    setSubtitle(`正在编辑：${getSpecialSegmentFieldLabel(fieldName)}`);
+    renderBoardGrid(rows, cols);
+    syncToolButtons();
+    $('#boardEditorOverlay').style.display = 'flex';
+  }
+
+  function openBoardEditorForSpecialBattleRow(rowEl, kind) {
+    if (!rowEl) return;
+    const card = rowEl.closest('[data-special-battle-segment-index]');
+    if (!card) return;
+    const rows = parseInt(getSegmentFieldValue(card, 'rows')) || 10;
+    const cols = parseInt(getSegmentFieldValue(card, 'cols')) || 7;
+    if (rows < 1 || cols < 1) { showToast('请先填写地图段行数和列数'); return; }
+
+    boardState = new Map();
+    readOnlyState = new Map();
+    editTarget = { kind: 'special-row', rowEl, rowKind: kind, card };
+    currentMode = 'enemy';
+
+    const positionsInput = rowEl.querySelector('[data-field="positions"]');
+    parseCoordinateInput(positionsInput?.value || '').forEach(([r, c]) => boardState.set(`${r},${c}`, 'enemy'));
+
+    parseCoordinateInput(getSegmentFieldValue(card, 'obstacles')).forEach(([r, c]) => readOnlyState.set(`${r},${c}`, 'obstacle'));
+    parseCoordinateInput(getSegmentFieldValue(card, 'heroSpawn')).forEach(([r, c]) => readOnlyState.set(`${r},${c}`, 'hero'));
+    parseCoordinateInput(getSegmentFieldValue(card, 'enemySpawn')).forEach(([r, c]) => {
+      const key = `${r},${c}`;
+      if (!boardState.has(key)) readOnlyState.set(key, 'enemy');
+    });
+    parseCoordinateInput(getSegmentFieldValue(card, 'route')).forEach(([r, c]) => readOnlyState.set(`${r},${c}`, 'route'));
+    parseCoordinateInput(getSegmentFieldValue(card, 'goalPosition')).forEach(([r, c]) => readOnlyState.set(`${r},${c}`, 'goal'));
+    parseSpecialTileInput(getSegmentFieldValue(card, 'specialTiles')).forEach((entry) => {
+      (entry.positions || []).forEach(([r, c]) => readOnlyState.set(`${r},${c}`, entry.type));
+    });
+
+    const allRows = [
+      ...card.querySelectorAll('.special-battle-enemy-rows .editable-row'),
+      ...card.querySelectorAll('.special-battle-boss-rows .editable-row')
+    ];
+    allRows.forEach((other) => {
+      if (other === rowEl) return;
+      const otherInput = other.querySelector('[data-field="positions"]');
+      parseCoordinateInput(otherInput?.value || '').forEach(([r, c]) => {
+        const key = `${r},${c}`;
+        if (!readOnlyState.has(key) && !boardState.has(key)) {
+          readOnlyState.set(key, 'other-spawn');
+        }
+      });
+    });
+
+    applyToolGroupVisibility('special-row');
+    const rowIndex = Number(rowEl.dataset.specialBattleEnemyIndex ?? rowEl.dataset.specialBattleBossIndex ?? 0) + 1;
+    const label = kind === 'special-boss' ? '波次敌人出生点' : '首发敌人出生点';
+    setSubtitle(`正在编辑：${label}（第 ${rowIndex} 行）`);
+    renderBoardGrid(rows, cols);
+    syncToolButtons();
+    $('#boardEditorOverlay').style.display = 'flex';
+  }
+
+  function getSpecialSegmentFieldLabel(fieldName) {
+    const labels = {
+      heroSpawn: '英雄出生点',
+      enemySpawn: '敌人默认出生点',
+      obstacles: '障碍',
+      specialTiles: '特殊地格',
+      route: '马车路线',
+      goalPosition: '终点'
+    };
+    return labels[fieldName] || fieldName;
+  }
+
+  function syncSpecialSegmentBoardTools(fieldName) {
+    const toolConfigs = [
+      { mode: 'hero', visible: fieldName === 'heroSpawn' },
+      { mode: 'enemy', visible: fieldName === 'enemySpawn' },
+      { mode: 'obstacle', visible: fieldName === 'obstacles' },
+      { mode: 'route', visible: fieldName === 'route' },
+      { mode: 'goal', visible: fieldName === 'goalPosition' },
+      { mode: 'heal', visible: fieldName === 'specialTiles' },
+      { mode: 'fire', visible: fieldName === 'specialTiles' },
+      { mode: 'swamp', visible: fieldName === 'specialTiles' },
+      { mode: 'miasma', visible: fieldName === 'specialTiles' }
+    ];
+    document.querySelectorAll('.board-tool-btn[data-tool-group="special-segment"]').forEach((btn) => {
+      const config = toolConfigs.find((entry) => entry.mode === btn.dataset.mode);
+      btn.hidden = !config?.visible;
+    });
+  }
+
   function applyToolGroupVisibility(group) {
     document.querySelectorAll('.board-tool-btn[data-tool-group]').forEach((btn) => {
       const matches = btn.dataset.toolGroup === group;
@@ -5422,6 +7437,10 @@ function escapeAttr(value) {
   function confirmBoardEditor() {
     if (editTarget.kind === 'row') {
       confirmRowTarget();
+    } else if (editTarget.kind === 'special-row') {
+      confirmSpecialRowTarget();
+    } else if (editTarget.kind === 'special-segment') {
+      confirmSpecialSegmentTarget();
     } else {
       confirmGlobalTarget();
     }
@@ -5471,6 +7490,55 @@ function escapeAttr(value) {
     }
   }
 
+  function confirmSpecialRowTarget() {
+    const rowEl = editTarget.rowEl;
+    if (!rowEl) return;
+    const positions = [];
+    boardState.forEach((mode, key) => {
+      if (mode !== 'enemy') return;
+      const [r, c] = key.split(',').map(Number);
+      positions.push([r, c]);
+    });
+    const positionsInput = rowEl.querySelector('[data-field="positions"]');
+    const countInput = rowEl.querySelector('[data-field="count"]');
+    if (positionsInput) {
+      positionsInput.value = positions.map(([r, c]) => `${r},${c}`).join(';');
+      positionsInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (countInput) {
+      countInput.value = Math.max(1, positions.length || Number(countInput.value) || 1);
+      countInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  function confirmSpecialSegmentTarget() {
+    const card = editTarget.card;
+    const fieldName = editTarget.fieldName;
+    if (!card || !fieldName) return;
+    const grouped = new Map();
+    const coords = [];
+    boardState.forEach((mode, key) => {
+      const [r, c] = key.split(',').map(Number);
+      if (fieldName === 'specialTiles') {
+        if (!SPECIAL_TILE_MODES.includes(mode)) return;
+        if (!grouped.has(mode)) grouped.set(mode, []);
+        grouped.get(mode).push([r, c]);
+      } else {
+        coords.push([r, c]);
+      }
+    });
+    const target = card.querySelector(`[data-field="${fieldName}"]`);
+    if (!target) return;
+    if (fieldName === 'specialTiles') {
+      target.value = JSON.stringify([...grouped.entries()].map(([type, positions]) => ({ type, positions })), null, 2);
+    } else if (fieldName === 'goalPosition') {
+      target.value = coords[0] ? `${coords[0][0]},${coords[0][1]}` : '';
+    } else {
+      target.value = coords.map(([r, c]) => `${r},${c}`).join(';');
+    }
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   function closeBoardEditor() {
     $('#boardEditorOverlay').style.display = 'none';
     editTarget = { kind: 'global' };
@@ -5506,6 +7574,8 @@ function escapeAttr(value) {
   });
 
   window.openBoardEditorForRow = openBoardEditorForRow;
+  window.openBoardEditorForSpecialBattleSegment = openBoardEditorForSpecialBattleSegment;
+  window.openBoardEditorForSpecialBattleRow = openBoardEditorForSpecialBattleRow;
 }());
 
 // ===== 敌人技能选择器 =====

@@ -43,7 +43,7 @@
                     this.pool.release(p);
                     return;
                 }
-                // 纰版挒妫€娴?灏辫繎鏁屼汉
+                // 碰撞检测：就近敌人
                 const enemy = this.enemyManager.hitTest(p.x, p.y, 6);
                 if (enemy) {
                     this.enemyManager.damage(enemy, p.damage);

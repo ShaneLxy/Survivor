@@ -7,7 +7,7 @@ class SaveManager {
             return SaveManager.instance;
         }
         this.baseSaveKey = 'survivor_game_save';
-        this.autoSaveInterval = 30000;
+        this.autoSaveInterval = 60000;
         this.autoSaveTimer = null;
         this.emergencySaveBound = false;
         this.handlePageHide = null;
@@ -34,6 +34,9 @@ class SaveManager {
             return;
         }
         const doSave = () => {
+            if (window.game?.currentView === 'battle' || window.battleManager?.isBattling) {
+                return;
+            }
             try { this.save(); } catch (e) { /* best-effort */ }
         };
         this.handlePageHide = doSave;
@@ -64,6 +67,9 @@ class SaveManager {
     }
 
     autoSave() {
+        if (window.game?.currentView === 'battle' || window.battleManager?.isBattling) {
+            return;
+        }
         this.save();
         eventManager.emit('autoSave', { timestamp: Date.now() });
     }

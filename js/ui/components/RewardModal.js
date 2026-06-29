@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 统一奖励弹窗组件
  *
  * 说明：
@@ -266,7 +266,7 @@ class RewardModal {
         const icon = document.createElement('div');
         icon.className = 'reward-item-icon';
         icon.innerHTML = RewardModal.renderIconMarkup(reward, {
-            fallbackText: reward.icon || '馃摝',
+            fallbackText: reward.icon || '奖',
             imageClass: 'reward-item-icon-image'
         });
         if (!reward.iconSrc) {
@@ -476,7 +476,7 @@ class RewardModal {
         const icon = document.createElement('div');
         icon.className = 'reward-detail-icon';
         icon.innerHTML = RewardModal.renderIconMarkup(reward, {
-            fallbackText: reward.icon || '馃摝',
+            fallbackText: reward.icon || '奖',
             imageClass: 'reward-detail-icon-image'
         });
         if (!reward.iconSrc) {
@@ -556,7 +556,6 @@ class RewardModal {
             ? shelterManager.getResourceInfo(resourceId)
             : RewardModal.getFallbackResourceInfo(resourceId);
 
-
         return {
             type: 'resource',
             id: resourceId,
@@ -579,7 +578,7 @@ class RewardModal {
                 type: 'item',
                 id: itemId,
                 name: itemId,
-                icon: '馃摝',
+                icon: '物',
                 count: Math.max(0, Number(count) || 0),
                 rarity: 'common',
                 description: '未知道具',
@@ -616,8 +615,10 @@ class RewardModal {
             return {
                 type: 'hero',
                 id: heroConfigId,
+                heroConfigId,
+                configId: heroConfigId,
                 name: '未知英雄',
-                icon: '馃',
+                icon: '英',
                 count: 1,
                 rarity: 'common',
                 description: '新英雄已加入队伍',
@@ -636,6 +637,8 @@ class RewardModal {
         return {
             type: 'hero',
             id: heroConfig.id,
+            heroConfigId: heroConfig.id,
+            configId: heroConfig.id,
             name: heroConfig.name,
             icon: heroConfig.icon,
             iconSrc: heroConfig.cardPortrait || heroConfig.portrait || null,
@@ -654,8 +657,10 @@ class RewardModal {
             return {
                 type: 'fragment',
                 id: heroConfigId,
+                heroConfigId,
+                configId: heroConfigId,
                 name: '未知英雄碎片',
-                icon: '馃З',
+                icon: '碎',
                 iconSrc: null,
                 count: Math.max(0, Number(count) || 0),
                 rarity: 'common',
@@ -678,8 +683,10 @@ class RewardModal {
         return {
             type: 'fragment',
             id: `${heroConfig.id}_fragment`,
+            heroConfigId: heroConfig.id,
+            configId: heroConfig.id,
             name: `${heroConfig.name}碎片`,
-            icon: heroConfig.icon || '❓',
+            icon: heroConfig.icon || '碎',
             iconSrc: heroConfig.cardPortrait || heroConfig.portrait || null,
             count: Math.max(0, Number(count) || 0),
             rarity: heroConfig.rarity || 'common',
@@ -697,7 +704,7 @@ class RewardModal {
                 type: 'equipment',
                 id: 'unknown_equipment',
                 name: '未知装备',
-                icon: '馃摝',
+                icon: '装',
                 count: 1,
                 rarity: 'common',
                 description: '随机打造获得的装备',
@@ -732,7 +739,7 @@ class RewardModal {
             type: 'virtual',
             id: config.id || 'virtual_reward',
             name: config.name || '奖励',
-            icon: config.icon || '✨',
+            icon: config.icon || '奖',
             count: Math.max(0, Number(config.count) || 0),
             rarity: config.rarity || 'common',
             description: config.description || '特殊奖励',
@@ -750,24 +757,23 @@ class RewardModal {
             stone: { name: '石材', icon: 'S', iconSrc: getIconSrc('stone'), rarity: 'common', description: '避难所建设的基础材料之一' },
             meat: { name: '肉类', icon: 'M', iconSrc: getIconSrc('meat'), rarity: 'common', description: '重要食物资源，可维持生存' },
             iron_ore: { name: '铁矿石', icon: 'I', iconSrc: getIconSrc('iron_ore'), rarity: 'rare', description: '装备强化的重要材料' },
-            water: { name: '水源', icon: '💧', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' },
+            water: { name: '水源', icon: 'W', rarity: 'common', description: '旧版本资源，仅用于兼容历史存档' },
             diamond: { name: '钻石', icon: 'D', iconSrc: getIconSrc('diamond'), rarity: 'epic', description: '高价值稀有货币' }
         };
 
         return map[resourceId] || {
             name: resourceId,
-            icon: '馃摝',
+            icon: '资',
             rarity: 'common',
             description: '基础资源'
         };
     }
-
     static getRarityColor(rarity) {
         return GameConfig.getRarityConfig(rarity || 'common').color;
     }
 
     static renderIconMarkup(reward, options = {}) {
-        const fallbackText = options.fallbackText || reward?.icon || '馃摝';
+        const fallbackText = options.fallbackText || reward?.icon || '奖';
         const imageClass = options.imageClass || 'reward-icon-image';
         if (reward?.iconSrc) {
             const alt = reward?.name || 'reward';

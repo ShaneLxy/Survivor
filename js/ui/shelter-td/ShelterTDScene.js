@@ -1,4 +1,4 @@
-// 主场景 v2:震屏、霓虹辉光合成、双层背景渲染、点击缩放反馈
+﻿// 主场景 v2：震屏、霓虹辉光合成、双层背景渲染、点击缩放反馈
 (function() {
     window.ShelterTD = window.ShelterTD || {};
     const {
@@ -48,6 +48,9 @@
             // 全屏闪白
             this._flashTimer = 0;
             this._scanlinePhase = Math.random();
+            this.lowPowerMode = this._shouldUseLowPowerMode();
+            this.targetFrameDuration = this.lowPowerMode ? (1000 / 30) : 0;
+            this.lastRenderTs = 0;
             this.media = {};
             this.weaponLayout = null;
             this._tdTuneTimer = 0;
@@ -113,13 +116,13 @@
                 font: 600 9px/1.1 sans-serif;
                 text-shadow: 0 1px 2px rgba(0,0,0,0.7);
                 pointer-events: none; opacity: 0.88;
-                animation: shelterTdPulse 1.6s ease-in-out infinite;
+                animation: ${this.lowPowerMode ? 'none' : 'shelterTdPulse 1.6s ease-in-out infinite'};
                 z-index: 2;
             `;
             tip.textContent = '\u70b9\u51fb\u652f\u63f4';
             wrapper.appendChild(tip);
 
-            // 注入 keyframes(只注入一次)
+            // 注入 keyframes（只注入一次）
             if (!document.getElementById('shelter-td-style')) {
                 const s = document.createElement('style');
                 s.id = 'shelter-td-style';
@@ -136,16 +139,18 @@
                 document.head.appendChild(s);
             }
 
-            // CRT 扫描线动画(CSS 层,效果更柔)
-            const scan = document.createElement('div');
-            scan.style.cssText = `
-                position: absolute; left: 0; right: 0; height: 30%;
-                background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,240,210,0.03) 50%, rgba(255,255,255,0) 100%);
-                pointer-events: none;
-                animation: shelterTdScanline 6s linear infinite;
-                z-index: 1;
-            `;
-            wrapper.appendChild(scan);
+            // CRT 扫描线动画（CSS 层，效果更柔）
+            if (!this.lowPowerMode) {
+                const scan = document.createElement('div');
+                scan.style.cssText = `
+                    position: absolute; left: 0; right: 0; height: 30%;
+                    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,240,210,0.03) 50%, rgba(255,255,255,0) 100%);
+                    pointer-events: none;
+                    animation: shelterTdScanline 6s linear infinite;
+                    z-index: 1;
+                `;
+                wrapper.appendChild(scan);
+            }
 
             if (this._showFps) {
                 const fps = document.createElement('div');
@@ -164,7 +169,7 @@
             this.ctx = canvas.getContext('2d');
             this.ctx.imageSmoothingEnabled = true;
 
-            // 辉光合成层(同分辨率)
+            // 辉光合成层（同分辨率）
             this.glowCanvas = document.createElement('canvas');
             this.glowCanvas.width = LOGICAL_W;
             this.glowCanvas.height = LOGICAL_H;
@@ -329,11 +334,17 @@
             if (this.running) return;
             this.running = true;
             this.lastTs = performance.now();
+            this.lastRenderTs = 0;
             const loop = (ts) => {
                 if (!this.running) return;
+                if (this.targetFrameDuration && this.lastRenderTs && (ts - this.lastRenderTs) < this.targetFrameDuration) {
+                    this.rafId = requestAnimationFrame(loop);
+                    return;
+                }
                 let dt = (ts - this.lastTs) / 1000;
                 if (dt > 0.1) dt = 0.1;
                 this.lastTs = ts;
+                this.lastRenderTs = ts;
                 this._update(dt);
                 this._render();
                 this._fpsAcc += dt;
@@ -341,7 +352,7 @@
                 if (this._fpsAcc >= 0.5) {
                     this.fps = this._fpsFrames / this._fpsAcc;
                     this._fpsAcc = 0; this._fpsFrames = 0;
-                    if (this._fpsEl) this._fpsEl.textContent = `FPS ${this.fps.toFixed(0)} · E${this.enemies.pool.size} P${this.particles.count}`;
+                    if (this._fpsEl) this._fpsEl.textContent = `FPS ${this.fps.toFixed(0)} 路 E${this.enemies.pool.size} P${this.particles.count}`;
                 }
                 this.rafId = requestAnimationFrame(loop);
             };
@@ -367,7 +378,9 @@
             this.projectiles.update(dt);
             this.drops.update(dt, this.building.y);
             this.particles.update(dt);
-            this._scanlinePhase = (this._scanlinePhase + dt * 0.18) % 1;
+            if (!this.lowPowerMode) {
+                this._scanlinePhase = (this._scanlinePhase + dt * 0.18) % 1;
+            }
 
             if (this._shakeTime > 0) {
                 this._shakeTime -= dt;
@@ -629,17 +642,19 @@
             ctx.font = '600 10px sans-serif';
             ctx.fillText('REC', LOGICAL_W - 42, LOGICAL_H - 14);
 
-            const scanY = -28 + (LOGICAL_H + 56) * this._scanlinePhase;
-            const scan = ctx.createLinearGradient(0, scanY, 0, scanY + 28);
-            scan.addColorStop(0, 'rgba(255,255,255,0)');
-            scan.addColorStop(0.5, 'rgba(168,255,235,0.12)');
-            scan.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = scan;
-            ctx.fillRect(10, scanY, LOGICAL_W - 20, 28);
+            if (!this.lowPowerMode) {
+                const scanY = -28 + (LOGICAL_H + 56) * this._scanlinePhase;
+                const scan = ctx.createLinearGradient(0, scanY, 0, scanY + 28);
+                scan.addColorStop(0, 'rgba(255,255,255,0)');
+                scan.addColorStop(0.5, 'rgba(168,255,235,0.12)');
+                scan.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = scan;
+                ctx.fillRect(10, scanY, LOGICAL_W - 20, 28);
 
-            if (this._scanlinePhase > 0.78 && this._scanlinePhase < 0.82) {
-                ctx.fillStyle = 'rgba(160, 255, 240, 0.08)';
-                ctx.fillRect(10, 0, LOGICAL_W - 20, LOGICAL_H);
+                if (this._scanlinePhase > 0.78 && this._scanlinePhase < 0.82) {
+                    ctx.fillStyle = 'rgba(160, 255, 240, 0.08)';
+                    ctx.fillRect(10, 0, LOGICAL_W - 20, LOGICAL_H);
+                }
             }
 
             const idleText = this._formatClock(this._monitorStatus.idleSeconds || 0);
@@ -671,7 +686,7 @@
             const pulse = 0.85 + Math.sin(window.performance.now() * 0.004) * 0.1;
             const x = LOGICAL_W - 62;
             const y = 78;
-            const ready = (this._monitorStatus.chestStored || 0) > 0;
+            const ready = (this._monitorStatus.idleSeconds || 0) >= 3600;
             ctx.save();
             ctx.translate(x, y);
             if (ready) {
@@ -690,13 +705,11 @@
             ctx.fillRect(-2, 3, 4, 3);
             ctx.restore();
 
-            ctx.fillStyle = ready ? 'rgba(255, 236, 178, 0.96)' : 'rgba(188, 196, 182, 0.82)';
-            ctx.font = '600 9px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(`补给 ${this._monitorStatus.chestStored || 0}/${this._monitorStatus.chestCapacity || 2}`, x, y + 27);
-            if (!ready) {
-                ctx.fillStyle = 'rgba(158, 205, 195, 0.82)';
-                ctx.fillText(this._formatClock(this._monitorStatus.chestNextSeconds || 0), x, y + 39);
+            if (ready) {
+                ctx.fillStyle = 'rgba(255, 236, 178, 0.96)';
+                ctx.font = '700 10px sans-serif';
+                ctx.fillText('\u5f85\u9886\u53d6', x, y + 27);
             }
             ctx.textAlign = 'left';
         }
@@ -707,6 +720,16 @@
             const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
             const s = String(sec % 60).padStart(2, '0');
             return `${h}:${m}:${s}`;
+        }
+
+        _shouldUseLowPowerMode() {
+            const isNativeApp = Boolean(window.Capacitor && (
+                typeof window.Capacitor.isNativePlatform === 'function'
+                    ? window.Capacitor.isNativePlatform()
+                    : true
+            ));
+            const ua = navigator.userAgent || '';
+            return isNativeApp || /Android|iPhone|iPad|iPod/i.test(ua);
         }
 
         destroy() {
